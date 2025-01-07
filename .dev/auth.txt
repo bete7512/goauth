@@ -1,0 +1,742 @@
+// package auth
+
+// import (
+// 	"context"
+// 	"fmt"
+
+// 	"golang.org/x/crypto/bcrypt"
+// )
+
+// // ServerType represents supported web server types
+// type ServerType string
+
+// const (
+// 	GinServer   ServerType = "gin"
+// 	HttpServer  ServerType = "http"
+// 	MuxServer   ServerType = "mux"
+// 	ChiServer   ServerType = "chi"
+// 	FiberServer ServerType = "fiber"
+// )
+
+// // DatabaseType represents supported database types
+// type DatabaseType string
+
+// const (
+// 	PostgreSQL DatabaseType = "postgres"
+// 	MySQL      DatabaseType = "mysql"
+// 	MongoDB    DatabaseType = "mongodb"
+// 	SQLite     DatabaseType = "sqlite"
+// )
+
+// // AuthProvider represents supported authentication providers
+// type AuthProvider string
+
+// const (
+// 	Google    AuthProvider = "google"
+// 	GitHub    AuthProvider = "github"
+// 	Facebook  AuthProvider = "facebook"
+// 	Microsoft AuthProvider = "microsoft"
+// 	Apple     AuthProvider = "apple"
+// )
+
+// // Config represents the main configuration structure
+// type Config struct {
+// 	Server    ServerConfig
+// 	Database  DatabaseConfig
+// 	Auth      AuthConfig
+// 	Providers ProvidersConfig
+// 	Custom    CustomConfig
+// }
+
+// type ServerConfig struct {
+// 	Type         ServerType
+// 	Port         int
+// 	CustomRouter interface{} // For custom server implementation
+// }
+
+// type DatabaseConfig struct {
+// 	Type    DatabaseType
+// 	URL     string
+// 	Custom  interface{} // For custom database implementation
+// 	Options map[string]interface{}
+// }
+
+// type AuthConfig struct {
+// 	JWTSecret         string
+// 	TokenExpiry       int
+// 	EnableTwoFactor   bool
+// 	TwoFactorMethod   string // "sms", "email", "authenticator"
+// 	PasswordPolicy    PasswordPolicy
+// 	EmailVerification bool
+// }
+
+// type PasswordPolicy struct {
+// 	MinLength      int
+// 	RequireUpper   bool
+// 	RequireLower   bool
+// 	RequireNumber  bool
+// 	RequireSpecial bool
+// }
+
+// type ProvidersConfig struct {
+// 	Enabled   []AuthProvider
+// 	Google    ProviderConfig
+// 	GitHub    ProviderConfig
+// 	Facebook  ProviderConfig
+// 	Microsoft ProviderConfig
+// 	Apple     ProviderConfig
+// }
+
+// type ProviderConfig struct {
+// 	ClientID     string
+// 	ClientSecret string
+// 	RedirectURL  string
+// 	Scopes       []string
+// }
+
+// type CustomConfig struct {
+// 	UserStore      UserStorer
+// 	TokenStore     TokenStorer
+// 	PasswordHasher PasswordHasher
+// 	EmailSender    EmailSender
+// 	SMSSender      SMSSender
+// }
+
+// // Interfaces for customization
+// type UserStorer interface {
+// 	Create(ctx context.Context, user *User) error
+// 	GetByID(ctx context.Context, id string) (*User, error)
+// 	GetByEmail(ctx context.Context, email string) (*User, error)
+// 	Update(ctx context.Context, user *User) error
+// 	Delete(ctx context.Context, id string) error
+// }
+
+// type TokenStorer interface {
+// 	Store(ctx context.Context, userID, token string, expiry int64) error
+// 	Validate(ctx context.Context, token string) (string, error)
+// 	Revoke(ctx context.Context, token string) error
+// }
+
+// type PasswordHasher interface {
+// 	Hash(password string) (string, error)
+// 	Compare(hashedPassword, password string) error
+// }
+
+// type EmailSender interface {
+// 	SendVerification(email, token string) error
+// 	SendPasswordReset(email, token string) error
+// 	SendTwoFactorCode(email, code string) error
+// }
+
+// type SMSSender interface {
+// 	SendTwoFactorCode(phone, code string) error
+// }
+
+// // Default implementations
+// type DefaultPasswordHasher struct{}
+
+// func (h *DefaultPasswordHasher) Hash(password string) (string, error) {
+// 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+// 	return string(bytes), err
+// }
+
+// func (h *DefaultPasswordHasher) Compare(hashedPassword, password string) error {
+// 	return bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
+// }
+
+// // Auth is the main struct that holds the authentication configuration
+// type Auth struct {
+// 	config Config
+// 	server interface{}
+// 	db     interface{}
+// }
+
+// // New creates a new Auth instance
+// func New(config Config) (*Auth, error) {
+// 	auth := &Auth{
+// 		config: config,
+// 	}
+
+// 	// Initialize server
+// 	if err := auth.initServer(); err != nil {
+// 		return nil, err
+// 	}
+
+// 	// Initialize database
+// 	if err := auth.initDatabase(); err != nil {
+// 		return nil, err
+// 	}
+
+// 	return auth, nil
+// }
+
+// func (a *Auth) initServer() error {
+// 	switch a.config.Server.Type {
+// 	case GinServer:
+// 		return a.initGinServer()
+// 	case HttpServer:
+// 		return a.initHttpServer()
+// 	case MuxServer:
+// 		return a.initMuxServer()
+// 	default:
+// 		return fmt.Errorf("unsupported server type: %s", a.config.Server.Type)
+// 	}
+// }
+
+// func (a *Auth) initMuxServer() error {
+// 	return nil
+// }
+
+// func (a *Auth) initHttpServer() error {
+// 	return nil
+// }
+
+// func (a *Auth) initGinServer() error {
+// 	return nil
+// }
+
+// func (a *Auth) initDatabase() error {
+// 	switch a.config.Database.Type {
+// 	case PostgreSQL:
+// 		return a.initPostgres()
+// 	case MySQL:
+// 		return a.initMySQL()
+// 	case MongoDB:
+// 		return a.initMongoDB()
+// 	default:
+// 		return fmt.Errorf("unsupported database type: %s", a.config.Database.Type)
+// 	}
+// }
+
+// func (a *Auth) initMongoDB() error {
+// 	return nil
+// }
+
+// func (a *Auth) initMySQL() error {
+// 	return nil
+// }
+
+// func (a *Auth) initPostgres() error {
+// 	return nil
+// }
+
+// // Builder pattern for configuration
+// type AuthBuilder struct {
+// 	config Config
+// }
+
+// func NewBuilder() *AuthBuilder {
+// 	return &AuthBuilder{
+// 		config: Config{
+// 			Auth: AuthConfig{
+// 				TokenExpiry:     3600,
+// 				EnableTwoFactor: false,
+// 				PasswordPolicy: PasswordPolicy{
+// 					MinLength:      8,
+// 					RequireUpper:   true,
+// 					RequireLower:   true,
+// 					RequireNumber:  true,
+// 					RequireSpecial: true,
+// 				},
+// 			},
+// 		},
+// 	}
+// }
+
+// func (b *AuthBuilder) WithServer(serverType ServerType, port int) *AuthBuilder {
+// 	b.config.Server.Type = serverType
+// 	b.config.Server.Port = port
+// 	return b
+// }
+
+// func (b *AuthBuilder) WithDatabase(dbType DatabaseType, url string) *AuthBuilder {
+// 	b.config.Database.Type = dbType
+// 	b.config.Database.URL = url
+// 	return b
+// }
+
+// func (b *AuthBuilder) WithTwoFactor(enabled bool, method string) *AuthBuilder {
+// 	b.config.Auth.EnableTwoFactor = enabled
+// 	b.config.Auth.TwoFactorMethod = method
+// 	return b
+// }
+
+// func (b *AuthBuilder) WithProvider(provider AuthProvider, config ProviderConfig) *AuthBuilder {
+// 	if b.config.Providers.Enabled == nil {
+// 		b.config.Providers.Enabled = make([]AuthProvider, 0)
+// 	}
+// 	b.config.Providers.Enabled = append(b.config.Providers.Enabled, provider)
+
+// 	switch provider {
+// 	case Google:
+// 		b.config.Providers.Google = config
+// 	case GitHub:
+// 		b.config.Providers.GitHub = config
+// 		// Add other providers
+// 	}
+// 	return b
+// }
+
+// func (b *AuthBuilder) WithCustomUserStore(store UserStorer) *AuthBuilder {
+// 	b.config.Custom.UserStore = store
+// 	return b
+// }
+
+// func (b *AuthBuilder) Build() (*Auth, error) {
+// 	return New(b.config)
+// }
+
+// package auth
+
+// import (
+// 	"errors"
+// 	"net/http"
+// 	"strings"
+// 	"time"
+
+// 	"github.com/gin-gonic/gin"
+// 	"github.com/golang-jwt/jwt/v4"
+// 	"github.com/google/uuid"
+// 	"golang.org/x/crypto/bcrypt"
+// 	"gorm.io/gorm"
+// )
+
+// // User model
+// type User struct {
+// 	ID              string     `json:"id" gorm:"primaryKey"`
+// 	Email           string     `json:"email" gorm:"uniqueIndex;not null"`
+// 	Password        string     `json:"-" gorm:"not null"`
+// 	FirstName       string     `json:"first_name"`
+// 	LastName        string     `json:"last_name"`
+// 	ProfilePicture  string     `json:"profile_picture"`
+// 	EmailVerified   bool       `json:"email_verified" gorm:"default:false"`
+// 	VerificationKey string     `json:"-"`
+// 	ResetToken      string     `json:"-"`
+// 	ResetExpiry     *time.Time `json:"-"`
+// 	CreatedAt       time.Time  `json:"created_at"`
+// 	UpdatedAt       time.Time  `json:"updated_at"`
+// }
+
+// // Request/Response structures
+// type RegisterRequest struct {
+// 	Email     string `json:"email" binding:"required,email"`
+// 	Password  string `json:"password" binding:"required,min=6"`
+// 	FirstName string `json:"first_name" binding:"required"`
+// 	LastName  string `json:"last_name" binding:"required"`
+// }
+
+// type LoginRequest struct {
+// 	Email    string `json:"email" binding:"required,email"`
+// 	Password string `json:"password" binding:"required"`
+// }
+
+// type UpdateProfileRequest struct {
+// 	FirstName      string `json:"first_name"`
+// 	LastName       string `json:"last_name"`
+// 	ProfilePicture string `json:"profile_picture"`
+// }
+
+// type ChangePasswordRequest struct {
+// 	OldPassword string `json:"old_password" binding:"required"`
+// 	NewPassword string `json:"new_password" binding:"required,min=6"`
+// }
+
+// type PasswordResetRequest struct {
+// 	Email string `json:"email" binding:"required,email"`
+// }
+
+// type PasswordResetConfirmRequest struct {
+// 	Token       string `json:"token" binding:"required"`
+// 	NewPassword string `json:"new_password" binding:"required,min=6"`
+// }
+
+// type VerifyEmailRequest struct {
+// 	Token string `json:"token" binding:"required"`
+// }
+
+// // Response structures
+// type AuthResponse struct {
+// 	Token        string `json:"token"`
+// 	RefreshToken string `json:"refresh_token,omitempty"`
+// 	User         *User  `json:"user"`
+// }
+
+// type ErrorResponse struct {
+// 	Error string `json:"error"`
+// }
+
+// // AuthHandler structure
+// type AuthHandler struct {
+// 	secretKey     []byte
+// 	store         *gorm.DB
+// 	emailService  EmailService
+// 	refreshTokens map[string]string // In production, use Redis or similar
+// }
+
+// // Config for AuthHandler
+// type Config struct {
+// 	SecretKey    string
+// 	DB           *gorm.DB
+// 	EmailService EmailService
+// }
+
+// // EmailService interface
+// type EmailService interface {
+// 	SendVerificationEmail(email, token string) error
+// 	SendPasswordResetEmail(email, token string) error
+// }
+
+// // NewAuthHandler creates a new instance of AuthHandler
+// func NewAuthHandler(config Config) *AuthHandler {
+// 	return &AuthHandler{
+// 		secretKey:     []byte(config.SecretKey),
+// 		store:         config.DB,
+// 		emailService:  config.EmailService,
+// 		refreshTokens: make(map[string]string),
+// 	}
+// }
+
+// // Helper methods
+// func (a *AuthHandler) generateToken(user User) (string, string, error) {
+// 	// Access token
+// 	token := jwt.New(jwt.SigningMethodHS256)
+// 	claims := token.Claims.(jwt.MapClaims)
+// 	claims["user_id"] = user.ID
+// 	claims["email"] = user.Email
+// 	claims["exp"] = time.Now().Add(15 * time.Minute).Unix()
+
+// 	accessToken, err := token.SignedString(a.secretKey)
+// 	if err != nil {
+// 		return "", "", err
+// 	}
+
+// 	// Refresh token
+// 	refreshToken := jwt.New(jwt.SigningMethodHS256)
+// 	rtClaims := refreshToken.Claims.(jwt.MapClaims)
+// 	rtClaims["user_id"] = user.ID
+// 	rtClaims["exp"] = time.Now().Add(7 * 24 * time.Hour).Unix()
+
+// 	refresh, err := refreshToken.SignedString(a.secretKey)
+// 	if err != nil {
+// 		return "", "", err
+// 	}
+
+// 	return accessToken, refresh, nil
+// }
+
+// // Gin handlers
+// func (a *AuthHandler) GinRegister(c *gin.Context) {
+// 	var req RegisterRequest
+// 	if err := c.ShouldBindJSON(&req); err != nil {
+// 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+// 		return
+// 	}
+
+// 	// Check if email exists
+// 	var existingUser User
+// 	if result := a.store.Where("email = ?", req.Email).First(&existingUser); result.Error == nil {
+// 		c.JSON(http.StatusConflict, ErrorResponse{Error: "email already exists"})
+// 		return
+// 	}
+
+// 	// Hash password
+// 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+// 	if err != nil {
+// 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "internal server error"})
+// 		return
+// 	}
+
+// 	// Create user
+// 	user := User{
+// 		ID:              uuid.New().String(),
+// 		Email:           req.Email,
+// 		Password:        string(hashedPassword),
+// 		FirstName:       req.FirstName,
+// 		LastName:        req.LastName,
+// 		VerificationKey: uuid.New().String(),
+// 		CreatedAt:       time.Now(),
+// 		UpdatedAt:       time.Now(),
+// 	}
+
+// 	if result := a.store.Create(&user); result.Error != nil {
+// 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to create user"})
+// 		return
+// 	}
+
+// 	// Send verification email
+// 	if err := a.emailService.SendVerificationEmail(user.Email, user.VerificationKey); err != nil {
+// 		// Log error but don't return it to user
+// 		// Consider implementing a retry mechanism
+// 	}
+
+// 	// Generate tokens
+// 	accessToken, refreshToken, err := a.generateToken(user)
+// 	if err != nil {
+// 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to generate token"})
+// 		return
+// 	}
+
+// 	c.JSON(http.StatusOK, AuthResponse{
+// 		Token:        accessToken,
+// 		RefreshToken: refreshToken,
+// 		User:         &user,
+// 	})
+// }
+
+// func (a *AuthHandler) GinLogin(c *gin.Context) {
+// 	var req LoginRequest
+// 	if err := c.ShouldBindJSON(&req); err != nil {
+// 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+// 		return
+// 	}
+
+// 	var user User
+// 	if result := a.store.Where("email = ?", req.Email).First(&user); result.Error != nil {
+// 		c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "invalid credentials"})
+// 		return
+// 	}
+
+// 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
+// 		c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "invalid credentials"})
+// 		return
+// 	}
+
+// 	accessToken, refreshToken, err := a.generateToken(user)
+// 	if err != nil {
+// 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to generate token"})
+// 		return
+// 	}
+
+// 	c.JSON(http.StatusOK, AuthResponse{
+// 		Token:        accessToken,
+// 		RefreshToken: refreshToken,
+// 		User:         &user,
+// 	})
+// }
+
+// func (a *AuthHandler) GinVerifyEmail(c *gin.Context) {
+// 	var req VerifyEmailRequest
+// 	if err := c.ShouldBindJSON(&req); err != nil {
+// 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+// 		return
+// 	}
+
+// 	var user User
+// 	if result := a.store.Where("verification_key = ?", req.Token).First(&user); result.Error != nil {
+// 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid verification token"})
+// 		return
+// 	}
+
+// 	user.EmailVerified = true
+// 	user.VerificationKey = ""
+// 	if result := a.store.Save(&user); result.Error != nil {
+// 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to verify email"})
+// 		return
+// 	}
+
+// 	c.JSON(http.StatusOK, gin.H{"message": "email verified successfully"})
+// }
+
+// func (a *AuthHandler) GinForgotPassword(c *gin.Context) {
+// 	var req PasswordResetRequest
+// 	if err := c.ShouldBindJSON(&req); err != nil {
+// 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+// 		return
+// 	}
+
+// 	var user User
+// 	if result := a.store.Where("email = ?", req.Email).First(&user); result.Error != nil {
+// 		// Don't reveal if email exists
+// 		c.JSON(http.StatusOK, gin.H{"message": "if the email exists, a reset link will be sent"})
+// 		return
+// 	}
+
+// 	resetToken := uuid.New().String()
+// 	expiry := time.Now().Add(1 * time.Hour)
+// 	user.ResetToken = resetToken
+// 	user.ResetExpiry = &expiry
+
+// 	if result := a.store.Save(&user); result.Error != nil {
+// 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to process request"})
+// 		return
+// 	}
+
+// 	if err := a.emailService.SendPasswordResetEmail(user.Email, resetToken); err != nil {
+// 		// Log error but don't return it to user
+// 	}
+
+// 	c.JSON(http.StatusOK, gin.H{"message": "if the email exists, a reset link will be sent"})
+// }
+
+// func (a *AuthHandler) GinResetPassword(c *gin.Context) {
+// 	var req PasswordResetConfirmRequest
+// 	if err := c.ShouldBindJSON(&req); err != nil {
+// 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+// 		return
+// 	}
+
+// 	var user User
+// 	if result := a.store.Where("reset_token = ? AND reset_expiry > ?", req.Token, time.Now()).First(&user); result.Error != nil {
+// 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid or expired reset token"})
+// 		return
+// 	}
+
+// 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+// 	if err != nil {
+// 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to process request"})
+// 		return
+// 	}
+
+// 	user.Password = string(hashedPassword)
+// 	user.ResetToken = ""
+// 	user.ResetExpiry = nil
+
+// 	if result := a.store.Save(&user); result.Error != nil {
+// 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to reset password"})
+// 		return
+// 	}
+
+// 	c.JSON(http.StatusOK, gin.H{"message": "password reset successfully"})
+// }
+
+// func (a *AuthHandler) GinChangePassword(c *gin.Context) {
+// 	var req ChangePasswordRequest
+// 	if err := c.ShouldBindJSON(&req); err != nil {
+// 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+// 		return
+// 	}
+
+// 	userID := c.GetString("user_id")
+// 	var user User
+// 	if result := a.store.First(&user, "id = ?", userID); result.Error != nil {
+// 		c.JSON(http.StatusNotFound, ErrorResponse{Error: "user not found"})
+// 		return
+// 	}
+
+// 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.OldPassword)); err != nil {
+// 		c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "invalid old password"})
+// 		return
+// 	}
+
+// 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+// 	if err != nil {
+// 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to process request"})
+// 		return
+// 	}
+
+// 	user.Password = string(hashedPassword)
+// 	if result := a.store.Save(&user); result.Error != nil {
+// 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to change password"})
+// 		return
+// 	}
+
+// 	c.JSON(http.StatusOK, gin.H{"message": "password changed successfully"})
+// }
+
+// func (a *AuthHandler) GinGetProfile(c *gin.Context) {
+// 	userID := c.GetString("user_id")
+// 	var user User
+// 	if result := a.store.First(&user, "id = ?", userID); result.Error != nil {
+// 		c.JSON(http.StatusNotFound, ErrorResponse{Error: "user not found"})
+// 		return
+// 	}
+
+// 	c.JSON(http.StatusOK, user)
+// }
+
+// func (a *AuthHandler) GinUpdateProfile(c *gin.Context) {
+// 	var req UpdateProfileRequest
+// 	if err := c.ShouldBindJSON(&req); err != nil {
+// 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+// 		return
+// 	}
+
+// 	userID := c.GetString("user_id")
+// 	var user User
+// 	if result := a.store.First(&user, "id = ?", userID); result.Error != nil {
+// 		c.JSON(http.StatusNotFound, ErrorResponse{Error: "user not found"})
+// 		return
+// 	}
+
+// 	if req.FirstName != "" {
+// 		user.FirstName = req.FirstName
+// 	}
+// 	if req.LastName != "" {
+// 		user.LastName = req.LastName
+// 	}
+// 	if req.ProfilePicture != "" {
+// 		user.ProfilePicture = req.ProfilePicture
+// 	}
+
+// 	if result := a.store.Save(&user); result.Error != nil {
+// 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to update profile"})
+// 		return
+// 	}
+
+// 	c.JSON(http.StatusOK, user)
+// }
+
+// // Middleware
+// func (a *AuthHandler) GinAuthMiddleware() gin.HandlerFunc {
+// 	return func(c *gin.Context) {
+// 		authHeader := c.GetHeader("Authorization")
+// 		if authHeader == "" {
+// 			c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "no authorization header"})
+// 			c.Abort()
+// 			return
+// 		}
+
+// 		parts := strings.Split(authHeader, " ")
+// 		if len(parts) != 2 || parts[0] != "Bearer" {
+// 			c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "invalid authorization header"})
+// 			c.Abort()
+// 			return
+// 		}
+
+// 		token, err := jwt.Parse(parts[1], func(token *jwt.Token) (interface{}, error) {
+// 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+// 				return nil, errors.New("invalid signing method")
+// 			}
+// 			return a.secretKey, nil
+// 		})
+
+// 		if err != nil || !token.Valid {
+// 			c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "invalid token"})
+// 			c.Abort()
+// 			return
+// 		}
+
+// 		claims, ok := token.Claims.(jwt.MapClaims)
+// 		if !ok {
+// 			c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "invalid token claims"})
+// 			c.Abort()
+// 			return
+// 		}
+
+// 		c.Set("user_id", claims["user_id"])
+// 		c.Set("email", claims["email"])
+// 		c.Next()
+// 	}
+// }
+
+// // RegisterRoutes registers all auth routes
+// func (a *AuthHandler) AuthRoutes(router *gin.Engine) {
+// 	auth := router.Group("/auth")
+// 	{
+// 		// Public routes
+// 		auth.POST("/register", a.GinRegister)
+// 		auth.POST("/login", a.GinLogin)
+// 		auth.POST("/verify-email", a.GinVerifyEmail)
+// 		auth.POST("/forgot-password", a.GinForgotPassword)
+// 		auth.POST("/reset-password", a.GinResetPassword)
+
+// 		// Protected routes
+// 		protected := auth.Group("")
+// 		protected.Use(a.GinAuthMiddleware())
+// 		{
+// 			protected.GET("/me", a.GinGetProfile)
+// 			protected.PUT("/me", a.GinUpdateProfile)
+// 			protected.PUT("/change-password", a.GinChangePassword)
+// 		}
+// 	}
+// }
