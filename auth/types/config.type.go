@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/bete7512/go-auth/auth/interfaces"
+	"github.com/bete7512/go-auth/auth/hooks"
 )
 
 type ServerType string
@@ -14,6 +15,17 @@ const (
 	MuxServer   ServerType = "mux"
 	ChiServer   ServerType = "chi"
 	FiberServer ServerType = "fiber"
+)
+const (
+	RouteRegister       = "register"
+	RouteLogin          = "login"
+	RouteLogout         = "logout"
+	RouteRefreshToken   = "refresh-token"
+	RouteForgotPassword = "forgot-password"
+	RouteResetPassword  = "reset-password"
+	RouteUpdateUser     = "update-user"
+	RouteDeleteUser     = "delete-user"
+	RouteGetUser        = "get-user"
 )
 
 type DatabaseType string
@@ -62,9 +74,9 @@ type ServerConfig struct {
 }
 
 type DatabaseConfig struct {
-	Type    DatabaseType
-	URL     string
-	Options map[string]interface{}
+	Type        DatabaseType
+	URL         string
+	AutoMigrate bool
 }
 
 type AuthConfig struct {
@@ -92,7 +104,7 @@ type ProviderConfig struct {
 	Scopes       []string
 }
 
-type PasswordHasher interface {
+type PasswordFunc interface {
 	Hash(password string) (string, error)
 	Compare(hashedPassword, password string) error
 }
@@ -108,7 +120,8 @@ type SMSSender interface {
 }
 
 type Auth struct {
-	Config     Config
-	Db         DatabaseConfig
-	Repository interfaces.RepositoryFactory
+	Config      Config
+	Db          DatabaseConfig
+	Repository  interfaces.RepositoryFactory
+	HookManager *hooks.HookManager
 }

@@ -5,6 +5,7 @@ import (
 
 	"github.com/bete7512/go-auth/auth/interfaces"
 	"github.com/bete7512/go-auth/auth/models"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -17,7 +18,7 @@ func NewUserRepository(db *gorm.DB) interfaces.UserRepository {
 }
 
 func (u *UserRepository) CreateUser(user *models.User) error {
-	user.ID = "273a6922-51e6-4792-b37d-f5c3a02c93a7"
+	user.ID = uuid.New().String()
 	if err := u.db.Create(user).Error; err != nil {
 		return fmt.Errorf("failed to create user: %w", err)
 	}

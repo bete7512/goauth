@@ -47,16 +47,12 @@ func (b *AuthBuilder) WithServer(serverType types.ServerType) *AuthBuilder {
 	return b
 }
 
-func (b *AuthBuilder) WithDatabase(dbType types.DatabaseType, url string) *AuthBuilder {
+func (b *AuthBuilder) WithDatabase(config types.DatabaseConfig) *AuthBuilder {
 	b.config.Database = types.DatabaseConfig{
-		Type: dbType,
-		URL:  url,
+		Type:        config.Type,
+		URL:         config.URL,
+		AutoMigrate: config.AutoMigrate,
 	}
-	return b
-}
-
-func (b *AuthBuilder) WithDatabaseOptions(options map[string]interface{}) *AuthBuilder {
-	b.config.Database.Options = options
 	return b
 }
 
@@ -108,16 +104,6 @@ func (b *AuthBuilder) WithCookie(secure bool, domain string) *AuthBuilder {
 }
 
 func NewAuthConfig(config types.Config) (*types.Auth, error) {
-	if config.Database.URL == "" {
-		return nil, errors.New("database is required")
-	}
-	if config.JWTSecret == "" {
-		return nil, errors.New("JWT secret is required")
-	}
-	if config.Server.Type == "" {
-		return nil, errors.New("server type is required")
-	}
-
 	return &types.Auth{Config: config}, nil
 }
 
@@ -125,6 +111,7 @@ func (b *AuthBuilder) Build() (*types.Auth, error) {
 	if err := b.validate(); err != nil {
 		return nil, err
 	}
+
 	return NewAuthConfig(b.config)
 }
 
@@ -132,8 +119,7 @@ func (b *AuthBuilder) validate() error {
 	if b.config.Server.Type == "" {
 		return errors.New("server type is required")
 	}
-
-	if b.config.Database.Type == "" {
+	if b.config.Database.URL == "" || b.config.Database.Type == "" {
 		return errors.New("database configuration is required")
 	}
 

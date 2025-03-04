@@ -17,27 +17,26 @@ type DBClient interface {
 }
 
 type PostgresClient struct {
-	DB  *gorm.DB
-	URL string
+	Config      *types.DatabaseConfig
+	DB          *gorm.DB
+	URL         string
+	AutoMigrate bool
 }
 
 func NewDBClient(config types.DatabaseConfig) (DBClient, error) {
 	switch config.Type {
 	case types.PostgreSQL:
-		return &PostgresClient{URL: config.URL}, nil
+		return &PostgresClient{URL: config.URL, AutoMigrate: config.AutoMigrate}, nil
 	default:
 		return nil, fmt.Errorf("unsupported database type: %s", config.Type)
 	}
 }
 
 func (c *PostgresClient) Connect() error {
-	// postgres://localhost:5432/auth_db
 	db, err := gorm.Open(postgres.Open(c.URL), &gorm.Config{})
 	if err != nil {
 		return fmt.Errorf("failed to connect to PostgreSQL: %w", err)
 	}
-
-	// Auto Migrate models
 	if err := db.AutoMigrate(
 		&models.User{},
 		&models.Session{},
