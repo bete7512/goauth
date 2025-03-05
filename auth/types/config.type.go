@@ -3,18 +3,18 @@ package types
 import (
 	"time"
 
-	"github.com/bete7512/go-auth/auth/interfaces"
 	"github.com/bete7512/go-auth/auth/hooks"
+	"github.com/bete7512/go-auth/auth/interfaces"
 )
 
 type ServerType string
 
 const (
-	GinServer   ServerType = "gin"
-	HttpServer  ServerType = "http"
-	MuxServer   ServerType = "mux"
-	ChiServer   ServerType = "chi"
-	FiberServer ServerType = "fiber"
+	GinServer        ServerType = "gin"
+	HttpServer       ServerType = "http"
+	GorrilaMuxServer ServerType = "gorrila-mux"
+	ChiServer        ServerType = "chi"
+	FiberServer      ServerType = "fiber"
 )
 const (
 	RouteRegister       = "register"
@@ -24,7 +24,7 @@ const (
 	RouteForgotPassword = "forgot-password"
 	RouteResetPassword  = "reset-password"
 	RouteUpdateUser     = "update-user"
-	RouteDeleteUser     = "delete-user"
+	RouteDeactivateUser = "deactivate-user"
 	RouteGetUser        = "get-user"
 )
 
@@ -48,17 +48,24 @@ const (
 )
 
 type Config struct {
-	JWTSecret       string
-	AccessTokenTTL  time.Duration
-	RefreshTokenTTL time.Duration
-	EnableTwoFactor bool
-	PasswordPolicy  PasswordPolicy
-	CookieSecure    bool
-	CookieDomain    string
-	Server          ServerConfig
-	Database        DatabaseConfig
-	Auth            AuthConfig
-	Providers       ProvidersConfig
+	Database                DatabaseConfig // Database configuration
+	Server                  ServerConfig
+	BasePath                string
+	AccessTokenTTL          time.Duration
+	CookieSecure            bool
+	CookieDomain            string
+	JWTSecret               string
+	RefreshTokenTTL         time.Duration
+	EnableTwoFactor         bool
+	PasswordPolicy          PasswordPolicy
+	Providers               ProvidersConfig
+	TwoFactorMethod         string
+	EnableEmailVerification bool
+	EnableSmsVerification   bool
+	EmailVerificationURL    string
+	PasswordResetURL        string
+	EmailSender             EmailSender
+	SMSSender               SMSSender
 }
 
 type PasswordPolicy struct {
@@ -79,15 +86,6 @@ type DatabaseConfig struct {
 	AutoMigrate bool
 }
 
-type AuthConfig struct {
-	JWTSecret         string
-	TokenExpiry       int
-	EnableTwoFactor   bool
-	TwoFactorMethod   string
-	PasswordPolicy    PasswordPolicy
-	EmailVerification bool
-}
-
 type ProvidersConfig struct {
 	Enabled   []AuthProvider
 	Google    ProviderConfig
@@ -104,19 +102,14 @@ type ProviderConfig struct {
 	Scopes       []string
 }
 
-type PasswordFunc interface {
-	Hash(password string) (string, error)
-	Compare(hashedPassword, password string) error
-}
-
 type EmailSender interface {
-	SendVerification(email, token string) error
-	SendPasswordReset(email, token string) error
-	SendTwoFactorCode(email, code string) error
+	SendVerification(email string, params ...interface{}) error
+	SendPasswordReset(email string, params ...interface{}) error
+	SendTwoFactorCode(email string, params ...interface{}) error
 }
 
 type SMSSender interface {
-	SendTwoFactorCode(phone, code string) error
+	SendTwoFactorCode(phone string, params ...interface{}) error
 }
 
 type Auth struct {

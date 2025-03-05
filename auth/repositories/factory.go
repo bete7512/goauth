@@ -18,6 +18,7 @@ func NewRepositoryFactory(dbType types.DatabaseType, db interface{}) (interfaces
 			return nil, fmt.Errorf("invalid database connection for PostgreSQL")
 		}
 		return postgres.NewRepositoryFactory(gormDB), nil
+	// TODO: continue implementing other database types
 	default:
 		return nil, fmt.Errorf("unsupported database type: %s", dbType)
 	}

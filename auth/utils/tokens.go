@@ -57,11 +57,6 @@ func  ValidateToken(tokenString string,secretKey string) (jwt.MapClaims, error) 
 	return claims, nil
 }
 
-func  StoreRefreshToken(userID string, refreshToken string) error {
-	// Implementation for storing refresh token
-	return nil
-}
-
 func  HashPassword(password string) (string, error) {
 	if len(password) < 8 {
 		return "", errors.New("password must be at least 8 characters long")

@@ -2,6 +2,7 @@
 package routes
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/bete7512/go-auth/auth/routes/handlers"
@@ -24,6 +25,13 @@ func (h *HttpHandler) SetupRoutes(s *http.ServeMux) {
 	// s.HandleFunc("/auth/refresh-token", h.Handler.WithHooks(types.RouteRefreshToken, h.Handler.HandleRefreshToken))
 	
 	// Additional routes would be added here as implemented
+}
+// HttpMiddleWare
+func (h *HttpHandler) HttpMiddleWare(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Println("Http Middleware added")	
+		next.ServeHTTP(w, r)
+	})
 }
 // every gin route should be added here
 // TODO: think about middleware here

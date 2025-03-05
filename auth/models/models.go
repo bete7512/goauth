@@ -9,12 +9,13 @@ import (
 
 type User struct {
 	ID               string         `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	Email            string         `json:"email" gorm:"uniqueIndex;not null"`
-	Password         string         `json:"-" gorm:"not null"`
 	FirstName        string         `json:"first_name"`
 	LastName         string         `json:"last_name"`
+	Email            string         `json:"email" gorm:"uniqueIndex;not null"`
+	PhoneNumber      string         `json:"phone_number" gorm:"uniqueIndex;"`
+	Password         string         `json:"-" gorm:"not null"`
 	EmailVerified    bool           `json:"email_verified" gorm:"default:false"`
-	TwoFactorSecret  string         `json:"-"`
+	// TwoFactorSecret  string         `json:"-"`
 	TwoFactorEnabled bool           `json:"two_factor_enabled" gorm:"default:false"`
 	IsAdmin          bool           `json:"is_admin" gorm:"default:false"`
 	CreatedAt        time.Time      `json:"created_at"`

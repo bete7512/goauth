@@ -26,7 +26,7 @@ func NewAuth(conf types.Config) (*AuthService, error) {
 		return nil, errors.New("database is required")
 	}
 	if conf.JWTSecret == "" {
-		return nil, errors.New("JWT secret is required")
+		return nil, errors.New("jwt secret is required")
 	}
 	if conf.Server.Type == "" {
 		return nil, errors.New("server type is required")
@@ -71,7 +71,7 @@ func (a *AuthService) ClearAllHooks() {
 	a.HookManager.ClearAll()
 }
 
-func (a *AuthService) GinAuthRoutes(r *gin.Engine) {
+func (a *AuthService) GetGinAuthRoutes(r *gin.Engine) {
 	ginHandler := routes.NewGinHandler(handlers.AuthHandler{
 		Auth: &types.Auth{
 			Config:      a.Config,
@@ -81,8 +81,18 @@ func (a *AuthService) GinAuthRoutes(r *gin.Engine) {
 	})
 	ginHandler.SetupRoutes(r)
 }
+func (a *AuthService) GetGinAuthMiddleware(r *gin.Engine) gin.HandlerFunc {
+	ginHandler := routes.NewGinHandler(handlers.AuthHandler{
+		Auth: &types.Auth{
+			Config:      a.Config,
+			Repository:  a.Repository,
+			HookManager: a.HookManager,
+		},
+	})
+	return ginHandler.GinMiddleWare(r)
+}
 
-func (a *AuthService) HttpAuthRoutes(s *http.ServeMux) {
+func (a *AuthService) GetHttpAuthRoutes(s *http.ServeMux) {
 	httpHandler := routes.NewHttpHandler(handlers.AuthHandler{
 		Auth: &types.Auth{
 			Config:      a.Config,
@@ -93,24 +103,16 @@ func (a *AuthService) HttpAuthRoutes(s *http.ServeMux) {
 	httpHandler.SetupRoutes(s)
 }
 
-// func (a *AuthService) GinAuthRoutes(r *gin.Engine) {
-// 	ginHandler := routes.NewGinHandler(handlers.AuthHandler{
-// 		Auth: &types.Auth{
-// 			Config:     a.Config,
-// 			Repository: a.Repository,
-// 		},
-// 	})
-// 	ginHandler.SetupRoutes(r)
-// }
+func (a *AuthService) GetHttpAuthMiddleware(next http.Handler) http.Handler {
+	httpHandler := routes.NewHttpHandler(handlers.AuthHandler{
+		Auth: &types.Auth{
+			Config:      a.Config,
+			Repository:  a.Repository,
+			HookManager: a.HookManager,
+		},
+	})
+	return httpHandler.HttpMiddleWare(next)
+}
 
-// func (a *AuthService) HttpAuthRoutes(s *http.ServeMux) {
-// 	httpHandler := routes.NewHttpHandler(handlers.AuthHandler{
-// 		Auth: &types.Auth{
-// 			Config:     a.Config,
-// 			Repository: a.Repository,
-// 		},
-// 	})
-// 	httpHandler.SetupRoutes(s)
-// }
 
 //TODO: continue doing for other go web frameworks

@@ -23,6 +23,15 @@ func ginHandlerWrapper(h http.HandlerFunc) gin.HandlerFunc {
 		h(c.Writer, c.Request)
 	}
 }
+func (h *GinHandler) GinMiddleWare(r *gin.Engine) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// TODO: add middleware functionalities
+		// log.Println("Middleware added")
+		// r.Use(gin.Logger())
+		r.Use(gin.Recovery())
+		c.Next()
+	}
+}
 
 func (h *GinHandler) SetupRoutes(r *gin.Engine) {
 	auth := r.Group("/auth")

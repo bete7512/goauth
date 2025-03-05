@@ -1,5 +1,5 @@
-// auth/config/config.go
-package config
+package goauth
+
 
 import (
 	"errors"
@@ -23,12 +23,15 @@ func DefaultConfig() types.Config {
 		},
 		AccessTokenTTL:  15 * time.Minute,
 		RefreshTokenTTL: 7 * 24 * time.Hour,
+		EnableTwoFactor: false,
+		EnableEmailVerification: false,
+		EnableSmsVerification: false,
 		PasswordPolicy: types.PasswordPolicy{
-			MinLength:      8,
-			RequireUpper:   true,
-			RequireLower:   true,
-			RequireNumber:  true,
-			RequireSpecial: true,
+			MinLength:      4,
+			RequireUpper:   false,
+			RequireLower:   false,
+			RequireNumber:  false,
+			RequireSpecial: false,
 		},
 		CookieSecure: false,
 	}
@@ -40,19 +43,35 @@ func NewBuilder() *AuthBuilder {
 	}
 }
 
-func (b *AuthBuilder) WithServer(serverType types.ServerType) *AuthBuilder {
-	b.config.Server = types.ServerConfig{
-		Type: serverType,
-	}
+func (b *AuthBuilder) WithServer(serverType types.ServerType, basePath string) *AuthBuilder {
+	b.config.Server.Type = serverType
+	b.config.BasePath = basePath
+	return b
+}
+
+func (b *AuthBuilder) WithEmailVerification(enabled bool, url string) *AuthBuilder {
+	b.config.EnableEmailVerification = enabled
+	b.config.EmailVerificationURL = url
+	return b
+}
+
+func (b *AuthBuilder) WithPasswordReset(url string) *AuthBuilder {
+	b.config.PasswordResetURL = url
+	return b
+}
+
+func (b *AuthBuilder) WithEmailSender(sender types.EmailSender) *AuthBuilder {
+	b.config.EmailSender = sender
+	return b
+}
+
+func (b *AuthBuilder) WithSMSSender(sender types.SMSSender) *AuthBuilder {
+	b.config.SMSSender = sender
 	return b
 }
 
 func (b *AuthBuilder) WithDatabase(config types.DatabaseConfig) *AuthBuilder {
-	b.config.Database = types.DatabaseConfig{
-		Type:        config.Type,
-		URL:         config.URL,
-		AutoMigrate: config.AutoMigrate,
-	}
+	b.config.Database = config
 	return b
 }
 
@@ -70,13 +89,13 @@ func (b *AuthBuilder) WithPasswordPolicy(policy types.PasswordPolicy) *AuthBuild
 
 func (b *AuthBuilder) WithTwoFactor(enabled bool, method string) *AuthBuilder {
 	b.config.EnableTwoFactor = enabled
-	b.config.Auth.TwoFactorMethod = method
+	b.config.TwoFactorMethod = method
 	return b
 }
 
 func (b *AuthBuilder) WithProvider(provider types.AuthProvider, config types.ProviderConfig) *AuthBuilder {
 	if b.config.Providers.Enabled == nil {
-		b.config.Providers.Enabled = make([]types.AuthProvider, 0)
+		b.config.Providers.Enabled = make([]types.AuthProvider, 0, 1)
 	}
 	b.config.Providers.Enabled = append(b.config.Providers.Enabled, provider)
 
@@ -91,8 +110,6 @@ func (b *AuthBuilder) WithProvider(provider types.AuthProvider, config types.Pro
 		b.config.Providers.Microsoft = config
 	case types.Apple:
 		b.config.Providers.Apple = config
-	default:
-		return b
 	}
 	return b
 }
@@ -103,16 +120,12 @@ func (b *AuthBuilder) WithCookie(secure bool, domain string) *AuthBuilder {
 	return b
 }
 
-func NewAuthConfig(config types.Config) (*types.Auth, error) {
-	return &types.Auth{Config: config}, nil
-}
-
 func (b *AuthBuilder) Build() (*types.Auth, error) {
 	if err := b.validate(); err != nil {
 		return nil, err
 	}
 
-	return NewAuthConfig(b.config)
+	return &types.Auth{Config: b.config}, nil
 }
 
 func (b *AuthBuilder) validate() error {
@@ -122,19 +135,20 @@ func (b *AuthBuilder) validate() error {
 	if b.config.Database.URL == "" || b.config.Database.Type == "" {
 		return errors.New("database configuration is required")
 	}
-
 	if b.config.JWTSecret == "" {
 		return errors.New("JWT secret is required")
 	}
-
-	if b.config.EnableTwoFactor {
-		if b.config.Auth.TwoFactorMethod == "" {
-			return errors.New("2FA method is required when 2FA is enabled")
-		}
+	if b.config.EnableTwoFactor && b.config.TwoFactorMethod == "" {
+		return errors.New("2FA method is required when 2FA is enabled")
 	}
 
+	return b.validateProviders()
+}
+
+func (b *AuthBuilder) validateProviders() error {
 	for _, provider := range b.config.Providers.Enabled {
 		var config types.ProviderConfig
+		
 		switch provider {
 		case types.Google:
 			config = b.config.Providers.Google
@@ -154,6 +168,6 @@ func (b *AuthBuilder) validate() error {
 			return fmt.Errorf("incomplete configuration for provider: %s", provider)
 		}
 	}
-
+	
 	return nil
 }
