@@ -3,10 +3,12 @@ package schemas
 import "time"
 
 type RegisterRequest struct {
-	Email     string `json:"email" binding:"required,email"`
-	Password  string `json:"password" binding:"required,min=8"`
-	FirstName string `json:"first_name" binding:"required"`
-	LastName  string `json:"last_name" binding:"required"`
+	FirstName   string `json:"first_name" binding:"required"`
+	LastName    string `json:"last_name" binding:"required"`
+	Email       string `json:"email" binding:"required,email"`
+	PhoneNumber string `json:"phone_number"`
+	Address     string `json:"address"`
+	Password    string `json:"password" binding:"required,min=8"`
 }
 
 // LoginRequest represents the request body for user login
@@ -36,6 +38,7 @@ type ResetPasswordRequest struct {
 type UpdateUserRequest struct {
 	FirstName       string `json:"first_name,omitempty"`
 	LastName        string `json:"last_name,omitempty"`
+	PhoneNumber     string `json:"phone_number,omitempty"`
 	CurrentPassword string `json:"current_password,omitempty"`
 	NewPassword     string `json:"new_password,omitempty"`
 }

@@ -28,7 +28,7 @@ func (h *HttpHandler) SetupRoutes(s *http.ServeMux) {
 	s.HandleFunc("/auth/reset-password", h.Handler.WithHooks(types.RouteResetPassword, h.Handler.HandleResetPassword))
 	s.HandleFunc("/auth/update-user", h.Handler.WithHooks(types.RouteUpdateUser, h.Handler.HandleUpdateUser))
 	s.HandleFunc("/auth/deactivate-user", h.Handler.WithHooks(types.RouteDeactivateUser, h.Handler.HandleDeactivateUser))
-	s.HandleFunc("/auth/get-user", h.Handler.WithHooks(types.RouteGetUser, h.Handler.HandleGetUser))
+	s.HandleFunc("/auth/me", h.Handler.WithHooks(types.RouteGetMe, h.Handler.HandleGetUser))
 	s.HandleFunc("/auth/enable-two-factor", h.Handler.WithHooks(types.RouteEnableTwoFactor, h.Handler.HandleEnableTwoFactor))
 	s.HandleFunc("/auth/verify-two-factor", h.Handler.WithHooks(types.RouteVerifyTwoFactor, h.Handler.HandleVerifyTwoFactor))
 	s.HandleFunc("/auth/disable-two-factor", h.Handler.WithHooks(types.RouteDisableTwoFactor, h.Handler.HandleDisableTwoFactor))

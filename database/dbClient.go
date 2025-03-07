@@ -62,7 +62,7 @@ func (c *PostgresClient) Connect() error {
 	if c.AutoMigrate {
 		if err := db.AutoMigrate(
 			&models.User{},
-			&models.Session{},
+			&models.Token{},
 		); err != nil {
 			return fmt.Errorf("failed to auto-migrate: %w", err)
 		}
@@ -95,7 +95,7 @@ func (c *MySQLClient) Connect() error {
 	if c.AutoMigrate {
 		if err := db.AutoMigrate(
 			&models.User{},
-			&models.Session{},
+			&models.Token{},
 		); err != nil {
 			return fmt.Errorf("failed to auto-migrate: %w", err)
 		}

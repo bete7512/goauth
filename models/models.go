@@ -7,6 +7,15 @@ import (
 	"gorm.io/gorm"
 )
 
+type TokenType string
+
+const (
+	RefreshToken           TokenType = "refresh"
+	EmailVerificationToken TokenType = "email_verification"
+	PasswordResetToken     TokenType = "password_reset"
+	TwoFactorCode          TokenType = "two_factor"
+)
+
 type User struct {
 	ID                string         `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
 	FirstName         string         `json:"first_name"`
@@ -27,12 +36,14 @@ type User struct {
 	LastLoginAt       time.Time      `json:"last_login_at,omitempty"`
 	DeletedAt         gorm.DeletedAt `json:"-" gorm:"index"`
 }
-
-type Session struct {
-	ID           string    `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	UserID       string    `gorm:"type:uuid;not null"`
-	RefreshToken string    `gorm:"not null"`
-	ExpiresAt    time.Time `gorm:"not null"`
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+type Token struct {
+	ID         string    `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	UserID     string    `gorm:"index"`
+	TokenType  TokenType `gorm:"index"`
+	TokenValue string    `gorm:"index"`
+	ExpiresAt  time.Time `gorm:"index"`
+	Used       bool      `gorm:"default:false"`
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+	DeletedAt  gorm.DeletedAt `gorm:"index"`
 }

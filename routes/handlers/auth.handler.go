@@ -59,7 +59,7 @@ func (h *AuthHandler) HandleForgotPassword(w http.ResponseWriter, r *http.Reques
 			resetToken,
 			user.Email)
 
-		err = h.Auth.Config.EmailSender.SendPasswordReset(user.Email, user.FirstName, resetURL)
+		err = h.Auth.Config.EmailSender.SendPasswordReset(*user, resetURL)
 		if err != nil {
 			// Log error but don't reveal to client
 			fmt.Printf("Failed to send password reset email: %v\n", err)
@@ -438,7 +438,6 @@ func (h *AuthHandler) HandleVerifyEmail(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Extract token and email from query parameters or request body
 	var token, email string
 	if r.Method == http.MethodGet {
 		token = r.URL.Query().Get("token")
@@ -589,7 +588,7 @@ func (h *AuthHandler) HandleResendVerificationEmail(w http.ResponseWriter, r *ht
 			verificationToken,
 			user.Email)
 
-		err = h.Auth.Config.EmailSender.SendVerification(user.Email, user.FirstName, verificationURL)
+		err = h.Auth.Config.EmailSender.SendVerification(*user, verificationURL)
 		if err != nil {
 			// Log error but don't reveal to client
 			fmt.Printf("Failed to send verification email: %v\n", err)
@@ -616,10 +615,10 @@ func sendTwoFactorCode(h *AuthHandler, user *models.User) error {
 
 	// Send code via configured method
 	if h.Auth.Config.TwoFactorMethod == "email" && h.Auth.Config.EmailSender != nil {
-		return h.Auth.Config.EmailSender.SendTwoFactorCode(user.Email, user.FirstName, code)
+		return h.Auth.Config.EmailSender.SendTwoFactorCode(*user, code)
 	} else if h.Auth.Config.TwoFactorMethod == "sms" && h.Auth.Config.SMSSender != nil {
 		// Assuming user has a phone number
-		return h.Auth.Config.SMSSender.SendTwoFactorCode(user.PhoneNumber, user.FirstName, code)
+		return h.Auth.Config.SMSSender.SendTwoFactorCode(*user, code)
 	}
 
 	return errors.New("no valid two-factor delivery method configured")

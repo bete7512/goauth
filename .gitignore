@@ -1,3 +1,4 @@
 .dev
 commands.sh
 dev
+__debug*

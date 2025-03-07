@@ -26,9 +26,7 @@ func ginHandlerWrapper(h http.HandlerFunc) gin.HandlerFunc {
 }
 func (h *GinHandler) GinMiddleWare(r *gin.Engine) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// TODO: add middleware functionalities
-		// log.Println("Middleware added")
-		// r.Use(gin.Logger())
+		// TODO: add middleware here
 		r.Use(gin.Recovery())
 		c.Next()
 	}
@@ -53,8 +51,8 @@ func (h *GinHandler) SetupRoutes(r *gin.Engine) {
 			types.RouteUpdateUser, h.Handler.HandleUpdateUser)))
 		auth.POST("/deactivate-user", ginHandlerWrapper(h.Handler.WithHooks(
 			types.RouteDeactivateUser, h.Handler.HandleDeactivateUser)))
-		auth.POST("/get-user", ginHandlerWrapper(h.Handler.WithHooks(
-			types.RouteGetUser, h.Handler.HandleGetUser)))
+		auth.GET("/me", ginHandlerWrapper(h.Handler.WithHooks(
+			types.RouteGetMe, h.Handler.HandleGetUser)))
 		auth.POST("/enable-two-factor", ginHandlerWrapper(h.Handler.WithHooks(
 			types.RouteEnableTwoFactor, h.Handler.HandleEnableTwoFactor)))
 		auth.POST("/verify-two-factor", ginHandlerWrapper(h.Handler.WithHooks(
@@ -63,6 +61,7 @@ func (h *GinHandler) SetupRoutes(r *gin.Engine) {
 			types.RouteDisableTwoFactor, h.Handler.HandleDisableTwoFactor)))
 		auth.POST("/verify-email", ginHandlerWrapper(h.Handler.WithHooks(
 			types.RouteVerifyEmail, h.Handler.HandleVerifyEmail)))
+
 		auth.POST("/resend-verification-email", ginHandlerWrapper(h.Handler.WithHooks(
 			types.RouteResendVerificationEmail, h.Handler.HandleResendVerificationEmail)))
 		// OAuth routes

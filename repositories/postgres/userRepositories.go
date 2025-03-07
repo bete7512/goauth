@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/bete7512/goauth/interfaces"
@@ -27,9 +28,17 @@ func (u *UserRepository) CreateUser(user *models.User) error {
 
 func (u *UserRepository) GetUserByEmail(email string) (*models.User, error) {
 	var user models.User
-	if err := u.db.Where("email = ?", email).First(&user).Error; err != nil {
-		return nil, fmt.Errorf("failed to get user by email: %w", err)
+	result := u.db.Where("email = ?", email).First(&user)
+	
+	if result.Error != nil {
+		// Check specifically for record not found error
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		
+		return nil, fmt.Errorf("failed to get user by email: %w", result.Error)
 	}
+	
 	return &user, nil
 }
 

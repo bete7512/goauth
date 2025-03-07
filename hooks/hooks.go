@@ -93,6 +93,13 @@ func (h *HookManager) Clear(route string) {
 	delete(h.hooks, route)
 }
 
+func (h *HookManager) GetHooks() map[string]*RouteHooks {
+	return h.hooks
+}
+func (h *HookManager) GetHook(route string) *RouteHooks {
+	return h.hooks[route]
+}
+
 // ClearAll removes all hooks
 func (h *HookManager) ClearAll() {
 	h.hooks = make(map[string]*RouteHooks)

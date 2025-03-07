@@ -5,6 +5,7 @@ import (
 
 	"github.com/bete7512/goauth/hooks"
 	"github.com/bete7512/goauth/interfaces"
+	"github.com/bete7512/goauth/models"
 )
 
 type ServerType string
@@ -25,7 +26,7 @@ const (
 	RouteResetPassword           = "reset-password"
 	RouteUpdateUser              = "update-user"
 	RouteDeactivateUser          = "deactivate-user"
-	RouteGetUser                 = "get-user"
+	RouteGetMe                   = "me"
 	RouteEnableTwoFactor         = "enable-two-factor"
 	RouteVerifyTwoFactor         = "verify-two-factor"
 	RouteDisableTwoFactor        = "disable-two-factor"
@@ -118,13 +119,13 @@ type ProviderConfig struct {
 }
 
 type EmailSender interface {
-	SendVerification(email string, params ...interface{}) error
-	SendPasswordReset(email string, params ...interface{}) error
-	SendTwoFactorCode(email string, params ...interface{}) error
+	SendVerification(user models.User, redirectUrl string) error
+	SendPasswordReset(user models.User, redirectUrl string) error
+	SendTwoFactorCode(user models.User, code string) error
 }
 
 type SMSSender interface {
-	SendTwoFactorCode(phone string, params ...interface{}) error
+	SendTwoFactorCode(user models.User, code string) error
 }
 
 type Auth struct {
