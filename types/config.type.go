@@ -24,7 +24,7 @@ const (
 	RouteRefreshToken            = "refresh-token"
 	RouteForgotPassword          = "forgot-password"
 	RouteResetPassword           = "reset-password"
-	RouteUpdateUser              = "update-user"
+	RouteUpdateProfile           = "update-profile"
 	RouteDeactivateUser          = "deactivate-user"
 	RouteGetMe                   = "me"
 	RouteEnableTwoFactor         = "enable-two-factor"

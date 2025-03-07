@@ -61,7 +61,6 @@ func (h *AuthHandler) HandleForgotPassword(w http.ResponseWriter, r *http.Reques
 
 		err = h.Auth.Config.EmailSender.SendPasswordReset(*user, resetURL)
 		if err != nil {
-			// Log error but don't reveal to client
 			fmt.Printf("Failed to send password reset email: %v\n", err)
 		}
 	}
@@ -148,7 +147,7 @@ func (h *AuthHandler) HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req schemas.UpdateUserRequest
+	var req schemas.UpdateProfileRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
 		return
@@ -170,31 +169,31 @@ func (h *AuthHandler) HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Handle password change if provided
-	if req.CurrentPassword != "" && req.NewPassword != "" {
-		// Verify current password
-		err = utils.ValidatePassword(user.Password, req.CurrentPassword)
-		if err != nil {
-			http.Error(w, "Current password is incorrect", http.StatusBadRequest)
-			return
-		}
+	// if req.CurrentPassword != "" && req.NewPassword != "" {
+	// 	// Verify current password
+	// 	err = utils.ValidatePassword(user.Password, req.CurrentPassword)
+	// 	if err != nil {
+	// 		http.Error(w, "Current password is incorrect", http.StatusBadRequest)
+	// 		return
+	// 	}
 
-		// Validate new password against policy
-		if err := validatePasswordPolicy(req.NewPassword, h.Auth.Config.PasswordPolicy); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
+	// 	// Validate new password against policy
+	// 	if err := validatePasswordPolicy(req.NewPassword, h.Auth.Config.PasswordPolicy); err != nil {
+	// 		http.Error(w, err.Error(), http.StatusBadRequest)
+	// 		return
+	// 	}
 
-		// Hash new password
-		hashedPassword, err := utils.HashPassword(req.NewPassword)
-		if err != nil {
-			http.Error(w, "Failed to secure password: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-		user.Password = hashedPassword
+	// 	// Hash new password
+	// 	hashedPassword, err := utils.HashPassword(req.NewPassword)
+	// 	if err != nil {
+	// 		http.Error(w, "Failed to secure password: "+err.Error(), http.StatusInternalServerError)
+	// 		return
+	// 	}
+	// 	user.Password = hashedPassword
 
-		// Invalidate all refresh tokens for security
-		h.Auth.Repository.GetTokenRepository().InvalidateAllRefreshTokens(userID)
-	}
+	// 	// Invalidate all refresh tokens for security
+	// 	h.Auth.Repository.GetTokenRepository().InvalidateAllRefreshTokens(userID)
+	// }
 
 	// Update user
 	err = h.Auth.Repository.GetUserRepository().UpdateUser(user)

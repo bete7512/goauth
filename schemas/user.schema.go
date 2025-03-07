@@ -35,12 +35,18 @@ type ResetPasswordRequest struct {
 }
 
 // UpdateUserRequest represents the request body for user profile update
-type UpdateUserRequest struct {
+type UpdateProfileRequest struct {
 	FirstName       string `json:"first_name,omitempty"`
 	LastName        string `json:"last_name,omitempty"`
 	PhoneNumber     string `json:"phone_number,omitempty"`
-	CurrentPassword string `json:"current_password,omitempty"`
-	NewPassword     string `json:"new_password,omitempty"`
+	Address         string `json:"address,omitempty"`
+	ProfileImageURL string `json:"profile_image_url,omitempty"`
+}
+
+// change password request
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"current_password" validate:"required"`
+	NewPassword     string `json:"new_password" validate:"required"`
 }
 
 // DeactivateUserRequest represents the request body for account deactivation

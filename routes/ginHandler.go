@@ -32,6 +32,13 @@ func (h *GinHandler) GinMiddleWare(r *gin.Engine) gin.HandlerFunc {
 	}
 }
 
+// func (h *GinHandler) GinAdminMiddleWare() gin.HandlerFunc {
+// 	return func(c *gin.Context) {
+// 		// TODO: add middleware here
+// 		c.Next()
+// 	}
+// }
+
 func (h *GinHandler) SetupRoutes(r *gin.Engine) {
 	auth := r.Group(h.Handler.Auth.Config.BasePath)
 	{
@@ -47,8 +54,8 @@ func (h *GinHandler) SetupRoutes(r *gin.Engine) {
 			types.RouteForgotPassword, h.Handler.HandleForgotPassword)))
 		auth.POST("/reset-password", ginHandlerWrapper(h.Handler.WithHooks(
 			types.RouteResetPassword, h.Handler.HandleResetPassword)))
-		auth.POST("/update-user", ginHandlerWrapper(h.Handler.WithHooks(
-			types.RouteUpdateUser, h.Handler.HandleUpdateUser)))
+		auth.POST("/update-profile", ginHandlerWrapper(h.Handler.WithHooks(
+			types.RouteUpdateProfile, h.Handler.HandleUpdateProfile)))
 		auth.POST("/deactivate-user", ginHandlerWrapper(h.Handler.WithHooks(
 			types.RouteDeactivateUser, h.Handler.HandleDeactivateUser)))
 		auth.GET("/me", ginHandlerWrapper(h.Handler.WithHooks(
@@ -61,10 +68,11 @@ func (h *GinHandler) SetupRoutes(r *gin.Engine) {
 			types.RouteDisableTwoFactor, h.Handler.HandleDisableTwoFactor)))
 		auth.POST("/verify-email", ginHandlerWrapper(h.Handler.WithHooks(
 			types.RouteVerifyEmail, h.Handler.HandleVerifyEmail)))
-
 		auth.POST("/resend-verification-email", ginHandlerWrapper(h.Handler.WithHooks(
 			types.RouteResendVerificationEmail, h.Handler.HandleResendVerificationEmail)))
-		// OAuth routes
+		// auth.GET("/get-all-users", h.GinAdminMiddleWare(), func(ctx *gin.Context) {
+		// 	ctx.JSON(http.StatusOK, gin.H{"users": []string{"user1", "user2", "user3"}})
+		// })
 		for _, oauth := range h.Handler.Auth.Config.Providers.Enabled {
 			switch oauth {
 			case "google":
@@ -77,6 +85,3 @@ func (h *GinHandler) SetupRoutes(r *gin.Engine) {
 		}
 	}
 }
-
-// every gin route should be added here
-// TODO: think about middleware here

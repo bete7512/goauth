@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 	"unicode"
@@ -55,8 +54,6 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
-	// r.Form.Set("body", req)
 
 	// Check if email already exists
 	existingUser, _ := h.Auth.Repository.GetUserRepository().GetUserByEmail(req.Email)
@@ -169,7 +166,7 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		"verified": user.EmailVerified,
 	}
 
-	// Send response
+	//TODO: make able to send Send response
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	if err := json.NewEncoder(w).Encode(response); err != nil {
@@ -177,10 +174,7 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Println("req_data>>>>>>>>>>>>>>>> 2", r.Context().Value("req_data"))
-
 	if h.Auth.HookManager.GetHook(types.RouteRegister) != nil {
-		log.Println(">>>>>>>>>>>>>>>>>>>>>>>.")
 		h.Auth.HookManager.ExecuteAfterHooks(types.RouteRegister, w, r)
 	}
 

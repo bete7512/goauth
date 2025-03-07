@@ -28,19 +28,23 @@ func (u *UserRepository) CreateUser(user *models.User) error {
 
 func (u *UserRepository) GetUserByEmail(email string) (*models.User, error) {
 	var user models.User
-	result := u.db.Where("email = ?", email).First(&user)
 	
-	if result.Error != nil {
-		// Check specifically for record not found error
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return nil, nil
-		}
-		
-		return nil, fmt.Errorf("failed to get user by email: %w", result.Error)
+	// Use FindOne instead of First to avoid the automatic error logging
+	err := u.db.Where("email = ?", email).Take(&user).Error
+	
+	// Handle record not found
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	
+	// Handle other errors
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user by email: %w", err)
 	}
 	
 	return &user, nil
 }
+// gorm always display error even if I hhandled error record not found and displays err with red line in my terminal 
 
 func (u *UserRepository) GetUserByID(id string) (*models.User, error) {
 	var user models.User
