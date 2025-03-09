@@ -141,7 +141,7 @@ func (h *AuthHandler) HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Authenticate user
-	userID, err := authenticateRequest(r, h.Auth.Config.CookieName, h.Auth.Config.JWTSecret)
+	userID, err := authenticateRequest(r, h.Auth.Config.Cookie.CookieName, h.Auth.Config.JWTSecret)
 	if err != nil {
 		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
 		return
@@ -227,7 +227,7 @@ func (h *AuthHandler) HandleDeactivateUser(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Authenticate user
-	userID, err := authenticateRequest(r, h.Auth.Config.CookieName, h.Auth.Config.JWTSecret)
+	userID, err := authenticateRequest(r, h.Auth.Config.Cookie.CookieName, h.Auth.Config.JWTSecret)
 	if err != nil {
 		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
 		return
@@ -266,13 +266,13 @@ func (h *AuthHandler) HandleDeactivateUser(w http.ResponseWriter, r *http.Reques
 
 	// Clear cookie
 	http.SetCookie(w, &http.Cookie{
-		Name:     h.Auth.Config.CookieName,
+		Name:     h.Auth.Config.Cookie.CookieName,
 		Value:    "",
 		Expires:  time.Unix(0, 0),
-		Domain:   h.Auth.Config.CookieDomain,
-		Path:     h.Auth.Config.CookiePath,
-		Secure:   h.Auth.Config.CookieSecure,
-		HttpOnly: h.Auth.Config.HttpOnly,
+		Domain:   h.Auth.Config.Cookie.CookieDomain,
+		Path:     h.Auth.Config.Cookie.CookiePath,
+		Secure:   h.Auth.Config.Cookie.CookieSecure,
+		HttpOnly: h.Auth.Config.Cookie.HttpOnly,
 		SameSite: http.SameSiteStrictMode,
 		MaxAge:   -1,
 	})
@@ -297,7 +297,7 @@ func (h *AuthHandler) HandleEnableTwoFactor(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Authenticate user
-	userID, err := authenticateRequest(r, h.Auth.Config.CookieName, h.Auth.Config.JWTSecret)
+	userID, err := authenticateRequest(r, h.Auth.Config.Cookie.CookieName, h.Auth.Config.JWTSecret)
 	if err != nil {
 		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
 		return
@@ -338,7 +338,7 @@ func (h *AuthHandler) HandleVerifyTwoFactor(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Authenticate user
-	userID, err := authenticateRequest(r, h.Auth.Config.CookieName, h.Auth.Config.JWTSecret)
+	userID, err := authenticateRequest(r, h.Auth.Config.Cookie.CookieName, h.Auth.Config.JWTSecret)
 	if err != nil {
 		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
 		return
@@ -388,7 +388,7 @@ func (h *AuthHandler) HandleDisableTwoFactor(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Authenticate user
-	userID, err := authenticateRequest(r, h.Auth.Config.CookieName, h.Auth.Config.JWTSecret)
+	userID, err := authenticateRequest(r, h.Auth.Config.Cookie.CookieName, h.Auth.Config.JWTSecret)
 	if err != nil {
 		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
 		return
@@ -484,14 +484,14 @@ func (h *AuthHandler) HandleVerifyEmail(w http.ResponseWriter, r *http.Request) 
 	// Generate tokens if needed
 	var response map[string]interface{}
 	if r.Method == http.MethodPost {
-		accessToken, refreshToken, err := utils.GenerateTokens(user.ID, h.Auth.Config.AccessTokenTTL, h.Auth.Config.JWTSecret)
+		accessToken, refreshToken, err := utils.GenerateTokens(user.ID, h.Auth.Config.Cookie.AccessTokenTTL, h.Auth.Config.JWTSecret)
 		if err != nil {
 			http.Error(w, "Failed to generate tokens", http.StatusInternalServerError)
 			return
 		}
 
 		// Save refresh token
-		err = h.Auth.Repository.GetTokenRepository().SaveRefreshToken(user.ID, refreshToken, h.Auth.Config.RefreshTokenTTL)
+		err = h.Auth.Repository.GetTokenRepository().SaveRefreshToken(user.ID, refreshToken, h.Auth.Config.Cookie.RefreshTokenTTL)
 		if err != nil {
 			http.Error(w, "Failed to save refresh token", http.StatusInternalServerError)
 			return
@@ -499,15 +499,15 @@ func (h *AuthHandler) HandleVerifyEmail(w http.ResponseWriter, r *http.Request) 
 
 		// Set access token cookie
 		http.SetCookie(w, &http.Cookie{
-			Name:     h.Auth.Config.CookieName,
+			Name:     h.Auth.Config.Cookie.CookieName,
 			Value:    accessToken,
-			Expires:  time.Now().Add(h.Auth.Config.AccessTokenTTL),
-			Domain:   h.Auth.Config.CookieDomain,
-			Path:     h.Auth.Config.CookiePath,
-			Secure:   h.Auth.Config.CookieSecure,
-			HttpOnly: h.Auth.Config.HttpOnly,
+			Expires:  time.Now().Add(h.Auth.Config.Cookie.AccessTokenTTL),
+			Domain:   h.Auth.Config.Cookie.CookieDomain,
+			Path:     h.Auth.Config.Cookie.CookiePath,
+			Secure:   h.Auth.Config.Cookie.CookieSecure,
+			HttpOnly: h.Auth.Config.Cookie.HttpOnly,
 			SameSite: http.SameSiteStrictMode,
-			MaxAge:   h.Auth.Config.MaxCookieAge,
+			MaxAge:   h.Auth.Config.Cookie.MaxCookieAge,
 		})
 
 		response = map[string]interface{}{

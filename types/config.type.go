@@ -1,6 +1,7 @@
 package types
 
 import (
+	"net/http"
 	"time"
 
 	"github.com/bete7512/goauth/hooks"
@@ -54,22 +55,13 @@ const (
 )
 
 type Config struct {
-	Database    DatabaseConfig // Database configuration
-	Server      ServerConfig
-	BasePath    string
-	FrontendURL string
-	Domain      string
-	// Token
-	CookieName      string
-	AccessTokenTTL  time.Duration
-	CookieSecure    bool
-	HttpOnly        bool
-	CookieDomain    string
-	JWTSecret       string
-	RefreshTokenTTL time.Duration
-	CookiePath      string
-	MaxCookieAge    int
-	//
+	Database                           DatabaseConfig // Database configuration
+	Server                             ServerConfig
+	BasePath                           string
+	FrontendURL                        string
+	Domain                             string
+	JWTSecret                          string
+	Cookie                             CookieConfig
 	EnableTwoFactor                    bool
 	PasswordPolicy                     PasswordPolicy
 	Providers                          ProvidersConfig
@@ -82,6 +74,18 @@ type Config struct {
 	EmailSender                        EmailSender
 	SMSSender                          SMSSender
 	Swagger                            SwaggerConfig
+}
+
+type CookieConfig struct {
+	CookieName      string
+	AccessTokenTTL  time.Duration
+	CookieSecure    bool
+	HttpOnly        bool
+	CookieDomain    string
+	RefreshTokenTTL time.Duration
+	CookiePath      string
+	MaxCookieAge    int
+	SameSite        http.SameSite
 }
 
 type PasswordPolicy struct {

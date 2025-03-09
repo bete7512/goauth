@@ -20,12 +20,15 @@ func DefaultConfig() types.Config {
 		Server: types.ServerConfig{
 			Type: types.GinServer,
 		},
-		MaxCookieAge:            int((7 * 24 * time.Hour).Seconds()),
-		CookiePath:              "/",
-		HttpOnly:                true,
-		CookieDomain:            "",
-		AccessTokenTTL:          15 * time.Minute,
-		RefreshTokenTTL:         7 * 24 * time.Hour,
+		Cookie: types.CookieConfig{
+			MaxCookieAge:    int((7 * 24 * time.Hour).Seconds()),
+			CookiePath:      "/",
+			HttpOnly:        true,
+			CookieDomain:    "",
+			AccessTokenTTL:  15 * time.Minute,
+			RefreshTokenTTL: 7 * 24 * time.Hour,
+			CookieSecure:    false,
+		},
 		EnableTwoFactor:         false,
 		EnableEmailVerification: false,
 		EnableSmsVerification:   false,
@@ -36,7 +39,6 @@ func DefaultConfig() types.Config {
 			RequireNumber:  false,
 			RequireSpecial: false,
 		},
-		CookieSecure: false,
 	}
 }
 
@@ -85,8 +87,8 @@ func (b *AuthBuilder) WithDatabase(config types.DatabaseConfig) *AuthBuilder {
 
 func (b *AuthBuilder) WithJWT(secret string, accessTTL, refreshTTL time.Duration) *AuthBuilder {
 	b.config.JWTSecret = secret
-	b.config.AccessTokenTTL = accessTTL
-	b.config.RefreshTokenTTL = refreshTTL
+	b.config.Cookie.AccessTokenTTL = accessTTL
+	b.config.Cookie.RefreshTokenTTL = refreshTTL
 	return b
 }
 
@@ -123,8 +125,8 @@ func (b *AuthBuilder) WithProvider(provider types.AuthProvider, config types.Pro
 }
 
 func (b *AuthBuilder) WithCookie(secure bool, domain string) *AuthBuilder {
-	b.config.CookieSecure = secure
-	b.config.CookieDomain = domain
+	b.config.Cookie.CookieSecure = secure
+	b.config.Cookie.CookieDomain = domain
 	return b
 }
 
@@ -157,20 +159,20 @@ func (b *AuthBuilder) validate() error {
 	if b.config.EmailSender == nil && b.config.EnableEmailVerification {
 		return errors.New("email sender is required")
 	}
-	if b.config.MaxCookieAge <= 0 {
+	if b.config.Cookie.MaxCookieAge <= 0 {
 		return errors.New("max cookie age must be greater than 0")
 	}
 
-	if b.config.CookieName == "" {
+	if b.config.Cookie.CookieName == "" {
 		return errors.New("cookie name is required")
 	}
-	if b.config.AccessTokenTTL <= 0 {
+	if b.config.Cookie.AccessTokenTTL <= 0 {
 		return errors.New("access token TTL must be greater than 0")
 	}
-	if b.config.RefreshTokenTTL <= 0 {
+	if b.config.Cookie.RefreshTokenTTL <= 0 {
 		return errors.New("refresh token TTL must be greater than 0")
 	}
-	if b.config.CookiePath == "" {
+	if b.config.Cookie.CookiePath == "" {
 		return errors.New("cookie path is required")
 	}
 	return b.validateProviders()

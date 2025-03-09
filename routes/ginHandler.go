@@ -42,6 +42,14 @@ func (h *GinHandler) GinMiddleWare(r *gin.Engine) gin.HandlerFunc {
 func (h *GinHandler) SetupRoutes(r *gin.Engine) {
 	auth := r.Group(h.Handler.Auth.Config.BasePath)
 	{
+		// @Summary Register a new user
+		// @Description Register a new user
+		// @Tags Auth
+		// @Accept json
+		// @Produce json
+		// @Param registerUser body RegisterUser true "Register User"
+		// @Success 200 {object} RegisterUserResponse
+		// @Router /register [post]
 		auth.POST("/register", ginHandlerWrapper(h.Handler.WithHooks(
 			types.RouteRegister, h.Handler.HandleRegister)))
 		auth.POST("/login", ginHandlerWrapper(h.Handler.WithHooks(

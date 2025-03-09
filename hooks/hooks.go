@@ -100,6 +100,18 @@ func (h *HookManager) GetHook(route string) *RouteHooks {
 	return h.hooks[route]
 }
 
+func (h *HookManager) GetBeforeHook(route string) []RouteHook {
+	return h.hooks[route].Before
+}
+
+func (h *HookManager) GetAfterHook(route string) []RouteHook {
+	return h.hooks[route].After
+}
+
+func (h *HookManager) SetHook(route string, hooks *RouteHooks) {
+	h.hooks[route] = hooks
+}
+
 // ClearAll removes all hooks
 func (h *HookManager) ClearAll() {
 	h.hooks = make(map[string]*RouteHooks)

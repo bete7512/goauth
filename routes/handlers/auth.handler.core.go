@@ -1,10 +1,13 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"log"
 	"net/http"
 	"time"
 	"unicode"
@@ -32,21 +35,55 @@ func (h *AuthHandler) WithHooks(route string, handler func(http.ResponseWriter, 
 
 // HandleRegister handles user registration
 func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
+	// if r.Method != http.MethodPost {
+	// 	http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	// 	return
+	// }
 
+	// var req schemas.RegisterRequest
+	// if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	// 	http.Error(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
+	// 	return
+	// }
+
+	// // let's assume the body may have additional fields than the schema so the additional field may be known in after hook how do I pass those aditional
+	// if h.Auth.HookManager.GetHook(types.RouteRegister) != nil {
+	// 	ctx := context.WithValue(r.Context(), "req_data", req)
+	// 	r = r.WithContext(ctx)
+	// }
+
+	// Decode raw JSON to capture all fields
+
+	// if h.Auth.HookManager.GetBeforeHook(types.RouteRegister) != nil {
+	// 	// TODO: get body from context not from request
+	// 	// TODO: but only if before hook manipulated request body
+	// }
 	var req schemas.RegisterRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	// let's assume the body may have additional fields than the schema so the additional field may be known in after hook how do I pass those aditional
-	if h.Auth.HookManager.GetHook(types.RouteRegister) != nil {
-		ctx := context.WithValue(r.Context(), "req_data", req)
+	// Then your hook can access both
+	if h.Auth.HookManager.GetAfterHook(types.RouteRegister) != nil {
+		var rawData map[string]interface{}
+		bodyBytes, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "Failed to read request body: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+		// First, decode into the map to get all fields
+		if err := json.Unmarshal(bodyBytes, &rawData); err != nil {
+			http.Error(w, "Invalid request body JSON: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		if err := json.Unmarshal(bodyBytes, &req); err != nil {
+			http.Error(w, "Invalid request format: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		ctx := context.WithValue(r.Context(), "request_data", rawData)
 		r = r.WithContext(ctx)
+	} else {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
+			return
+		}
 	}
 
 	// Validate password against policy
@@ -119,34 +156,35 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 	// Set access token cookie
 	if !h.Auth.Config.EnableEmailVerification {
-		accessToken, refreshToken, err := utils.GenerateTokens(user.ID, h.Auth.Config.AccessTokenTTL, h.Auth.Config.JWTSecret)
+		accessToken, refreshToken, err := utils.GenerateTokens(user.ID, h.Auth.Config.Cookie.AccessTokenTTL, h.Auth.Config.JWTSecret)
 		if err != nil {
 			http.Error(w, "Failed to generate authentication tokens", http.StatusInternalServerError)
 			return
 		}
 
 		// Save refresh token
-		err = h.Auth.Repository.GetTokenRepository().SaveRefreshToken(user.ID, refreshToken, h.Auth.Config.RefreshTokenTTL)
+		err = h.Auth.Repository.GetTokenRepository().SaveRefreshToken(user.ID, refreshToken, h.Auth.Config.Cookie.RefreshTokenTTL)
 		if err != nil {
 			http.Error(w, "Failed to save refresh token", http.StatusInternalServerError)
 			return
 		}
 		http.SetCookie(w, &http.Cookie{
-			Name:     h.Auth.Config.CookieName,
+			Name:     h.Auth.Config.Cookie.CookieName,
 			Value:    accessToken,
-			Expires:  time.Now().Add(h.Auth.Config.AccessTokenTTL),
-			Domain:   h.Auth.Config.CookieDomain,
-			Path:     h.Auth.Config.CookiePath,
-			Secure:   h.Auth.Config.CookieSecure,
-			HttpOnly: h.Auth.Config.HttpOnly,
-			SameSite: http.SameSiteStrictMode,
-			MaxAge:   h.Auth.Config.MaxCookieAge,
+			Expires:  time.Now().Add(h.Auth.Config.Cookie.AccessTokenTTL),
+			Domain:   h.Auth.Config.Cookie.CookieDomain,
+			Path:     h.Auth.Config.Cookie.CookiePath,
+			Secure:   h.Auth.Config.Cookie.CookieSecure,
+			HttpOnly: h.Auth.Config.Cookie.HttpOnly,
+			SameSite: h.Auth.Config.Cookie.SameSite,
+			MaxAge:   h.Auth.Config.Cookie.MaxCookieAge,
 		})
 		http.SetCookie(w, &http.Cookie{
-			Name:     "___goauth_refresh_token_" + h.Auth.Config.CookieName,
+			Name:     "___goauth_refresh_token_" + h.Auth.Config.Cookie.CookieName,
 			Value:    refreshToken,
-			Expires:  time.Now().Add(h.Auth.Config.RefreshTokenTTL),
-			Domain:   h.Auth.Config.CookieDomain,
+			Expires:  time.Now().Add(h.Auth.Config.Cookie.RefreshTokenTTL),
+			Domain:   h.Auth.Config.Cookie.CookieDomain,
+			SameSite: h.Auth.Config.Cookie.SameSite,
 			Secure:   true,
 			HttpOnly: true,
 		})
@@ -161,21 +199,20 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		CreatedAt: user.CreatedAt,
 	}
 
-	response := map[string]interface{}{
-		"user":     userResponse,
-		"verified": user.EmailVerified,
-	}
-
 	//TODO: make able to send Send response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		http.Error(w, "Failed to encode response: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
 
-	if h.Auth.HookManager.GetHook(types.RouteRegister) != nil {
+	if h.Auth.HookManager.GetAfterHook(types.RouteRegister) != nil {
+		log.Println("HookManager is not nil")
+		ctx := context.WithValue(r.Context(), "response_data", userResponse)
+		r = r.WithContext(ctx)
 		h.Auth.HookManager.ExecuteAfterHooks(types.RouteRegister, w, r)
+	} else {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		if err := json.NewEncoder(w).Encode(userResponse); err != nil {
+			http.Error(w, "Failed to encode response: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 
 }
@@ -196,6 +233,10 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	// Get user by email
 	user, err := h.Auth.Repository.GetUserRepository().GetUserByEmail(req.Email)
 	if err != nil {
+		if err.Error() == "user not found" {
+			http.Error(w, "User Not Found", http.StatusUnauthorized)
+			return
+		}
 		http.Error(w, "Invalid email or password", http.StatusUnauthorized)
 		return
 	}
@@ -248,14 +289,14 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Generate tokens
-	accessToken, refreshToken, err := utils.GenerateTokens(user.ID, h.Auth.Config.AccessTokenTTL, h.Auth.Config.JWTSecret)
+	accessToken, refreshToken, err := utils.GenerateTokens(user.ID, h.Auth.Config.Cookie.AccessTokenTTL, h.Auth.Config.JWTSecret)
 	if err != nil {
 		http.Error(w, "Failed to generate authentication tokens", http.StatusInternalServerError)
 		return
 	}
 
 	// Save refresh token
-	err = h.Auth.Repository.GetTokenRepository().SaveRefreshToken(user.ID, refreshToken, h.Auth.Config.RefreshTokenTTL)
+	err = h.Auth.Repository.GetTokenRepository().SaveRefreshToken(user.ID, refreshToken, h.Auth.Config.Cookie.RefreshTokenTTL)
 	if err != nil {
 		http.Error(w, "Failed to save refresh token", http.StatusInternalServerError)
 		return
@@ -263,22 +304,22 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 
 	// Set access token cookie
 	http.SetCookie(w, &http.Cookie{
-		Name:     h.Auth.Config.CookieName,
+		Name:     h.Auth.Config.Cookie.CookieName,
 		Value:    accessToken,
-		Expires:  time.Now().Add(h.Auth.Config.AccessTokenTTL),
-		Domain:   h.Auth.Config.CookieDomain,
-		Path:     h.Auth.Config.CookiePath,
-		Secure:   h.Auth.Config.CookieSecure,
-		HttpOnly: h.Auth.Config.HttpOnly,
-		SameSite: http.SameSiteStrictMode,
-		MaxAge:   h.Auth.Config.MaxCookieAge,
+		Expires:  time.Now().Add(h.Auth.Config.Cookie.AccessTokenTTL),
+		Domain:   h.Auth.Config.Cookie.CookieDomain,
+		Path:     h.Auth.Config.Cookie.CookiePath,
+		Secure:   h.Auth.Config.Cookie.CookieSecure,
+		HttpOnly: h.Auth.Config.Cookie.HttpOnly,
+		SameSite: h.Auth.Config.Cookie.SameSite,
+		MaxAge:   h.Auth.Config.Cookie.MaxCookieAge,
 	})
 
 	http.SetCookie(w, &http.Cookie{
-		Name:     "___goauth_refresh_token_" + h.Auth.Config.CookieName,
+		Name:     "___goauth_refresh_token_" + h.Auth.Config.Cookie.CookieName,
 		Value:    refreshToken,
-		Expires:  time.Now().Add(h.Auth.Config.RefreshTokenTTL),
-		Domain:   h.Auth.Config.CookieDomain,
+		Expires:  time.Now().Add(h.Auth.Config.Cookie.RefreshTokenTTL),
+		Domain:   h.Auth.Config.Cookie.CookieDomain,
 		Secure:   true,
 		HttpOnly: true,
 	})
@@ -316,7 +357,7 @@ func (h *AuthHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get token from cookie or Authorization header
-	token := extractToken(r, h.Auth.Config.CookieName)
+	token := extractToken(r, h.Auth.Config.Cookie.CookieName)
 	if token == "" {
 		http.Error(w, "No authentication token provided", http.StatusBadRequest)
 		return
@@ -332,23 +373,24 @@ func (h *AuthHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
 
 	// Clear cookie regardless of token validity
 	http.SetCookie(w, &http.Cookie{
-		Name:     h.Auth.Config.CookieName,
+		Name:     h.Auth.Config.Cookie.CookieName,
 		Value:    "",
 		Expires:  time.Unix(0, 0),
-		Domain:   h.Auth.Config.CookieDomain,
-		Path:     h.Auth.Config.CookiePath,
-		Secure:   h.Auth.Config.CookieSecure,
-		HttpOnly: h.Auth.Config.HttpOnly,
-		SameSite: http.SameSiteStrictMode,
+		Domain:   h.Auth.Config.Cookie.CookieDomain,
+		Path:     h.Auth.Config.Cookie.CookiePath,
+		Secure:   h.Auth.Config.Cookie.CookieSecure,
+		HttpOnly: h.Auth.Config.Cookie.HttpOnly,
+		SameSite: h.Auth.Config.Cookie.SameSite,
 		MaxAge:   -1,
 	})
 	// 		Name:     "___goauth_refresh_token_" + h.Auth.Config.CookieName,
 
 	http.SetCookie(w, &http.Cookie{
-		Name:     "___goauth_refresh_token_" + h.Auth.Config.CookieName,
+		Name:     "___goauth_refresh_token_" + h.Auth.Config.Cookie.CookieName,
 		Value:    "",
 		Expires:  time.Unix(0, 0),
-		Domain:   h.Auth.Config.CookieDomain,
+		Domain:   h.Auth.Config.Cookie.CookieDomain,
+		SameSite: h.Auth.Config.Cookie.SameSite,
 		Secure:   true,
 		HttpOnly: true,
 		MaxAge:   -1,
@@ -409,7 +451,7 @@ func (h *AuthHandler) HandleRefreshToken(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Generate new tokens
-	accessToken, refreshToken, err := utils.GenerateTokens(user.ID, h.Auth.Config.AccessTokenTTL, h.Auth.Config.JWTSecret)
+	accessToken, refreshToken, err := utils.GenerateTokens(user.ID, h.Auth.Config.Cookie.AccessTokenTTL, h.Auth.Config.JWTSecret)
 	if err != nil {
 		http.Error(w, "Failed to generate tokens", http.StatusInternalServerError)
 		return
@@ -419,7 +461,7 @@ func (h *AuthHandler) HandleRefreshToken(w http.ResponseWriter, r *http.Request)
 	h.Auth.Repository.GetTokenRepository().InvalidateRefreshToken(userID, req.RefreshToken)
 
 	// Save new refresh token
-	err = h.Auth.Repository.GetTokenRepository().SaveRefreshToken(user.ID, refreshToken, h.Auth.Config.RefreshTokenTTL)
+	err = h.Auth.Repository.GetTokenRepository().SaveRefreshToken(user.ID, refreshToken, h.Auth.Config.Cookie.RefreshTokenTTL)
 	if err != nil {
 		http.Error(w, "Failed to save refresh token", http.StatusInternalServerError)
 		return
@@ -427,15 +469,15 @@ func (h *AuthHandler) HandleRefreshToken(w http.ResponseWriter, r *http.Request)
 
 	// Set access token cookie
 	http.SetCookie(w, &http.Cookie{
-		Name:     h.Auth.Config.CookieName,
+		Name:     h.Auth.Config.Cookie.CookieName,
 		Value:    accessToken,
-		Expires:  time.Now().Add(h.Auth.Config.AccessTokenTTL),
-		Domain:   h.Auth.Config.CookieDomain,
-		Path:     h.Auth.Config.CookiePath,
-		Secure:   h.Auth.Config.CookieSecure,
-		HttpOnly: h.Auth.Config.HttpOnly,
-		SameSite: http.SameSiteStrictMode,
-		MaxAge:   h.Auth.Config.MaxCookieAge,
+		Expires:  time.Now().Add(h.Auth.Config.Cookie.AccessTokenTTL),
+		Domain:   h.Auth.Config.Cookie.CookieDomain,
+		Path:     h.Auth.Config.Cookie.CookiePath,
+		Secure:   h.Auth.Config.Cookie.CookieSecure,
+		HttpOnly: h.Auth.Config.Cookie.HttpOnly,
+		SameSite: h.Auth.Config.Cookie.SameSite,
+		MaxAge:   h.Auth.Config.Cookie.MaxCookieAge,
 	})
 
 	response := map[string]interface{}{
@@ -459,7 +501,7 @@ func (h *AuthHandler) HandleGetUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Authenticate user
-	userID, err := authenticateRequest(r, h.Auth.Config.CookieName, h.Auth.Config.JWTSecret)
+	userID, err := authenticateRequest(r, h.Auth.Config.Cookie.CookieName, h.Auth.Config.JWTSecret)
 	if err != nil {
 		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
 		return

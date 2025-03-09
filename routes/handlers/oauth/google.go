@@ -125,13 +125,13 @@ func (g *GoogleOauth) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Generate tokens
-	accessToken, refreshToken, err := utils.GenerateTokens(user.ID, g.Auth.Config.AccessTokenTTL, g.Auth.Config.JWTSecret)
+	accessToken, refreshToken, err := utils.GenerateTokens(user.ID, g.Auth.Config.Cookie.AccessTokenTTL, g.Auth.Config.JWTSecret)
 	if err != nil {
 		http.Error(w, "Failed to generate authentication tokens", http.StatusInternalServerError)
 		return
 	}
 	// Save refresh token
-	err = g.Auth.Repository.GetTokenRepository().SaveRefreshToken(user.ID, refreshToken, g.Auth.Config.RefreshTokenTTL)
+	err = g.Auth.Repository.GetTokenRepository().SaveRefreshToken(user.ID, refreshToken, g.Auth.Config.Cookie.RefreshTokenTTL)
 	if err != nil {
 		http.Error(w, "Failed to save refresh token", http.StatusInternalServerError)
 		return
@@ -139,13 +139,13 @@ func (g *GoogleOauth) Callback(w http.ResponseWriter, r *http.Request) {
 
 	// Set the token in a cookie or return it in the response
 	tokenCookie := &http.Cookie{
-		Name:     g.Auth.Config.CookieName,
+		Name:     g.Auth.Config.Cookie.CookieName,
 		Value:    accessToken,
-		Path:     g.Auth.Config.CookiePath,
+		Path:     g.Auth.Config.Cookie.CookiePath,
 		HttpOnly: true,
 		Secure:   r.TLS != nil,
 		SameSite: http.SameSiteLaxMode,
-		MaxAge:   int(g.Auth.Config.AccessTokenTTL.Seconds()),
+		MaxAge:   int(g.Auth.Config.Cookie.AccessTokenTTL.Seconds()),
 	}
 	http.SetCookie(w, tokenCookie)
 
