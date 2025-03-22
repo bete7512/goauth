@@ -98,11 +98,11 @@ func ValidatePassword(hashedPassword, password string) error {
 }
 
 // GenerateTokens creates a new JWT access token and refresh token
-func GenerateTokens(userID string, ttl time.Duration, secret string) (accessToken string, refreshToken string, err error) {
+func GenerateTokens(userID string, accessTokenttl time.Duration,refreshTokenTTl time.Duration, secret string) (accessToken string, refreshToken string, err error) {
 	// Create access token
 	accessTokenClaims := jwt.MapClaims{
 		"user_id": userID,
-		"exp":     time.Now().Add(ttl).Unix(),
+		"exp":     time.Now().Add(accessTokenttl).Unix(),
 		"iat":     time.Now().Unix(),
 		"type":    "access",
 	}
@@ -115,7 +115,7 @@ func GenerateTokens(userID string, ttl time.Duration, secret string) (accessToke
 	// Create refresh token
 	refreshTokenClaims := jwt.MapClaims{
 		"user_id": userID,
-		"exp":     time.Now().Add(ttl * 2).Unix(), // Refresh token lasts longer
+		"exp":     time.Now().Add(refreshTokenTTl).Unix(), // Refresh token lasts longer
 		"iat":     time.Now().Unix(),
 		"type":    "refresh",
 	}

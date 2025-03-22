@@ -105,7 +105,7 @@ func (a *AuthService) GetGinAuthMiddleware(r *gin.Engine) gin.HandlerFunc {
 	})
 	return ginHandler.GinMiddleWare(r)
 }
-func (a *AuthService) GetGinAuthRoutes(r *gin.Engine) {
+func (a *AuthService) GetGinAuthRoutes(r *gin.Engine)  {
 	ginHandler := routes.NewGinHandler(handlers.AuthHandler{
 		Auth: &types.Auth{
 			Config:      a.Config,
@@ -119,6 +119,18 @@ func (a *AuthService) GetGinAuthRoutes(r *gin.Engine) {
 	// if a.Config.Swagger.Enable && a.SwaggerDocs != nil {
 	// 	a.SwaggerDocs.SetupSwaggerRoutes(r)
 	// }
+}
+
+func (a *AuthService) GetGinRoutesRaw(r *gin.Engine) handlers.AuthHandler {
+	authHandler := handlers.AuthHandler{
+		Auth: &types.Auth{
+			Config:      a.Config,
+			Repository:  a.Repository,
+			HookManager: a.HookManager,
+		},
+	}
+	routes.NewGinHandler(authHandler)
+	return authHandler
 }
 
 func (a *AuthService) GetHttpAuthMiddleware(next http.Handler) http.Handler {

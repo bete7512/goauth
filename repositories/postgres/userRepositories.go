@@ -56,7 +56,7 @@ func (u *UserRepository) GetUserByID(id string) (*models.User, error) {
 }
 
 func (u *UserRepository) UpdateUser(user *models.User) error {
-	if err := u.db.Save(user).Error; err != nil {
+	if err := u.db.Debug().Model(&models.User{}).Where("id = ?", user.ID).Updates(user).Error; err != nil {
 		return fmt.Errorf("failed to update user: %w", err)
 	}
 	return nil

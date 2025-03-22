@@ -44,8 +44,7 @@ func (h *AuthHandler) HandleForgotPassword(w http.ResponseWriter, r *http.Reques
 		http.Error(w, "Failed to generate reset token", http.StatusInternalServerError)
 		return
 	}
-
-	// Save reset token (valid for 1 hour)
+	// Save reset token
 	err = h.Auth.Repository.GetTokenRepository().SavePasswordResetToken(user.ID, resetToken, 1*time.Hour)
 	if err != nil {
 		http.Error(w, "Failed to save reset token", http.StatusInternalServerError)
@@ -484,7 +483,7 @@ func (h *AuthHandler) HandleVerifyEmail(w http.ResponseWriter, r *http.Request) 
 	// Generate tokens if needed
 	var response map[string]interface{}
 	if r.Method == http.MethodPost {
-		accessToken, refreshToken, err := utils.GenerateTokens(user.ID, h.Auth.Config.Cookie.AccessTokenTTL, h.Auth.Config.JWTSecret)
+		accessToken, refreshToken, err := utils.GenerateTokens(user.ID, h.Auth.Config.Cookie.AccessTokenTTL,h.Auth.Config.Cookie.RefreshTokenTTL, h.Auth.Config.JWTSecret)
 		if err != nil {
 			http.Error(w, "Failed to generate tokens", http.StatusInternalServerError)
 			return

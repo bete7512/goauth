@@ -116,7 +116,7 @@ func (g *GoogleOauth) Callback(w http.ResponseWriter, r *http.Request) {
 		FirstName:  userInfo.Name,
 		SigninVia:  "google",
 		ProviderId: &userInfo.ID,
-		Avatar:     userInfo.Picture,
+		Avatar:     &userInfo.Picture,
 	}
 	// TODO:
 	err = g.Auth.Repository.GetUserRepository().UpsertUserByEmail(&user)
@@ -125,7 +125,7 @@ func (g *GoogleOauth) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Generate tokens
-	accessToken, refreshToken, err := utils.GenerateTokens(user.ID, g.Auth.Config.Cookie.AccessTokenTTL, g.Auth.Config.JWTSecret)
+	accessToken, refreshToken, err := utils.GenerateTokens(user.ID, g.Auth.Config.Cookie.AccessTokenTTL,g.Auth.Config.Cookie.RefreshTokenTTL, g.Auth.Config.JWTSecret)
 	if err != nil {
 		http.Error(w, "Failed to generate authentication tokens", http.StatusInternalServerError)
 		return
