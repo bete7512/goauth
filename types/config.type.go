@@ -89,6 +89,7 @@ type CookieConfig struct {
 }
 
 type PasswordPolicy struct {
+	HashSaltLength int
 	MinLength      int
 	RequireUpper   bool
 	RequireLower   bool

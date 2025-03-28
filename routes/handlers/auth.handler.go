@@ -105,7 +105,7 @@ func (h *AuthHandler) HandleResetPassword(w http.ResponseWriter, r *http.Request
 	}
 
 	// Hash new password
-	hashedPassword, err := utils.HashPassword(req.NewPassword)
+	hashedPassword, err := utils.HashPassword(req.NewPassword, h.Auth.Config.PasswordPolicy.HashSaltLength)
 	if err != nil {
 		http.Error(w, "Failed to secure password: "+err.Error(), http.StatusInternalServerError)
 		return

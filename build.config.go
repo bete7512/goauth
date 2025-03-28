@@ -33,6 +33,7 @@ func DefaultConfig() types.Config {
 		EnableEmailVerification: false,
 		EnableSmsVerification:   false,
 		PasswordPolicy: types.PasswordPolicy{
+			HashSaltLength: 14,
 			MinLength:      4,
 			RequireUpper:   false,
 			RequireLower:   false,
@@ -175,6 +176,9 @@ func (b *AuthBuilder) validate() error {
 	if b.config.Cookie.CookiePath == "" {
 		return errors.New("cookie path is required")
 	}
+	if b.config.PasswordPolicy.HashSaltLength <= 0 {
+		return errors.New("hash salt length must be greater than 0")
+	}
 	return b.validateProviders()
 }
 
@@ -200,6 +204,5 @@ func (b *AuthBuilder) validateProviders() error {
 			return fmt.Errorf("incomplete configuration for provider: %s", provider)
 		}
 	}
-
 	return nil
 }

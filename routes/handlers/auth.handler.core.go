@@ -92,7 +92,7 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Hash password
-	hashedPassword, err := utils.HashPassword(req.Password)
+	hashedPassword, err := utils.HashPassword(req.Password, h.Auth.Config.PasswordPolicy.HashSaltLength)
 	if err != nil {
 		http.Error(w, "Failed to secure password: "+err.Error(), http.StatusInternalServerError)
 		return
