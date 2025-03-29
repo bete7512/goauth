@@ -27,7 +27,6 @@ func NewRepositoryFactory(dbType types.DatabaseType, db interface{}) (interfaces
 		// return mongodb.NewRepositoryFactory(mongoClient), nil
 		// TODO: continue implementing other database types
 		return nil, fmt.Errorf("MongoDB not implemented")
-
 	default:
 		return nil, fmt.Errorf("unsupported database type: %s", dbType)
 	}

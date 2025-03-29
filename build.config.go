@@ -32,6 +32,7 @@ func DefaultConfig() types.Config {
 		EnableTwoFactor:         false,
 		EnableEmailVerification: false,
 		EnableSmsVerification:   false,
+		EnableBearerAuth:        false,
 		PasswordPolicy: types.PasswordPolicy{
 			HashSaltLength: 14,
 			MinLength:      4,
@@ -39,6 +40,9 @@ func DefaultConfig() types.Config {
 			RequireLower:   false,
 			RequireNumber:  false,
 			RequireSpecial: false,
+		},
+		Swagger: types.SwaggerConfig{
+			Enable: false,
 		},
 	}
 }
@@ -178,6 +182,9 @@ func (b *AuthBuilder) validate() error {
 	}
 	if b.config.PasswordPolicy.HashSaltLength <= 0 {
 		return errors.New("hash salt length must be greater than 0")
+	}
+	if b.config.Swagger.Enable && (b.config.Swagger.Title == "" || b.config.Swagger.Version == "" || b.config.Swagger.DocPath == "" || b.config.Swagger.Description == "" || b.config.Swagger.Host == "") {
+		return errors.New("swagger title and version are required when swagger is enabled")
 	}
 	return b.validateProviders()
 }

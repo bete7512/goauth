@@ -20,15 +20,3 @@ func (f *RepositoryFactory) GetUserRepository() interfaces.UserRepository {
 func (f *RepositoryFactory) GetTokenRepository() interfaces.TokenRepository {
 	return NewTokenRepository(f.db)
 }
-
-// func (f *PostgresRepositoryFactory) GetSessionRepository() repositories.SessionRepository {
-// 	return NewSessionRepository(f.db)
-// }
-
-// func (f *PostgresRepositoryFactory) GetVerificationTokenRepository() repositories.VerificationTokenRepository {
-// 	return NewVerificationTokenRepository(f.db)
-// }
-
-// func (f *PostgresRepositoryFactory) GetTwoFactorAuthRepository() repositories.TwoFactorAuthRepository {
-// 	return NewTwoFactorAuthRepository(f.db)
-// }

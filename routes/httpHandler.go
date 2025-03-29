@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/bete7512/goauth/docs"
 	"github.com/bete7512/goauth/routes/handlers"
 	oauthhandlers "github.com/bete7512/goauth/routes/handlers/oauth"
 	"github.com/bete7512/goauth/types"
@@ -20,6 +21,17 @@ func NewHttpHandler(handler handlers.AuthHandler) *HttpHandler {
 
 func (h *HttpHandler) SetupRoutes(s *http.ServeMux) {
 	// Register routes with hook middleware
+	if h.Handler.Auth.Config.Swagger.Enable {
+		docs.RegisterRoutes(s, docs.SwaggerInfo{
+			Version:     h.Handler.Auth.Config.Swagger.Version,
+			Host:        h.Handler.Auth.Config.Swagger.Host,
+			BasePath:    h.Handler.Auth.Config.BasePath,
+			Title:       h.Handler.Auth.Config.Swagger.Title,
+			Description: h.Handler.Auth.Config.Swagger.Description,
+			DocPath:     h.Handler.Auth.Config.Swagger.DocPath,
+			Schemes:     []string{"http", "https"},
+		})
+	}
 	s.HandleFunc("/auth/register", h.Handler.WithHooks(types.RouteRegister, h.Handler.HandleRegister))
 	s.HandleFunc("/auth/login", h.Handler.WithHooks(types.RouteLogin, h.Handler.HandleLogin))
 	s.HandleFunc("/auth/logout", h.Handler.WithHooks(types.RouteLogout, h.Handler.HandleLogout))

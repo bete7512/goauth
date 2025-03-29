@@ -62,6 +62,7 @@ type Config struct {
 	Domain                             string
 	JWTSecret                          string
 	Cookie                             CookieConfig
+	EnableBearerAuth                   bool
 	EnableTwoFactor                    bool
 	PasswordPolicy                     PasswordPolicy
 	Providers                          ProvidersConfig
@@ -141,24 +142,10 @@ type Auth struct {
 }
 
 type SwaggerConfig struct {
-	// Enable enables Swagger documentation
-	Enable bool `json:"enable" yaml:"enable"`
-
-	// UIPath is the base path for the Swagger UI
-	UIPath string `json:"uiPath" yaml:"uiPath"`
-
-	// SpecPath is the path where the OpenAPI spec is served
-	SpecPath string `json:"specPath" yaml:"specPath"`
-
-	// OutputPath is where the OpenAPI spec is saved (optional)
-	OutputPath string `json:"outputPath" yaml:"outputPath"`
-
-	// Title for the API documentation
-	Title string `json:"title" yaml:"title"`
-
-	// Description for the API documentation
-	Description string `json:"description" yaml:"description"`
-
-	// Version of the API
-	Version string `json:"version" yaml:"version"`
+	Title       string
+	Version     string
+	Description string
+	Enable      bool
+	DocPath     string
+	Host        string
 }

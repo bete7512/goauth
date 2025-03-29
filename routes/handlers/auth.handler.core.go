@@ -24,7 +24,7 @@ type AuthHandler struct {
 
 func (h *AuthHandler) WithHooks(route string, handler func(http.ResponseWriter, *http.Request)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if h.Auth.HookManager != nil {
+		if h.Auth.HookManager != nil && h.Auth.HookManager.GetBeforeHook(route) != nil {
 			if !h.Auth.HookManager.ExecuteBeforeHooks(route, w, r) {
 				return
 			}
@@ -68,7 +68,7 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate password against policy
-	if err := validatePasswordPolicy(req.Password, h.Auth.Config.PasswordPolicy); err != nil {
+	if err := h.validatePasswordPolicy(req.Password, h.Auth.Config.PasswordPolicy); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -137,7 +137,7 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 	// Set access token cookie
 	if !h.Auth.Config.EnableEmailVerification {
-		accessToken, refreshToken, err := utils.GenerateTokens(user.ID, h.Auth.Config.Cookie.AccessTokenTTL,h.Auth.Config.Cookie.RefreshTokenTTL, h.Auth.Config.JWTSecret)
+		accessToken, refreshToken, err := utils.GenerateTokens(user.ID, h.Auth.Config.Cookie.AccessTokenTTL, h.Auth.Config.Cookie.RefreshTokenTTL, h.Auth.Config.JWTSecret)
 		if err != nil {
 			http.Error(w, "Failed to generate authentication tokens", http.StatusInternalServerError)
 			return
@@ -206,11 +206,32 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-
 	var req schemas.LoginRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
-		return
+	// Then your hook can access both
+	if h.Auth.HookManager.GetAfterHook(types.RouteLogin) != nil {
+		var rawData map[string]interface{}
+		bodyBytes, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "Failed to read request body: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+		// First, decode into the map to get all fields
+		if err := json.Unmarshal(bodyBytes, &rawData); err != nil {
+			http.Error(w, "Invalid request body JSON: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		if err := json.Unmarshal(bodyBytes, &req); err != nil {
+			http.Error(w, "Invalid request format: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		ctx := context.WithValue(r.Context(), "request_data", rawData)
+		r = r.WithContext(ctx)
+	} else {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
+			return
+		}
 	}
 
 	// Get user by email
@@ -272,7 +293,7 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Generate tokens
-	accessToken, refreshToken, err := utils.GenerateTokens(user.ID, h.Auth.Config.Cookie.AccessTokenTTL,h.Auth.Config.Cookie.RefreshTokenTTL, h.Auth.Config.JWTSecret)
+	accessToken, refreshToken, err := utils.GenerateTokens(user.ID, h.Auth.Config.Cookie.AccessTokenTTL, h.Auth.Config.Cookie.RefreshTokenTTL, h.Auth.Config.JWTSecret)
 	if err != nil {
 		http.Error(w, "Failed to generate authentication tokens", http.StatusInternalServerError)
 		return
@@ -308,19 +329,15 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		SameSite: h.Auth.Config.Cookie.SameSite,
 		MaxAge:   h.Auth.Config.Cookie.MaxCookieAge,
 	})
-
 	if h.Auth.HookManager.GetAfterHook(types.RouteLogin) != nil {
-		ctx := context.WithValue(r.Context(), "response_data", schemas.UserResponse{
-			ID:        user.ID,
-			FirstName: user.FirstName,
-			LastName:  user.LastName,
-			Email:     user.Email,
-			CreatedAt: user.CreatedAt,
+		ctx := context.WithValue(r.Context(), "response_data", map[string]interface{}{
+			"user":          user,
+			"access_token":  accessToken,
+			"refresh_token": refreshToken,
 		})
 		r = r.WithContext(ctx)
 		h.Auth.HookManager.ExecuteAfterHooks(types.RouteLogin, w, r)
 	} else {
-		// Prepare user response that doesn't include sensitive data
 		userResponse := schemas.UserResponse{
 			ID:        user.ID,
 			FirstName: user.FirstName,
@@ -354,7 +371,7 @@ func (h *AuthHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get token from cookie or Authorization header
-	token := extractToken(r, h.Auth.Config.Cookie.CookieName)
+	token := h.extractToken(r, h.Auth.Config.Cookie.CookieName)
 	if token == "" {
 		http.Error(w, "No authentication token provided", http.StatusBadRequest)
 		return
@@ -405,8 +422,7 @@ func (h *AuthHandler) HandleRefreshToken(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-
-	token := extractToken(r, "___goauth_refresh_token_"+h.Auth.Config.Cookie.CookieName)
+	token := h.extractToken(r, "___goauth_refresh_token_"+h.Auth.Config.Cookie.CookieName)
 	if token == "" {
 		http.Error(w, "No refresh token provided", http.StatusBadRequest)
 		return
@@ -446,7 +462,7 @@ func (h *AuthHandler) HandleRefreshToken(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Generate new tokens
-	accessToken, refreshToken, err := utils.GenerateTokens(user.ID, h.Auth.Config.Cookie.AccessTokenTTL,h.Auth.Config.Cookie.RefreshTokenTTL, h.Auth.Config.JWTSecret)
+	accessToken, refreshToken, err := utils.GenerateTokens(user.ID, h.Auth.Config.Cookie.AccessTokenTTL, h.Auth.Config.Cookie.RefreshTokenTTL, h.Auth.Config.JWTSecret)
 	if err != nil {
 		http.Error(w, "Failed to generate tokens", http.StatusInternalServerError)
 		return
@@ -509,7 +525,7 @@ func (h *AuthHandler) HandleGetUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Authenticate user
-	userID, err := authenticateRequest(r, h.Auth.Config.Cookie.CookieName, h.Auth.Config.JWTSecret)
+	userID, err := h.authenticateRequest(r, h.Auth.Config.Cookie.CookieName, h.Auth.Config.JWTSecret)
 	if err != nil {
 		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
 		return
@@ -539,7 +555,7 @@ func (h *AuthHandler) HandleGetUser(w http.ResponseWriter, r *http.Request) {
 // Helper functions
 
 // validatePasswordPolicy validates a password against the configured policy
-func validatePasswordPolicy(password string, policy types.PasswordPolicy) error {
+func (h *AuthHandler)validatePasswordPolicy(password string, policy types.PasswordPolicy) error {
 	if len(password) < policy.MinLength {
 		return fmt.Errorf("password must be at least %d characters long", policy.MinLength)
 	}
@@ -575,8 +591,8 @@ func validatePasswordPolicy(password string, policy types.PasswordPolicy) error 
 }
 
 // authenticateRequest extracts and validates the token from a request
-func authenticateRequest(r *http.Request, cookieName, jwtSecret string) (string, error) {
-	token := extractToken(r, cookieName)
+func (h *AuthHandler) authenticateRequest(r *http.Request, cookieName, jwtSecret string) (string, error) {
+	token := h.extractToken(r, cookieName)
 	if token == "" {
 		return "", errors.New("no authentication token provided")
 	}
@@ -595,7 +611,7 @@ func authenticateRequest(r *http.Request, cookieName, jwtSecret string) (string,
 }
 
 // extractToken extracts the JWT token from the request
-func extractToken(r *http.Request, cookieName string) string {
+func (h *AuthHandler) extractToken(r *http.Request, cookieName string) string {
 	// Try to get from cookie first
 	if cookieName != "" {
 		cookie, err := r.Cookie(cookieName)

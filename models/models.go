@@ -18,7 +18,7 @@ const (
 
 type User struct {
 	ID                string         `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	FirstName         string         `json:"first_name"`
+	FirstName         string         `json:"first_name" swagger:"required example=John"`
 	LastName          string         `json:"last_name"`
 	Email             string         `json:"email" gorm:"uniqueIndex;not null"`
 	PhoneNumber       *string        `json:"phone_number" gorm:"unique;"`

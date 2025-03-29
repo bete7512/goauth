@@ -1,9 +1,9 @@
-// auth/routes/gin_routes.go
 package routes
 
 import (
 	"net/http"
 
+	"github.com/bete7512/goauth/docs"
 	"github.com/bete7512/goauth/routes/handlers"
 	oauthhandlers "github.com/bete7512/goauth/routes/handlers/oauth"
 	"github.com/bete7512/goauth/types"
@@ -32,24 +32,20 @@ func (h *GinHandler) GinMiddleWare(r *gin.Engine) gin.HandlerFunc {
 	}
 }
 
-// func (h *GinHandler) GinAdminMiddleWare() gin.HandlerFunc {
-// 	return func(c *gin.Context) {
-// 		// TODO: add middleware here
-// 		c.Next()
-// 	}
-// }
-
 func (h *GinHandler) SetupRoutes(r *gin.Engine) {
 	auth := r.Group(h.Handler.Auth.Config.BasePath)
 	{
-		// @Summary Register a new user
-		// @Description Register a new user
-		// @Tags Auth
-		// @Accept json
-		// @Produce json
-		// @Param registerUser body RegisterUser true "Register User"
-		// @Success 200 {object} RegisterUserResponse
-		// @Router /register [post]
+		if h.Handler.Auth.Config.Swagger.Enable {
+			docs.RegisterGinRoutes(r, docs.SwaggerInfo{
+				Version:     h.Handler.Auth.Config.Swagger.Version,
+				Host:        h.Handler.Auth.Config.Swagger.Host,
+				BasePath:    h.Handler.Auth.Config.BasePath,
+				Title:       h.Handler.Auth.Config.Swagger.Title,
+				DocPath:     h.Handler.Auth.Config.Swagger.DocPath,
+				Description: h.Handler.Auth.Config.Swagger.Description,
+				Schemes:     []string{"http", "https"},
+			})
+		}
 		auth.POST("/register", ginHandlerWrapper(h.Handler.WithHooks(
 			types.RouteRegister, h.Handler.HandleRegister)))
 		auth.POST("/login", ginHandlerWrapper(h.Handler.WithHooks(
