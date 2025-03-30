@@ -11,43 +11,39 @@ import (
 	"github.com/bete7512/goauth/models"
 	"github.com/bete7512/goauth/schemas"
 	"github.com/bete7512/goauth/utils"
+	"gorm.io/gorm"
 )
 
 // HandleForgotPassword handles password reset requests
 func (h *AuthHandler) HandleForgotPassword(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		utils.RespondWithError(w, http.StatusMethodNotAllowed, "Method not allowed", nil)
 		return
 	}
 
 	var req schemas.ForgotPasswordRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
+		utils.RespondWithError(w, http.StatusBadRequest, "Invalid request body: "+err.Error(), nil)
 		return
 	}
 
 	// Check if user exists
 	user, err := h.Auth.Repository.GetUserRepository().GetUserByEmail(req.Email)
 	if err != nil {
-		// Don't reveal if email exists
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{
-			"message": "If your email address exists in our database, you will receive a password recovery link at your email address shortly.",
-		})
+		utils.RespondWithError(w, http.StatusBadRequest, "User not found", err)
 		return
 	}
 
 	// Generate reset token
 	resetToken, err := utils.GenerateRandomToken(32)
 	if err != nil {
-		http.Error(w, "Failed to generate reset token", http.StatusInternalServerError)
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to generate reset token", err)
 		return
 	}
 	// Save reset token
 	err = h.Auth.Repository.GetTokenRepository().SavePasswordResetToken(user.ID, resetToken, 1*time.Hour)
 	if err != nil {
-		http.Error(w, "Failed to save reset token", http.StatusInternalServerError)
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to save reset token", err)
 		return
 	}
 
@@ -60,54 +56,59 @@ func (h *AuthHandler) HandleForgotPassword(w http.ResponseWriter, r *http.Reques
 
 		err = h.Auth.Config.EmailSender.SendPasswordReset(*user, resetURL)
 		if err != nil {
-			fmt.Printf("Failed to send password reset email: %v\n", err)
+			// fmt.Printf("Failed to send password reset email: %v\n", err)
+			utils.RespondWithError(w, http.StatusInternalServerError, "Failed to send password reset email", err)
+			return
 		}
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{
+	err = utils.RespondWithJSON(w, http.StatusOK, map[string]string{
 		"message": "If your email address exists in our database, you will receive a password recovery link at your email address shortly.",
 	})
+	if err != nil {
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to send response", err)
+		return
+	}
+
 }
 
 // HandleResetPassword handles password reset
 func (h *AuthHandler) HandleResetPassword(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		utils.RespondWithError(w, http.StatusMethodNotAllowed, "Method not allowed", nil)
 		return
 	}
 
 	var req schemas.ResetPasswordRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
+		utils.RespondWithError(w, http.StatusBadRequest, "Invalid request body: "+err.Error(), nil)
 		return
 	}
 
 	// Validate token
 	valid, userID, err := h.Auth.Repository.GetTokenRepository().ValidatePasswordResetToken(req.Token)
 	if err != nil || !valid {
-		http.Error(w, "Invalid or expired reset token", http.StatusBadRequest)
+		utils.RespondWithError(w, http.StatusBadRequest, "Invalid or expired reset token", err)
 		return
 	}
 
 	// Validate password against policy
 	if err := h.validatePasswordPolicy(req.NewPassword, h.Auth.Config.PasswordPolicy); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		utils.RespondWithError(w, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
 
 	// Get user
 	user, err := h.Auth.Repository.GetUserRepository().GetUserByID(userID)
 	if err != nil {
-		http.Error(w, "User not found", http.StatusBadRequest)
+		utils.RespondWithError(w, http.StatusBadRequest, "User not found", err)
 		return
 	}
 
 	// Hash new password
 	hashedPassword, err := utils.HashPassword(req.NewPassword, h.Auth.Config.PasswordPolicy.HashSaltLength)
 	if err != nil {
-		http.Error(w, "Failed to secure password: "+err.Error(), http.StatusInternalServerError)
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to secure password: "+err.Error(), err)
 		return
 	}
 
@@ -115,47 +116,58 @@ func (h *AuthHandler) HandleResetPassword(w http.ResponseWriter, r *http.Request
 	user.Password = hashedPassword
 	err = h.Auth.Repository.GetUserRepository().UpdateUser(user)
 	if err != nil {
-		http.Error(w, "Failed to update password: "+err.Error(), http.StatusInternalServerError)
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to update password: "+err.Error(), err)
 		return
 	}
 
 	// Invalidate token
-	h.Auth.Repository.GetTokenRepository().InvalidatePasswordResetToken(req.Token)
+	err = h.Auth.Repository.GetTokenRepository().InvalidatePasswordResetToken(req.Token)
+	if err != nil {
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to invalidate token: "+err.Error(), err)
+		return
+	}
 
 	// Invalidate all refresh tokens for security
-	h.Auth.Repository.GetTokenRepository().InvalidateAllRefreshTokens(userID)
+	err = h.Auth.Repository.GetTokenRepository().InvalidateAllRefreshTokens(userID)
+	if err != nil {
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to invalidate refresh tokens: "+err.Error(), err)
+		return
+	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{
-		"message": "Password has been reset successfully.",
+	// Clear cookie
+	err = utils.RespondWithJSON(w, http.StatusOK, map[string]string{
+		"message": "Password reset successfully. Please log in with your new password.",
 	})
+	if err != nil {
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to send response", err)
+		return
+	}
 }
 
 // HandleUpdateUser handles user profile updates
 func (h *AuthHandler) HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPut && r.Method != http.MethodPatch {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		utils.RespondWithError(w, http.StatusMethodNotAllowed, "Method not allowed", nil)
 		return
 	}
 
 	// Authenticate user
 	userID, err := h.authenticateRequest(r, h.Auth.Config.Cookie.CookieName, h.Auth.Config.JWTSecret)
 	if err != nil {
-		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
+		utils.RespondWithError(w, http.StatusUnauthorized, "Unauthorized: "+err.Error(), nil)
 		return
 	}
 
 	var req schemas.UpdateProfileRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
+		utils.RespondWithError(w, http.StatusBadRequest, "Invalid request body: "+err.Error(), nil)
 		return
 	}
 
 	// Get current user
 	user, err := h.Auth.Repository.GetUserRepository().GetUserByID(userID)
 	if err != nil {
-		http.Error(w, "User not found", http.StatusBadRequest)
+		utils.RespondWithError(w, http.StatusBadRequest, "User not found", err)
 		return
 	}
 
@@ -167,37 +179,10 @@ func (h *AuthHandler) HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		user.LastName = req.LastName
 	}
 
-	// Handle password change if provided
-	// if req.CurrentPassword != "" && req.NewPassword != "" {
-	// 	// Verify current password
-	// 	err = utils.ValidatePassword(user.Password, req.CurrentPassword)
-	// 	if err != nil {
-	// 		http.Error(w, "Current password is incorrect", http.StatusBadRequest)
-	// 		return
-	// 	}
-
-	// 	// Validate new password against policy
-	// 	if err := validatePasswordPolicy(req.NewPassword, h.Auth.Config.PasswordPolicy); err != nil {
-	// 		http.Error(w, err.Error(), http.StatusBadRequest)
-	// 		return
-	// 	}
-
-	// 	// Hash new password
-	// 	hashedPassword, err := utils.HashPassword(req.NewPassword)
-	// 	if err != nil {
-	// 		http.Error(w, "Failed to secure password: "+err.Error(), http.StatusInternalServerError)
-	// 		return
-	// 	}
-	// 	user.Password = hashedPassword
-
-	// 	// Invalidate all refresh tokens for security
-	// 	h.Auth.Repository.GetTokenRepository().InvalidateAllRefreshTokens(userID)
-	// }
-
 	// Update user
 	err = h.Auth.Repository.GetUserRepository().UpdateUser(user)
 	if err != nil {
-		http.Error(w, "Failed to update user: "+err.Error(), http.StatusInternalServerError)
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to update user: "+err.Error(), err)
 		return
 	}
 
@@ -210,45 +195,55 @@ func (h *AuthHandler) HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		CreatedAt: user.CreatedAt,
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	// json.NewEncoder(w).Encode(map[string]interface{}{
+	// 	"user":    userResponse,
+	// 	"message": "User updated successfully",
+	// })
+	err = utils.RespondWithJSON(w, http.StatusOK, map[string]interface{}{
 		"user":    userResponse,
 		"message": "User updated successfully",
 	})
+	if err != nil {
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to send response", err)
+		return
+	}
 }
 
 // HandleDeactivateUser handles user account deactivation
 func (h *AuthHandler) HandleDeactivateUser(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		utils.RespondWithError(w, http.StatusMethodNotAllowed, "Method not allowed", nil)
 		return
 	}
 
 	// Authenticate user
 	userID, err := h.authenticateRequest(r, h.Auth.Config.Cookie.CookieName, h.Auth.Config.JWTSecret)
 	if err != nil {
-		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
+		utils.RespondWithError(w, http.StatusUnauthorized, "Unauthorized: "+err.Error(), nil)
 		return
 	}
 
 	var req schemas.DeactivateUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
+		utils.RespondWithError(w, http.StatusBadRequest, "Invalid request body: "+err.Error(), nil)
 		return
 	}
 
 	// Get current user
 	user, err := h.Auth.Repository.GetUserRepository().GetUserByID(userID)
 	if err != nil {
-		http.Error(w, "User not found", http.StatusBadRequest)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			utils.RespondWithError(w, http.StatusBadRequest, "User not found", err)
+			return
+		}
+		utils.RespondWithError(w, http.StatusBadRequest, "Internal server error", err)
 		return
 	}
 
 	// Verify password
 	err = utils.ValidatePassword(user.Password, req.Password)
 	if err != nil {
-		http.Error(w, "Password is incorrect", http.StatusBadRequest)
+		utils.RespondWithError(w, http.StatusBadRequest, "Password is incorrect", err)
 		return
 	}
 
@@ -256,13 +251,16 @@ func (h *AuthHandler) HandleDeactivateUser(w http.ResponseWriter, r *http.Reques
 	user.Active = false
 	err = h.Auth.Repository.GetUserRepository().UpdateUser(user)
 	if err != nil {
-		http.Error(w, "Failed to deactivate account: "+err.Error(), http.StatusInternalServerError)
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to deactivate account: "+err.Error(), err)
 		return
 	}
 
 	// Invalidate all refresh tokens
-	h.Auth.Repository.GetTokenRepository().InvalidateAllRefreshTokens(userID)
-
+	err = h.Auth.Repository.GetTokenRepository().InvalidateAllRefreshTokens(userID)
+	if err != nil {
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to invalidate refresh tokens: "+err.Error(), err)
+		return
+	}
 	// Clear cookie
 	http.SetCookie(w, &http.Cookie{
 		Name:     h.Auth.Config.Cookie.CookieName,
@@ -276,90 +274,110 @@ func (h *AuthHandler) HandleDeactivateUser(w http.ResponseWriter, r *http.Reques
 		MaxAge:   -1,
 	})
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{
+	// json.NewEncoder(w).Encode(map[string]string{
+	// 	"message": "Account deactivated successfully",
+	// })
+
+	err = utils.RespondWithJSON(w, http.StatusOK, map[string]string{
 		"message": "Account deactivated successfully",
 	})
+
+	if err != nil {
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to send response", err)
+		return
+	}
 }
 
 // HandleEnableTwoFactor handles enabling two-factor authentication
 func (h *AuthHandler) HandleEnableTwoFactor(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		utils.RespondWithError(w, http.StatusMethodNotAllowed, "Method not allowed", nil)
 		return
 	}
 
 	if !h.Auth.Config.EnableTwoFactor {
-		http.Error(w, "Two-factor authentication is not enabled", http.StatusBadRequest)
+		utils.RespondWithError(w, http.StatusBadRequest, "Two-factor authentication is not enabled", nil)
 		return
 	}
 
 	// Authenticate user
 	userID, err := h.authenticateRequest(r, h.Auth.Config.Cookie.CookieName, h.Auth.Config.JWTSecret)
 	if err != nil {
-		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
+		utils.RespondWithError(w, http.StatusUnauthorized, "Unauthorized: "+err.Error(), nil)
 		return
 	}
 
 	// Get user
 	user, err := h.Auth.Repository.GetUserRepository().GetUserByID(userID)
 	if err != nil {
-		http.Error(w, "User not found", http.StatusBadRequest)
+		// utils.RespondWithError(w, http.StatusBadRequest, "User not found", err)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			utils.RespondWithError(w, http.StatusBadRequest, "User not found", err)
+			return
+		}
+		utils.RespondWithError(w, http.StatusBadRequest, "Internal server error", err)
 		return
 	}
 
 	// Send two-factor code
-	err = sendTwoFactorCode(h, user)
+	err = h.sendTwoFactorCode(user)
 	if err != nil {
-		http.Error(w, "Failed to send two-factor code: "+err.Error(), http.StatusInternalServerError)
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to send two-factor code: "+err.Error(), err)
+
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	err = utils.RespondWithJSON(w, http.StatusOK, map[string]interface{}{
 		"message":           "Two-factor verification code sent",
 		"two_factor_method": h.Auth.Config.TwoFactorMethod,
 	})
+
+	if err != nil {
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to send response", err)
+		return
+	}
 }
 
 // HandleVerifyTwoFactor verifies two-factor code and enables 2FA
 func (h *AuthHandler) HandleVerifyTwoFactor(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		utils.RespondWithError(w, http.StatusMethodNotAllowed, "Method not allowed", nil)
 		return
 	}
 
 	if !h.Auth.Config.EnableTwoFactor {
-		http.Error(w, "Two-factor authentication is not enabled", http.StatusBadRequest)
+		utils.RespondWithError(w, http.StatusBadRequest, "Two-factor authentication is not enabled", nil)
 		return
 	}
 
 	// Authenticate user
 	userID, err := h.authenticateRequest(r, h.Auth.Config.Cookie.CookieName, h.Auth.Config.JWTSecret)
 	if err != nil {
-		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
+		utils.RespondWithError(w, http.StatusUnauthorized, "Unauthorized: "+err.Error(), nil)
 		return
 	}
 
 	var req schemas.VerifyTwoFactorRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
+		utils.RespondWithError(w, http.StatusBadRequest, "Invalid request body: "+err.Error(), nil)
 		return
 	}
 
 	// Get user
 	user, err := h.Auth.Repository.GetUserRepository().GetUserByID(userID)
 	if err != nil {
-		http.Error(w, "User not found", http.StatusBadRequest)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			utils.RespondWithError(w, http.StatusBadRequest, "User not found", err)
+			return
+		}
+		utils.RespondWithError(w, http.StatusBadRequest, "Internal server error", err)
 		return
 	}
 
 	// Validate two-factor code
 	valid, err := h.Auth.Repository.GetTokenRepository().ValidateTwoFactorCode(user.ID, req.Code)
 	if err != nil || !valid {
-		http.Error(w, "Invalid two-factor code", http.StatusBadRequest)
+		utils.RespondWithError(w, http.StatusBadRequest, "Invalid two-factor code", err)
 		return
 	}
 
@@ -368,48 +386,55 @@ func (h *AuthHandler) HandleVerifyTwoFactor(w http.ResponseWriter, r *http.Reque
 	user.TwoFactorVerified = true
 	err = h.Auth.Repository.GetUserRepository().UpdateUser(user)
 	if err != nil {
-		http.Error(w, "Failed to enable two-factor authentication: "+err.Error(), http.StatusInternalServerError)
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to enable two-factor authentication: "+err.Error(), err)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	err = utils.RespondWithJSON(w, http.StatusOK, map[string]interface{}{
 		"message": "Two-factor authentication enabled successfully",
 	})
+	if err != nil {
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to send response", err)
+		return
+	}
 }
 
 // HandleDisableTwoFactor disables two-factor authentication
 func (h *AuthHandler) HandleDisableTwoFactor(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		utils.RespondWithError(w, http.StatusMethodNotAllowed, "Method not allowed", nil)
 		return
 	}
 
 	// Authenticate user
 	userID, err := h.authenticateRequest(r, h.Auth.Config.Cookie.CookieName, h.Auth.Config.JWTSecret)
 	if err != nil {
-		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
+		utils.RespondWithError(w, http.StatusUnauthorized, "Unauthorized: "+err.Error(), nil)
 		return
 	}
 
 	var req schemas.DisableTwoFactorRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
+		utils.RespondWithError(w, http.StatusBadRequest, "Invalid request body: "+err.Error(), nil)
 		return
 	}
 
 	// Get user
 	user, err := h.Auth.Repository.GetUserRepository().GetUserByID(userID)
 	if err != nil {
-		http.Error(w, "User not found", http.StatusBadRequest)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			utils.RespondWithError(w, http.StatusBadRequest, "User not found", err)
+			return
+		}
+		utils.RespondWithError(w, http.StatusBadRequest, "Internal server error", err)
 		return
 	}
 
 	// Verify password
 	err = utils.ValidatePassword(user.Password, req.Password)
 	if err != nil {
-		http.Error(w, "Password is incorrect", http.StatusBadRequest)
+		utils.RespondWithError(w, http.StatusBadRequest, "Password is incorrect", err)
+
 		return
 	}
 
@@ -418,21 +443,23 @@ func (h *AuthHandler) HandleDisableTwoFactor(w http.ResponseWriter, r *http.Requ
 	user.TwoFactorVerified = false
 	err = h.Auth.Repository.GetUserRepository().UpdateUser(user)
 	if err != nil {
-		http.Error(w, "Failed to disable two-factor authentication: "+err.Error(), http.StatusInternalServerError)
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to disable two-factor authentication: "+err.Error(), err)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	err = utils.RespondWithJSON(w, http.StatusOK, map[string]interface{}{
 		"message": "Two-factor authentication disabled successfully",
 	})
+	if err != nil {
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to send response", err)
+		return
+	}
 }
 
 // HandleVerifyEmail verifies user's email
 func (h *AuthHandler) HandleVerifyEmail(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet && r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		utils.RespondWithError(w, http.StatusMethodNotAllowed, "Method not allowed", nil)
 		return
 	}
 
@@ -443,7 +470,7 @@ func (h *AuthHandler) HandleVerifyEmail(w http.ResponseWriter, r *http.Request) 
 	} else {
 		var req schemas.VerifyEmailRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
+			utils.RespondWithError(w, http.StatusBadRequest, "Invalid request body: "+err.Error(), nil)
 			return
 		}
 		token = req.Token
@@ -451,21 +478,25 @@ func (h *AuthHandler) HandleVerifyEmail(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if token == "" || email == "" {
-		http.Error(w, "Missing token or email", http.StatusBadRequest)
+		utils.RespondWithError(w, http.StatusBadRequest, "Missing token or email", nil)
 		return
 	}
 
 	// Get user by email
 	user, err := h.Auth.Repository.GetUserRepository().GetUserByEmail(email)
 	if err != nil {
-		http.Error(w, "User not found", http.StatusBadRequest)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			utils.RespondWithError(w, http.StatusBadRequest, "User not found", err)
+			return
+		}
+		utils.RespondWithError(w, http.StatusBadRequest, "Internal server error", err)
 		return
 	}
 
 	// Validate verification token
 	valid, err := h.Auth.Repository.GetTokenRepository().ValidateEmailVerificationToken(user.ID, token)
 	if err != nil || !valid {
-		http.Error(w, "Invalid or expired verification token", http.StatusBadRequest)
+		utils.RespondWithError(w, http.StatusBadRequest, "Invalid or expired verification token", err)
 		return
 	}
 
@@ -473,26 +504,30 @@ func (h *AuthHandler) HandleVerifyEmail(w http.ResponseWriter, r *http.Request) 
 	user.EmailVerified = true
 	err = h.Auth.Repository.GetUserRepository().UpdateUser(user)
 	if err != nil {
-		http.Error(w, "Failed to verify email: "+err.Error(), http.StatusInternalServerError)
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to verify email: "+err.Error(), err)
 		return
 	}
 
 	// Invalidate verification token
-	h.Auth.Repository.GetTokenRepository().InvalidateEmailVerificationToken(user.ID, token)
+	err = h.Auth.Repository.GetTokenRepository().InvalidateEmailVerificationToken(user.ID, token)
+	if err != nil {
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to invalidate verification token: "+err.Error(), err)
+		return
+	}
 
 	// Generate tokens if needed
 	var response map[string]interface{}
 	if r.Method == http.MethodPost {
-		accessToken, refreshToken, err := utils.GenerateTokens(user.ID, h.Auth.Config.Cookie.AccessTokenTTL,h.Auth.Config.Cookie.RefreshTokenTTL, h.Auth.Config.JWTSecret)
+		accessToken, refreshToken, err := utils.GenerateTokens(user.ID, h.Auth.Config.Cookie.AccessTokenTTL, h.Auth.Config.Cookie.RefreshTokenTTL, h.Auth.Config.JWTSecret)
 		if err != nil {
-			http.Error(w, "Failed to generate tokens", http.StatusInternalServerError)
+			utils.RespondWithError(w, http.StatusInternalServerError, "Failed to generate tokens", err)
 			return
 		}
 
 		// Save refresh token
 		err = h.Auth.Repository.GetTokenRepository().SaveRefreshToken(user.ID, refreshToken, h.Auth.Config.Cookie.RefreshTokenTTL)
 		if err != nil {
-			http.Error(w, "Failed to save refresh token", http.StatusInternalServerError)
+			utils.RespondWithError(w, http.StatusInternalServerError, "Failed to save refresh token", err)
 			return
 		}
 
@@ -520,62 +555,69 @@ func (h *AuthHandler) HandleVerifyEmail(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	// json.NewEncoder(w).Encode(response)
+	err = utils.RespondWithJSON(w, http.StatusOK, response)
+	if err != nil {
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to send response", err)
+		return
+	}
 }
 
 // HandleResendVerificationEmail resends verification email
 func (h *AuthHandler) HandleResendVerificationEmail(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		utils.RespondWithError(w, http.StatusMethodNotAllowed, "Method not allowed", nil)
 		return
 	}
 
 	if !h.Auth.Config.EnableEmailVerification {
-		http.Error(w, "Email verification is not enabled", http.StatusBadRequest)
+		utils.RespondWithError(w, http.StatusBadRequest, "Email verification is not enabled", nil)
 		return
 	}
 
 	var req schemas.ResendVerificationEmailRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
+		utils.RespondWithError(w, http.StatusBadRequest, "Invalid request body: "+err.Error(), nil)
 		return
 	}
 
 	// Get user by email
 	user, err := h.Auth.Repository.GetUserRepository().GetUserByEmail(req.Email)
 	if err != nil {
-		// Don't reveal if email exists for security
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{
+		err = utils.RespondWithJSON(w, http.StatusOK, map[string]string{
 			"message": "If your email address exists in our database, you will receive a verification email shortly.",
 		})
+		if err != nil {
+			utils.RespondWithError(w, http.StatusInternalServerError, "Failed to send response", err)
+			return
+		}
 		return
 	}
 
 	// Check if already verified
 	if user.EmailVerified {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{
+
+		err = utils.RespondWithJSON(w, http.StatusOK, map[string]string{
 			"message": "Email already verified.",
 		})
+		if err != nil {
+			utils.RespondWithError(w, http.StatusInternalServerError, "Failed to send response", err)
+			return
+		}
 		return
 	}
 
 	// Generate verification token
 	verificationToken, err := utils.GenerateRandomToken(32)
 	if err != nil {
-		http.Error(w, "Failed to generate verification token", http.StatusInternalServerError)
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to generate verification token", err)
 		return
 	}
 
 	// Save verification token (valid for 24 hours)
 	err = h.Auth.Repository.GetTokenRepository().SaveEmailVerificationToken(user.ID, verificationToken, 24*time.Hour)
 	if err != nil {
-		http.Error(w, "Failed to save verification token", http.StatusInternalServerError)
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to save verification token", err)
 		return
 	}
 
@@ -588,20 +630,20 @@ func (h *AuthHandler) HandleResendVerificationEmail(w http.ResponseWriter, r *ht
 
 		err = h.Auth.Config.EmailSender.SendVerification(*user, verificationURL)
 		if err != nil {
-			// Log error but don't reveal to client
 			fmt.Printf("Failed to send verification email: %v\n", err)
 		}
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{
+	err = utils.RespondWithJSON(w, http.StatusOK, map[string]string{
 		"message": "If your email address exists in our database, you will receive a verification email shortly.",
 	})
+	if err != nil {
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to send response", err)
+		return
+	}
 }
 
 // sendTwoFactorCode sends a two-factor verification code
-func sendTwoFactorCode(h *AuthHandler, user *models.User) error {
+func (h *AuthHandler) sendTwoFactorCode(user *models.User) error {
 	// Generate random 6-digit code
 	code := fmt.Sprintf("%06d", rand.Intn(1000000))
 

@@ -74,9 +74,6 @@ func (h *GinHandler) SetupRoutes(r *gin.Engine) {
 			types.RouteVerifyEmail, h.Handler.HandleVerifyEmail)))
 		auth.POST("/resend-verification-email", ginHandlerWrapper(h.Handler.WithHooks(
 			types.RouteResendVerificationEmail, h.Handler.HandleResendVerificationEmail)))
-		// auth.GET("/get-all-users", h.GinAdminMiddleWare(), func(ctx *gin.Context) {
-		// 	ctx.JSON(http.StatusOK, gin.H{"users": []string{"user1", "user2", "user3"}})
-		// })
 		for _, oauth := range h.Handler.Auth.Config.Providers.Enabled {
 			switch oauth {
 			case "google":

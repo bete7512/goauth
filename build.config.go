@@ -32,7 +32,7 @@ func DefaultConfig() types.Config {
 		EnableTwoFactor:         false,
 		EnableEmailVerification: false,
 		EnableSmsVerification:   false,
-		EnableBearerAuth:        false,
+		BearerAuthEnabled:        false,
 		PasswordPolicy: types.PasswordPolicy{
 			HashSaltLength: 14,
 			MinLength:      4,

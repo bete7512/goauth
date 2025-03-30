@@ -62,7 +62,7 @@ type Config struct {
 	Domain                             string
 	JWTSecret                          string
 	Cookie                             CookieConfig
-	EnableBearerAuth                   bool
+	BearerAuthEnabled                  bool
 	EnableTwoFactor                    bool
 	PasswordPolicy                     PasswordPolicy
 	Providers                          ProvidersConfig

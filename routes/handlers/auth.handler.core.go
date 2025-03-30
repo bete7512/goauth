@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 	"unicode"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/bete7512/goauth/schemas"
 	"github.com/bete7512/goauth/types"
 	"github.com/bete7512/goauth/utils"
+	"gorm.io/gorm"
 )
 
 type AuthHandler struct {
@@ -36,7 +38,7 @@ func (h *AuthHandler) WithHooks(route string, handler func(http.ResponseWriter, 
 // HandleRegister handles user registration
 func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		utils.RespondWithError(w, http.StatusMethodNotAllowed, "Method not allowed", nil)
 		return
 	}
 	var req schemas.RegisterRequest
@@ -45,38 +47,41 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		var rawData map[string]interface{}
 		bodyBytes, err := io.ReadAll(r.Body)
 		if err != nil {
-			http.Error(w, "Failed to read request body: "+err.Error(), http.StatusBadRequest)
+			utils.RespondWithError(w, http.StatusBadRequest, "Failed to read request body: "+err.Error(), nil)
 			return
 		}
 		r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-		// First, decode into the map to get all fields
 		if err := json.Unmarshal(bodyBytes, &rawData); err != nil {
-			http.Error(w, "Invalid request body JSON: "+err.Error(), http.StatusBadRequest)
+			utils.RespondWithError(w, http.StatusBadRequest, "Invalid request body JSON: "+err.Error(), nil)
 			return
 		}
 		if err := json.Unmarshal(bodyBytes, &req); err != nil {
-			http.Error(w, "Invalid request format: "+err.Error(), http.StatusBadRequest)
+			utils.RespondWithError(w, http.StatusBadRequest, "Invalid request format: "+err.Error(), nil)
 			return
 		}
 		ctx := context.WithValue(r.Context(), "request_data", rawData)
 		r = r.WithContext(ctx)
 	} else {
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
+			utils.RespondWithError(w, http.StatusBadRequest, "Invalid request body: "+err.Error(), nil)
 			return
 		}
 	}
 
 	// Validate password against policy
 	if err := h.validatePasswordPolicy(req.Password, h.Auth.Config.PasswordPolicy); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		utils.RespondWithError(w, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
 
 	// Check if email already exists
-	existingUser, _ := h.Auth.Repository.GetUserRepository().GetUserByEmail(req.Email)
-	if existingUser != nil {
-		http.Error(w, "Email already in use", http.StatusConflict)
+	existingUser, err := h.Auth.Repository.GetUserRepository().GetUserByEmail(req.Email)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to check if email exists: "+err.Error(), nil)
+		return
+	}
+	if existingUser.Email != "" {
+		utils.RespondWithError(w, http.StatusConflict, "Email already in use", nil)
 		return
 	}
 
@@ -94,7 +99,7 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	// Hash password
 	hashedPassword, err := utils.HashPassword(req.Password, h.Auth.Config.PasswordPolicy.HashSaltLength)
 	if err != nil {
-		http.Error(w, "Failed to secure password: "+err.Error(), http.StatusInternalServerError)
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to secure password: "+err.Error(), nil)
 		return
 	}
 	user.Password = hashedPassword
@@ -102,7 +107,7 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	// Create user in database
 	err = h.Auth.Repository.GetUserRepository().CreateUser(&user)
 	if err != nil {
-		http.Error(w, "Failed to create user: "+err.Error(), http.StatusInternalServerError)
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to create user: "+err.Error(), nil)
 		return
 	}
 
@@ -110,14 +115,14 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	if h.Auth.Config.EnableEmailVerification {
 		verificationToken, err := utils.GenerateRandomToken(32)
 		if err != nil {
-			http.Error(w, "Failed to generate verification token", http.StatusInternalServerError)
+			utils.RespondWithError(w, http.StatusInternalServerError, "Failed to generate verification token", nil)
 			return
 		}
 
 		// Save verification token
 		err = h.Auth.Repository.GetTokenRepository().SaveEmailVerificationToken(user.ID, verificationToken, 24*time.Hour)
 		if err != nil {
-			http.Error(w, "Failed to save verification token", http.StatusInternalServerError)
+			utils.RespondWithError(w, http.StatusInternalServerError, "Failed to save verification token", nil)
 			return
 		}
 
@@ -130,8 +135,7 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 
 			err = h.Auth.Config.EmailSender.SendVerification(user, verificationURL)
 			if err != nil {
-				// Log error but continue - user can request verification email later
-				fmt.Printf("Failed to send verification email: %v\n", err)
+				log.Printf("Failed to send verification email: %v\n", err)
 			}
 		}
 	}
@@ -139,14 +143,14 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	if !h.Auth.Config.EnableEmailVerification {
 		accessToken, refreshToken, err := utils.GenerateTokens(user.ID, h.Auth.Config.Cookie.AccessTokenTTL, h.Auth.Config.Cookie.RefreshTokenTTL, h.Auth.Config.JWTSecret)
 		if err != nil {
-			http.Error(w, "Failed to generate authentication tokens", http.StatusInternalServerError)
+			utils.RespondWithError(w, http.StatusInternalServerError, "Failed to generate authentication tokens", nil)
 			return
 		}
 
 		// Save refresh token
 		err = h.Auth.Repository.GetTokenRepository().SaveRefreshToken(user.ID, refreshToken, h.Auth.Config.Cookie.RefreshTokenTTL)
 		if err != nil {
-			http.Error(w, "Failed to save refresh token", http.StatusInternalServerError)
+			utils.RespondWithError(w, http.StatusInternalServerError, "Failed to save refresh token", nil)
 			return
 		}
 		http.SetCookie(w, &http.Cookie{
@@ -185,15 +189,14 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	//TODO: make able to send Send response
 
 	if h.Auth.HookManager.GetAfterHook(types.RouteRegister) != nil {
-		log.Println("HookManager is not nil")
 		ctx := context.WithValue(r.Context(), "response_data", userResponse)
 		r = r.WithContext(ctx)
 		h.Auth.HookManager.ExecuteAfterHooks(types.RouteRegister, w, r)
+		return
 	} else {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		if err := json.NewEncoder(w).Encode(userResponse); err != nil {
-			http.Error(w, "Failed to encode response: "+err.Error(), http.StatusInternalServerError)
+		err := utils.RespondWithJSON(w, http.StatusCreated, userResponse)
+		if err != nil {
+			utils.RespondWithError(w, http.StatusInternalServerError, "Failed to send response", nil)
 			return
 		}
 	}
@@ -203,7 +206,7 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 // HandleLogin handles user login
 func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		utils.RespondWithError(w, http.StatusMethodNotAllowed, "Method not allowed", nil)
 		return
 	}
 	var req schemas.LoginRequest
@@ -212,24 +215,23 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		var rawData map[string]interface{}
 		bodyBytes, err := io.ReadAll(r.Body)
 		if err != nil {
-			http.Error(w, "Failed to read request body: "+err.Error(), http.StatusBadRequest)
+			utils.RespondWithError(w, http.StatusBadRequest, "Failed to read request body: "+err.Error(), nil)
 			return
 		}
 		r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-		// First, decode into the map to get all fields
 		if err := json.Unmarshal(bodyBytes, &rawData); err != nil {
-			http.Error(w, "Invalid request body JSON: "+err.Error(), http.StatusBadRequest)
+			utils.RespondWithError(w, http.StatusBadRequest, "Invalid request body JSON: "+err.Error(), nil)
 			return
 		}
 		if err := json.Unmarshal(bodyBytes, &req); err != nil {
-			http.Error(w, "Invalid request format: "+err.Error(), http.StatusBadRequest)
+			utils.RespondWithError(w, http.StatusBadRequest, "Invalid request format: "+err.Error(), nil)
 			return
 		}
 		ctx := context.WithValue(r.Context(), "request_data", rawData)
 		r = r.WithContext(ctx)
 	} else {
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
+			utils.RespondWithError(w, http.StatusBadRequest, "Invalid request body: "+err.Error(), nil)
 			return
 		}
 	}
@@ -238,55 +240,54 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	user, err := h.Auth.Repository.GetUserRepository().GetUserByEmail(req.Email)
 	if err != nil {
 		if err.Error() == "user not found" {
-			http.Error(w, "User Not Found", http.StatusUnauthorized)
+			utils.RespondWithError(w, http.StatusUnauthorized, "User Not Found", nil)
 			return
 		}
-		http.Error(w, "Invalid email or password", http.StatusUnauthorized)
+		utils.RespondWithError(w, http.StatusUnauthorized, "Invalid email or password", nil)
 		return
 	}
-
-	// Check if user is active
 	if !user.Active {
-		http.Error(w, "Account is deactivated", http.StatusUnauthorized)
+		utils.RespondWithError(w, http.StatusUnauthorized, "Account is deactivated", nil)
 		return
 	}
 
-	// Check if email verification is required
 	if h.Auth.Config.EnableEmailVerification && !user.EmailVerified {
-		http.Error(w, "Email not verified", http.StatusUnauthorized)
+		utils.RespondWithError(w, http.StatusUnauthorized, "Email not verified", nil)
 		return
 	}
-
-	// Validate password
 	err = utils.ValidatePassword(user.Password, req.Password)
 	if err != nil {
-		http.Error(w, "Invalid email or password", http.StatusUnauthorized)
+		utils.RespondWithError(w, http.StatusUnauthorized, "Invalid email or password", nil)
 		return
 	}
 
 	// Handle two-factor authentication if enabled
 	if h.Auth.Config.EnableTwoFactor && user.TwoFactorEnabled {
 		if req.TwoFactorCode == "" {
-			// First stage login - send 2FA code and expect a second request
-			err = sendTwoFactorCode(h, user)
+			err = h.sendTwoFactorCode(user)
 			if err != nil {
-				http.Error(w, "Failed to send two-factor code", http.StatusInternalServerError)
+				utils.RespondWithError(w, http.StatusInternalServerError, "Failed to send two-factor code", nil)
 				return
 			}
-
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"message":           "Two-factor code sent",
-				"requires_2fa":      true,
-				"two_factor_method": h.Auth.Config.TwoFactorMethod,
-			})
+			err := utils.RespondWithJSON(
+				w,
+				http.StatusOK,
+				map[string]interface{}{
+					"message":           "Two-factor code sent",
+					"requires_2fa":      true,
+					"two_factor_method": h.Auth.Config.TwoFactorMethod,
+				},
+			)
+			if err != nil {
+				utils.RespondWithError(w, http.StatusInternalServerError, "Failed to send response", nil)
+				return
+			}
 			return
 		} else {
 			// Validate two-factor code
 			valid, err := h.Auth.Repository.GetTokenRepository().ValidateTwoFactorCode(user.ID, req.TwoFactorCode)
 			if err != nil || !valid {
-				http.Error(w, "Invalid two-factor code", http.StatusUnauthorized)
+				utils.RespondWithError(w, http.StatusUnauthorized, "Invalid two-factor code", nil)
 				return
 			}
 		}
@@ -295,14 +296,14 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	// Generate tokens
 	accessToken, refreshToken, err := utils.GenerateTokens(user.ID, h.Auth.Config.Cookie.AccessTokenTTL, h.Auth.Config.Cookie.RefreshTokenTTL, h.Auth.Config.JWTSecret)
 	if err != nil {
-		http.Error(w, "Failed to generate authentication tokens", http.StatusInternalServerError)
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to generate authentication tokens", nil)
 		return
 	}
 
 	// Save refresh token
 	err = h.Auth.Repository.GetTokenRepository().SaveRefreshToken(user.ID, refreshToken, h.Auth.Config.Cookie.RefreshTokenTTL)
 	if err != nil {
-		http.Error(w, "Failed to save refresh token", http.StatusInternalServerError)
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to save refresh token", nil)
 		return
 	}
 
@@ -330,11 +331,15 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		MaxAge:   h.Auth.Config.Cookie.MaxCookieAge,
 	})
 	if h.Auth.HookManager.GetAfterHook(types.RouteLogin) != nil {
+
 		ctx := context.WithValue(r.Context(), "response_data", map[string]interface{}{
+			"id":            user.ID,
 			"user":          user,
 			"access_token":  accessToken,
 			"refresh_token": refreshToken,
 		})
+
+		log.Println("Executing after login hook")
 		r = r.WithContext(ctx)
 		h.Auth.HookManager.ExecuteAfterHooks(types.RouteLogin, w, r)
 	} else {
@@ -352,11 +357,9 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 			"access_token":  accessToken,
 			"refresh_token": refreshToken,
 		}
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		if err := json.NewEncoder(w).Encode(response); err != nil {
-			http.Error(w, "Failed to encode response: "+err.Error(), http.StatusInternalServerError)
+		err := utils.RespondWithJSON(w, http.StatusOK, response)
+		if err != nil {
+			utils.RespondWithError(w, http.StatusInternalServerError, "Failed to send response", nil)
 			return
 		}
 	}
@@ -366,23 +369,24 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 // HandleLogout handles user logout
 func (h *AuthHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		utils.RespondWithError(w, http.StatusMethodNotAllowed, "Method not allowed", nil)
 		return
 	}
-
-	// Get token from cookie or Authorization header
 	token := h.extractToken(r, h.Auth.Config.Cookie.CookieName)
 	if token == "" {
-		http.Error(w, "No authentication token provided", http.StatusBadRequest)
+		utils.RespondWithError(w, http.StatusBadRequest, "No authentication token provided", nil)
 		return
 	}
-
-	// Validate token
 	claims, err := utils.ValidateToken(token, h.Auth.Config.JWTSecret)
-	if err == nil {
-		// If token is valid, invalidate all refresh tokens for the user
-		userID := claims["user_id"].(string)
-		h.Auth.Repository.GetTokenRepository().InvalidateAllRefreshTokens(userID)
+	if err != nil {
+		utils.RespondWithError(w, http.StatusUnauthorized, "Invalid authentication token", nil)
+		return
+	}
+	userID := claims["user_id"].(string)
+	err = h.Auth.Repository.GetTokenRepository().InvalidateAllRefreshTokens(userID)
+	if err != nil {
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to invalidate refresh tokens", nil)
+		return
 	}
 
 	// Clear cookie regardless of token validity
@@ -408,73 +412,77 @@ func (h *AuthHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
 		MaxAge:   -1,
 	})
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{
+	err = utils.RespondWithJSON(w, http.StatusOK, map[string]string{
 		"message": "Successfully logged out",
 	})
+	if err != nil {
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to send response", nil)
+		return
+	}
 }
 
 // HandleRefreshToken handles token refresh
 func (h *AuthHandler) HandleRefreshToken(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		utils.RespondWithError(w, http.StatusMethodNotAllowed, "Method not allowed", nil)
 		return
 	}
 
 	token := h.extractToken(r, "___goauth_refresh_token_"+h.Auth.Config.Cookie.CookieName)
 	if token == "" {
-		http.Error(w, "No refresh token provided", http.StatusBadRequest)
+		utils.RespondWithError(w, http.StatusBadRequest, "No refresh token provided", nil)
 		return
 	}
 
 	// Validate refresh token
 	claims, err := utils.ValidateToken(token, h.Auth.Config.JWTSecret)
 	if err != nil {
-		http.Error(w, "Invalid refresh token", http.StatusUnauthorized)
+		utils.RespondWithError(w, http.StatusUnauthorized, "Invalid refresh token", nil)
 		return
 	}
 
 	userID, ok := claims["user_id"].(string)
 	if !ok {
-		http.Error(w, "Invalid refresh token claims", http.StatusUnauthorized)
+		utils.RespondWithError(w, http.StatusUnauthorized, "Invalid refresh token claims", nil)
 		return
 	}
 
-	// Check if token is valid in the repository
 	valid, err := h.Auth.Repository.GetTokenRepository().ValidateRefreshToken(userID, token)
 	if err != nil || !valid {
-		http.Error(w, "Invalid or expired refresh token", http.StatusUnauthorized)
+		utils.RespondWithError(w, http.StatusUnauthorized, "Invalid or expired refresh token", nil)
 		return
 	}
 
 	// Get user
 	user, err := h.Auth.Repository.GetUserRepository().GetUserByID(userID)
 	if err != nil {
-		http.Error(w, "User not found", http.StatusUnauthorized)
+		utils.RespondWithError(w, http.StatusUnauthorized, "User not found", nil)
 		return
 	}
 
 	// Check if user is active
 	if !user.Active {
-		http.Error(w, "Account is deactivated", http.StatusUnauthorized)
+		utils.RespondWithError(w, http.StatusUnauthorized, "Account is deactivated", nil)
 		return
 	}
 
 	// Generate new tokens
 	accessToken, refreshToken, err := utils.GenerateTokens(user.ID, h.Auth.Config.Cookie.AccessTokenTTL, h.Auth.Config.Cookie.RefreshTokenTTL, h.Auth.Config.JWTSecret)
 	if err != nil {
-		http.Error(w, "Failed to generate tokens", http.StatusInternalServerError)
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to generate tokens", nil)
 		return
 	}
 
-	// Invalidate old refresh token
-	h.Auth.Repository.GetTokenRepository().InvalidateRefreshToken(userID, token)
+	err = h.Auth.Repository.GetTokenRepository().InvalidateRefreshToken(userID, token)
+	if err != nil {
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to invalidate refresh token", nil)
+		return
+	}
 
 	// Save new refresh token
 	err = h.Auth.Repository.GetTokenRepository().SaveRefreshToken(user.ID, refreshToken, h.Auth.Config.Cookie.RefreshTokenTTL)
 	if err != nil {
-		http.Error(w, "Failed to save refresh token", http.StatusInternalServerError)
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to save refresh token", nil)
 		return
 	}
 
@@ -509,10 +517,9 @@ func (h *AuthHandler) HandleRefreshToken(w http.ResponseWriter, r *http.Request)
 		"refresh_token": refreshToken,
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		http.Error(w, "Failed to encode response: "+err.Error(), http.StatusInternalServerError)
+	err = utils.RespondWithJSON(w, http.StatusOK, response)
+	if err != nil {
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to send response", nil)
 		return
 	}
 }
@@ -520,21 +527,21 @@ func (h *AuthHandler) HandleRefreshToken(w http.ResponseWriter, r *http.Request)
 // HandleGetUser returns the current user's profile
 func (h *AuthHandler) HandleGetUser(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		utils.RespondWithError(w, http.StatusMethodNotAllowed, "Method not allowed", nil)
 		return
 	}
 
 	// Authenticate user
 	userID, err := h.authenticateRequest(r, h.Auth.Config.Cookie.CookieName, h.Auth.Config.JWTSecret)
 	if err != nil {
-		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
+		utils.RespondWithError(w, http.StatusUnauthorized, "Unauthorized: "+err.Error(), nil)
 		return
 	}
 
 	// Get user
 	user, err := h.Auth.Repository.GetUserRepository().GetUserByID(userID)
 	if err != nil {
-		http.Error(w, "User not found", http.StatusBadRequest)
+		utils.RespondWithError(w, http.StatusBadRequest, "User not found", nil)
 		return
 	}
 
@@ -546,16 +553,17 @@ func (h *AuthHandler) HandleGetUser(w http.ResponseWriter, r *http.Request) {
 		Email:     user.Email,
 		CreatedAt: user.CreatedAt,
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(userResponse)
+	err = utils.RespondWithJSON(w, http.StatusOK, userResponse)
+	if err != nil {
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to send response", nil)
+		return
+	}
 }
 
 // Helper functions
 
 // validatePasswordPolicy validates a password against the configured policy
-func (h *AuthHandler)validatePasswordPolicy(password string, policy types.PasswordPolicy) error {
+func (h *AuthHandler) validatePasswordPolicy(password string, policy types.PasswordPolicy) error {
 	if len(password) < policy.MinLength {
 		return fmt.Errorf("password must be at least %d characters long", policy.MinLength)
 	}
@@ -610,22 +618,20 @@ func (h *AuthHandler) authenticateRequest(r *http.Request, cookieName, jwtSecret
 	return userID, nil
 }
 
-// extractToken extracts the JWT token from the request
 func (h *AuthHandler) extractToken(r *http.Request, cookieName string) string {
-	// Try to get from cookie first
 	if cookieName != "" {
-		cookie, err := r.Cookie(cookieName)
+		cookie, err := r.Cookie("___goauth_access_token_" + cookieName)
 		if err == nil && cookie.Value != "" {
 			return cookie.Value
 		}
 	}
+	if h.Auth.Config.BearerAuthEnabled {
+		bearerToken := r.Header.Get("Authorization")
+		if len(bearerToken) > 7 && strings.ToUpper(bearerToken[0:7]) == "BEARER " {
+			return bearerToken[7:]
+		}
 
-	// Try to get from Authorization header
-	// TODO: make configurable to get token from header
-	// bearerToken := r.Header.Get("Authorization")
-	// if len(bearerToken) > 7 && strings.ToUpper(bearerToken[0:7]) == "BEARER " {
-	// 	return bearerToken[7:]
-	// }
+	}
 
 	return ""
 }
