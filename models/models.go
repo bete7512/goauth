@@ -14,6 +14,7 @@ const (
 	EmailVerificationToken TokenType = "email_verification"
 	PasswordResetToken     TokenType = "password_reset"
 	TwoFactorCode          TokenType = "two_factor"
+	MakicLinkToken         TokenType = "magic_link"
 )
 
 type User struct {

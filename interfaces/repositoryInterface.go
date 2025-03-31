@@ -36,6 +36,11 @@ type TokenRepository interface {
 	SaveTwoFactorCode(userID, code string, expiry time.Duration) error
 	ValidateTwoFactorCode(userID, code string) (bool, error)
 	InvalidateTwoFactorCode(userID, code string) error
+
+	// Magic link tokens
+
+	SaveMagicLinkToken(userID, token string, expiry time.Duration) error
+	ValidateMagicLinkToken(token string) (bool, string, error)
 }
 type RepositoryFactory interface {
 	GetUserRepository() UserRepository

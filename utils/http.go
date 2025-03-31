@@ -2,6 +2,7 @@ package utils
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 
 	"github.com/bete7512/goauth/models"
@@ -18,14 +19,17 @@ func RespondWithError(w http.ResponseWriter, status int, message string, err err
 		Status:  status,
 		Message: message,
 	}
-	if err != nil {
-		response.Error = err.Error()
-	}
-
 	// TODO:only show error in dev mode
 	// if err != nil && !isProd() {
 	// 	response.Error = err.Error()
 	// }
+	if err != nil {
+		// TODO: trace back and log error here
+		// I want  file path and line where error occured
+		log.Println()
+		log.Printf("error: %v)", err)
+		response.Error = err.Error()
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)

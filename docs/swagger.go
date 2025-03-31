@@ -1,6 +1,11 @@
 package docs
 
-import "log"
+import (
+	"log"
+
+	doc_api "github.com/bete7512/goauth/docs/api"
+	definitions "github.com/bete7512/goauth/docs/definations"
+)
 
 // SwaggerInfo holds the general API information
 type SwaggerInfo struct {
@@ -52,7 +57,6 @@ func SwaggerDoc(info SwaggerInfo) map[string]interface{} {
 	if len(info.Schemes) == 0 {
 		info.Schemes = DefaultSchemes
 	}
-
 	return map[string]interface{}{
 		"swagger": "2.0",
 		"info": map[string]interface{}{
@@ -65,8 +69,21 @@ func SwaggerDoc(info SwaggerInfo) map[string]interface{} {
 		"schemes":  info.Schemes,
 		"paths":    Paths(info.BasePath),
 		"definitions": map[string]interface{}{
-			"User":  UserDefinition(),
-			"Error": ErrorDefinition(),
+			"User":            definitions.UserDefinition(),
+			"Error":           definitions.ErrorDefinition(),
+			"RegisterRequest": definitions.RegisterRequestDefinition(),
+			"LoginRequest":    definitions.LoginRequestDefinition(),
+			"RefreshTokenRequest": definitions.RefreshTokenRequestDefinition(),
+			"ForgotPasswordRequest": definitions.ForgotPasswordRequestDefinition(),
+			"ResetPasswordRequest": definitions.ResetPasswordRequestDefinition(),
+			"UpdateProfileRequest": definitions.UpdateProfileRequestDefinition(),
+			"ChangePasswordRequest": definitions.ChangePasswordRequestDefinition(),
+			"DeactivateUserRequest": definitions.DeactivateUserRequestDefinition(),
+			"VerifyTwoFactorRequest": definitions.VerifyTwoFactorRequestDefinition(),
+			"DisableTwoFactorRequest": definitions.DisableTwoFactorRequestDefinition(),
+			"VerifyEmailRequest": definitions.VerifyEmailRequestDefinition(),
+			"ResendVerificationEmailRequest": definitions.ResendVerificationEmailRequestDefinition(),
+			"UserResponse": definitions.UserResponseDefinition(),
 		},
 		"securityDefinitions": map[string]interface{}{
 			"BearerAuth": map[string]interface{}{
@@ -82,12 +99,12 @@ func SwaggerDoc(info SwaggerInfo) map[string]interface{} {
 // Paths returns all available API paths
 func Paths(basePath string) map[string]interface{} {
 	return map[string]interface{}{
-		basePath + "/register": RegisterPath(),
-		basePath + "/login":    LoginPath(),
-		basePath + "/logout":                    LogoutPath(),
-		basePath + "/refresh-token":             RefreshTokenPath(),
-		basePath + "/forgot-password":           ForgotPasswordPath(),
-		basePath + "/reset-password":            ResetPasswordPath(),
+		basePath + "/register":        doc_api.RegisterPath(),
+		basePath + "/login":           doc_api.LoginPath(),
+		basePath + "/logout":          doc_api.LogoutPath(),
+		basePath + "/refresh-token":   doc_api.RefreshTokenPath(),
+		basePath + "/forgot-password": doc_api.ForgotPasswordPath(),
+		basePath + "/reset-password":  doc_api.ResetPasswordPath(),
 		// basePath + "/update-profile":            UpdateProfilePath(),
 		// basePath + "/deactivate-user":           DeactivateUserPath(),
 		// basePath + "/me":                        GetMePath(),

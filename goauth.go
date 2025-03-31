@@ -1,6 +1,7 @@
 package goauth
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/bete7512/goauth/database"
@@ -9,6 +10,7 @@ import (
 	"github.com/bete7512/goauth/repositories"
 	"github.com/bete7512/goauth/routes"
 	"github.com/bete7512/goauth/routes/handlers"
+	tokenManager "github.com/bete7512/goauth/tokens"
 	"github.com/bete7512/goauth/types"
 	"github.com/gin-gonic/gin"
 )
@@ -20,6 +22,8 @@ type AuthService struct {
 }
 
 func NewAuth(conf types.Config) (*AuthService, error) {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+
 	_, err := NewBuilder().WithConfig(conf).Build()
 	if err != nil {
 		return nil, err
@@ -60,12 +64,13 @@ func (a *AuthService) GetGinAuthMiddleware(r *gin.Engine) gin.HandlerFunc {
 	})
 	return ginHandler.GinMiddleWare(r)
 }
-func (a *AuthService) GetGinAuthRoutes(r *gin.Engine)  {
+func (a *AuthService) GetGinAuthRoutes(r *gin.Engine) {
 	ginHandler := routes.NewGinHandler(handlers.AuthHandler{
 		Auth: &types.Auth{
-			Config:      a.Config,
-			Repository:  a.Repository,
-			HookManager: a.HookManager,
+			Config:       a.Config,
+			Repository:   a.Repository,
+			HookManager:  a.HookManager,
+			TokenManager: tokenManager.NewTokenManager(a.Config),
 		},
 	})
 	ginHandler.SetupRoutes(r)
@@ -74,9 +79,10 @@ func (a *AuthService) GetGinAuthRoutes(r *gin.Engine)  {
 func (a *AuthService) GetGinRoutesRaw(r *gin.Engine) handlers.AuthHandler {
 	authHandler := handlers.AuthHandler{
 		Auth: &types.Auth{
-			Config:      a.Config,
-			Repository:  a.Repository,
-			HookManager: a.HookManager,
+			Config:       a.Config,
+			Repository:   a.Repository,
+			HookManager:  a.HookManager,
+			TokenManager: tokenManager.NewTokenManager(a.Config),
 		},
 	}
 	routes.NewGinHandler(authHandler)
@@ -86,9 +92,10 @@ func (a *AuthService) GetGinRoutesRaw(r *gin.Engine) handlers.AuthHandler {
 func (a *AuthService) GetHttpAuthMiddleware(next http.Handler) http.Handler {
 	httpHandler := routes.NewHttpHandler(handlers.AuthHandler{
 		Auth: &types.Auth{
-			Config:      a.Config,
-			Repository:  a.Repository,
-			HookManager: a.HookManager,
+			Config:       a.Config,
+			Repository:   a.Repository,
+			HookManager:  a.HookManager,
+			TokenManager: tokenManager.NewTokenManager(a.Config),
 		},
 	})
 	return httpHandler.HttpMiddleWare(next)
@@ -97,11 +104,11 @@ func (a *AuthService) GetHttpAuthMiddleware(next http.Handler) http.Handler {
 func (a *AuthService) GetHttpAuthRoutes(s *http.ServeMux) {
 	httpHandler := routes.NewHttpHandler(handlers.AuthHandler{
 		Auth: &types.Auth{
-			Config:      a.Config,
-			Repository:  a.Repository,
-			HookManager: a.HookManager,
+			Config:       a.Config,
+			Repository:   a.Repository,
+			HookManager:  a.HookManager,
+			TokenManager: tokenManager.NewTokenManager(a.Config),
 		},
 	})
 	httpHandler.SetupRoutes(s)
 }
-

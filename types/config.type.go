@@ -7,6 +7,7 @@ import (
 	"github.com/bete7512/goauth/hooks"
 	"github.com/bete7512/goauth/interfaces"
 	"github.com/bete7512/goauth/models"
+	"github.com/golang-jwt/jwt/v4"
 )
 
 type ServerType string
@@ -64,10 +65,13 @@ type Config struct {
 	Cookie                             CookieConfig
 	BearerAuthEnabled                  bool
 	EnableTwoFactor                    bool
+	EnableMagicLink                    bool
 	PasswordPolicy                     PasswordPolicy
 	Providers                          ProvidersConfig
 	TwoFactorMethod                    string
 	EnableEmailVerification            bool
+	EnableAddCustomJWTClaims           bool
+	CustomJWTClaimsProvider            CustomJWTClaimsProvider
 	SendVerificationEmailOnAfterSignup bool
 	EnableSmsVerification              bool
 	EmailVerificationURL               string
@@ -128,6 +132,7 @@ type EmailSender interface {
 	SendVerification(user models.User, redirectUrl string) error
 	SendPasswordReset(user models.User, redirectUrl string) error
 	SendTwoFactorCode(user models.User, code string) error
+	SendMagicLink(user models.User, redirectUrl string) error
 }
 
 type SMSSender interface {
@@ -135,10 +140,11 @@ type SMSSender interface {
 }
 
 type Auth struct {
-	Config      Config
-	Db          DatabaseConfig
-	Repository  interfaces.RepositoryFactory
-	HookManager *hooks.HookManager
+	Config       Config
+	Db           DatabaseConfig
+	Repository   interfaces.RepositoryFactory
+	HookManager  *hooks.HookManager
+	TokenManager TokenManagerInterface
 }
 
 type SwaggerConfig struct {
@@ -148,4 +154,18 @@ type SwaggerConfig struct {
 	Enable      bool
 	DocPath     string
 	Host        string
+}
+
+type CustomJWTClaimsProvider interface {
+	GetClaims(user models.User) (map[string]interface{}, error)
+}
+
+type TokenManagerInterface interface {
+	GenerateAccessToken(user models.User, duration time.Duration, secretKey string) (string, error)
+	HashPassword(password string) (string, error)
+	ValidatePassword(hashedPassword, password string) error
+	GenerateTokens(user *models.User) (accessToken string, refreshToken string, err error)
+	ValidateToken(tokenString string) (jwt.MapClaims, error)
+	GenerateRandomToken(length int) (string, error)
+	GenerateBase64Token(length int) (string, error)
 }

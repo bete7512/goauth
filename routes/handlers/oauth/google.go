@@ -56,9 +56,14 @@ func (g *GoogleOauth) SignIn(w http.ResponseWriter, r *http.Request) {
 	config := g.getGoogleOAuthConfig()
 
 	// Generate a random state for CSRF protection
-	state, err := utils.GenerateRandomToken(32)
+	state, err := g.Auth.TokenManager.GenerateRandomToken(32)
 	if err != nil {
-		http.Error(w, "Failed to generate state", http.StatusInternalServerError)
+		utils.RespondWithError(
+			w,
+			http.StatusInternalServerError,
+			"Failed to generate state",
+			err,
+		)
 		return
 	}
 
@@ -84,12 +89,24 @@ func (g *GoogleOauth) Callback(w http.ResponseWriter, r *http.Request) {
 	// Verify state to prevent CSRF
 	stateCookie, err := r.Cookie("oauth_state")
 	if err != nil {
-		http.Error(w, "State cookie not found", http.StatusBadRequest)
+		// http.Error(w, "State cookie not found", http.StatusBadRequest)
+		utils.RespondWithError(
+			w,
+			http.StatusBadRequest,
+			"State cookie not found",
+			err,
+		)
 		return
 	}
 
 	if r.FormValue("state") != stateCookie.Value {
-		http.Error(w, "Invalid state parameter", http.StatusBadRequest)
+		// http.Error(w, "Invalid state parameter", http.StatusBadRequest)
+		utils.RespondWithError(
+			w,
+			http.StatusBadRequest,
+			"Invalid state parameter",
+			err,
+		)
 		return
 	}
 
@@ -99,41 +116,78 @@ func (g *GoogleOauth) Callback(w http.ResponseWriter, r *http.Request) {
 
 	token, err := config.Exchange(context.Background(), code)
 	if err != nil {
-		http.Error(w, "Failed to exchange token: "+err.Error(), http.StatusInternalServerError)
+		// http.Error(w, "Failed to exchange token: "+err.Error(), http.StatusInternalServerError)
+		utils.RespondWithError(
+			w,
+			http.StatusInternalServerError,
+			"Failed to exchange token: "+err.Error(),
+			err,
+		)
 		return
 	}
 
 	// Get user info from Google
 	userInfo, err := g.getUserInfo(token.AccessToken)
 	if err != nil {
-		http.Error(w, "Failed to get user info: "+err.Error(), http.StatusInternalServerError)
+		// http.Error(w, "Failed to get user info: "+err.Error(), http.StatusInternalServerError)
+		utils.RespondWithError(
+			w,
+			http.StatusInternalServerError,
+			"Failed to get user info: "+err.Error(),
+			err,
+		)
 		return
 	}
 
 	// Create or update user in your system
 	user := models.User{
-		Email:      userInfo.Email,
-		FirstName:  userInfo.Name,
+		Email: userInfo.Email,
+		FirstName: func() string {
+			if userInfo.GivenName != "" {
+				return userInfo.GivenName
+			}
+			return userInfo.Name
+		}(),
+		LastName:   userInfo.FamilyName,
 		SigninVia:  "google",
 		ProviderId: &userInfo.ID,
 		Avatar:     &userInfo.Picture,
 	}
 	// TODO:
+
 	err = g.Auth.Repository.GetUserRepository().UpsertUserByEmail(&user)
 	if err != nil {
-		http.Error(w, "Failed to create/update user: "+err.Error(), http.StatusInternalServerError)
+		// http.Error(w, "Failed to create/update user: "+err.Error(), http.StatusInternalServerError)
+		utils.RespondWithError(
+			w,
+			http.StatusInternalServerError,
+			"Failed to create/update user: "+err.Error(),
+			err,
+		)
 		return
 	}
 	// Generate tokens
-	accessToken, refreshToken, err := utils.GenerateTokens(user.ID, g.Auth.Config.Cookie.AccessTokenTTL,g.Auth.Config.Cookie.RefreshTokenTTL, g.Auth.Config.JWTSecret)
+	accessToken, refreshToken, err := g.Auth.TokenManager.GenerateTokens(&user)
 	if err != nil {
-		http.Error(w, "Failed to generate authentication tokens", http.StatusInternalServerError)
+		// http.Error(w, "Failed to generate authentication tokens", http.StatusInternalServerError)
+		utils.RespondWithError(
+			w,
+			http.StatusInternalServerError,
+			"Failed to generate authentication tokens",
+			err,
+		)
 		return
 	}
 	// Save refresh token
 	err = g.Auth.Repository.GetTokenRepository().SaveRefreshToken(user.ID, refreshToken, g.Auth.Config.Cookie.RefreshTokenTTL)
 	if err != nil {
-		http.Error(w, "Failed to save refresh token", http.StatusInternalServerError)
+		// http.Error(w, "Failed to save refresh token", http.StatusInternalServerError)
+		utils.RespondWithError(
+			w,
+			http.StatusInternalServerError,
+			"Failed to save refresh token",
+			err,
+		)
 		return
 	}
 

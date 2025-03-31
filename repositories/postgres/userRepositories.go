@@ -63,8 +63,20 @@ func (u *UserRepository) UpdateUser(user *models.User) error {
 }
 
 func (u *UserRepository) UpsertUserByEmail(user *models.User) error {
-	if err := u.db.Where("email = ?", user.Email).Assign(user).FirstOrCreate(user).Error; err != nil {
-		return fmt.Errorf("failed to upsert user: %w", err)
+	existingUser := models.User{}
+	if err := u.db.Where("email = ?", user.Email).First(&existingUser).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			user.ID = uuid.New().String()
+			if err := u.db.Create(user).Error; err != nil {
+				return fmt.Errorf("failed to upsert user: %w", err)
+			}
+		} else {
+			return fmt.Errorf("failed to get user by email: %w", err)
+		}
+	} else {
+		if err := u.db.Model(&models.User{}).Where("id = ?", existingUser.ID).Updates(user).Error; err != nil {
+			return fmt.Errorf("failed to update user: %w", err)
+		}
 	}
 	return nil
 }

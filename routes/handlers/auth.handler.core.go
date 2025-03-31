@@ -97,7 +97,7 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Hash password
-	hashedPassword, err := utils.HashPassword(req.Password, h.Auth.Config.PasswordPolicy.HashSaltLength)
+	hashedPassword, err := h.Auth.TokenManager.HashPassword(req.Password)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to secure password: "+err.Error(), nil)
 		return
@@ -113,7 +113,7 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 
 	// Handle email verification if enabled
 	if h.Auth.Config.EnableEmailVerification {
-		verificationToken, err := utils.GenerateRandomToken(32)
+		verificationToken, err := h.Auth.TokenManager.GenerateRandomToken(32)
 		if err != nil {
 			utils.RespondWithError(w, http.StatusInternalServerError, "Failed to generate verification token", nil)
 			return
@@ -141,7 +141,7 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 	// Set access token cookie
 	if !h.Auth.Config.EnableEmailVerification {
-		accessToken, refreshToken, err := utils.GenerateTokens(user.ID, h.Auth.Config.Cookie.AccessTokenTTL, h.Auth.Config.Cookie.RefreshTokenTTL, h.Auth.Config.JWTSecret)
+		accessToken, refreshToken, err := h.Auth.TokenManager.GenerateTokens(&user)
 		if err != nil {
 			utils.RespondWithError(w, http.StatusInternalServerError, "Failed to generate authentication tokens", nil)
 			return
@@ -255,7 +255,7 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		utils.RespondWithError(w, http.StatusUnauthorized, "Email not verified", nil)
 		return
 	}
-	err = utils.ValidatePassword(user.Password, req.Password)
+	err = h.Auth.TokenManager.ValidatePassword(user.Password, req.Password)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusUnauthorized, "Invalid email or password", nil)
 		return
@@ -293,8 +293,7 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Generate tokens
-	accessToken, refreshToken, err := utils.GenerateTokens(user.ID, h.Auth.Config.Cookie.AccessTokenTTL, h.Auth.Config.Cookie.RefreshTokenTTL, h.Auth.Config.JWTSecret)
+	accessToken, refreshToken, err := h.Auth.TokenManager.GenerateTokens(user)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to generate authentication tokens", nil)
 		return
@@ -308,10 +307,10 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.SetCookie(w, &http.Cookie{
-		Name:     "___goauth_access_token_" + h.Auth.Config.Cookie.CookieName,
-		Value:    accessToken,
-		Expires:  time.Now().Add(h.Auth.Config.Cookie.AccessTokenTTL),
-		Domain:   h.Auth.Config.Cookie.CookieDomain,
+		Name:    "___goauth_access_token_" + h.Auth.Config.Cookie.CookieName,
+		Value:   accessToken,
+		Expires: time.Now().Add(h.Auth.Config.Cookie.AccessTokenTTL),
+		// Domain:   h.Auth.Config.Cookie.CookieDomain,
 		Path:     h.Auth.Config.Cookie.CookiePath,
 		Secure:   h.Auth.Config.Cookie.CookieSecure,
 		HttpOnly: h.Auth.Config.Cookie.HttpOnly,
@@ -377,7 +376,7 @@ func (h *AuthHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
 		utils.RespondWithError(w, http.StatusBadRequest, "No authentication token provided", nil)
 		return
 	}
-	claims, err := utils.ValidateToken(token, h.Auth.Config.JWTSecret)
+	claims, err := h.Auth.TokenManager.ValidateToken(token)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusUnauthorized, "Invalid authentication token", nil)
 		return
@@ -435,7 +434,7 @@ func (h *AuthHandler) HandleRefreshToken(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Validate refresh token
-	claims, err := utils.ValidateToken(token, h.Auth.Config.JWTSecret)
+	claims, err := h.Auth.TokenManager.ValidateToken(token)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusUnauthorized, "Invalid refresh token", nil)
 		return
@@ -467,7 +466,7 @@ func (h *AuthHandler) HandleRefreshToken(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Generate new tokens
-	accessToken, refreshToken, err := utils.GenerateTokens(user.ID, h.Auth.Config.Cookie.AccessTokenTTL, h.Auth.Config.Cookie.RefreshTokenTTL, h.Auth.Config.JWTSecret)
+	accessToken, refreshToken, err := h.Auth.TokenManager.GenerateTokens(user)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to generate tokens", nil)
 		return
@@ -605,7 +604,7 @@ func (h *AuthHandler) authenticateRequest(r *http.Request, cookieName, jwtSecret
 		return "", errors.New("no authentication token provided")
 	}
 
-	claims, err := utils.ValidateToken(token, jwtSecret)
+	claims, err := h.Auth.TokenManager.ValidateToken(token)
 	if err != nil {
 		return "", err
 	}

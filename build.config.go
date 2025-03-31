@@ -32,7 +32,7 @@ func DefaultConfig() types.Config {
 		EnableTwoFactor:         false,
 		EnableEmailVerification: false,
 		EnableSmsVerification:   false,
-		BearerAuthEnabled:        false,
+		BearerAuthEnabled:       false,
 		PasswordPolicy: types.PasswordPolicy{
 			HashSaltLength: 14,
 			MinLength:      4,
@@ -113,7 +113,6 @@ func (b *AuthBuilder) WithProvider(provider types.AuthProvider, config types.Pro
 		b.config.Providers.Enabled = make([]types.AuthProvider, 0, 1)
 	}
 	b.config.Providers.Enabled = append(b.config.Providers.Enabled, provider)
-
 	switch provider {
 	case types.Google:
 		b.config.Providers.Google = config
@@ -185,6 +184,11 @@ func (b *AuthBuilder) validate() error {
 	}
 	if b.config.Swagger.Enable && (b.config.Swagger.Title == "" || b.config.Swagger.Version == "" || b.config.Swagger.DocPath == "" || b.config.Swagger.Description == "" || b.config.Swagger.Host == "") {
 		return errors.New("swagger title and version are required when swagger is enabled")
+	}
+
+	if b.config.EnableAddCustomJWTClaims && b.config.CustomJWTClaimsProvider == nil {
+		return errors.New("custom JWT claims provider is required when custom JWT claims are enabled")
+
 	}
 	return b.validateProviders()
 }

@@ -35,7 +35,7 @@ func (h *AuthHandler) HandleForgotPassword(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Generate reset token
-	resetToken, err := utils.GenerateRandomToken(32)
+	resetToken, err := h.Auth.TokenManager.GenerateRandomToken(32)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to generate reset token", err)
 		return
@@ -106,7 +106,7 @@ func (h *AuthHandler) HandleResetPassword(w http.ResponseWriter, r *http.Request
 	}
 
 	// Hash new password
-	hashedPassword, err := utils.HashPassword(req.NewPassword, h.Auth.Config.PasswordPolicy.HashSaltLength)
+	hashedPassword, err := h.Auth.TokenManager.HashPassword(req.NewPassword)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to secure password: "+err.Error(), err)
 		return
@@ -241,7 +241,7 @@ func (h *AuthHandler) HandleDeactivateUser(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Verify password
-	err = utils.ValidatePassword(user.Password, req.Password)
+	err = h.Auth.TokenManager.ValidatePassword(user.Password, req.Password)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusBadRequest, "Password is incorrect", err)
 		return
@@ -431,7 +431,7 @@ func (h *AuthHandler) HandleDisableTwoFactor(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Verify password
-	err = utils.ValidatePassword(user.Password, req.Password)
+	err = h.Auth.TokenManager.ValidatePassword(user.Password, req.Password)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusBadRequest, "Password is incorrect", err)
 
@@ -518,7 +518,7 @@ func (h *AuthHandler) HandleVerifyEmail(w http.ResponseWriter, r *http.Request) 
 	// Generate tokens if needed
 	var response map[string]interface{}
 	if r.Method == http.MethodPost {
-		accessToken, refreshToken, err := utils.GenerateTokens(user.ID, h.Auth.Config.Cookie.AccessTokenTTL, h.Auth.Config.Cookie.RefreshTokenTTL, h.Auth.Config.JWTSecret)
+		accessToken, refreshToken, err := h.Auth.TokenManager.GenerateTokens(user)
 		if err != nil {
 			utils.RespondWithError(w, http.StatusInternalServerError, "Failed to generate tokens", err)
 			return
@@ -608,7 +608,7 @@ func (h *AuthHandler) HandleResendVerificationEmail(w http.ResponseWriter, r *ht
 	}
 
 	// Generate verification token
-	verificationToken, err := utils.GenerateRandomToken(32)
+	verificationToken, err := h.Auth.TokenManager.GenerateRandomToken(32)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to generate verification token", err)
 		return
@@ -635,6 +635,123 @@ func (h *AuthHandler) HandleResendVerificationEmail(w http.ResponseWriter, r *ht
 	}
 	err = utils.RespondWithJSON(w, http.StatusOK, map[string]string{
 		"message": "If your email address exists in our database, you will receive a verification email shortly.",
+	})
+	if err != nil {
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to send response", err)
+		return
+	}
+}
+
+func (h *AuthHandler) SendMagicLink(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		utils.RespondWithError(w, http.StatusMethodNotAllowed, "Method not allowed", nil)
+		return
+	}
+	var req struct {
+		Email string `json:"email"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		utils.RespondWithError(w, http.StatusBadRequest, "Invalid request body: "+err.Error(), nil)
+		return
+	}
+	// Check if user exists
+	user, err := h.Auth.Repository.GetUserRepository().GetUserByEmail(req.Email)
+	if err != nil {
+		utils.RespondWithError(w, http.StatusBadRequest, "User not found", err)
+		return
+	}
+	// Generate magic link token
+	magicLinkToken, err := h.Auth.TokenManager.GenerateRandomToken(32)
+	if err != nil {
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to generate magic link token", err)
+		return
+	}
+	// Save magic link token (valid for 10 minutes)
+	err = h.Auth.Repository.GetTokenRepository().SaveMagicLinkToken(user.ID, magicLinkToken, 10*time.Minute)
+	if err != nil {
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to save magic link token", err)
+		return
+	}
+	// Send magic link email
+	if h.Auth.Config.EmailSender != nil {
+		magicLinkURL := fmt.Sprintf("%s?token=%s&email=%s",
+			h.Auth.Config.FrontendURL,
+			magicLinkToken,
+			user.Email)
+		err = h.Auth.Config.EmailSender.SendMagicLink(*user, magicLinkURL)
+		if err != nil {
+			utils.RespondWithError(w, http.StatusInternalServerError, "Failed to send magic link email", err)
+			return
+		}
+	}
+
+	err = utils.RespondWithJSON(w, http.StatusOK, map[string]string{
+		"message": "Magic link sent successfully",
+	})
+	if err != nil {
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to send response", err)
+		return
+	}
+}
+
+// HandleVerifyMagicLink verifies the magic link token
+func (h *AuthHandler) HandleVerifyMagicLink(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		utils.RespondWithError(w, http.StatusMethodNotAllowed, "Method not allowed", nil)
+		return
+	}
+	var req struct {
+		Token string `json:"token"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		utils.RespondWithError(w, http.StatusBadRequest, "Invalid request body: "+err.Error(), nil)
+		return
+	}
+
+	// Validate magic link token
+	// 	// func SaveMagicLinkToken(userID, token string, expiry time.Duration) error
+	// 	// func ValidateMagicLinkToken(userID, token string) (bool, error)
+	valid, userID, err := h.Auth.Repository.GetTokenRepository().ValidateMagicLinkToken(req.Token)
+	if err != nil || !valid || userID == "" {
+		utils.RespondWithError(w, http.StatusBadRequest, "Invalid or expired magic link token", err)
+		return
+	}
+	// Get user
+	user, err := h.Auth.Repository.GetUserRepository().GetUserByID(userID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			utils.RespondWithError(w, http.StatusBadRequest, "User not found", err)
+			return
+		}
+		utils.RespondWithError(w, http.StatusBadRequest, "Internal server error", err)
+		return
+	}
+	// Generate access and refresh tokens
+	accessToken, refreshToken, err := h.Auth.TokenManager.GenerateTokens(user)
+	if err != nil {
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to generate tokens", err)
+		return
+	}
+	// Save refresh token
+	err = h.Auth.Repository.GetTokenRepository().SaveRefreshToken(user.ID, refreshToken, h.Auth.Config.Cookie.RefreshTokenTTL)
+	if err != nil {
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to save refresh token", err)
+		return
+	}
+	// Set access token cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     h.Auth.Config.Cookie.CookieName,
+		Value:    accessToken,
+		Expires:  time.Now().Add(h.Auth.Config.Cookie.AccessTokenTTL),
+		Domain:   h.Auth.Config.Cookie.CookieDomain,
+		Path:     h.Auth.Config.Cookie.CookiePath,
+		SameSite: http.SameSiteLaxMode,
+		Secure:   h.Auth.Config.Cookie.CookieSecure,
+		HttpOnly: true,
+	})
+	// Send response
+	err = utils.RespondWithJSON(w, http.StatusOK, map[string]string{
+		"message": "Login successful",
 	})
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to send response", err)

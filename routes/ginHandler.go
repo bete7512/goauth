@@ -78,8 +78,8 @@ func (h *GinHandler) SetupRoutes(r *gin.Engine) {
 			switch oauth {
 			case "google":
 				google := oauthhandlers.NewGoogleOauth(h.Handler.Auth)
-				auth.POST("/oauth/google", ginHandlerWrapper(google.SignIn))
-				auth.POST("/oauth/google/callback", ginHandlerWrapper(google.Callback))
+				auth.GET("/oauth/google", ginHandlerWrapper(google.SignIn))
+				auth.GET("/oauth/google/callback", ginHandlerWrapper(google.Callback))
 			case "github":
 				// TODO: continue working for other providers
 			}
