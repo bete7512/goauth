@@ -179,7 +179,7 @@ func (g *GoogleOauth) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Save refresh token
-	err = g.Auth.Repository.GetTokenRepository().SaveRefreshToken(user.ID, refreshToken, g.Auth.Config.Cookie.RefreshTokenTTL)
+	err = g.Auth.Repository.GetTokenRepository().SaveToken(user.ID, refreshToken, models.RefreshToken, g.Auth.Config.Cookie.RefreshTokenTTL)
 	if err != nil {
 		// http.Error(w, "Failed to save refresh token", http.StatusInternalServerError)
 		utils.RespondWithError(

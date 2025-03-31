@@ -29,7 +29,7 @@ type User struct {
 	TwoFactorVerified bool           `json:"two_factor_verified" gorm:"default:false"`
 	Active            bool           `json:"active" gorm:"default:true"`
 	IsAdmin           bool           `json:"is_admin" gorm:"default:false"`
-	Avatar            *string         `json:"avatar"`
+	Avatar            *string        `json:"avatar"`
 	ProviderId        *string        `json:"provider_id"`
 	CreatedAt         time.Time      `json:"created_at"`
 	SigninVia         string         `json:"signin_via"`

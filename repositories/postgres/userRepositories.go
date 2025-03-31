@@ -87,3 +87,37 @@ func (u *UserRepository) DeleteUser(user *models.User) error {
 	}
 	return nil
 }
+
+func (u *UserRepository) GetAllUsers(filter interfaces.Filter) ([]*models.User, int64, error) {
+	var users []*models.User
+	var total int64
+	var err error
+	if filter.Search != "" {
+		err = u.db.Where("email LIKE ?", "%"+filter.Search+"%").Or("first_name ILIKE ?", "%"+filter.Search+"%").Or("last_name ILIKE ?", "%"+filter.Search+"%").Find(&users).Error
+	} else {
+		err = u.db.Find(&users).Error
+	}
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to get all users: %w", err)
+	}
+	if err := u.db.Model(&models.User{}).Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to count users: %w", err)
+	}
+	if filter.Page > 0 && filter.Limit > 0 {
+		offset := (filter.Page - 1) * filter.Limit
+		if err := u.db.Offset(offset).Limit(filter.Limit).Find(&users).Error; err != nil {
+			return nil, 0, fmt.Errorf("failed to paginate users: %w", err)
+		}
+	}
+	if filter.Sort.Field != "" {
+		if filter.Sort.Direction == "asc" {
+			err = u.db.Order(fmt.Sprintf("%s ASC", filter.Sort.Field)).Find(&users).Error
+		} else {
+			err = u.db.Order(fmt.Sprintf("%s DESC", filter.Sort.Field)).Find(&users).Error
+		}
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to sort users: %w", err)
+		}
+	}
+	return users, total, nil
+}

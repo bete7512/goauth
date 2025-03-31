@@ -1,6 +1,7 @@
 package goauth
 
 import (
+	"errors"
 	"log"
 	"net/http"
 
@@ -23,21 +24,31 @@ type AuthService struct {
 
 func NewAuth(conf types.Config) (*AuthService, error) {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-
+	var repositoryFactory interfaces.RepositoryFactory
 	_, err := NewBuilder().WithConfig(conf).Build()
 	if err != nil {
 		return nil, err
 	}
-	dbClient, err := database.NewDBClient(conf.Database)
-	if err != nil {
-		return nil, err
-	}
-	if err := dbClient.Connect(); err != nil {
-		return nil, err
-	}
-	repositoryFactory, err := repositories.NewRepositoryFactory(conf.Database.Type, dbClient.GetDB())
-	if err != nil {
-		return nil, err
+	if conf.DataAccessConfig.EnableDataAccess {
+		repositoryFactory = conf.DataAccessConfig.Factory
+		if repositoryFactory == nil {
+			return nil, errors.New("repository factory is nil")
+		}
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		dbClient, err := database.NewDBClient(conf.Database)
+		if err != nil {
+			return nil, err
+		}
+		if err := dbClient.Connect(); err != nil {
+			return nil, err
+		}
+		repositoryFactory, err = repositories.NewRepositoryFactory(conf.Database.Type, dbClient.GetDB())
+		if err != nil {
+			return nil, err
+		}
 	}
 	return &AuthService{
 		Config:      conf,

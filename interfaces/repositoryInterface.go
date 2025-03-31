@@ -6,41 +6,39 @@ import (
 	"github.com/bete7512/goauth/models"
 )
 
+type Pagination struct {
+	Page  int `json:"page"`
+	Limit int `json:"limit"`
+}
+type Sort struct {
+	Field     string `json:"field"`
+	Direction string `json:"direction"`
+}
+
+type Filter struct {
+	Pagination
+	Sort
+	Search string `json:"search"`
+	UserId string `json:"user_id"`
+	Email  string `json:"email"`
+}
+
 type UserRepository interface {
 	CreateUser(user *models.User) error
+	UpsertUserByEmail(user *models.User) error
 	GetUserByEmail(email string) (*models.User, error)
 	GetUserByID(id string) (*models.User, error)
 	UpdateUser(user *models.User) error
-	UpsertUserByEmail(user *models.User) error
 	DeleteUser(user *models.User) error
+	GetAllUsers(Filter) ([]*models.User, int64, error)
 }
 
 type TokenRepository interface {
-	// Refresh tokens
-	SaveRefreshToken(userID, token string, expiry time.Duration) error
-	ValidateRefreshToken(userID, token string) (bool, error)
-	InvalidateRefreshToken(userID, token string) error
-	InvalidateAllRefreshTokens(userID string) error
-
-	// Email verification tokens
-	SaveEmailVerificationToken(userID, token string, expiry time.Duration) error
-	ValidateEmailVerificationToken(userID, token string) (bool, error)
-	InvalidateEmailVerificationToken(userID, token string) error
-
-	// Password reset tokens
-	SavePasswordResetToken(userID, token string, expiry time.Duration) error
-	ValidatePasswordResetToken(token string) (bool, string, error)
-	InvalidatePasswordResetToken(token string) error
-
-	// Two-factor auth codes
-	SaveTwoFactorCode(userID, code string, expiry time.Duration) error
-	ValidateTwoFactorCode(userID, code string) (bool, error)
-	InvalidateTwoFactorCode(userID, code string) error
-
-	// Magic link tokens
-
-	SaveMagicLinkToken(userID, token string, expiry time.Duration) error
-	ValidateMagicLinkToken(token string) (bool, string, error)
+	SaveToken(userID, token string, tokenType models.TokenType, expiry time.Duration) error
+	ValidateToken(token string, tokenType models.TokenType) (bool, *string, error)
+	ValidateTokenWithUserID(userID, token string, tokenType models.TokenType) (bool, error)
+	InvalidateToken(userID, token string, tokenType models.TokenType) error
+	InvalidateAllTokens(userID string, tokenType models.TokenType) error
 }
 type RepositoryFactory interface {
 	GetUserRepository() UserRepository

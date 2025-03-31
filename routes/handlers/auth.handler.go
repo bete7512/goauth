@@ -41,7 +41,7 @@ func (h *AuthHandler) HandleForgotPassword(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	// Save reset token
-	err = h.Auth.Repository.GetTokenRepository().SavePasswordResetToken(user.ID, resetToken, 1*time.Hour)
+	err = h.Auth.Repository.GetTokenRepository().SaveToken(user.ID, resetToken, models.PasswordResetToken, 1*time.Hour)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to save reset token", err)
 		return
@@ -86,7 +86,7 @@ func (h *AuthHandler) HandleResetPassword(w http.ResponseWriter, r *http.Request
 	}
 
 	// Validate token
-	valid, userID, err := h.Auth.Repository.GetTokenRepository().ValidatePasswordResetToken(req.Token)
+	valid, userID, err := h.Auth.Repository.GetTokenRepository().ValidateToken(req.Token, models.PasswordResetToken)
 	if err != nil || !valid {
 		utils.RespondWithError(w, http.StatusBadRequest, "Invalid or expired reset token", err)
 		return
@@ -97,9 +97,13 @@ func (h *AuthHandler) HandleResetPassword(w http.ResponseWriter, r *http.Request
 		utils.RespondWithError(w, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
+	if userID == nil {
+		utils.RespondWithError(w, http.StatusBadRequest, "User ID is nil", nil)
+		return
+	}
 
 	// Get user
-	user, err := h.Auth.Repository.GetUserRepository().GetUserByID(userID)
+	user, err := h.Auth.Repository.GetUserRepository().GetUserByID(*userID)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusBadRequest, "User not found", err)
 		return
@@ -121,14 +125,18 @@ func (h *AuthHandler) HandleResetPassword(w http.ResponseWriter, r *http.Request
 	}
 
 	// Invalidate token
-	err = h.Auth.Repository.GetTokenRepository().InvalidatePasswordResetToken(req.Token)
+	err = h.Auth.Repository.GetTokenRepository().InvalidateToken(user.ID, req.Token, models.PasswordResetToken)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to invalidate token: "+err.Error(), err)
 		return
 	}
 
+	if userID == nil {
+		utils.RespondWithError(w, http.StatusBadRequest, "User ID is nil", nil)
+		return
+	}
 	// Invalidate all refresh tokens for security
-	err = h.Auth.Repository.GetTokenRepository().InvalidateAllRefreshTokens(userID)
+	err = h.Auth.Repository.GetTokenRepository().InvalidateAllTokens(*userID, models.RefreshToken)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to invalidate refresh tokens: "+err.Error(), err)
 		return
@@ -256,7 +264,7 @@ func (h *AuthHandler) HandleDeactivateUser(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Invalidate all refresh tokens
-	err = h.Auth.Repository.GetTokenRepository().InvalidateAllRefreshTokens(userID)
+	err = h.Auth.Repository.GetTokenRepository().InvalidateAllTokens(userID, models.RefreshToken)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to invalidate refresh tokens: "+err.Error(), err)
 		return
@@ -375,7 +383,7 @@ func (h *AuthHandler) HandleVerifyTwoFactor(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Validate two-factor code
-	valid, err := h.Auth.Repository.GetTokenRepository().ValidateTwoFactorCode(user.ID, req.Code)
+	valid, err := h.Auth.Repository.GetTokenRepository().ValidateTokenWithUserID(user.ID, req.Code, models.TwoFactorCode)
 	if err != nil || !valid {
 		utils.RespondWithError(w, http.StatusBadRequest, "Invalid two-factor code", err)
 		return
@@ -494,7 +502,7 @@ func (h *AuthHandler) HandleVerifyEmail(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Validate verification token
-	valid, err := h.Auth.Repository.GetTokenRepository().ValidateEmailVerificationToken(user.ID, token)
+	valid, err := h.Auth.Repository.GetTokenRepository().ValidateTokenWithUserID(user.ID, token, models.EmailVerificationToken)
 	if err != nil || !valid {
 		utils.RespondWithError(w, http.StatusBadRequest, "Invalid or expired verification token", err)
 		return
@@ -509,7 +517,7 @@ func (h *AuthHandler) HandleVerifyEmail(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Invalidate verification token
-	err = h.Auth.Repository.GetTokenRepository().InvalidateEmailVerificationToken(user.ID, token)
+	err = h.Auth.Repository.GetTokenRepository().InvalidateToken(user.ID, token, models.EmailVerificationToken)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to invalidate verification token: "+err.Error(), err)
 		return
@@ -525,7 +533,7 @@ func (h *AuthHandler) HandleVerifyEmail(w http.ResponseWriter, r *http.Request) 
 		}
 
 		// Save refresh token
-		err = h.Auth.Repository.GetTokenRepository().SaveRefreshToken(user.ID, refreshToken, h.Auth.Config.Cookie.RefreshTokenTTL)
+		err = h.Auth.Repository.GetTokenRepository().SaveToken(user.ID, refreshToken, models.EmailVerificationToken, h.Auth.Config.Cookie.RefreshTokenTTL)
 		if err != nil {
 			utils.RespondWithError(w, http.StatusInternalServerError, "Failed to save refresh token", err)
 			return
@@ -615,7 +623,7 @@ func (h *AuthHandler) HandleResendVerificationEmail(w http.ResponseWriter, r *ht
 	}
 
 	// Save verification token (valid for 24 hours)
-	err = h.Auth.Repository.GetTokenRepository().SaveEmailVerificationToken(user.ID, verificationToken, 24*time.Hour)
+	err = h.Auth.Repository.GetTokenRepository().SaveToken(user.ID, verificationToken, models.EmailVerificationToken, 24*time.Hour)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to save verification token", err)
 		return
@@ -667,7 +675,7 @@ func (h *AuthHandler) SendMagicLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Save magic link token (valid for 10 minutes)
-	err = h.Auth.Repository.GetTokenRepository().SaveMagicLinkToken(user.ID, magicLinkToken, 10*time.Minute)
+	err = h.Auth.Repository.GetTokenRepository().SaveToken(user.ID, magicLinkToken, models.MakicLinkToken, 10*time.Minute)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to save magic link token", err)
 		return
@@ -711,13 +719,13 @@ func (h *AuthHandler) HandleVerifyMagicLink(w http.ResponseWriter, r *http.Reque
 	// Validate magic link token
 	// 	// func SaveMagicLinkToken(userID, token string, expiry time.Duration) error
 	// 	// func ValidateMagicLinkToken(userID, token string) (bool, error)
-	valid, userID, err := h.Auth.Repository.GetTokenRepository().ValidateMagicLinkToken(req.Token)
-	if err != nil || !valid || userID == "" {
+	valid, userID, err := h.Auth.Repository.GetTokenRepository().ValidateToken(req.Token, models.MakicLinkToken)
+	if err != nil || !valid || userID == nil {
 		utils.RespondWithError(w, http.StatusBadRequest, "Invalid or expired magic link token", err)
 		return
 	}
 	// Get user
-	user, err := h.Auth.Repository.GetUserRepository().GetUserByID(userID)
+	user, err := h.Auth.Repository.GetUserRepository().GetUserByID(*userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			utils.RespondWithError(w, http.StatusBadRequest, "User not found", err)
@@ -733,7 +741,7 @@ func (h *AuthHandler) HandleVerifyMagicLink(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	// Save refresh token
-	err = h.Auth.Repository.GetTokenRepository().SaveRefreshToken(user.ID, refreshToken, h.Auth.Config.Cookie.RefreshTokenTTL)
+	err = h.Auth.Repository.GetTokenRepository().SaveToken(user.ID, refreshToken, models.RefreshToken, h.Auth.Config.Cookie.RefreshTokenTTL)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to save refresh token", err)
 		return
@@ -765,7 +773,7 @@ func (h *AuthHandler) sendTwoFactorCode(user *models.User) error {
 	code := fmt.Sprintf("%06d", rand.Intn(1000000))
 
 	// Save code (valid for 10 minutes)
-	err := h.Auth.Repository.GetTokenRepository().SaveTwoFactorCode(user.ID, code, 10*time.Minute)
+	err := h.Auth.Repository.GetTokenRepository().SaveToken(user.ID, code, models.TwoFactorCode, 10*time.Minute)
 	if err != nil {
 		return err
 	}

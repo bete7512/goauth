@@ -120,7 +120,7 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Save verification token
-		err = h.Auth.Repository.GetTokenRepository().SaveEmailVerificationToken(user.ID, verificationToken, 24*time.Hour)
+		err = h.Auth.Repository.GetTokenRepository().SaveToken(user.ID, verificationToken, models.EmailVerificationToken, 24*time.Hour)
 		if err != nil {
 			utils.RespondWithError(w, http.StatusInternalServerError, "Failed to save verification token", nil)
 			return
@@ -148,7 +148,7 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Save refresh token
-		err = h.Auth.Repository.GetTokenRepository().SaveRefreshToken(user.ID, refreshToken, h.Auth.Config.Cookie.RefreshTokenTTL)
+		err = h.Auth.Repository.GetTokenRepository().SaveToken(user.ID, refreshToken, models.RefreshToken, h.Auth.Config.Cookie.RefreshTokenTTL)
 		if err != nil {
 			utils.RespondWithError(w, http.StatusInternalServerError, "Failed to save refresh token", nil)
 			return
@@ -284,9 +284,9 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		} else {
-			// Validate two-factor code
-			valid, err := h.Auth.Repository.GetTokenRepository().ValidateTwoFactorCode(user.ID, req.TwoFactorCode)
-			if err != nil || !valid {
+			twoFactorTTl := 10 * time.Minute
+			err = h.Auth.Repository.GetTokenRepository().SaveToken(user.ID, req.TwoFactorCode, models.TwoFactorCode, twoFactorTTl)
+			if err != nil {
 				utils.RespondWithError(w, http.StatusUnauthorized, "Invalid two-factor code", nil)
 				return
 			}
@@ -300,7 +300,8 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Save refresh token
-	err = h.Auth.Repository.GetTokenRepository().SaveRefreshToken(user.ID, refreshToken, h.Auth.Config.Cookie.RefreshTokenTTL)
+	err = h.Auth.Repository.GetTokenRepository().SaveToken(user.ID, refreshToken, models.RefreshToken, h.Auth.Config.Cookie.RefreshTokenTTL)
+	// SaveRefreshToken(user.ID, refreshToken, h.Auth.Config.Cookie.RefreshTokenTTL)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to save refresh token", nil)
 		return
@@ -382,7 +383,7 @@ func (h *AuthHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	userID := claims["user_id"].(string)
-	err = h.Auth.Repository.GetTokenRepository().InvalidateAllRefreshTokens(userID)
+	err = h.Auth.Repository.GetTokenRepository().InvalidateAllTokens(userID, models.RefreshToken)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to invalidate refresh tokens", nil)
 		return
@@ -446,7 +447,7 @@ func (h *AuthHandler) HandleRefreshToken(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	valid, err := h.Auth.Repository.GetTokenRepository().ValidateRefreshToken(userID, token)
+	valid, err := h.Auth.Repository.GetTokenRepository().ValidateTokenWithUserID(userID, token, models.RefreshToken)
 	if err != nil || !valid {
 		utils.RespondWithError(w, http.StatusUnauthorized, "Invalid or expired refresh token", nil)
 		return
@@ -472,14 +473,14 @@ func (h *AuthHandler) HandleRefreshToken(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	err = h.Auth.Repository.GetTokenRepository().InvalidateRefreshToken(userID, token)
+	err = h.Auth.Repository.GetTokenRepository().InvalidateToken(userID, token, models.RefreshToken)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to invalidate refresh token", nil)
 		return
 	}
 
 	// Save new refresh token
-	err = h.Auth.Repository.GetTokenRepository().SaveRefreshToken(user.ID, refreshToken, h.Auth.Config.Cookie.RefreshTokenTTL)
+	err = h.Auth.Repository.GetTokenRepository().SaveToken(user.ID, refreshToken, models.RefreshToken, h.Auth.Config.Cookie.RefreshTokenTTL)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to save refresh token", nil)
 		return
