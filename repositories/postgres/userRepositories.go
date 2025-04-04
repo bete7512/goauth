@@ -32,7 +32,7 @@ func (u *UserRepository) GetUserByEmail(email string) (*models.User, error) {
 	// Use FindOne instead of First to avoid the automatic error logging
 	err := u.db.Where("email = ?", email).Take(&user).Error
 	// Handle record not found
-	if !errors.Is(err, gorm.ErrRecordNotFound) {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, errors.New("something Went wrong")
 	}
 

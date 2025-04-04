@@ -243,10 +243,12 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 			utils.RespondWithError(w, http.StatusUnauthorized, "User Not Found", nil)
 			return
 		}
-		utils.RespondWithError(w, http.StatusUnauthorized, "Invalid email or password", nil)
+
+		log.Println("Error getting user by email:", err)
+		utils.RespondWithError(w, http.StatusUnauthorized, "Invalid email or password", err)
 		return
 	}
-	if user==nil {
+	if user == nil {
 		utils.RespondWithError(w, http.StatusUnauthorized, "Invalid email or password", nil)
 		return
 	}
@@ -255,13 +257,9 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if h.Auth.Config.EnableEmailVerification && !user.EmailVerified {
-		utils.RespondWithError(w, http.StatusUnauthorized, "Email not verified", nil)
-		return
-	}
 	err = h.Auth.TokenManager.ValidatePassword(user.Password, req.Password)
 	if err != nil {
-		utils.RespondWithError(w, http.StatusUnauthorized, "Invalid email or password", nil)
+		utils.RespondWithError(w, http.StatusUnauthorized, "Invalid email or password", err)
 		return
 	}
 
