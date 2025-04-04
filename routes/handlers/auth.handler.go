@@ -33,6 +33,10 @@ func (h *AuthHandler) HandleForgotPassword(w http.ResponseWriter, r *http.Reques
 		utils.RespondWithError(w, http.StatusBadRequest, "User not found", err)
 		return
 	}
+	if user == nil {
+		utils.RespondWithError(w, http.StatusBadRequest, "User not found", nil)
+		return
+	}
 
 	// Generate reset token
 	resetToken, err := h.Auth.TokenManager.GenerateRandomToken(32)
@@ -501,6 +505,10 @@ func (h *AuthHandler) HandleVerifyEmail(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	if user == nil {
+		utils.RespondWithError(w, http.StatusBadRequest, "User not found", nil)
+		return
+	}
 	// Validate verification token
 	valid, err := h.Auth.Repository.GetTokenRepository().ValidateTokenWithUserID(user.ID, token, models.EmailVerificationToken)
 	if err != nil || !valid {
@@ -601,6 +609,10 @@ func (h *AuthHandler) HandleResendVerificationEmail(w http.ResponseWriter, r *ht
 		}
 		return
 	}
+	if user == nil {
+		utils.RespondWithError(w, http.StatusBadRequest, "User not found", nil)
+		return
+	}
 
 	// Check if already verified
 	if user.EmailVerified {
@@ -666,6 +678,10 @@ func (h *AuthHandler) SendMagicLink(w http.ResponseWriter, r *http.Request) {
 	user, err := h.Auth.Repository.GetUserRepository().GetUserByEmail(req.Email)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusBadRequest, "User not found", err)
+		return
+	}
+	if user == nil {
+		utils.RespondWithError(w, http.StatusBadRequest, "User not found", nil)
 		return
 	}
 	// Generate magic link token

@@ -80,8 +80,8 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to check if email exists: "+err.Error(), nil)
 		return
 	}
-	if existingUser.Email != "" {
-		utils.RespondWithError(w, http.StatusConflict, "Email already in use", nil)
+	if existingUser != nil {
+		utils.RespondWithError(w, http.StatusBadRequest, "Email already exists", nil)
 		return
 	}
 
@@ -243,6 +243,10 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 			utils.RespondWithError(w, http.StatusUnauthorized, "User Not Found", nil)
 			return
 		}
+		utils.RespondWithError(w, http.StatusUnauthorized, "Invalid email or password", nil)
+		return
+	}
+	if user==nil {
 		utils.RespondWithError(w, http.StatusUnauthorized, "Invalid email or password", nil)
 		return
 	}
