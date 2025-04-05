@@ -9,46 +9,67 @@ import (
 )
 
 type Config struct {
-	Database                           DatabaseConfig
-	DataAccessConfig                   DataAccessConfig
-	Server                             ServerConfig
-	BasePath                           string
-	FrontendURL                        string
-	Domain                             string
-	JWTSecret                          string
-	Cookie                             CookieConfig
-	BearerAuthEnabled                  bool
-	EnableTwoFactor                    bool
-	EnableMagicLink                    bool
-	PasswordPolicy                     PasswordPolicy
-	Providers                          ProvidersConfig
-	TwoFactorMethod                    string
-	EnableEmailVerification            bool
-	EnableAddCustomJWTClaims           bool
-	CustomJWTClaimsProvider            CustomJWTClaimsProvider
-	SendVerificationEmailOnAfterSignup bool
-	EnableSmsVerification              bool
-	EmailVerificationURL               string
-	PasswordResetURL                   string
-	EmailSender                        EmailSender
-	SMSSender                          SMSSender
-	Swagger                            SwaggerConfig
+	// Server configuration
+	Server      ServerConfig
+	BasePath    string
+	Domain      string
+	FrontendURL string
+	Swagger     SwaggerConfig
+
+	// Authentication configuration
+	AuthConfig     AuthConfig
+	PasswordPolicy PasswordPolicy
+	Providers      ProvidersConfig
+
+	// Database and data access
+	Database                 DatabaseConfig
+	StorageRepositoryFactory CustomStorageRepositoryConfig
+
+	// Communication
+	EmailSender EmailSender
+	SMSSender   SMSSender
+
+	// Security features
+	RateLimiter RateLimiterConfig
+
+	// Custom functionality
+	CustomJWTClaimsProvider CustomJWTClaimsProvider
+
+	// Redis configuration
+	RedisConfig RedisConfig
 }
 
-type DataAccessConfig struct {
-	EnableDataAccess bool
-	Factory          interfaces.RepositoryFactory
-	DatabaseConfig   DatabaseConfig
+// AuthConfig consolidates authentication-related settings
+type AuthConfig struct {
+	JWTSecret                     string
+	Cookie                        CookieConfig
+	EnableBearerAuth              bool
+	EnableTwoFactor               bool
+	TwoFactorMethod               string
+	EnableMagicLink               bool
+	EnableEmailVerification       bool
+	EnableSmsVerification         bool
+	EmailVerificationURL          string
+	PasswordResetURL              string
+	EnableAddCustomJWTClaims      bool
+	EnableRateLimiter             bool
+	EnableCustomStorageRepository bool
+	SendVerificationEmailOnSignup bool
 }
+
+type CustomStorageRepositoryConfig struct {
+	Factory interfaces.RepositoryFactory
+}
+
 type CookieConfig struct {
-	CookieName      string
+	Name            string // Renamed from CookieName
 	AccessTokenTTL  time.Duration
-	CookieSecure    bool
-	HttpOnly        bool
-	CookieDomain    string
 	RefreshTokenTTL time.Duration
-	CookiePath      string
-	MaxCookieAge    int
+	Secure          bool // Renamed from CookieSecure
+	HttpOnly        bool
+	Domain          string // Renamed from CookieDomain
+	Path            string // Renamed from CookiePath
+	MaxAge          int    // Renamed from MaxCookieAge
 	SameSite        http.SameSite
 }
 
@@ -63,6 +84,8 @@ type PasswordPolicy struct {
 
 type ServerConfig struct {
 	Type ServerType
+	Host string // Added for consistency with your SwaggerConfig
+	Port int    // Added since most servers need a port
 }
 
 type DatabaseConfig struct {
@@ -78,6 +101,11 @@ type ProvidersConfig struct {
 	Facebook  ProviderConfig
 	Microsoft ProviderConfig
 	Apple     ProviderConfig
+	Twitter   ProviderConfig
+	LinkedIn  ProviderConfig
+	Discord   ProviderConfig
+	Spotify   ProviderConfig
+	Slack     ProviderConfig
 }
 
 type ProviderConfig struct {
@@ -85,20 +113,54 @@ type ProviderConfig struct {
 	ClientSecret string
 	RedirectURL  string
 	Scopes       []string
+	TenantId     *string
 }
+
 type Auth struct {
 	Config       Config
-	Db           DatabaseConfig
 	Repository   interfaces.RepositoryFactory
 	HookManager  *hooks.HookManager
 	TokenManager TokenManagerInterface
+	RateLimiter  *RateLimiter
 }
 
 type SwaggerConfig struct {
+	Enable      bool
 	Title       string
 	Version     string
 	Description string
-	Enable      bool
 	DocPath     string
 	Host        string
+}
+
+type RedisConfig struct {
+	Host     string
+	Port     int
+	Database int
+	Password string
+}
+
+type RateLimiterConfig struct {
+	Type                       RateLimiterStorageType
+	Routes                     map[string]LimiterConfig // Changed from array to map with route as key
+	DefaultConfig              LimiterConfig            // Added for routes without specific config
+	EnableBruteForceProtection bool
+	BruteForceProtection       BruteForceConfig // Added for auth endpoints specifically
+}
+
+type LimiterConfig struct {
+	WindowSize    time.Duration
+	MaxRequests   int
+	BlockDuration time.Duration
+}
+
+// New type for brute force protection specific settings
+type BruteForceConfig struct {
+	MaxAttempts          int           // Max login attempts before temporary lock
+	ProgressiveBlocking  bool          // Whether to increase block time with consecutive failures
+	InitialBlockDuration time.Duration // Starting block duration
+	MaxBlockDuration     time.Duration // Maximum block duration for progressive blocks
+	TrackByIP            bool          // Track attempts by IP address
+	TrackByUsername      bool          // Track attempts by username
+	TrackByCombined      bool          // Track attempts by IP+username combination
 }

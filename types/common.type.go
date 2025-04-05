@@ -44,4 +44,17 @@ const (
 	Facebook  AuthProvider = "facebook"
 	Microsoft AuthProvider = "microsoft"
 	Apple     AuthProvider = "apple"
+	Discord  AuthProvider = "discord"
+	Twitter   AuthProvider = "twitter"
+	LinkedIn  AuthProvider = "linkedin"
+	Spotify   AuthProvider = "spotify"
+	Slack     AuthProvider = "slack"
+	Custom    AuthProvider = "custom"
+)
+type RateLimiterStorageType string
+
+const (
+	RedisRateLimiter RateLimiterStorageType = "redis"
+	MemoryRateLimiter RateLimiterStorageType = "memory"
+	DatabaseRateLimiter RateLimiterStorageType = "database"
 )

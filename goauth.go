@@ -2,12 +2,12 @@ package goauth
 
 import (
 	"errors"
-	"log"
 	"net/http"
 
 	"github.com/bete7512/goauth/database"
 	"github.com/bete7512/goauth/hooks"
 	"github.com/bete7512/goauth/interfaces"
+	"github.com/bete7512/goauth/ratelimiter"
 	"github.com/bete7512/goauth/repositories"
 	"github.com/bete7512/goauth/routes"
 	"github.com/bete7512/goauth/routes/handlers"
@@ -20,22 +20,20 @@ type AuthService struct {
 	Config      types.Config
 	Repository  interfaces.RepositoryFactory
 	HookManager *hooks.HookManager
+	RateLimiter types.RateLimiter
 }
 
 func NewAuth(conf types.Config) (*AuthService, error) {
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	var repositoryFactory interfaces.RepositoryFactory
+	var authService *AuthService
 	_, err := NewBuilder().WithConfig(conf).Build()
 	if err != nil {
 		return nil, err
 	}
-	if conf.DataAccessConfig.EnableDataAccess {
-		repositoryFactory = conf.DataAccessConfig.Factory
+	if conf.AuthConfig.EnableCustomStorageRepository {
+		repositoryFactory = conf.StorageRepositoryFactory.Factory
 		if repositoryFactory == nil {
 			return nil, errors.New("repository factory is nil")
-		}
-		if err != nil {
-			return nil, err
 		}
 	} else {
 		dbClient, err := database.NewDBClient(conf.Database)
@@ -50,11 +48,22 @@ func NewAuth(conf types.Config) (*AuthService, error) {
 			return nil, err
 		}
 	}
-	return &AuthService{
+
+	authService = &AuthService{
 		Config:      conf,
 		Repository:  repositoryFactory,
 		HookManager: hooks.NewHookManager(),
-	}, nil
+		RateLimiter: ratelimiter.NewRateLimiter(conf),
+	}
+
+	if conf.AuthConfig.EnableRateLimiter {
+
+		if authService.RateLimiter == nil {
+			return nil, errors.New("rate limiter is nil")
+		}
+	}
+
+	return authService, nil
 }
 
 func (a *AuthService) RegisterBeforeHook(route string, hook hooks.RouteHook) error {
@@ -82,22 +91,10 @@ func (a *AuthService) GetGinAuthRoutes(r *gin.Engine) {
 			Repository:   a.Repository,
 			HookManager:  a.HookManager,
 			TokenManager: tokenManager.NewTokenManager(a.Config),
+			RateLimiter:  &a.RateLimiter,
 		},
 	})
 	ginHandler.SetupRoutes(r)
-}
-
-func (a *AuthService) GetGinRoutesRaw(r *gin.Engine) handlers.AuthHandler {
-	authHandler := handlers.AuthHandler{
-		Auth: &types.Auth{
-			Config:       a.Config,
-			Repository:   a.Repository,
-			HookManager:  a.HookManager,
-			TokenManager: tokenManager.NewTokenManager(a.Config),
-		},
-	}
-	routes.NewGinHandler(authHandler)
-	return authHandler
 }
 
 func (a *AuthService) GetHttpAuthMiddleware(next http.Handler) http.Handler {

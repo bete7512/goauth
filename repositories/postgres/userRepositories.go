@@ -35,12 +35,6 @@ func (u *UserRepository) GetUserByEmail(email string) (*models.User, error) {
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, errors.New("something Went wrong")
 	}
-
-	// Handle other errors
-	if err != nil {
-		return nil, fmt.Errorf("failed to get user by email: %w", err)
-	}
-
 	return &user, nil
 }
 

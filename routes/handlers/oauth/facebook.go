@@ -12,51 +12,55 @@ import (
 	"github.com/bete7512/goauth/types"
 	"github.com/bete7512/goauth/utils"
 	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
+	"golang.org/x/oauth2/facebook"
 )
 
-type GoogleOauth struct {
+// ===== FACEBOOK OAUTH HANDLER =====
+
+type FacebookOauth struct {
 	Auth *types.Auth
 }
 
-func NewGoogleOauth(auth *types.Auth) *GoogleOauth {
-	return &GoogleOauth{
+func NewFacebookOauth(auth *types.Auth) *FacebookOauth {
+	return &FacebookOauth{
 		Auth: auth,
 	}
 }
 
-// GoogleUserInfo represents the user information returned by Google
-type GoogleUserInfo struct {
-	ID            string `json:"id"`
-	Email         string `json:"email"`
-	VerifiedEmail bool   `json:"verified_email"`
-	Name          string `json:"name"`
-	GivenName     string `json:"given_name"`
-	FamilyName    string `json:"family_name"`
-	Picture       string `json:"picture"`
-	Locale        string `json:"locale"`
+// FacebookUserInfo represents the user information returned by Facebook
+type FacebookUserInfo struct {
+	ID        string `json:"id"`
+	Email     string `json:"email"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	Name      string `json:"name"`
+	Picture   struct {
+		Data struct {
+			URL string `json:"url"`
+		} `json:"data"`
+	} `json:"picture"`
 }
 
-// getGoogleOAuthConfig creates the OAuth2 config for Google
-func (g *GoogleOauth) getGoogleOAuthConfig() *oauth2.Config {
+// getFacebookOAuthConfig creates the OAuth2 config for Facebook
+func (f *FacebookOauth) getFacebookOAuthConfig() *oauth2.Config {
 	return &oauth2.Config{
-		ClientID:     g.Auth.Config.Providers.Google.ClientID,
-		ClientSecret: g.Auth.Config.Providers.Google.ClientSecret,
-		RedirectURL:  g.Auth.Config.Providers.Google.RedirectURL,
+		ClientID:     f.Auth.Config.Providers.Facebook.ClientID,
+		ClientSecret: f.Auth.Config.Providers.Facebook.ClientSecret,
+		RedirectURL:  f.Auth.Config.Providers.Facebook.RedirectURL,
 		Scopes: []string{
-			"https://www.googleapis.com/auth/userinfo.email",
-			"https://www.googleapis.com/auth/userinfo.profile",
+			"email",
+			"public_profile",
 		},
-		Endpoint: google.Endpoint,
+		Endpoint: facebook.Endpoint,
 	}
 }
 
-// SignIn initiates the Google OAuth flow
-func (g *GoogleOauth) SignIn(w http.ResponseWriter, r *http.Request) {
-	config := g.getGoogleOAuthConfig()
+// SignIn initiates the Facebook OAuth flow
+func (f *FacebookOauth) SignIn(w http.ResponseWriter, r *http.Request) {
+	config := f.getFacebookOAuthConfig()
 
 	// Generate a random state for CSRF protection
-	state, err := g.Auth.TokenManager.GenerateRandomToken(32)
+	state, err := f.Auth.TokenManager.GenerateRandomToken(32)
 	if err != nil {
 		utils.RespondWithError(
 			w,
@@ -79,13 +83,13 @@ func (g *GoogleOauth) SignIn(w http.ResponseWriter, r *http.Request) {
 	}
 	http.SetCookie(w, stateCookie)
 
-	// Redirect user to Google's consent page
+	// Redirect user to Facebook's consent page
 	url := config.AuthCodeURL(state, oauth2.AccessTypeOffline)
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
-// Callback handles the OAuth callback from Google
-func (g *GoogleOauth) Callback(w http.ResponseWriter, r *http.Request) {
+// Callback handles the OAuth callback from Facebook
+func (f *FacebookOauth) Callback(w http.ResponseWriter, r *http.Request) {
 	// Verify state to prevent CSRF
 	stateCookie, err := r.Cookie("oauth_state")
 	if err != nil {
@@ -110,7 +114,7 @@ func (g *GoogleOauth) Callback(w http.ResponseWriter, r *http.Request) {
 
 	// Exchange the authorization code for a token
 	code := r.FormValue("code")
-	config := g.getGoogleOAuthConfig()
+	config := f.getFacebookOAuthConfig()
 
 	token, err := config.Exchange(context.Background(), code)
 	if err != nil {
@@ -123,8 +127,8 @@ func (g *GoogleOauth) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get user info from Google
-	userInfo, err := g.getUserInfo(token.AccessToken)
+	// Get user info from Facebook
+	userInfo, err := f.getUserInfo(token.AccessToken)
 	if err != nil {
 		utils.RespondWithError(
 			w,
@@ -136,22 +140,17 @@ func (g *GoogleOauth) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create or update user in your system
+	avatarURL := userInfo.Picture.Data.URL
 	user := models.User{
-		Email: userInfo.Email,
-		FirstName: func() string {
-			if userInfo.GivenName != "" {
-				return userInfo.GivenName
-			}
-			return userInfo.Name
-		}(),
-		LastName:   userInfo.FamilyName,
-		SigninVia:  "google",
+		Email:      userInfo.Email,
+		FirstName:  userInfo.FirstName,
+		LastName:   userInfo.LastName,
+		SigninVia:  "facebook",
 		ProviderId: &userInfo.ID,
-		Avatar:     &userInfo.Picture,
+		Avatar:     &avatarURL,
 	}
-	// TODO:
 
-	err = g.Auth.Repository.GetUserRepository().UpsertUserByEmail(&user)
+	err = f.Auth.Repository.GetUserRepository().UpsertUserByEmail(&user)
 	if err != nil {
 		utils.RespondWithError(
 			w,
@@ -161,8 +160,9 @@ func (g *GoogleOauth) Callback(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+
 	// Generate tokens
-	accessToken, refreshToken, err := g.Auth.TokenManager.GenerateTokens(&user)
+	accessToken, refreshToken, err := f.Auth.TokenManager.GenerateTokens(&user)
 	if err != nil {
 		utils.RespondWithError(
 			w,
@@ -172,8 +172,9 @@ func (g *GoogleOauth) Callback(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+
 	// Save refresh token
-	err = g.Auth.Repository.GetTokenRepository().SaveToken(user.ID, refreshToken, models.RefreshToken, g.Auth.Config.AuthConfig.Cookie.RefreshTokenTTL)
+	err = f.Auth.Repository.GetTokenRepository().SaveToken(user.ID, refreshToken, models.RefreshToken, f.Auth.Config.AuthConfig.Cookie.RefreshTokenTTL)
 	if err != nil {
 		utils.RespondWithError(
 			w,
@@ -184,25 +185,26 @@ func (g *GoogleOauth) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Set the token in a cookie or return it in the response
+	// Set the token in a cookie
 	tokenCookie := &http.Cookie{
-		Name:     g.Auth.Config.AuthConfig.Cookie.Name,
+		Name:     f.Auth.Config.AuthConfig.Cookie.Name,
 		Value:    accessToken,
-		Path:     g.Auth.Config.AuthConfig.Cookie.Path,
+		Path:     f.Auth.Config.AuthConfig.Cookie.Path,
 		HttpOnly: true,
 		Secure:   r.TLS != nil,
 		SameSite: http.SameSiteLaxMode,
-		MaxAge:   int(g.Auth.Config.AuthConfig.Cookie.AccessTokenTTL.Seconds()),
+		MaxAge:   int(f.Auth.Config.AuthConfig.Cookie.AccessTokenTTL.Seconds()),
 	}
 	http.SetCookie(w, tokenCookie)
 
 	// Redirect to the frontend
-	http.Redirect(w, r, g.Auth.Config.FrontendURL, http.StatusTemporaryRedirect)
+	http.Redirect(w, r, f.Auth.Config.FrontendURL, http.StatusTemporaryRedirect)
 }
 
-// getUserInfo fetches the user information from Google API
-func (g *GoogleOauth) getUserInfo(accessToken string) (*GoogleUserInfo, error) {
-	resp, err := http.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + accessToken)
+// getUserInfo fetches the user information from Facebook API
+func (f *FacebookOauth) getUserInfo(accessToken string) (*FacebookUserInfo, error) {
+	url := "https://graph.facebook.com/me?fields=id,name,email,first_name,last_name,picture&access_token=" + accessToken
+	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err
 	}
@@ -213,7 +215,7 @@ func (g *GoogleOauth) getUserInfo(accessToken string) (*GoogleUserInfo, error) {
 		return nil, fmt.Errorf("failed to get user info: %s", body)
 	}
 
-	var userInfo GoogleUserInfo
+	var userInfo FacebookUserInfo
 	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
 		return nil, err
 	}

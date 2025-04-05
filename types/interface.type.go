@@ -31,6 +31,11 @@ type EmailSender interface {
 type SMSSender interface {
 	SendTwoFactorCode(user models.User, code string) error
 }
+type RateLimiter interface {
+	Allow(key string, config LimiterConfig) bool
+	BruteForceProtection(identifier string, config BruteForceConfig) bool
+	Close() error
+}
 
 // type UserRepository interface {
 // 	CreateUser(user *models.User) error

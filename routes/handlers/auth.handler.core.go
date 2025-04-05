@@ -90,7 +90,7 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		FirstName:        req.FirstName,
 		LastName:         req.LastName,
 		Email:            req.Email,
-		EmailVerified:    !h.Auth.Config.EnableEmailVerification,
+		EmailVerified:    !h.Auth.Config.AuthConfig.EnableEmailVerification,
 		Active:           true,
 		TwoFactorEnabled: false,
 		SigninVia:        "email",
@@ -112,7 +112,7 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Handle email verification if enabled
-	if h.Auth.Config.EnableEmailVerification {
+	if h.Auth.Config.AuthConfig.EnableEmailVerification {
 		verificationToken, err := h.Auth.TokenManager.GenerateRandomToken(32)
 		if err != nil {
 			utils.RespondWithError(w, http.StatusInternalServerError, "Failed to generate verification token", nil)
@@ -129,7 +129,7 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		// Send verification email
 		if h.Auth.Config.EmailSender != nil {
 			verificationURL := fmt.Sprintf("%s?token=%s&email=%s",
-				h.Auth.Config.EmailVerificationURL,
+				h.Auth.Config.AuthConfig.EmailVerificationURL,
 				verificationToken,
 				user.Email)
 
@@ -140,7 +140,7 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	// Set access token cookie
-	if !h.Auth.Config.EnableEmailVerification {
+	if !h.Auth.Config.AuthConfig.EnableEmailVerification {
 		accessToken, refreshToken, err := h.Auth.TokenManager.GenerateTokens(&user)
 		if err != nil {
 			utils.RespondWithError(w, http.StatusInternalServerError, "Failed to generate authentication tokens", nil)
@@ -148,32 +148,32 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Save refresh token
-		err = h.Auth.Repository.GetTokenRepository().SaveToken(user.ID, refreshToken, models.RefreshToken, h.Auth.Config.Cookie.RefreshTokenTTL)
+		err = h.Auth.Repository.GetTokenRepository().SaveToken(user.ID, refreshToken, models.RefreshToken, h.Auth.Config.AuthConfig.Cookie.RefreshTokenTTL)
 		if err != nil {
 			utils.RespondWithError(w, http.StatusInternalServerError, "Failed to save refresh token", nil)
 			return
 		}
 		http.SetCookie(w, &http.Cookie{
-			Name:     h.Auth.Config.Cookie.CookieName,
+			Name:     h.Auth.Config.AuthConfig.Cookie.Name,
 			Value:    accessToken,
-			Expires:  time.Now().Add(h.Auth.Config.Cookie.AccessTokenTTL),
-			Domain:   h.Auth.Config.Cookie.CookieDomain,
-			Path:     h.Auth.Config.Cookie.CookiePath,
-			Secure:   h.Auth.Config.Cookie.CookieSecure,
-			HttpOnly: h.Auth.Config.Cookie.HttpOnly,
-			SameSite: h.Auth.Config.Cookie.SameSite,
-			MaxAge:   h.Auth.Config.Cookie.MaxCookieAge,
+			Expires:  time.Now().Add(h.Auth.Config.AuthConfig.Cookie.AccessTokenTTL),
+			Domain:   h.Auth.Config.AuthConfig.Cookie.Domain,
+			Path:     h.Auth.Config.AuthConfig.Cookie.Path,
+			Secure:   h.Auth.Config.AuthConfig.Cookie.Secure,
+			HttpOnly: h.Auth.Config.AuthConfig.Cookie.HttpOnly,
+			SameSite: h.Auth.Config.AuthConfig.Cookie.SameSite,
+			MaxAge:   h.Auth.Config.AuthConfig.Cookie.MaxAge,
 		})
 		http.SetCookie(w, &http.Cookie{
-			Name:     "___goauth_refresh_token_" + h.Auth.Config.Cookie.CookieName,
+			Name:     "___goauth_refresh_token_" + h.Auth.Config.AuthConfig.Cookie.Name,
 			Value:    refreshToken,
-			Expires:  time.Now().Add(h.Auth.Config.Cookie.RefreshTokenTTL),
-			Domain:   h.Auth.Config.Cookie.CookieDomain,
-			Path:     h.Auth.Config.Cookie.CookiePath,
-			Secure:   h.Auth.Config.Cookie.CookieSecure,
-			HttpOnly: h.Auth.Config.Cookie.HttpOnly,
-			SameSite: h.Auth.Config.Cookie.SameSite,
-			MaxAge:   h.Auth.Config.Cookie.MaxCookieAge,
+			Expires:  time.Now().Add(h.Auth.Config.AuthConfig.Cookie.RefreshTokenTTL),
+			Domain:   h.Auth.Config.AuthConfig.Cookie.Domain,
+			Path:     h.Auth.Config.AuthConfig.Cookie.Path,
+			Secure:   h.Auth.Config.AuthConfig.Cookie.Secure,
+			HttpOnly: h.Auth.Config.AuthConfig.Cookie.HttpOnly,
+			SameSite: h.Auth.Config.AuthConfig.Cookie.SameSite,
+			MaxAge:   h.Auth.Config.AuthConfig.Cookie.MaxAge,
 		})
 	}
 
@@ -264,7 +264,7 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Handle two-factor authentication if enabled
-	if h.Auth.Config.EnableTwoFactor && user.TwoFactorEnabled {
+	if h.Auth.Config.AuthConfig.EnableTwoFactor && user.TwoFactorEnabled {
 		if req.TwoFactorCode == "" {
 			err = h.sendTwoFactorCode(user)
 			if err != nil {
@@ -277,7 +277,7 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 				map[string]interface{}{
 					"message":           "Two-factor code sent",
 					"requires_2fa":      true,
-					"two_factor_method": h.Auth.Config.TwoFactorMethod,
+					"two_factor_method": h.Auth.Config.AuthConfig.TwoFactorMethod,
 				},
 			)
 			if err != nil {
@@ -302,35 +302,35 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Save refresh token
-	err = h.Auth.Repository.GetTokenRepository().SaveToken(user.ID, refreshToken, models.RefreshToken, h.Auth.Config.Cookie.RefreshTokenTTL)
-	// SaveRefreshToken(user.ID, refreshToken, h.Auth.Config.Cookie.RefreshTokenTTL)
+	err = h.Auth.Repository.GetTokenRepository().SaveToken(user.ID, refreshToken, models.RefreshToken, h.Auth.Config.AuthConfig.Cookie.RefreshTokenTTL)
+	// SaveRefreshToken(user.ID, refreshToken, h.Auth.Config.AuthConfig.Cookie.RefreshTokenTTL)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to save refresh token", nil)
 		return
 	}
 
 	http.SetCookie(w, &http.Cookie{
-		Name:    "___goauth_access_token_" + h.Auth.Config.Cookie.CookieName,
+		Name:    "___goauth_access_token_" + h.Auth.Config.AuthConfig.Cookie.Name,
 		Value:   accessToken,
-		Expires: time.Now().Add(h.Auth.Config.Cookie.AccessTokenTTL),
-		// Domain:   h.Auth.Config.Cookie.CookieDomain,
-		Path:     h.Auth.Config.Cookie.CookiePath,
-		Secure:   h.Auth.Config.Cookie.CookieSecure,
-		HttpOnly: h.Auth.Config.Cookie.HttpOnly,
-		SameSite: h.Auth.Config.Cookie.SameSite,
-		MaxAge:   h.Auth.Config.Cookie.MaxCookieAge,
+		Expires: time.Now().Add(h.Auth.Config.AuthConfig.Cookie.AccessTokenTTL),
+		// Domain:   h.Auth.Config.AuthConfig.Cookie.Domain,
+		Path:     h.Auth.Config.AuthConfig.Cookie.Path,
+		Secure:   h.Auth.Config.AuthConfig.Cookie.Secure,
+		HttpOnly: h.Auth.Config.AuthConfig.Cookie.HttpOnly,
+		SameSite: h.Auth.Config.AuthConfig.Cookie.SameSite,
+		MaxAge:   h.Auth.Config.AuthConfig.Cookie.MaxAge,
 	})
 
 	http.SetCookie(w, &http.Cookie{
-		Name:     "___goauth_refresh_token_" + h.Auth.Config.Cookie.CookieName,
+		Name:     "___goauth_refresh_token_" + h.Auth.Config.AuthConfig.Cookie.Name,
 		Value:    refreshToken,
-		Expires:  time.Now().Add(h.Auth.Config.Cookie.RefreshTokenTTL),
-		Domain:   h.Auth.Config.Cookie.CookieDomain,
-		Path:     h.Auth.Config.Cookie.CookiePath,
-		Secure:   h.Auth.Config.Cookie.CookieSecure,
-		HttpOnly: h.Auth.Config.Cookie.HttpOnly,
-		SameSite: h.Auth.Config.Cookie.SameSite,
-		MaxAge:   h.Auth.Config.Cookie.MaxCookieAge,
+		Expires:  time.Now().Add(h.Auth.Config.AuthConfig.Cookie.RefreshTokenTTL),
+		Domain:   h.Auth.Config.AuthConfig.Cookie.Domain,
+		Path:     h.Auth.Config.AuthConfig.Cookie.Path,
+		Secure:   h.Auth.Config.AuthConfig.Cookie.Secure,
+		HttpOnly: h.Auth.Config.AuthConfig.Cookie.HttpOnly,
+		SameSite: h.Auth.Config.AuthConfig.Cookie.SameSite,
+		MaxAge:   h.Auth.Config.AuthConfig.Cookie.MaxAge,
 	})
 	if h.Auth.HookManager.GetAfterHook(types.RouteLogin) != nil {
 
@@ -374,7 +374,7 @@ func (h *AuthHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
 		utils.RespondWithError(w, http.StatusMethodNotAllowed, "Method not allowed", nil)
 		return
 	}
-	token := h.extractToken(r, h.Auth.Config.Cookie.CookieName)
+	token := h.extractToken(r, h.Auth.Config.AuthConfig.Cookie.Name)
 	if token == "" {
 		utils.RespondWithError(w, http.StatusBadRequest, "No authentication token provided", nil)
 		return
@@ -393,22 +393,22 @@ func (h *AuthHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
 
 	// Clear cookie regardless of token validity
 	http.SetCookie(w, &http.Cookie{
-		Name:     "___goauth_access_token_" + h.Auth.Config.Cookie.CookieName,
+		Name:     "___goauth_access_token_" + h.Auth.Config.AuthConfig.Cookie.Name,
 		Value:    "",
 		Expires:  time.Unix(0, 0),
-		Domain:   h.Auth.Config.Cookie.CookieDomain,
-		Path:     h.Auth.Config.Cookie.CookiePath,
-		Secure:   h.Auth.Config.Cookie.CookieSecure,
-		HttpOnly: h.Auth.Config.Cookie.HttpOnly,
-		SameSite: h.Auth.Config.Cookie.SameSite,
+		Domain:   h.Auth.Config.AuthConfig.Cookie.Domain,
+		Path:     h.Auth.Config.AuthConfig.Cookie.Path,
+		Secure:   h.Auth.Config.AuthConfig.Cookie.Secure,
+		HttpOnly: h.Auth.Config.AuthConfig.Cookie.HttpOnly,
+		SameSite: h.Auth.Config.AuthConfig.Cookie.SameSite,
 		MaxAge:   -1,
 	})
 	http.SetCookie(w, &http.Cookie{
-		Name:     "___goauth_refresh_token_" + h.Auth.Config.Cookie.CookieName,
+		Name:     "___goauth_refresh_token_" + h.Auth.Config.AuthConfig.Cookie.Name,
 		Value:    "",
 		Expires:  time.Unix(0, 0),
-		Domain:   h.Auth.Config.Cookie.CookieDomain,
-		SameSite: h.Auth.Config.Cookie.SameSite,
+		Domain:   h.Auth.Config.AuthConfig.Cookie.Domain,
+		SameSite: h.Auth.Config.AuthConfig.Cookie.SameSite,
 		Secure:   true,
 		HttpOnly: true,
 		MaxAge:   -1,
@@ -430,7 +430,7 @@ func (h *AuthHandler) HandleRefreshToken(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	token := h.extractToken(r, "___goauth_refresh_token_"+h.Auth.Config.Cookie.CookieName)
+	token := h.extractToken(r, "___goauth_refresh_token_"+h.Auth.Config.AuthConfig.Cookie.Name)
 	if token == "" {
 		utils.RespondWithError(w, http.StatusBadRequest, "No refresh token provided", nil)
 		return
@@ -482,7 +482,7 @@ func (h *AuthHandler) HandleRefreshToken(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Save new refresh token
-	err = h.Auth.Repository.GetTokenRepository().SaveToken(user.ID, refreshToken, models.RefreshToken, h.Auth.Config.Cookie.RefreshTokenTTL)
+	err = h.Auth.Repository.GetTokenRepository().SaveToken(user.ID, refreshToken, models.RefreshToken, h.Auth.Config.AuthConfig.Cookie.RefreshTokenTTL)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to save refresh token", nil)
 		return
@@ -490,28 +490,28 @@ func (h *AuthHandler) HandleRefreshToken(w http.ResponseWriter, r *http.Request)
 
 	// Clear cookie regardless of token validity
 	http.SetCookie(w, &http.Cookie{
-		Name:     "___goauth_access_token_" + h.Auth.Config.Cookie.CookieName,
+		Name:     "___goauth_access_token_" + h.Auth.Config.AuthConfig.Cookie.Name,
 		Value:    accessToken,
-		Expires:  time.Now().Add(h.Auth.Config.Cookie.AccessTokenTTL),
-		Domain:   h.Auth.Config.Cookie.CookieDomain,
-		Path:     h.Auth.Config.Cookie.CookiePath,
-		Secure:   h.Auth.Config.Cookie.CookieSecure,
-		HttpOnly: h.Auth.Config.Cookie.HttpOnly,
-		SameSite: h.Auth.Config.Cookie.SameSite,
-		MaxAge:   h.Auth.Config.Cookie.MaxCookieAge,
+		Expires:  time.Now().Add(h.Auth.Config.AuthConfig.Cookie.AccessTokenTTL),
+		Domain:   h.Auth.Config.AuthConfig.Cookie.Domain,
+		Path:     h.Auth.Config.AuthConfig.Cookie.Path,
+		Secure:   h.Auth.Config.AuthConfig.Cookie.Secure,
+		HttpOnly: h.Auth.Config.AuthConfig.Cookie.HttpOnly,
+		SameSite: h.Auth.Config.AuthConfig.Cookie.SameSite,
+		MaxAge:   h.Auth.Config.AuthConfig.Cookie.MaxAge,
 	})
 	// 		Name:     "___goauth_refresh_token_" + h.Auth.Config.CookieName,
 
 	http.SetCookie(w, &http.Cookie{
-		Name:     "___goauth_refresh_token_" + h.Auth.Config.Cookie.CookieName,
+		Name:     "___goauth_refresh_token_" + h.Auth.Config.AuthConfig.Cookie.Name,
 		Value:    refreshToken,
-		Expires:  time.Now().Add(h.Auth.Config.Cookie.RefreshTokenTTL),
-		Domain:   h.Auth.Config.Cookie.CookieDomain,
-		Path:     h.Auth.Config.Cookie.CookiePath,
-		Secure:   h.Auth.Config.Cookie.CookieSecure,
-		HttpOnly: h.Auth.Config.Cookie.HttpOnly,
-		SameSite: h.Auth.Config.Cookie.SameSite,
-		MaxAge:   h.Auth.Config.Cookie.MaxCookieAge,
+		Expires:  time.Now().Add(h.Auth.Config.AuthConfig.Cookie.RefreshTokenTTL),
+		Domain:   h.Auth.Config.AuthConfig.Cookie.Domain,
+		Path:     h.Auth.Config.AuthConfig.Cookie.Path,
+		Secure:   h.Auth.Config.AuthConfig.Cookie.Secure,
+		HttpOnly: h.Auth.Config.AuthConfig.Cookie.HttpOnly,
+		SameSite: h.Auth.Config.AuthConfig.Cookie.SameSite,
+		MaxAge:   h.Auth.Config.AuthConfig.Cookie.MaxAge,
 	})
 
 	response := map[string]interface{}{
@@ -534,7 +534,7 @@ func (h *AuthHandler) HandleGetUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Authenticate user
-	userID, err := h.authenticateRequest(r, h.Auth.Config.Cookie.CookieName, h.Auth.Config.JWTSecret)
+	userID, err := h.authenticateRequest(r, h.Auth.Config.AuthConfig.Cookie.Name, h.Auth.Config.AuthConfig.JWTSecret)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusUnauthorized, "Unauthorized: "+err.Error(), nil)
 		return
@@ -627,7 +627,7 @@ func (h *AuthHandler) extractToken(r *http.Request, cookieName string) string {
 			return cookie.Value
 		}
 	}
-	if h.Auth.Config.BearerAuthEnabled {
+	if h.Auth.Config.AuthConfig.EnableBearerAuth {
 		bearerToken := r.Header.Get("Authorization")
 		if len(bearerToken) > 7 && strings.ToUpper(bearerToken[0:7]) == "BEARER " {
 			return bearerToken[7:]

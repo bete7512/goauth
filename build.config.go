@@ -20,19 +20,21 @@ func DefaultConfig() types.Config {
 		Server: types.ServerConfig{
 			Type: types.GinServer,
 		},
-		Cookie: types.CookieConfig{
-			MaxCookieAge:    int((7 * 24 * time.Hour).Seconds()),
-			CookiePath:      "/",
-			HttpOnly:        true,
-			CookieDomain:    "",
-			AccessTokenTTL:  15 * time.Minute,
-			RefreshTokenTTL: 7 * 24 * time.Hour,
-			CookieSecure:    false,
+		AuthConfig: types.AuthConfig{
+			Cookie: types.CookieConfig{
+				MaxAge:          int((7 * 24 * time.Hour).Seconds()),
+				Path:            "/",
+				HttpOnly:        true,
+				Domain:          "",
+				AccessTokenTTL:  15 * time.Minute,
+				RefreshTokenTTL: 7 * 24 * time.Hour,
+				Secure:          false,
+			},
+			EnableTwoFactor:         false,
+			EnableEmailVerification: false,
+			EnableSmsVerification:   false,
+			EnableBearerAuth:       false,
 		},
-		EnableTwoFactor:         false,
-		EnableEmailVerification: false,
-		EnableSmsVerification:   false,
-		BearerAuthEnabled:       false,
 		PasswordPolicy: types.PasswordPolicy{
 			HashSaltLength: 14,
 			MinLength:      4,
@@ -65,13 +67,13 @@ func (b *AuthBuilder) WithServer(serverType types.ServerType, basePath string) *
 }
 
 func (b *AuthBuilder) WithEmailVerification(enabled bool, url string) *AuthBuilder {
-	b.config.EnableEmailVerification = enabled
-	b.config.EmailVerificationURL = url
+	b.config.AuthConfig.EnableEmailVerification = enabled
+	b.config.AuthConfig.EmailVerificationURL = url
 	return b
 }
 
 func (b *AuthBuilder) WithPasswordReset(url string) *AuthBuilder {
-	b.config.PasswordResetURL = url
+	b.config.AuthConfig.PasswordResetURL = url
 	return b
 }
 
@@ -91,9 +93,9 @@ func (b *AuthBuilder) WithDatabase(config types.DatabaseConfig) *AuthBuilder {
 }
 
 func (b *AuthBuilder) WithJWT(secret string, accessTTL, refreshTTL time.Duration) *AuthBuilder {
-	b.config.JWTSecret = secret
-	b.config.Cookie.AccessTokenTTL = accessTTL
-	b.config.Cookie.RefreshTokenTTL = refreshTTL
+	b.config.AuthConfig.JWTSecret = secret
+	b.config.AuthConfig.Cookie.AccessTokenTTL = accessTTL
+	b.config.AuthConfig.Cookie.RefreshTokenTTL = refreshTTL
 	return b
 }
 
@@ -103,8 +105,8 @@ func (b *AuthBuilder) WithPasswordPolicy(policy types.PasswordPolicy) *AuthBuild
 }
 
 func (b *AuthBuilder) WithTwoFactor(enabled bool, method string) *AuthBuilder {
-	b.config.EnableTwoFactor = enabled
-	b.config.TwoFactorMethod = method
+	b.config.AuthConfig.EnableTwoFactor = enabled
+	b.config.AuthConfig.TwoFactorMethod = method
 	return b
 }
 
@@ -129,8 +131,8 @@ func (b *AuthBuilder) WithProvider(provider types.AuthProvider, config types.Pro
 }
 
 func (b *AuthBuilder) WithCookie(secure bool, domain string) *AuthBuilder {
-	b.config.Cookie.CookieSecure = secure
-	b.config.Cookie.CookieDomain = domain
+	b.config.AuthConfig.Cookie.Secure = secure
+	b.config.AuthConfig.Cookie.Domain = domain
 	return b
 }
 
@@ -148,35 +150,35 @@ func (b *AuthBuilder) validate() error {
 	if b.config.Database.URL == "" || b.config.Database.Type == "" {
 		return errors.New("database configuration is required")
 	}
-	if b.config.JWTSecret == "" {
+	if b.config.AuthConfig.JWTSecret == "" {
 		return errors.New("JWT secret is required")
 	}
-	if b.config.EnableTwoFactor && b.config.TwoFactorMethod == "" {
+	if b.config.AuthConfig.EnableTwoFactor && b.config.AuthConfig.TwoFactorMethod == "" {
 		return errors.New("2FA method is required when 2FA is enabled")
 	}
-	if b.config.EnableEmailVerification && b.config.EmailVerificationURL == "" {
+	if b.config.AuthConfig.EnableEmailVerification && b.config.AuthConfig.EmailVerificationURL == "" {
 		return errors.New("email verification URL is required when email verification is enabled")
 	}
-	if b.config.EnableSmsVerification && b.config.SMSSender == nil {
+	if b.config.AuthConfig.EnableSmsVerification && b.config.SMSSender == nil {
 		return errors.New("SMS sender is required when SMS verification is enabled")
 	}
-	if b.config.EmailSender == nil && b.config.EnableEmailVerification {
+	if b.config.EmailSender == nil && b.config.AuthConfig.EnableEmailVerification {
 		return errors.New("email sender is required")
 	}
-	if b.config.Cookie.MaxCookieAge <= 0 {
+	if b.config.AuthConfig.Cookie.MaxAge <= 0 {
 		return errors.New("max cookie age must be greater than 0")
 	}
 
-	if b.config.Cookie.CookieName == "" {
+	if b.config.AuthConfig.Cookie.Name == "" {
 		return errors.New("cookie name is required")
 	}
-	if b.config.Cookie.AccessTokenTTL <= 0 {
+	if b.config.AuthConfig.Cookie.AccessTokenTTL <= 0 {
 		return errors.New("access token TTL must be greater than 0")
 	}
-	if b.config.Cookie.RefreshTokenTTL <= 0 {
+	if b.config.AuthConfig.Cookie.RefreshTokenTTL <= 0 {
 		return errors.New("refresh token TTL must be greater than 0")
 	}
-	if b.config.Cookie.CookiePath == "" {
+	if b.config.AuthConfig.Cookie.Path == "" {
 		return errors.New("cookie path is required")
 	}
 	if b.config.PasswordPolicy.HashSaltLength <= 0 {
@@ -186,10 +188,11 @@ func (b *AuthBuilder) validate() error {
 		return errors.New("swagger title and version are required when swagger is enabled")
 	}
 
-	if b.config.EnableAddCustomJWTClaims && b.config.CustomJWTClaimsProvider == nil {
+	if b.config.AuthConfig.EnableAddCustomJWTClaims && b.config.CustomJWTClaimsProvider == nil {
 		return errors.New("custom JWT claims provider is required when custom JWT claims are enabled")
-
 	}
+
+
 	return b.validateProviders()
 }
 
@@ -207,6 +210,16 @@ func (b *AuthBuilder) validateProviders() error {
 			config = b.config.Providers.Microsoft
 		case types.Apple:
 			config = b.config.Providers.Apple
+		case types.Discord:
+			config = b.config.Providers.Discord
+		case types.Twitter:
+			config = b.config.Providers.Twitter
+		case types.LinkedIn:
+			config = b.config.Providers.LinkedIn
+		case types.Slack:
+			config = b.config.Providers.Slack
+		case types.Spotify:
+			config = b.config.Providers.Spotify
 		default:
 			return fmt.Errorf("unsupported provider: %s", provider)
 		}

@@ -6,6 +6,7 @@ import (
 	"github.com/bete7512/goauth/docs"
 	"github.com/bete7512/goauth/routes/handlers"
 	oauthhandlers "github.com/bete7512/goauth/routes/handlers/oauth"
+	middleware "github.com/bete7512/goauth/routes/middlewares"
 	"github.com/bete7512/goauth/types"
 	"github.com/gin-gonic/gin"
 )
@@ -48,8 +49,16 @@ func (h *GinHandler) SetupRoutes(r *gin.Engine) {
 		}
 		auth.POST("/register", ginHandlerWrapper(h.Handler.WithHooks(
 			types.RouteRegister, h.Handler.HandleRegister)))
-		auth.POST("/login", ginHandlerWrapper(h.Handler.WithHooks(
-			types.RouteLogin, h.Handler.HandleLogin)))
+
+		if h.Handler.Auth.Config.AuthConfig.EnableRateLimiter {
+			if _, exists := h.Handler.Auth.Config.RateLimiter.Routes[types.RouteLogin]; exists {
+				auth.POST("/login", ginHandlerWrapper(h.Handler.WithHooks(
+					types.RouteLogin, middleware.RateLimiterMiddleware(*h.Handler.Auth.RateLimiter, h.Handler.Auth.Config.RateLimiter, types.RouteLogin, h.Handler.HandleLogin))))
+			}
+		} else {
+			auth.POST("/login", ginHandlerWrapper(h.Handler.WithHooks(
+				types.RouteLogin, h.Handler.HandleLogin)))
+		}
 		auth.POST("/logout", ginHandlerWrapper(h.Handler.WithHooks(
 			types.RouteLogout, h.Handler.HandleLogout)))
 		auth.POST("/refresh-token", ginHandlerWrapper(h.Handler.WithHooks(
@@ -81,7 +90,37 @@ func (h *GinHandler) SetupRoutes(r *gin.Engine) {
 				auth.GET("/oauth/google", ginHandlerWrapper(google.SignIn))
 				auth.GET("/oauth/google/callback", ginHandlerWrapper(google.Callback))
 			case "github":
-				// TODO: continue working for other providers
+				github := oauthhandlers.NewGitHubOauth(h.Handler.Auth)
+				auth.GET("/oauth/github", ginHandlerWrapper(github.SignIn))
+				auth.GET("/oauth/github/callback", ginHandlerWrapper(github.Callback))
+			case "facebook":
+				facebook := oauthhandlers.NewFacebookOauth(h.Handler.Auth)
+				auth.GET("/oauth/facebook", ginHandlerWrapper(facebook.SignIn))
+				auth.GET("/oauth/facebook/callback", ginHandlerWrapper(facebook.Callback))
+			case "microsoft":
+				microsoft := oauthhandlers.NewMicrosoftOauth(h.Handler.Auth)
+				auth.GET("/oauth/microsoft", ginHandlerWrapper(microsoft.SignIn))
+				auth.GET("/oauth/microsoft/callback", ginHandlerWrapper(microsoft.Callback))
+			case "apple":
+				apple := oauthhandlers.NewAppleOauth(h.Handler.Auth)
+				auth.GET("/oauth/apple", ginHandlerWrapper(apple.SignIn))
+				auth.GET("/oauth/apple/callback", ginHandlerWrapper(apple.Callback))
+			case "discord":
+				discord := oauthhandlers.NewDiscordOauth(h.Handler.Auth)
+				auth.GET("/oauth/discord", ginHandlerWrapper(discord.SignIn))
+				auth.GET("/oauth/discord/callback", ginHandlerWrapper(discord.Callback))
+			case "twitter":
+				twitter := oauthhandlers.NewTwitterOauth(h.Handler.Auth)
+				auth.GET("/oauth/twitter", ginHandlerWrapper(twitter.SignIn))
+				auth.GET("/oauth/twitter/callback", ginHandlerWrapper(twitter.Callback))
+			case "linkedin":
+				linkedin := oauthhandlers.NewLinkedInOauth(h.Handler.Auth)
+				auth.GET("/oauth/linkedin", ginHandlerWrapper(linkedin.SignIn))
+				auth.GET("/oauth/linkedin/callback", ginHandlerWrapper(linkedin.Callback))
+				
+			default:
+				// h.Handler.Auth.Logger.Warnf("OAuth provider %s is not supported", oauth)
+
 			}
 		}
 	}

@@ -54,7 +54,7 @@ func (h *AuthHandler) HandleForgotPassword(w http.ResponseWriter, r *http.Reques
 	// Send reset email
 	if h.Auth.Config.EmailSender != nil {
 		resetURL := fmt.Sprintf("%s?token=%s&email=%s",
-			h.Auth.Config.PasswordResetURL,
+			h.Auth.Config.AuthConfig.PasswordResetURL,
 			resetToken,
 			user.Email)
 
@@ -164,7 +164,7 @@ func (h *AuthHandler) HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Authenticate user
-	userID, err := h.authenticateRequest(r, h.Auth.Config.Cookie.CookieName, h.Auth.Config.JWTSecret)
+	userID, err := h.authenticateRequest(r, h.Auth.Config.AuthConfig.Cookie.Name, h.Auth.Config.AuthConfig.JWTSecret)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusUnauthorized, "Unauthorized: "+err.Error(), nil)
 		return
@@ -207,10 +207,6 @@ func (h *AuthHandler) HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		CreatedAt: user.CreatedAt,
 	}
 
-	// json.NewEncoder(w).Encode(map[string]interface{}{
-	// 	"user":    userResponse,
-	// 	"message": "User updated successfully",
-	// })
 	err = utils.RespondWithJSON(w, http.StatusOK, map[string]interface{}{
 		"user":    userResponse,
 		"message": "User updated successfully",
@@ -229,7 +225,7 @@ func (h *AuthHandler) HandleDeactivateUser(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Authenticate user
-	userID, err := h.authenticateRequest(r, h.Auth.Config.Cookie.CookieName, h.Auth.Config.JWTSecret)
+	userID, err := h.authenticateRequest(r, h.Auth.Config.AuthConfig.Cookie.Name, h.Auth.Config.AuthConfig.JWTSecret)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusUnauthorized, "Unauthorized: "+err.Error(), nil)
 		return
@@ -275,13 +271,13 @@ func (h *AuthHandler) HandleDeactivateUser(w http.ResponseWriter, r *http.Reques
 	}
 	// Clear cookie
 	http.SetCookie(w, &http.Cookie{
-		Name:     h.Auth.Config.Cookie.CookieName,
+		Name:     h.Auth.Config.AuthConfig.Cookie.Name,
 		Value:    "",
 		Expires:  time.Unix(0, 0),
-		Domain:   h.Auth.Config.Cookie.CookieDomain,
-		Path:     h.Auth.Config.Cookie.CookiePath,
-		Secure:   h.Auth.Config.Cookie.CookieSecure,
-		HttpOnly: h.Auth.Config.Cookie.HttpOnly,
+		Domain:   h.Auth.Config.AuthConfig.Cookie.Domain,
+		Path:     h.Auth.Config.AuthConfig.Cookie.Path,
+		Secure:   h.Auth.Config.AuthConfig.Cookie.Secure,
+		HttpOnly: h.Auth.Config.AuthConfig.Cookie.HttpOnly,
 		SameSite: http.SameSiteStrictMode,
 		MaxAge:   -1,
 	})
@@ -307,13 +303,13 @@ func (h *AuthHandler) HandleEnableTwoFactor(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	if !h.Auth.Config.EnableTwoFactor {
+	if !h.Auth.Config.AuthConfig.EnableTwoFactor {
 		utils.RespondWithError(w, http.StatusBadRequest, "Two-factor authentication is not enabled", nil)
 		return
 	}
 
 	// Authenticate user
-	userID, err := h.authenticateRequest(r, h.Auth.Config.Cookie.CookieName, h.Auth.Config.JWTSecret)
+	userID, err := h.authenticateRequest(r, h.Auth.Config.AuthConfig.Cookie.Name, h.Auth.Config.AuthConfig.JWTSecret)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusUnauthorized, "Unauthorized: "+err.Error(), nil)
 		return
@@ -341,7 +337,7 @@ func (h *AuthHandler) HandleEnableTwoFactor(w http.ResponseWriter, r *http.Reque
 
 	err = utils.RespondWithJSON(w, http.StatusOK, map[string]interface{}{
 		"message":           "Two-factor verification code sent",
-		"two_factor_method": h.Auth.Config.TwoFactorMethod,
+		"two_factor_method": h.Auth.Config.AuthConfig.TwoFactorMethod,
 	})
 
 	if err != nil {
@@ -357,13 +353,13 @@ func (h *AuthHandler) HandleVerifyTwoFactor(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	if !h.Auth.Config.EnableTwoFactor {
+	if !h.Auth.Config.AuthConfig.EnableTwoFactor {
 		utils.RespondWithError(w, http.StatusBadRequest, "Two-factor authentication is not enabled", nil)
 		return
 	}
 
 	// Authenticate user
-	userID, err := h.authenticateRequest(r, h.Auth.Config.Cookie.CookieName, h.Auth.Config.JWTSecret)
+	userID, err := h.authenticateRequest(r, h.Auth.Config.AuthConfig.Cookie.Name, h.Auth.Config.AuthConfig.JWTSecret)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusUnauthorized, "Unauthorized: "+err.Error(), nil)
 		return
@@ -419,7 +415,7 @@ func (h *AuthHandler) HandleDisableTwoFactor(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Authenticate user
-	userID, err := h.authenticateRequest(r, h.Auth.Config.Cookie.CookieName, h.Auth.Config.JWTSecret)
+	userID, err := h.authenticateRequest(r, h.Auth.Config.AuthConfig.Cookie.Name, h.Auth.Config.AuthConfig.JWTSecret)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusUnauthorized, "Unauthorized: "+err.Error(), nil)
 		return
@@ -541,7 +537,7 @@ func (h *AuthHandler) HandleVerifyEmail(w http.ResponseWriter, r *http.Request) 
 		}
 
 		// Save refresh token
-		err = h.Auth.Repository.GetTokenRepository().SaveToken(user.ID, refreshToken, models.EmailVerificationToken, h.Auth.Config.Cookie.RefreshTokenTTL)
+		err = h.Auth.Repository.GetTokenRepository().SaveToken(user.ID, refreshToken, models.EmailVerificationToken, h.Auth.Config.AuthConfig.Cookie.RefreshTokenTTL)
 		if err != nil {
 			utils.RespondWithError(w, http.StatusInternalServerError, "Failed to save refresh token", err)
 			return
@@ -549,15 +545,15 @@ func (h *AuthHandler) HandleVerifyEmail(w http.ResponseWriter, r *http.Request) 
 
 		// Set access token cookie
 		http.SetCookie(w, &http.Cookie{
-			Name:     h.Auth.Config.Cookie.CookieName,
+			Name:     h.Auth.Config.AuthConfig.Cookie.Name,
 			Value:    accessToken,
-			Expires:  time.Now().Add(h.Auth.Config.Cookie.AccessTokenTTL),
-			Domain:   h.Auth.Config.Cookie.CookieDomain,
-			Path:     h.Auth.Config.Cookie.CookiePath,
-			Secure:   h.Auth.Config.Cookie.CookieSecure,
-			HttpOnly: h.Auth.Config.Cookie.HttpOnly,
+			Expires:  time.Now().Add(h.Auth.Config.AuthConfig.Cookie.AccessTokenTTL),
+			Domain:   h.Auth.Config.AuthConfig.Cookie.Domain,
+			Path:     h.Auth.Config.AuthConfig.Cookie.Path,
+			Secure:   h.Auth.Config.AuthConfig.Cookie.Secure,
+			HttpOnly: h.Auth.Config.AuthConfig.Cookie.HttpOnly,
 			SameSite: http.SameSiteStrictMode,
-			MaxAge:   h.Auth.Config.Cookie.MaxCookieAge,
+			MaxAge:   h.Auth.Config.AuthConfig.Cookie.MaxAge,
 		})
 
 		response = map[string]interface{}{
@@ -586,7 +582,7 @@ func (h *AuthHandler) HandleResendVerificationEmail(w http.ResponseWriter, r *ht
 		return
 	}
 
-	if !h.Auth.Config.EnableEmailVerification {
+	if !h.Auth.Config.AuthConfig.EnableEmailVerification {
 		utils.RespondWithError(w, http.StatusBadRequest, "Email verification is not enabled", nil)
 		return
 	}
@@ -644,7 +640,7 @@ func (h *AuthHandler) HandleResendVerificationEmail(w http.ResponseWriter, r *ht
 	// Send verification email
 	if h.Auth.Config.EmailSender != nil {
 		verificationURL := fmt.Sprintf("%s?token=%s&email=%s",
-			h.Auth.Config.EmailVerificationURL,
+			h.Auth.Config.AuthConfig.EmailVerificationURL,
 			verificationToken,
 			user.Email)
 
@@ -732,9 +728,6 @@ func (h *AuthHandler) HandleVerifyMagicLink(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Validate magic link token
-	// 	// func SaveMagicLinkToken(userID, token string, expiry time.Duration) error
-	// 	// func ValidateMagicLinkToken(userID, token string) (bool, error)
 	valid, userID, err := h.Auth.Repository.GetTokenRepository().ValidateToken(req.Token, models.MakicLinkToken)
 	if err != nil || !valid || userID == nil {
 		utils.RespondWithError(w, http.StatusBadRequest, "Invalid or expired magic link token", err)
@@ -757,20 +750,20 @@ func (h *AuthHandler) HandleVerifyMagicLink(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	// Save refresh token
-	err = h.Auth.Repository.GetTokenRepository().SaveToken(user.ID, refreshToken, models.RefreshToken, h.Auth.Config.Cookie.RefreshTokenTTL)
+	err = h.Auth.Repository.GetTokenRepository().SaveToken(user.ID, refreshToken, models.RefreshToken, h.Auth.Config.AuthConfig.Cookie.RefreshTokenTTL)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to save refresh token", err)
 		return
 	}
 	// Set access token cookie
 	http.SetCookie(w, &http.Cookie{
-		Name:     h.Auth.Config.Cookie.CookieName,
+		Name:     h.Auth.Config.AuthConfig.Cookie.Name,
 		Value:    accessToken,
-		Expires:  time.Now().Add(h.Auth.Config.Cookie.AccessTokenTTL),
-		Domain:   h.Auth.Config.Cookie.CookieDomain,
-		Path:     h.Auth.Config.Cookie.CookiePath,
+		Expires:  time.Now().Add(h.Auth.Config.AuthConfig.Cookie.AccessTokenTTL),
+		Domain:   h.Auth.Config.AuthConfig.Cookie.Domain,
+		Path:     h.Auth.Config.AuthConfig.Cookie.Path,
 		SameSite: http.SameSiteLaxMode,
-		Secure:   h.Auth.Config.Cookie.CookieSecure,
+		Secure:   h.Auth.Config.AuthConfig.Cookie.Secure,
 		HttpOnly: true,
 	})
 	// Send response
@@ -795,9 +788,9 @@ func (h *AuthHandler) sendTwoFactorCode(user *models.User) error {
 	}
 
 	// Send code via configured method
-	if h.Auth.Config.TwoFactorMethod == "email" && h.Auth.Config.EmailSender != nil {
+	if h.Auth.Config.AuthConfig.TwoFactorMethod == "email" && h.Auth.Config.EmailSender != nil {
 		return h.Auth.Config.EmailSender.SendTwoFactorCode(*user, code)
-	} else if h.Auth.Config.TwoFactorMethod == "sms" && h.Auth.Config.SMSSender != nil {
+	} else if h.Auth.Config.AuthConfig.TwoFactorMethod == "sms" && h.Auth.Config.SMSSender != nil {
 		// Assuming user has a phone number
 		return h.Auth.Config.SMSSender.SendTwoFactorCode(*user, code)
 	}
