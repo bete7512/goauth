@@ -2,6 +2,7 @@
 package models
 
 import (
+	"encoding/json"
 	"time"
 
 	"gorm.io/gorm"
@@ -47,4 +48,29 @@ type Token struct {
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
 	DeletedAt  gorm.DeletedAt `gorm:"index"`
+}
+
+type ExternalToken struct {
+	ID           string         `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	UserID       string         `json:"user_id" gorm:"index;not null"` // Reference to local user
+	Provider     string         ` gorm:"index;not null"` // e.g., google, github
+	AccessToken  string         `gorm:"not null"`       // The token from the provider
+	RefreshToken *string        `gorm:""`               // Optional, if provided
+	ExpiresAt    *time.Time     `gorm:"index"`          // Token expiry (nullable if no expiry)
+	Scopes       *string        `gorm:"type:text"`      // Optional scopes (e.g., profile,email)
+	TokenType    *string        `gorm:"type:text"`      // e.g., Bearer
+	CreatedAt    time.Time      `gorm:"autoCreateTime"`
+	UpdatedAt    time.Time      `gorm:"autoUpdateTime"`
+	DeletedAt    gorm.DeletedAt `gorm:"index"`
+}
+
+type AuditLog struct {
+	ID        string          `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	UserID    string          `json:"user_id" gorm:"index"`
+	EventType string          `json:"event_type" gorm:"index"`
+	Details   json.RawMessage `json:"details" gorm:"type:jsonb"`
+	IP        string          `json:"ip" gorm:"index"`
+	CreatedAt time.Time       `json:"created_at"`
+	UpdatedAt time.Time       `json:"updated_at" gorm:"autoUpdateTime"`
+	DeletedAt gorm.DeletedAt  `json:"-" gorm:"index"`
 }

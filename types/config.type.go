@@ -6,6 +6,7 @@ import (
 
 	"github.com/bete7512/goauth/hooks"
 	"github.com/bete7512/goauth/interfaces"
+	"github.com/bete7512/goauth/logger"
 )
 
 type Config struct {
@@ -21,39 +22,46 @@ type Config struct {
 	PasswordPolicy PasswordPolicy
 	Providers      ProvidersConfig
 
-	// Database and data access
-	Database                 DatabaseConfig
-	StorageRepositoryFactory CustomStorageRepositoryConfig
+	// Storage Configuration
+	Database                      DatabaseConfig
+	EnableCustomStorageRepository bool
+	StorageRepositoryFactory      CustomStorageRepositoryConfig
 
-	// Communication
+	// Notification
 	EmailSender EmailSender
 	SMSSender   SMSSender
 
-	// Security features
-	RateLimiter RateLimiterConfig
+	// Rate limiting
+	RateLimiter       *RateLimiterConfig
+	EnableRateLimiter bool
 
-	// Custom functionality
-	CustomJWTClaimsProvider CustomJWTClaimsProvider
+	// Custom JWT Token functionality
+	EnableAddCustomJWTClaims bool
+	CustomJWTClaimsProvider  CustomJWTClaimsProvider
 
 	// Redis configuration
 	RedisConfig RedisConfig
+
+	// Recaptcha configuration
+	RecaptchaConfig *RecaptchaConfig
+	EnableRecaptcha bool
+
+	// JWT configuration
+	JWTSecret string
 }
 
 // AuthConfig consolidates authentication-related settings
 type AuthConfig struct {
-	JWTSecret                     string
 	Cookie                        CookieConfig
 	EnableBearerAuth              bool
 	EnableTwoFactor               bool
+	EnableMultiSession            bool
 	TwoFactorMethod               string
 	EnableMagicLink               bool
 	EnableEmailVerification       bool
 	EnableSmsVerification         bool
 	EmailVerificationURL          string
 	PasswordResetURL              string
-	EnableAddCustomJWTClaims      bool
-	EnableRateLimiter             bool
-	EnableCustomStorageRepository bool
 	SendVerificationEmailOnSignup bool
 }
 
@@ -117,11 +125,13 @@ type ProviderConfig struct {
 }
 
 type Auth struct {
-	Config       Config
-	Repository   interfaces.RepositoryFactory
-	HookManager  *hooks.HookManager
-	TokenManager TokenManagerInterface
-	RateLimiter  *RateLimiter
+	Config           Config
+	Repository       interfaces.RepositoryFactory
+	HookManager      *hooks.HookManager
+	TokenManager     TokenManagerInterface
+	RateLimiter      *RateLimiter
+	RecaptchaManager CaptchaVerifier
+	Logger           logger.Log
 }
 
 type SwaggerConfig struct {
@@ -141,11 +151,9 @@ type RedisConfig struct {
 }
 
 type RateLimiterConfig struct {
-	Type                       RateLimiterStorageType
-	Routes                     map[string]LimiterConfig // Changed from array to map with route as key
-	DefaultConfig              LimiterConfig            // Added for routes without specific config
-	EnableBruteForceProtection bool
-	BruteForceProtection       BruteForceConfig // Added for auth endpoints specifically
+	Type          RateLimiterStorageType
+	Routes        map[string]LimiterConfig // Changed from array to map with route as key
+	DefaultConfig LimiterConfig            // Added for routes without specific config
 }
 
 type LimiterConfig struct {
@@ -154,13 +162,10 @@ type LimiterConfig struct {
 	BlockDuration time.Duration
 }
 
-// New type for brute force protection specific settings
-type BruteForceConfig struct {
-	MaxAttempts          int           // Max login attempts before temporary lock
-	ProgressiveBlocking  bool          // Whether to increase block time with consecutive failures
-	InitialBlockDuration time.Duration // Starting block duration
-	MaxBlockDuration     time.Duration // Maximum block duration for progressive blocks
-	TrackByIP            bool          // Track attempts by IP address
-	TrackByUsername      bool          // Track attempts by username
-	TrackByCombined      bool          // Track attempts by IP+username combination
+type RecaptchaConfig struct {
+	SecretKey string
+	SiteKey   string
+	Provider  RecaptchaProvider
+	APIURL    string
+	Routes    map[string]bool
 }

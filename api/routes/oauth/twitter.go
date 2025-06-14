@@ -1,4 +1,4 @@
-package oauthhandlers
+package oauthRoutes
 
 import (
 	"context"
@@ -205,7 +205,7 @@ func (t *TwitterOauth) Callback(w http.ResponseWriter, r *http.Request) {
 	if userInfo.Email == "" {
 		// Option 1: Generate a placeholder email using the Twitter username
 		user.Email = fmt.Sprintf("%s@twitter.placeholder", userInfo.Username)
-		
+
 		// Option 2: You could redirect to a page asking for the email
 		// This would need additional handling on the frontend
 	}
@@ -265,10 +265,10 @@ func (t *TwitterOauth) Callback(w http.ResponseWriter, r *http.Request) {
 func (t *TwitterOauth) getUserInfo(accessToken string) (*TwitterUserInfo, error) {
 	// Twitter v2 API endpoint for user info
 	url := "https://api.twitter.com/2/users/me?user.fields=id,name,username,profile_image_url"
-	
+
 	// Include email field if available
 	url += ",email"
-	
+
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
@@ -299,4 +299,3 @@ func (t *TwitterOauth) getUserInfo(accessToken string) (*TwitterUserInfo, error)
 
 	return &response.Data, nil
 }
-

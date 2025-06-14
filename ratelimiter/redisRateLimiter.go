@@ -24,7 +24,7 @@ func NewRedisRateLimiter(config types.Config) (*RedisRateLimiter, error) {
 
 	return &RedisRateLimiter{
 		client: *redisClient,
-		config: config.RateLimiter,
+		config: *config.RateLimiter,
 	}, nil
 }
 
@@ -34,9 +34,6 @@ func (r *RedisRateLimiter) Allow(key string, config types.LimiterConfig) bool {
 	now := time.Now().Unix()
 	windowKey := prefixedKey + ":window"
 	blockKey := prefixedKey + ":blocked"
-
-	log.Printf("Rate limit check for key: %s", prefixedKey)
-
 	// Check if the key is blocked
 	blocked, err := r.client.Exists(blockKey)
 	if err != nil {
@@ -137,80 +134,7 @@ func (r *RedisRateLimiter) Allow(key string, config types.LimiterConfig) bool {
 	return true
 }
 
-// BruteForceProtection implements protection against brute force attacks
-func (r *RedisRateLimiter) BruteForceProtection(identifier string, config types.BruteForceConfig) bool {
-	prefixedIdentifier := "bruteforce:" + identifier
-	now := time.Now()
-	attemptsKey := prefixedIdentifier + ":attempts"
-	blockKey := prefixedIdentifier + ":blocked"
-	lastAttemptKey := prefixedIdentifier + ":lastAttempt"
-	blockDurationKey := prefixedIdentifier + ":blockDuration"
-
-	// Check if the identifier is blocked
-	blocked, err := r.client.Exists(blockKey)
-	if err != nil {
-		log.Printf("Error checking if identifier is blocked: %v", err)
-	}
-
-	if blocked {
-		log.Printf("Identifier is blocked for brute force protection: %s", prefixedIdentifier)
-		return false
-	}
-
-	// Record the attempt
-	attemptsStr, err := r.client.Get(attemptsKey)
-	attempts := 1
-	if err == nil {
-		attempts, _ = strconv.Atoi(attemptsStr)
-		attempts++
-	}
-
-	log.Printf("Brute force attempt count for %s: %d, max: %d", prefixedIdentifier, attempts, config.MaxAttempts)
-
-	// Update the attempts count
-	setCmd := r.client.Client.Set(r.client.Ctx, attemptsKey, strconv.Itoa(attempts), 24*time.Hour)
-	if err := setCmd.Err(); err != nil {
-		log.Printf("Error setting attempts: %v", err)
-	}
-
-	setLastCmd := r.client.Client.Set(r.client.Ctx, lastAttemptKey, strconv.FormatInt(now.Unix(), 10), 24*time.Hour)
-	if err := setLastCmd.Err(); err != nil {
-		log.Printf("Error setting last attempt: %v", err)
-	}
-
-	// If attempts exceed max attempts, block the identifier
-	if attempts > config.MaxAttempts {
-		blockDuration := config.InitialBlockDuration
-
-		// If progressive blocking is enabled, increase block duration
-		if config.ProgressiveBlocking {
-			blockDurationStr, err := r.client.Get(blockDurationKey)
-			if err == nil {
-				currentBlockDuration, _ := time.ParseDuration(blockDurationStr)
-				blockDuration = currentBlockDuration * 2
-				if blockDuration > config.MaxBlockDuration {
-					blockDuration = config.MaxBlockDuration
-				}
-			}
-
-			setBlockDurCmd := r.client.Client.Set(r.client.Ctx, blockDurationKey, blockDuration.String(), 7*24*time.Hour)
-			if err := setBlockDurCmd.Err(); err != nil {
-				log.Printf("Error setting block duration: %v", err)
-			}
-		}
-
-		log.Printf("Brute force protection activated for %s, blocking for %v", prefixedIdentifier, blockDuration)
-		setBlockCmd := r.client.Client.Set(r.client.Ctx, blockKey, "1", blockDuration)
-		if err := setBlockCmd.Err(); err != nil {
-			log.Printf("Error setting block key: %v", err)
-		}
-		return false
-	}
-
-	return true
-}
-
-// Close closes the Redis connection
 func (r *RedisRateLimiter) Close() error {
 	return r.client.Close()
 }
+

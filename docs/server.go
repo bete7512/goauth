@@ -157,15 +157,14 @@ func RegisterRoutes(mux *http.ServeMux, info SwaggerInfo) {
 	basePath := strings.TrimSuffix(info.BasePath, "/")
 	docPath := info.DocPath
 
+	// Root paths
 	// Main documentation paths
 	mux.Handle(path.Join(basePath, docPath)+"/", handler)
-	mux.Handle(path.Join(basePath, docPath), handler)
-
-	// Root paths
-	if basePath != "" {
-		mux.Handle(basePath+"/", handler)
-		mux.Handle(basePath, handler)
-	}
+	// mux.Handle(path.Join(basePath, docPath), handler)
+	// if basePath != "" {
+	// 	mux.Handle(basePath+"/", handler)
+	// 	mux.Handle(basePath, handler)
+	// }
 
 	// JSON specification path
 	mux.Handle(path.Join(basePath, swaggerJSONPath), handler)
@@ -180,19 +179,19 @@ func RegisterGinRoutes(r *gin.Engine, info SwaggerInfo) {
 	docPath := info.DocPath
 	// Main documentation paths
 	r.GET(path.Join(basePath, docPath), gin.WrapH(handler))
-	r.GET(path.Join(basePath, docPath)+"/", gin.WrapH(handler))
+	// r.GET(path.Join(basePath, docPath)+"/", gin.WrapH(handler))
 
-	// Root paths
-	if basePath != "" {
-		r.GET(basePath, gin.WrapH(handler))
-		r.GET(basePath+"/", gin.WrapH(handler))
-	}
+	// // Root paths
+	// if basePath != "" {
+	// 	r.GET(basePath, gin.WrapH(handler))
+	// 	r.GET(basePath+"/", gin.WrapH(handler))
+	// }
 
 	// JSON specification path
 	r.GET(path.Join(basePath, swaggerJSONPath), gin.WrapH(handler))
 
 	// Handle OPTIONS requests for CORS
-	r.OPTIONS(path.Join(basePath, docPath), gin.WrapH(handler))
-	r.OPTIONS(path.Join(basePath, docPath)+"/", gin.WrapH(handler))
-	r.OPTIONS(path.Join(basePath, swaggerJSONPath), gin.WrapH(handler))
+	// r.OPTIONS(path.Join(basePath, docPath), gin.WrapH(handler))
+	// r.OPTIONS(path.Join(basePath, docPath)+"/", gin.WrapH(handler))
+	// r.OPTIONS(path.Join(basePath, swaggerJSONPath), gin.WrapH(handler))
 }

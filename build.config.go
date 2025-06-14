@@ -33,7 +33,7 @@ func DefaultConfig() types.Config {
 			EnableTwoFactor:         false,
 			EnableEmailVerification: false,
 			EnableSmsVerification:   false,
-			EnableBearerAuth:       false,
+			EnableBearerAuth:        false,
 		},
 		PasswordPolicy: types.PasswordPolicy{
 			HashSaltLength: 14,
@@ -93,7 +93,7 @@ func (b *AuthBuilder) WithDatabase(config types.DatabaseConfig) *AuthBuilder {
 }
 
 func (b *AuthBuilder) WithJWT(secret string, accessTTL, refreshTTL time.Duration) *AuthBuilder {
-	b.config.AuthConfig.JWTSecret = secret
+	b.config.JWTSecret = secret
 	b.config.AuthConfig.Cookie.AccessTokenTTL = accessTTL
 	b.config.AuthConfig.Cookie.RefreshTokenTTL = refreshTTL
 	return b
@@ -147,10 +147,30 @@ func (b *AuthBuilder) validate() error {
 	if b.config.Server.Type == "" {
 		return errors.New("server type is required")
 	}
-	if b.config.Database.URL == "" || b.config.Database.Type == "" {
-		return errors.New("database configuration is required")
+	if b.config.EnableCustomStorageRepository && b.config.StorageRepositoryFactory.Factory == nil {
+		return errors.New("repository factory is required")
 	}
-	if b.config.AuthConfig.JWTSecret == "" {
+	if !b.config.EnableCustomStorageRepository {
+		if b.config.Database.URL == "" || b.config.Database.Type == "" {
+			return errors.New("database configuration is required")
+		}
+	}
+	if b.config.EnableRateLimiter {
+		if b.config.RateLimiter == nil {
+			return errors.New("rate limiter configuration is required")
+		}
+	}
+	if b.config.EnableAddCustomJWTClaims {
+		if b.config.CustomJWTClaimsProvider == nil {
+			return errors.New("custom JWT claims provider is required")
+		}
+	}
+	if b.config.EnableRecaptcha {
+		if b.config.RecaptchaConfig == nil {
+			return errors.New("recaptcha configuration is required")
+		}
+	}
+	if b.config.JWTSecret == "" {
 		return errors.New("JWT secret is required")
 	}
 	if b.config.AuthConfig.EnableTwoFactor && b.config.AuthConfig.TwoFactorMethod == "" {
@@ -188,10 +208,9 @@ func (b *AuthBuilder) validate() error {
 		return errors.New("swagger title and version are required when swagger is enabled")
 	}
 
-	if b.config.AuthConfig.EnableAddCustomJWTClaims && b.config.CustomJWTClaimsProvider == nil {
+	if b.config.EnableAddCustomJWTClaims && b.config.CustomJWTClaimsProvider == nil {
 		return errors.New("custom JWT claims provider is required when custom JWT claims are enabled")
 	}
-
 
 	return b.validateProviders()
 }

@@ -33,28 +33,8 @@ type SMSSender interface {
 }
 type RateLimiter interface {
 	Allow(key string, config LimiterConfig) bool
-	BruteForceProtection(identifier string, config BruteForceConfig) bool
 	Close() error
 }
-
-// type UserRepository interface {
-// 	CreateUser(user *models.User) error
-// 	UpsertUserByEmail(user *models.User) error
-// 	GetUserByEmail(email string) (*models.User, error)
-// 	GetUserByID(id string) (*models.User, error)
-// 	UpdateUser(user *models.User) error
-// 	DeleteUser(user *models.User) error
-// 	GetAllUsers(interfaces.Filter) ([]*models.User, int64, error)
-// }
-
-// type TokenRepository interface {
-// 	SaveToken(userID, token string, tokenType models.TokenType, expiry time.Duration) error
-// 	ValidateToken(token string, tokenType models.TokenType) (bool, *string, error)
-// 	ValidateTokenWithUserID(userID, token string, tokenType models.TokenType) (bool, error)
-// 	InvalidateToken(userID, token string, tokenType models.TokenType) error
-// 	InvalidateAllTokens(userID string, tokenType models.TokenType) error
-// }
-// type RepositoryFactory interface {
-// 	GetUserRepository() UserRepository
-// 	GetTokenRepository() TokenRepository
-// }
+type CaptchaVerifier interface {
+	Verify(token string, remoteIP string) (bool, error)
+}

@@ -40,6 +40,14 @@ type TokenRepository interface {
 	InvalidateToken(userID, token string, tokenType models.TokenType) error
 	InvalidateAllTokens(userID string, tokenType models.TokenType) error
 }
+
+type AuditLogRepository interface {
+	SaveAuditLog(log *models.AuditLog) error
+	GetAuditLogs(filter Filter) ([]*models.AuditLog, int64, error)
+	GetAuditLogByID(id string) (*models.AuditLog, error)
+	DeleteAuditLog(log *models.AuditLog) error
+}
+
 type RepositoryFactory interface {
 	GetUserRepository() UserRepository
 	GetTokenRepository() TokenRepository

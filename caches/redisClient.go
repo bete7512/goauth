@@ -3,7 +3,7 @@ package caches
 import (
 	"context"
 	"log"
-	"strconv" // Added for proper port conversion
+	"strconv" 
 	"time"
 
 	"github.com/bete7512/goauth/types"
@@ -28,7 +28,7 @@ func NewRedisClient(config types.RedisConfig) *RedisClient {
 	})
 
 	if err := client.Ping(context.Background()).Err(); err != nil {
-		log.Printf("Failed to connect to Redis: %v", err)
+		log.Fatal("Failed to connect to Redis:", err)
 		return nil
 	}
 

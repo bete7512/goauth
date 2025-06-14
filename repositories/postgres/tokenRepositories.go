@@ -38,7 +38,7 @@ func (t *TokenRepository) ValidateToken(token string, tokenType models.TokenType
 		"token_type = ? AND token_value = ? AND used = ? AND expires_at > ?",
 		tokenType, token, false, time.Now(),
 	).First(&tokenRecord)
-
+	
 	if result.Error != nil {
 		if result.Error == gorm.ErrRecordNotFound {
 			return false, nil, nil

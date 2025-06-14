@@ -4,33 +4,38 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/bete7512/goauth/api"
+	"github.com/bete7512/goauth/api/routes"
 	"github.com/bete7512/goauth/database"
 	"github.com/bete7512/goauth/hooks"
 	"github.com/bete7512/goauth/interfaces"
+	"github.com/bete7512/goauth/logger"
 	"github.com/bete7512/goauth/ratelimiter"
+	"github.com/bete7512/goauth/recaptcha"
 	"github.com/bete7512/goauth/repositories"
-	"github.com/bete7512/goauth/routes"
-	"github.com/bete7512/goauth/routes/handlers"
 	tokenManager "github.com/bete7512/goauth/tokens"
 	"github.com/bete7512/goauth/types"
 	"github.com/gin-gonic/gin"
 )
 
 type AuthService struct {
-	Config      types.Config
-	Repository  interfaces.RepositoryFactory
-	HookManager *hooks.HookManager
-	RateLimiter types.RateLimiter
+	Config           types.Config
+	Repository       interfaces.RepositoryFactory
+	HookManager      *hooks.HookManager
+	RateLimiter      types.RateLimiter
+	RecaptchaManager types.CaptchaVerifier
+	Logger           logger.Log
 }
 
 func NewAuth(conf types.Config) (*AuthService, error) {
 	var repositoryFactory interfaces.RepositoryFactory
 	var authService *AuthService
+	var recaptchaVerifier types.CaptchaVerifier
 	_, err := NewBuilder().WithConfig(conf).Build()
 	if err != nil {
 		return nil, err
 	}
-	if conf.AuthConfig.EnableCustomStorageRepository {
+	if conf.EnableCustomStorageRepository {
 		repositoryFactory = conf.StorageRepositoryFactory.Factory
 		if repositoryFactory == nil {
 			return nil, errors.New("repository factory is nil")
@@ -49,18 +54,32 @@ func NewAuth(conf types.Config) (*AuthService, error) {
 		}
 	}
 
-	authService = &AuthService{
-		Config:      conf,
-		Repository:  repositoryFactory,
-		HookManager: hooks.NewHookManager(),
-		RateLimiter: ratelimiter.NewRateLimiter(conf),
+	if conf.EnableRecaptcha {
+		if conf.RecaptchaConfig == nil {
+			return nil, errors.New("recaptcha config is nil")
+		}
+		
+		recaptchaVerifier = recaptcha.NewRecaptchaVerifier(*conf.RecaptchaConfig)
 	}
 
-	if conf.AuthConfig.EnableRateLimiter {
+	logger.New("info", logger.LogOptions{
+		DisableAll:     false,
+		DisableInfo:    false,
+		DisableDebug:   false,
+		DisableWarning: false,
+	})
 
-		if authService.RateLimiter == nil {
-			return nil, errors.New("rate limiter is nil")
-		}
+	loggerInstance := logger.Get()
+	if loggerInstance == nil {
+		return nil, errors.New("logger is not initialized")
+	}
+	authService = &AuthService{
+		Config:           conf,
+		Repository:       repositoryFactory,
+		HookManager:      hooks.NewHookManager(),
+		RateLimiter:      ratelimiter.NewRateLimiter(conf),
+		RecaptchaManager: recaptchaVerifier,
+		Logger:           loggerInstance,
 	}
 
 	return authService, nil
@@ -75,7 +94,7 @@ func (a *AuthService) RegisterAfterHook(route string, hook hooks.RouteHook) erro
 }
 
 func (a *AuthService) GetGinAuthMiddleware(r *gin.Engine) gin.HandlerFunc {
-	ginHandler := routes.NewGinHandler(handlers.AuthHandler{
+	ginHandler := api.NewGinHandler(routes.AuthHandler{
 		Auth: &types.Auth{
 			Config:      a.Config,
 			Repository:  a.Repository,
@@ -85,7 +104,7 @@ func (a *AuthService) GetGinAuthMiddleware(r *gin.Engine) gin.HandlerFunc {
 	return ginHandler.GinMiddleWare(r)
 }
 func (a *AuthService) GetGinAuthRoutes(r *gin.Engine) {
-	ginHandler := routes.NewGinHandler(handlers.AuthHandler{
+	ginHandler := api.NewGinHandler(routes.AuthHandler{
 		Auth: &types.Auth{
 			Config:       a.Config,
 			Repository:   a.Repository,
@@ -98,7 +117,7 @@ func (a *AuthService) GetGinAuthRoutes(r *gin.Engine) {
 }
 
 func (a *AuthService) GetHttpAuthMiddleware(next http.Handler) http.Handler {
-	httpHandler := routes.NewHttpHandler(handlers.AuthHandler{
+	httpHandler := api.NewHttpHandler(routes.AuthHandler{
 		Auth: &types.Auth{
 			Config:       a.Config,
 			Repository:   a.Repository,
@@ -110,7 +129,7 @@ func (a *AuthService) GetHttpAuthMiddleware(next http.Handler) http.Handler {
 }
 
 func (a *AuthService) GetHttpAuthRoutes(s *http.ServeMux) {
-	httpHandler := routes.NewHttpHandler(handlers.AuthHandler{
+	httpHandler := api.NewHttpHandler(routes.AuthHandler{
 		Auth: &types.Auth{
 			Config:       a.Config,
 			Repository:   a.Repository,

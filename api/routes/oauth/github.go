@@ -1,5 +1,4 @@
-package oauthhandlers
-
+package oauthRoutes
 
 import (
 	"context"

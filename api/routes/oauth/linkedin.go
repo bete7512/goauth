@@ -1,4 +1,4 @@
-package oauthhandlers
+package oauthRoutes
 
 import (
 	"context"
@@ -299,4 +299,3 @@ func (l *LinkedInOauth) getUserEmail(accessToken string) (string, error) {
 }
 
 // {"status":500,"message":"Failed to exchange token: oauth2: \"invalid_request\" \"A required parameter \\\"code\\\" is missing\"","error":"oauth2: \"invalid_request\" \"A required parameter \\\"code\\\" is missing\""}
- 

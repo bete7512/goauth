@@ -1,21 +1,21 @@
 // auth/routes/http_routes.go
-package routes
+package api
 
 import (
 	"log"
 	"net/http"
 
+	"github.com/bete7512/goauth/api/routes"
+	oauthhandlers "github.com/bete7512/goauth/api/routes/oauth"
 	"github.com/bete7512/goauth/docs"
-	"github.com/bete7512/goauth/routes/handlers"
-	oauthhandlers "github.com/bete7512/goauth/routes/handlers/oauth"
 	"github.com/bete7512/goauth/types"
 )
 
 type HttpHandler struct {
-	Handler handlers.AuthHandler
+	Handler routes.AuthHandler
 }
 
-func NewHttpHandler(handler handlers.AuthHandler) *HttpHandler {
+func NewHttpHandler(handler routes.AuthHandler) *HttpHandler {
 	return &HttpHandler{Handler: handler}
 }
 

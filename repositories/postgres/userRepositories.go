@@ -32,14 +32,16 @@ func (u *UserRepository) GetUserByEmail(email string) (*models.User, error) {
 	// Use FindOne instead of First to avoid the automatic error logging
 	err := u.db.Where("email = ?", email).Take(&user).Error
 	// Handle record not found
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, errors.New("something Went wrong")
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
 	}
 	return &user, nil
 }
 
 // gorm always display error even if I hhandled error record not found and displays err with red line in my terminal
-
 func (u *UserRepository) GetUserByID(id string) (*models.User, error) {
 	var user models.User
 	if err := u.db.Where("id = ?", id).First(&user).Error; err != nil {

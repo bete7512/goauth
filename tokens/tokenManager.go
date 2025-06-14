@@ -26,8 +26,7 @@ func (t *TokenManager) GenerateAccessToken(user models.User, duration time.Durat
 		"user_id": user.ID,
 		"exp":     time.Now().Add(duration).Unix(),
 	}
-
-	if t.Config.AuthConfig.EnableAddCustomJWTClaims && t.Config.CustomJWTClaimsProvider != nil {
+	if t.Config.EnableAddCustomJWTClaims && t.Config.CustomJWTClaimsProvider != nil {
 		customClaims, err := t.Config.CustomJWTClaimsProvider.GetClaims(user)
 		if err != nil {
 			return "", err
@@ -64,7 +63,7 @@ func (t *TokenManager) GenerateTokens(user *models.User) (accessToken string, re
 		"iat":     time.Now().Unix(),
 		"type":    "access",
 	}
-	if t.Config.AuthConfig.EnableAddCustomJWTClaims && t.Config.CustomJWTClaimsProvider != nil {
+	if t.Config.EnableAddCustomJWTClaims && t.Config.CustomJWTClaimsProvider != nil {
 		customClaims, err := t.Config.CustomJWTClaimsProvider.GetClaims(*user)
 		if err != nil {
 			return "", "", err
@@ -74,7 +73,7 @@ func (t *TokenManager) GenerateTokens(user *models.User) (accessToken string, re
 		}
 	}
 	accessTokenObj := jwt.NewWithClaims(jwt.SigningMethodHS256, accessTokenClaims)
-	accessToken, err = accessTokenObj.SignedString([]byte(t.Config.AuthConfig.JWTSecret))
+	accessToken, err = accessTokenObj.SignedString([]byte(t.Config.JWTSecret))
 	if err != nil {
 		return "", "", err
 	}
@@ -86,7 +85,7 @@ func (t *TokenManager) GenerateTokens(user *models.User) (accessToken string, re
 		"type":    "refresh",
 	}
 	refreshTokenObj := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshTokenClaims)
-	refreshToken, err = refreshTokenObj.SignedString([]byte(t.Config.AuthConfig.JWTSecret))
+	refreshToken, err = refreshTokenObj.SignedString([]byte(t.Config.JWTSecret))
 	if err != nil {
 		return "", "", err
 	}
@@ -100,10 +99,18 @@ func (t *TokenManager) ValidateToken(tokenString string) (jwt.MapClaims, error) 
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errors.New("unexpected signing method")
 		}
-		return []byte(t.Config.AuthConfig.JWTSecret), nil
+		return []byte(t.Config.JWTSecret), nil
 	})
 
 	if err != nil {
+		if ve, ok := err.(*jwt.ValidationError); ok {
+			if ve.Errors&jwt.ValidationErrorExpired != 0 {
+				return nil, errors.New("token_expired")
+			}
+			if ve.Errors&jwt.ValidationErrorNotValidYet != 0 {
+				return nil, errors.New("token not valid yet")
+			}
+		}
 		return nil, err
 	}
 

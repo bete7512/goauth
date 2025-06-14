@@ -1,4 +1,4 @@
-package handlers
+package routes
 
 import (
 	"encoding/json"
@@ -7,9 +7,9 @@ import (
 
 // ProfileUpdateRequest represents the data structure for profile updates
 type ProfileUpdateRequest struct {
-	Name     string `json:"name,omitempty"`
-	Bio      string `json:"bio,omitempty"`
-	Avatar   string `json:"avatar,omitempty"`
+	Name   string `json:"name,omitempty"`
+	Bio    string `json:"bio,omitempty"`
+	Avatar string `json:"avatar,omitempty"`
 	// Add other profile-specific fields as needed
 }
 
@@ -46,4 +46,4 @@ func (h *AuthHandler) HandleUpdateProfile(w http.ResponseWriter, r *http.Request
 	json.NewEncoder(w).Encode(map[string]string{
 		"message": "Profile updated successfully",
 	})
-} 
+}

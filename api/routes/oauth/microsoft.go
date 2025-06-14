@@ -1,4 +1,4 @@
-package oauthhandlers
+package oauthRoutes
 
 import (
 	"context"
@@ -50,7 +50,7 @@ func (m *MicrosoftOauth) getMicrosoftOAuthConfig() *oauth2.Config {
 			Endpoint: microsoft.AzureADEndpoint(*m.Auth.Config.Providers.Microsoft.TenantId),
 		}
 	}
-	
+
 	// This fixes the "userAudience" configuration error
 	return &oauth2.Config{
 		ClientID:     m.Auth.Config.Providers.Microsoft.ClientID,
@@ -170,7 +170,7 @@ func (m *MicrosoftOauth) Callback(w http.ResponseWriter, r *http.Request) {
 
 	// Exchange the authorization code for a token
 	config := m.getMicrosoftOAuthConfig()
-	
+
 	// Create a context with timeout for the token exchange
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -279,6 +279,7 @@ func (m *MicrosoftOauth) Callback(w http.ResponseWriter, r *http.Request) {
 	// Redirect to the frontend
 	http.Redirect(w, r, m.Auth.Config.FrontendURL, http.StatusTemporaryRedirect)
 }
+
 // getUserInfo fetches the user information from Microsoft Graph API
 func (m *MicrosoftOauth) getUserInfo(accessToken string) (*MicrosoftUserInfo, error) {
 	req, err := http.NewRequest("GET", "https://graph.microsoft.com/v1.0/me", nil)
@@ -312,4 +313,4 @@ func (m *MicrosoftOauth) getUserInfo(accessToken string) (*MicrosoftUserInfo, er
 
 {"status":400,"message":"OAuth error: invalid_request - The request is not valid for the application's 'userAudience' configuration. In order to use /common/ endpoint, the application must not be configured with 'Consumer' as the user audience. The userAudience should be configured with 'All' to use /common/ endpoint.","error":"invalid_request: The request is not valid for the application's 'userAudience' configuration. In order to use /common/ endpoint, the application must not be configured with 'Consumer' as the user audience. The userAudience should be configured with 'All' to use /common/ endpoint."}
 
-*/ 
+*/
