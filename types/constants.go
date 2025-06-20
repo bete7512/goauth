@@ -1,6 +1,5 @@
 package types
 
-
 const (
 	RecaptchaAPIURL  = "https://www.google.com/recaptcha/api/siteverify"
 	CloudflareAPIURL = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
@@ -33,6 +32,8 @@ const (
 	RouteDisableTwoFactor        = "disable-two-factor"
 	RouteVerifyEmail             = "verify-email"
 	RouteResendVerificationEmail = "resend-verification-email"
+	RouteMagicLink               = "magic-link"
+	RouteMagicLinkLogin          = "magic-link-login"
 )
 
 const (

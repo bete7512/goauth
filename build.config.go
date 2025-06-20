@@ -3,192 +3,130 @@ package goauth
 import (
 	"errors"
 	"fmt"
-	"time"
 
+	"github.com/bete7512/goauth/database"
+	"github.com/bete7512/goauth/hooks"
+	"github.com/bete7512/goauth/interfaces"
+	"github.com/bete7512/goauth/logger"
+	"github.com/bete7512/goauth/ratelimiter"
+	"github.com/bete7512/goauth/recaptcha"
+	"github.com/bete7512/goauth/repositories"
 	"github.com/bete7512/goauth/types"
 )
 
-type AuthBuilder struct {
-	config types.Config
+// Builder provides a flexible way to construct an AuthService.
+type Builder struct {
+	config          types.Config
+	repoFactory     interfaces.RepositoryFactory
+	captchaVerifier types.CaptchaVerifier
+	err             error
 }
 
-func DefaultConfig() types.Config {
-	return types.Config{
-		Database: types.DatabaseConfig{
-			Type: types.PostgreSQL,
-		},
-		Server: types.ServerConfig{
-			Type: types.GinServer,
-		},
-		AuthConfig: types.AuthConfig{
-			Cookie: types.CookieConfig{
-				MaxAge:          int((7 * 24 * time.Hour).Seconds()),
-				Path:            "/",
-				HttpOnly:        true,
-				Domain:          "",
-				AccessTokenTTL:  15 * time.Minute,
-				RefreshTokenTTL: 7 * 24 * time.Hour,
-				Secure:          false,
-			},
-			EnableTwoFactor:         false,
-			EnableEmailVerification: false,
-			EnableSmsVerification:   false,
-			EnableBearerAuth:        false,
-		},
-		PasswordPolicy: types.PasswordPolicy{
-			HashSaltLength: 14,
-			MinLength:      4,
-			RequireUpper:   false,
-			RequireLower:   false,
-			RequireNumber:  false,
-			RequireSpecial: false,
-		},
-		Swagger: types.SwaggerConfig{
-			Enable: false,
-		},
+// NewBuilder creates a new builder instance.
+func NewBuilder() *Builder {
+	return &Builder{}
+}
+
+// WithConfig sets the configuration for the AuthService.
+func (b *Builder) WithConfig(conf types.Config) *Builder {
+	b.config = conf
+	return b
+}
+
+// WithRepositoryFactory provides a custom repository factory.
+func (b *Builder) WithRepositoryFactory(factory interfaces.RepositoryFactory) *Builder {
+	b.repoFactory = factory
+	return b
+}
+
+// WithCaptchaVerifier provides a custom captcha verifier.
+func (b *Builder) WithCaptchaVerifier(verifier types.CaptchaVerifier) *Builder {
+	b.captchaVerifier = verifier
+	return b
+}
+
+// Build constructs the final AuthService.
+func (b *Builder) Build() (*AuthService, error) {
+	if b.err != nil {
+		return nil, fmt.Errorf("builder has previous error: %w", b.err)
 	}
-}
 
-func NewBuilder() *AuthBuilder {
-	return &AuthBuilder{
-		config: DefaultConfig(),
-	}
-}
-
-func (b *AuthBuilder) WithConfig(config types.Config) *AuthBuilder {
-	b.config = config
-	return b
-}
-
-func (b *AuthBuilder) WithServer(serverType types.ServerType, basePath string) *AuthBuilder {
-	b.config.Server.Type = serverType
-	b.config.BasePath = basePath
-	return b
-}
-
-func (b *AuthBuilder) WithEmailVerification(enabled bool, url string) *AuthBuilder {
-	b.config.AuthConfig.EnableEmailVerification = enabled
-	b.config.AuthConfig.EmailVerificationURL = url
-	return b
-}
-
-func (b *AuthBuilder) WithPasswordReset(url string) *AuthBuilder {
-	b.config.AuthConfig.PasswordResetURL = url
-	return b
-}
-
-func (b *AuthBuilder) WithEmailSender(sender types.EmailSender) *AuthBuilder {
-	b.config.EmailSender = sender
-	return b
-}
-
-func (b *AuthBuilder) WithSMSSender(sender types.SMSSender) *AuthBuilder {
-	b.config.SMSSender = sender
-	return b
-}
-
-func (b *AuthBuilder) WithDatabase(config types.DatabaseConfig) *AuthBuilder {
-	b.config.Database = config
-	return b
-}
-
-func (b *AuthBuilder) WithJWT(secret string, accessTTL, refreshTTL time.Duration) *AuthBuilder {
-	b.config.JWTSecret = secret
-	b.config.AuthConfig.Cookie.AccessTokenTTL = accessTTL
-	b.config.AuthConfig.Cookie.RefreshTokenTTL = refreshTTL
-	return b
-}
-
-func (b *AuthBuilder) WithPasswordPolicy(policy types.PasswordPolicy) *AuthBuilder {
-	b.config.PasswordPolicy = policy
-	return b
-}
-
-func (b *AuthBuilder) WithTwoFactor(enabled bool, method string) *AuthBuilder {
-	b.config.AuthConfig.EnableTwoFactor = enabled
-	b.config.AuthConfig.TwoFactorMethod = method
-	return b
-}
-
-func (b *AuthBuilder) WithProvider(provider types.AuthProvider, config types.ProviderConfig) *AuthBuilder {
-	if b.config.Providers.Enabled == nil {
-		b.config.Providers.Enabled = make([]types.AuthProvider, 0, 1)
-	}
-	b.config.Providers.Enabled = append(b.config.Providers.Enabled, provider)
-	switch provider {
-	case types.Google:
-		b.config.Providers.Google = config
-	case types.GitHub:
-		b.config.Providers.GitHub = config
-	case types.Facebook:
-		b.config.Providers.Facebook = config
-	case types.Microsoft:
-		b.config.Providers.Microsoft = config
-	case types.Apple:
-		b.config.Providers.Apple = config
-	}
-	return b
-}
-
-func (b *AuthBuilder) WithCookie(secure bool, domain string) *AuthBuilder {
-	b.config.AuthConfig.Cookie.Secure = secure
-	b.config.AuthConfig.Cookie.Domain = domain
-	return b
-}
-
-func (b *AuthBuilder) Build() (*types.Auth, error) {
+	// Validate configuration
 	if err := b.validate(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("configuration validation failed: %w", err)
 	}
-	return &types.Auth{Config: b.config}, nil
+
+	// Initialize Logger
+	logger.New("info", logger.LogOptions{}) // Simplified for example
+	loggerInstance := logger.Get()
+	if loggerInstance == nil {
+		return nil, errors.New("logger failed to initialize")
+	}
+
+	// If a custom repository factory isn't provided, create the default one.
+	if b.repoFactory == nil {
+		if b.config.EnableCustomStorageRepository {
+			return nil, errors.New("EnableCustomStorageRepository is true, but no factory was provided via WithRepositoryFactory")
+		}
+		dbClient, err := database.NewDBClient(b.config.Database)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create db client: %w", err)
+		}
+		if err := dbClient.Connect(); err != nil {
+			return nil, fmt.Errorf("failed to connect to database: %w", err)
+		}
+		repoFactory, err := repositories.NewRepositoryFactory(b.config.Database.Type, dbClient.GetDB())
+		if err != nil {
+			return nil, fmt.Errorf("failed to create repository factory: %w", err)
+		}
+		b.repoFactory = repoFactory
+	}
+
+	// If a custom captcha verifier isn't provided, create the default one if enabled.
+	if b.captchaVerifier == nil && b.config.EnableRecaptcha {
+		if b.config.RecaptchaConfig == nil {
+			return nil, errors.New("EnableRecaptcha is true, but RecaptchaConfig is nil")
+		}
+		b.captchaVerifier = recaptcha.NewRecaptchaVerifier(*b.config.RecaptchaConfig)
+	}
+
+	authService := &AuthService{
+		Config:           b.config,
+		Repository:       b.repoFactory,
+		HookManager:      hooks.NewHookManager(),
+		RateLimiter:      ratelimiter.NewRateLimiter(b.config),
+		RecaptchaManager: b.captchaVerifier,
+		Logger:           loggerInstance,
+	}
+
+	return authService, nil
 }
 
-func (b *AuthBuilder) validate() error {
+// validate performs comprehensive validation of the configuration
+func (b *Builder) validate() error {
+	// Validate server configuration
 	if b.config.Server.Type == "" {
 		return errors.New("server type is required")
 	}
-	if b.config.EnableCustomStorageRepository && b.config.StorageRepositoryFactory.Factory == nil {
-		return errors.New("repository factory is required")
-	}
+
+	// Validate database configuration
 	if !b.config.EnableCustomStorageRepository {
-		if b.config.Database.URL == "" || b.config.Database.Type == "" {
-			return errors.New("database configuration is required")
+		if b.config.Database.URL == "" {
+			return errors.New("database URL is required when not using custom storage repository")
 		}
-	}
-	if b.config.EnableRateLimiter {
-		if b.config.RateLimiter == nil {
-			return errors.New("rate limiter configuration is required")
+		if b.config.Database.Type == "" {
+			return errors.New("database type is required when not using custom storage repository")
 		}
+	} else if b.repoFactory == nil {
+		return errors.New("repository factory is required when EnableCustomStorageRepository is true")
 	}
-	if b.config.EnableAddCustomJWTClaims {
-		if b.config.CustomJWTClaimsProvider == nil {
-			return errors.New("custom JWT claims provider is required")
-		}
-	}
-	if b.config.EnableRecaptcha {
-		if b.config.RecaptchaConfig == nil {
-			return errors.New("recaptcha configuration is required")
-		}
-	}
+
+	// Validate JWT configuration
 	if b.config.JWTSecret == "" {
 		return errors.New("JWT secret is required")
 	}
-	if b.config.AuthConfig.EnableTwoFactor && b.config.AuthConfig.TwoFactorMethod == "" {
-		return errors.New("2FA method is required when 2FA is enabled")
-	}
-	if b.config.AuthConfig.EnableEmailVerification && b.config.AuthConfig.EmailVerificationURL == "" {
-		return errors.New("email verification URL is required when email verification is enabled")
-	}
-	if b.config.AuthConfig.EnableSmsVerification && b.config.SMSSender == nil {
-		return errors.New("SMS sender is required when SMS verification is enabled")
-	}
-	if b.config.EmailSender == nil && b.config.AuthConfig.EnableEmailVerification {
-		return errors.New("email sender is required")
-	}
-	if b.config.AuthConfig.Cookie.MaxAge <= 0 {
-		return errors.New("max cookie age must be greater than 0")
-	}
 
+	// Validate cookie configuration
 	if b.config.AuthConfig.Cookie.Name == "" {
 		return errors.New("cookie name is required")
 	}
@@ -201,21 +139,73 @@ func (b *AuthBuilder) validate() error {
 	if b.config.AuthConfig.Cookie.Path == "" {
 		return errors.New("cookie path is required")
 	}
+	if b.config.AuthConfig.Cookie.MaxAge <= 0 {
+		return errors.New("max cookie age must be greater than 0")
+	}
+
+	// Validate password policy
 	if b.config.PasswordPolicy.HashSaltLength <= 0 {
 		return errors.New("hash salt length must be greater than 0")
 	}
-	if b.config.Swagger.Enable && (b.config.Swagger.Title == "" || b.config.Swagger.Version == "" || b.config.Swagger.DocPath == "" || b.config.Swagger.Description == "" || b.config.Swagger.Host == "") {
-		return errors.New("swagger title and version are required when swagger is enabled")
+	if b.config.PasswordPolicy.MinLength <= 0 {
+		return errors.New("password minimum length must be greater than 0")
 	}
 
+	// Validate two-factor authentication
+	if b.config.AuthConfig.EnableTwoFactor && b.config.AuthConfig.TwoFactorMethod == "" {
+		return errors.New("two-factor method is required when two-factor authentication is enabled")
+	}
+
+	// Validate email verification
+	if b.config.AuthConfig.EnableEmailVerification {
+		if b.config.AuthConfig.EmailVerificationURL == "" {
+			return errors.New("email verification URL is required when email verification is enabled")
+		}
+		if b.config.EmailSender == nil {
+			return errors.New("email sender is required when email verification is enabled")
+		}
+	}
+
+	// Validate SMS verification
+	if b.config.AuthConfig.EnableSmsVerification && b.config.SMSSender == nil {
+		return errors.New("SMS sender is required when SMS verification is enabled")
+	}
+
+	// Validate rate limiter
+	if b.config.EnableRateLimiter && b.config.RateLimiter == nil {
+		return errors.New("rate limiter configuration is required when rate limiting is enabled")
+	}
+
+	// Validate custom JWT claims
 	if b.config.EnableAddCustomJWTClaims && b.config.CustomJWTClaimsProvider == nil {
 		return errors.New("custom JWT claims provider is required when custom JWT claims are enabled")
 	}
 
+	// Validate Swagger configuration
+	if b.config.Swagger.Enable {
+		if b.config.Swagger.Title == "" {
+			return errors.New("swagger title is required when swagger is enabled")
+		}
+		if b.config.Swagger.Version == "" {
+			return errors.New("swagger version is required when swagger is enabled")
+		}
+		if b.config.Swagger.DocPath == "" {
+			return errors.New("swagger doc path is required when swagger is enabled")
+		}
+		if b.config.Swagger.Description == "" {
+			return errors.New("swagger description is required when swagger is enabled")
+		}
+		if b.config.Swagger.Host == "" {
+			return errors.New("swagger host is required when swagger is enabled")
+		}
+	}
+
+	// Validate OAuth providers
 	return b.validateProviders()
 }
 
-func (b *AuthBuilder) validateProviders() error {
+// validateProviders validates OAuth provider configurations
+func (b *Builder) validateProviders() error {
 	for _, provider := range b.config.Providers.Enabled {
 		var config types.ProviderConfig
 		switch provider {
@@ -240,12 +230,19 @@ func (b *AuthBuilder) validateProviders() error {
 		case types.Spotify:
 			config = b.config.Providers.Spotify
 		default:
-			return fmt.Errorf("unsupported provider: %s", provider)
+			return fmt.Errorf("unsupported OAuth provider: %s", provider)
 		}
 
-		if config.ClientID == "" || config.ClientSecret == "" {
-			return fmt.Errorf("incomplete configuration for provider: %s", provider)
+		if config.ClientID == "" {
+			return fmt.Errorf("client ID is required for OAuth provider: %s", provider)
+		}
+		if config.ClientSecret == "" {
+			return fmt.Errorf("client secret is required for OAuth provider: %s", provider)
+		}
+		if config.RedirectURL == "" {
+			return fmt.Errorf("redirect URL is required for OAuth provider: %s", provider)
 		}
 	}
+
 	return nil
 }

@@ -36,7 +36,7 @@ func (h *AuthHandler) SendMagicLink(w http.ResponseWriter, r *http.Request) {
 		utils.RespondWithError(w, http.StatusBadRequest, "User not found", nil)
 		return
 	}
-	// Generate magic link token
+	// Generate 1 link token
 	magicLinkToken, err := h.Auth.TokenManager.GenerateRandomToken(32)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to generate magic link token", err)
