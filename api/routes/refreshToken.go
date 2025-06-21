@@ -22,9 +22,8 @@ func (h *AuthHandler) HandleRefreshToken(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Validate refresh token
-	claims, err := h.Auth.TokenManager.ValidateToken(token)
+	claims, err := h.Auth.TokenManager.ValidateJWTToken(token)
 	if err != nil {
-		
 		utils.RespondWithError(w, http.StatusUnauthorized, "Invalid refresh token", nil)
 		return
 	}

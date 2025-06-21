@@ -1,6 +1,8 @@
 package goauth
 
 import (
+	"time"
+
 	"github.com/bete7512/goauth/models"
 	"github.com/bete7512/goauth/types"
 )
@@ -36,7 +38,7 @@ func (tc *TestConfigurations) MinimalConfig() types.Config {
 				MaxAge:          86400,
 			},
 			EnableTwoFactor:         false,
-			EnableEmailVerification: false,
+			EnableEmailVerificationOnSignup: false,
 		},
 		PasswordPolicy: types.PasswordPolicy{
 			HashSaltLength: 16,
@@ -56,17 +58,19 @@ func (tc *TestConfigurations) FullFeatureConfig() types.Config {
 	// Enable all features
 	config.AuthConfig.EnableTwoFactor = true
 	config.AuthConfig.TwoFactorMethod = "totp"
-	config.AuthConfig.EnableEmailVerification = true
+	config.AuthConfig.EnableEmailVerificationOnSignup = true
 	config.AuthConfig.EmailVerificationURL = "http://localhost:8080/verify-email"
 	config.AuthConfig.EnableSmsVerification = true
 
 	// Enable rate limiting
 	config.EnableRateLimiter = true
 	config.RateLimiter = &types.RateLimiterConfig{
-		DefaultConfig: types.LimiterConfig{
-			WindowSize:    60,
-			MaxRequests:   100,
-			BlockDuration: 10,
+		Routes: map[string]types.LimiterConfig{
+			types.RouteRegister: {
+				WindowSize:    30 * time.Second,
+				MaxRequests:   10,
+				BlockDuration: 1 * time.Minute,
+			},
 		},
 	}
 
@@ -161,7 +165,7 @@ func (tc *TestConfigurations) TwoFactorConfig() types.Config {
 // EmailVerificationConfig returns a configuration with email verification enabled
 func (tc *TestConfigurations) EmailVerificationConfig() types.Config {
 	config := tc.MinimalConfig()
-	config.AuthConfig.EnableEmailVerification = true
+	config.AuthConfig.EnableEmailVerificationOnSignup = true
 	config.AuthConfig.EmailVerificationURL = "http://localhost:8080/verify-email"
 	return config
 }
@@ -171,10 +175,12 @@ func (tc *TestConfigurations) RateLimitConfig() types.Config {
 	config := tc.MinimalConfig()
 	config.EnableRateLimiter = true
 	config.RateLimiter = &types.RateLimiterConfig{
-		DefaultConfig: types.LimiterConfig{
-			WindowSize:    60,
-			MaxRequests:   100,
-			BlockDuration: 10,
+		Routes: map[string]types.LimiterConfig{
+			types.RouteRegister: {
+				WindowSize:    30 * time.Second,
+				MaxRequests:   10,
+				BlockDuration: 1 * time.Minute,
+			},
 		},
 	}
 	return config
@@ -276,7 +282,7 @@ func (tc *TestConfigurations) InvalidConfigs() map[string]types.Config {
 		}(),
 		"email_verification_without_url": func() types.Config {
 			config := tc.MinimalConfig()
-			config.AuthConfig.EnableEmailVerification = true
+			config.AuthConfig.EnableEmailVerificationOnSignup = true
 			config.AuthConfig.EmailVerificationURL = ""
 			return config
 		}(),

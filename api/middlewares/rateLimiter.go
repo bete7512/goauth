@@ -19,7 +19,6 @@ func getClientIP(r *http.Request) string {
 		ips := strings.Split(xForwardedFor, ",")
 		return strings.TrimSpace(ips[0])
 	}
-
 	// Try X-Real-IP header next
 	xRealIP := r.Header.Get("X-Real-IP")
 	if xRealIP != "" {
@@ -28,7 +27,6 @@ func getClientIP(r *http.Request) string {
 
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
-		// if there's an error, fallback to raw RemoteAddr (not ideal, but safe fallback)
 		host = r.RemoteAddr
 	}
 	parsedIP := net.ParseIP(host)
@@ -39,7 +37,6 @@ func getClientIP(r *http.Request) string {
 		}
 		return parsedIP.String()
 	}
-
 	return "unknown"
 }
 
@@ -69,7 +66,6 @@ func RateLimiterMiddleware(limiter types.RateLimiter, config *types.RateLimiterC
 		routeConfig := config.Routes[route]
 		// Check rate limit
 		if !limiter.Allow(key, routeConfig) {
-			log.Printf("Rate limit exceeded for '%s'", key)
 			w.Header().Set("Content-Type", "application/json")
 			w.Header().Set("Retry-After", routeConfig.BlockDuration.String())
 			w.WriteHeader(http.StatusTooManyRequests)

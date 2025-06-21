@@ -17,7 +17,7 @@ func (h *AuthHandler) HandleResendVerificationEmail(w http.ResponseWriter, r *ht
 		return
 	}
 
-	if !h.Auth.Config.AuthConfig.EnableEmailVerification {
+	if !h.Auth.Config.AuthConfig.EnableEmailVerificationOnSignup {
 		utils.RespondWithError(w, http.StatusBadRequest, "Email verification is not enabled", nil)
 		return
 	}

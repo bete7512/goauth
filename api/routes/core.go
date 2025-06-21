@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 	"unicode"
 
@@ -12,17 +13,6 @@ import (
 
 type AuthHandler struct {
 	Auth *types.Auth
-}
-
-func (h *AuthHandler) WithHooks(route string, handler func(http.ResponseWriter, *http.Request)) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if h.Auth.HookManager != nil && h.Auth.HookManager.GetBeforeHook(route) != nil {
-			if !h.Auth.HookManager.ExecuteBeforeHooks(route, w, r) {
-				return
-			}
-		}
-		handler(w, r)
-	}
 }
 
 // validatePasswordPolicy validates a password against the configured policy
@@ -61,6 +51,56 @@ func (h *AuthHandler) validatePasswordPolicy(password string, policy types.Passw
 	return nil
 }
 
+func (h *AuthHandler) ValidateEmail(email string) error {
+	// RFC 5322 compliant email regex
+	emailRegex := regexp.MustCompile(`^[a-zA-Z0-9.!#$%&'*+/=?^_{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$`)
+
+	if !emailRegex.MatchString(email) {
+		return errors.New("invalid email address format")
+	}
+	// Additional checks
+	if len(email) > 254 {
+		return errors.New("email address too long")
+	}
+	if len(email) < 5 {
+		return errors.New("email address too short")
+	}
+	if strings.HasSuffix(strings.ToLower(email), "@gmail.com") {
+		parts := strings.Split(email, "@")
+		localPart := parts[0]
+		if strings.Contains(localPart, ".") {
+			return errors.New("gmail addresses with dots are not allowed")
+		}
+	}
+	return nil
+}
+
+func (h *AuthHandler) ValidatePhoneNumber(phoneNumber *string) error {
+
+	//validate phone number
+	if h.Auth.Config.AuthConfig.PhoneNumberRequired {
+		if phoneNumber == nil {
+			return errors.New("phone number is required")
+		}
+		if *phoneNumber == "" {
+			return errors.New("phone number is required")
+		}
+	}
+	// If phone number is not required and is nil, skip validation
+	if phoneNumber == nil {
+		return nil
+	}
+	//validate phone number format
+	if !regexp.MustCompile(`^\+?[1-9]\d{1,14}$`).MatchString(*phoneNumber) {
+		return errors.New("invalid phone number format, example: +1234567890")
+	}
+	//validate phone number length
+	if len(*phoneNumber) < 10 || len(*phoneNumber) > 15 {
+		return errors.New("phone number must be between 10 and 15 digits")
+	}
+	return nil
+}
+
 // authenticateRequest extracts and validates the token from a request
 func (h *AuthHandler) authenticateRequest(r *http.Request, cookieName, jwtSecret string) (string, error) {
 	token := h.extractToken(r, cookieName)
@@ -68,7 +108,7 @@ func (h *AuthHandler) authenticateRequest(r *http.Request, cookieName, jwtSecret
 		return "", errors.New("no authentication token provided")
 	}
 
-	claims, err := h.Auth.TokenManager.ValidateToken(token)
+	claims, err := h.Auth.TokenManager.ValidateJWTToken(token)
 	if err != nil {
 		return "", err
 	}

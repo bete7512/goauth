@@ -224,7 +224,7 @@ func (m *MicrosoftOauth) Callback(w http.ResponseWriter, r *http.Request) {
 			return userInfo.DisplayName
 		}(),
 		LastName:   userInfo.Surname,
-		SigninVia:  "microsoft",
+		SignedUpVia:  "microsoft",
 		ProviderId: &userInfo.ID,
 		Avatar:     nil, // Microsoft Graph API requires additional requests for photo
 	}

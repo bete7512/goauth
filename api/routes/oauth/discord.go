@@ -153,7 +153,7 @@ func (d *DiscordOauth) Callback(w http.ResponseWriter, r *http.Request) {
 		Email:      userInfo.Email,
 		FirstName:  firstName,
 		LastName:   "", // Discord doesn't provide last name
-		SigninVia:  "discord",
+		SignedUpVia:  "discord",
 		ProviderId: &userInfo.ID,
 		Avatar:     &avatarURL,
 	}

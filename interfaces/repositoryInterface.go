@@ -26,6 +26,7 @@ type Filter struct {
 type UserRepository interface {
 	CreateUser(user *models.User) error
 	UpsertUserByEmail(user *models.User) error
+	GetUserByPhoneNumber(phoneNumber string) (*models.User, error)
 	GetUserByEmail(email string) (*models.User, error)
 	GetUserByID(id string) (*models.User, error)
 	UpdateUser(user *models.User) error

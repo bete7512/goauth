@@ -28,7 +28,7 @@ func createValidConfig() types.Config {
 				MaxAge:          86400,
 			},
 			EnableTwoFactor:         false,
-			EnableEmailVerification: false,
+			EnableEmailVerificationOnSignup: false,
 		},
 		PasswordPolicy: types.PasswordPolicy{
 			HashSaltLength: 16,
@@ -302,7 +302,7 @@ func TestBuilder_validate_TwoFactorMethodRequired(t *testing.T) {
 
 func TestBuilder_validate_EmailVerificationURLRequired(t *testing.T) {
 	config := createValidConfig()
-	config.AuthConfig.EnableEmailVerification = true
+	config.AuthConfig.EnableEmailVerificationOnSignup = true
 	config.AuthConfig.EmailVerificationURL = ""
 
 	auth, err := NewBuilder().
@@ -316,7 +316,7 @@ func TestBuilder_validate_EmailVerificationURLRequired(t *testing.T) {
 
 func TestBuilder_validate_EmailSenderRequired(t *testing.T) {
 	config := createValidConfig()
-	config.AuthConfig.EnableEmailVerification = true
+	config.AuthConfig.EnableEmailVerificationOnSignup = true
 	config.AuthConfig.EmailVerificationURL = "http://example.com/verify"
 	config.EmailSender = nil
 

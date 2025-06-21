@@ -61,3 +61,10 @@ const (
 	MemoryRateLimiter   RateLimiterStorageType = "memory"
 	DatabaseRateLimiter RateLimiterStorageType = "database"
 )
+
+
+
+const (
+	ResponseDataKey contextKey = "response_data"
+	RequestDataKey  contextKey = "request_data"
+)

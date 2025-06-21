@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/bete7512/goauth/logger"
@@ -93,4 +95,29 @@ func (c *APIClient) Post(ctx context.Context, endpoint string, payload, result i
 	}
 
 	return nil
+}
+
+// CreateFormRequest creates a request with form data
+func (c *APIClient) CreateFormRequest(ctx context.Context, method, endpoint string, data url.Values) (*http.Request, error) {
+	url := c.baseURL + endpoint
+
+	req, err := http.NewRequestWithContext(ctx, method, url, strings.NewReader(data.Encode()))
+	if err != nil {
+		c.logger.Errorf("Failed to create form request: %v", err)
+		return nil, err
+	}
+
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	return req, nil
+}
+
+// DoRequest executes a request and returns the response
+func (c *APIClient) DoRequest(req *http.Request) (*http.Response, error) {
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		c.logger.Errorf("Failed to perform request: %v", err)
+		return nil, err
+	}
+
+	return resp, nil
 }

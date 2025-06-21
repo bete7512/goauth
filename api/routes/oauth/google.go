@@ -145,7 +145,7 @@ func (g *GoogleOauth) Callback(w http.ResponseWriter, r *http.Request) {
 			return userInfo.Name
 		}(),
 		LastName:   userInfo.FamilyName,
-		SigninVia:  "google",
+		SignedUpVia:  "google",
 		ProviderId: &userInfo.ID,
 		Avatar:     &userInfo.Picture,
 	}

@@ -161,7 +161,7 @@ func (g *GitHubOauth) Callback(w http.ResponseWriter, r *http.Request) {
 			return userInfo.Login
 		}(),
 		LastName:   "", // GitHub doesn't provide separated name fields
-		SigninVia:  "github",
+		SignedUpVia:  "github",
 		ProviderId: &providerId,
 		Avatar:     &userInfo.AvatarURL,
 	}

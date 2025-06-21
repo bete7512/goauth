@@ -169,7 +169,7 @@ func (l *LinkedInOauth) Callback(w http.ResponseWriter, r *http.Request) {
 		Email:      email,
 		FirstName:  userInfo.FirstName,
 		LastName:   userInfo.LastName,
-		SigninVia:  "linkedin",
+		SignedUpVia:  "linkedin",
 		ProviderId: &userInfo.ID,
 		Avatar:     &avatarURL,
 	}

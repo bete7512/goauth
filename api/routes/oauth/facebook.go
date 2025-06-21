@@ -145,7 +145,7 @@ func (f *FacebookOauth) Callback(w http.ResponseWriter, r *http.Request) {
 		Email:      userInfo.Email,
 		FirstName:  userInfo.FirstName,
 		LastName:   userInfo.LastName,
-		SigninVia:  "facebook",
+		SignedUpVia:  "facebook",
 		ProviderId: &userInfo.ID,
 		Avatar:     &avatarURL,
 	}

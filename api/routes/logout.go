@@ -19,7 +19,7 @@ func (h *AuthHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
 		utils.RespondWithError(w, http.StatusBadRequest, "No authentication token provided", nil)
 		return
 	}
-	claims, err := h.Auth.TokenManager.ValidateToken(token)
+	claims, err := h.Auth.TokenManager.ValidateJWTToken(token)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusUnauthorized, "Invalid authentication token", nil)
 		return

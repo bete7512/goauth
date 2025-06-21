@@ -122,3 +122,69 @@ func (h *AuthHandler) HandleVerifyEmail(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 }
+
+// // HandleVerifyEmail handles email verification
+// func (h *AuthHandler) HandleVerifyEmail(w http.ResponseWriter, r *http.Request) {
+// 	if r.Method != http.MethodPost {
+// 		utils.RespondWithError(w, http.StatusMethodNotAllowed, "Method not allowed", nil)
+// 		return
+// 	}
+
+// 	// Get token and email from query parameters
+// 	token := r.URL.Query().Get("token")
+// 	email := r.URL.Query().Get("email")
+
+// 	if token == "" || email == "" {
+// 		utils.RespondWithError(w, http.StatusBadRequest, "Token and email are required", nil)
+// 		return
+// 	}
+
+// 	// Get user by email
+// 	user, err := h.Auth.Repository.GetUserRepository().GetUserByEmail(email)
+// 	if err != nil {
+// 		utils.RespondWithError(w, http.StatusBadRequest, "User not found", nil)
+// 		return
+// 	}
+
+// 	// Validate verification token
+// 	valid, _, err := h.Auth.Repository.GetTokenRepository().ValidateToken(token, models.EmailVerificationToken)
+// 	if err != nil || !valid {
+// 		utils.RespondWithError(w, http.StatusBadRequest, "Invalid or expired verification token", nil)
+// 		return
+// 	}
+
+// 	// Update user email verification status
+// 	user.EmailVerified = true
+// 	err = h.Auth.Repository.GetUserRepository().UpdateUser(user)
+// 	if err != nil {
+// 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to update user", nil)
+// 		return
+// 	}
+
+// 	// Delete the verification token
+// 	err = h.Auth.Repository.GetTokenRepository().DeleteToken(token)
+// 	if err != nil {
+// 		h.Auth.Logger.Error("Failed to delete verification token: " + err.Error())
+// 	}
+
+// 	// Send welcome email
+// 	if h.Auth.Config.EmailSender != nil {
+// 		go func() {
+// 			err := h.Auth.Config.EmailSender.SendWelcome(*user)
+// 			if err != nil {
+// 				h.Auth.Logger.Error("Failed to send welcome email: " + err.Error())
+// 			}
+// 		}()
+// 	}
+
+// 	utils.RespondWithJSON(w, http.StatusOK, map[string]interface{}{
+// 		"message": "Email verified successfully",
+// 		"user": map[string]interface{}{
+// 			"id":             user.ID,
+// 			"first_name":     user.FirstName,
+// 			"last_name":      user.LastName,
+// 			"email":          user.Email,
+// 			"email_verified": user.EmailVerified,
+// 		},
+// 	})
+// }

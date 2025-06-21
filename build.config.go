@@ -3,11 +3,14 @@ package goauth
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/bete7512/goauth/database"
 	"github.com/bete7512/goauth/hooks"
 	"github.com/bete7512/goauth/interfaces"
 	"github.com/bete7512/goauth/logger"
+	"github.com/bete7512/goauth/notifications/email"
+	"github.com/bete7512/goauth/notifications/sms"
 	"github.com/bete7512/goauth/ratelimiter"
 	"github.com/bete7512/goauth/recaptcha"
 	"github.com/bete7512/goauth/repositories"
@@ -68,7 +71,7 @@ func (b *Builder) Build() (*AuthService, error) {
 		if b.config.EnableCustomStorageRepository {
 			return nil, errors.New("EnableCustomStorageRepository is true, but no factory was provided via WithRepositoryFactory")
 		}
-		dbClient, err := database.NewDBClient(b.config.Database)
+		dbClient, err := database.NewDBClient(b.config)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create db client: %w", err)
 		}
@@ -90,6 +93,16 @@ func (b *Builder) Build() (*AuthService, error) {
 		b.captchaVerifier = recaptcha.NewRecaptchaVerifier(*b.config.RecaptchaConfig)
 	}
 
+	// Initialize email sender if not provided
+	if b.config.EmailSender == nil && b.config.EmailConfig.SendGridConfig.SendGridAPIKey != "" {
+		b.config.EmailSender = email.NewEmailSender(b.config.EmailConfig)
+	}
+
+	// Initialize SMS sender if not provided
+	if b.config.SMSSender == nil && b.config.SMSConfig.TwilioAccountSID != "" {
+		b.config.SMSSender = sms.NewSMSSender(b.config.SMSConfig)
+	}
+
 	authService := &AuthService{
 		Config:           b.config,
 		Repository:       b.repoFactory,
@@ -97,6 +110,22 @@ func (b *Builder) Build() (*AuthService, error) {
 		RateLimiter:      ratelimiter.NewRateLimiter(b.config),
 		RecaptchaManager: b.captchaVerifier,
 		Logger:           loggerInstance,
+	}
+
+	if b.config.EmailVerificationTokenTTL <= 0 {
+		b.config.EmailVerificationTokenTTL = 1 * time.Hour
+	}
+	if b.config.PhoneVerificationTokenTTL <= 0 {
+		b.config.PhoneVerificationTokenTTL = 10 * time.Minute
+	}
+	if b.config.PasswordResetTokenTTL <= 0 {
+		b.config.PasswordResetTokenTTL = 10 * time.Minute
+	}
+	if b.config.TwoFactorTokenTTL <= 0 {
+		b.config.TwoFactorTokenTTL = 10 * time.Minute
+	}
+	if b.config.MagicLinkTokenTTL <= 0 {
+		b.config.MagicLinkTokenTTL = 10 * time.Minute
 	}
 
 	return authService, nil
@@ -142,27 +171,29 @@ func (b *Builder) validate() error {
 	if b.config.AuthConfig.Cookie.MaxAge <= 0 {
 		return errors.New("max cookie age must be greater than 0")
 	}
-
+	if b.config.TokenHashSaltLength <= 0 {
+		b.config.TokenHashSaltLength = 10
+	}
 	// Validate password policy
 	if b.config.PasswordPolicy.HashSaltLength <= 0 {
 		return errors.New("hash salt length must be greater than 0")
 	}
+
 	if b.config.PasswordPolicy.MinLength <= 0 {
 		return errors.New("password minimum length must be greater than 0")
 	}
-
 	// Validate two-factor authentication
 	if b.config.AuthConfig.EnableTwoFactor && b.config.AuthConfig.TwoFactorMethod == "" {
 		return errors.New("two-factor method is required when two-factor authentication is enabled")
 	}
-
 	// Validate email verification
-	if b.config.AuthConfig.EnableEmailVerification {
+	if b.config.AuthConfig.EnableEmailVerificationOnSignup {
 		if b.config.AuthConfig.EmailVerificationURL == "" {
 			return errors.New("email verification URL is required when email verification is enabled")
 		}
 		if b.config.EmailSender == nil {
-			return errors.New("email sender is required when email verification is enabled")
+			// return errors.New("email sender is required when email verification is enabled")
+			b.config.EmailSender = email.NewEmailSender(b.config.EmailConfig)
 		}
 	}
 
@@ -189,7 +220,7 @@ func (b *Builder) validate() error {
 		if b.config.Swagger.Version == "" {
 			return errors.New("swagger version is required when swagger is enabled")
 		}
-		if b.config.Swagger.DocPath == "" {
+		if b.config.Swagger.DocPath == "" || b.config.Swagger.DocPath == "/" {
 			return errors.New("swagger doc path is required when swagger is enabled")
 		}
 		if b.config.Swagger.Description == "" {

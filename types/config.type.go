@@ -7,6 +7,14 @@ import (
 	"github.com/bete7512/goauth/hooks"
 	"github.com/bete7512/goauth/interfaces"
 	"github.com/bete7512/goauth/logger"
+	"github.com/bete7512/goauth/models"
+)
+
+type SenderType string
+
+const (
+	SES      SenderType = "SES"
+	SendGrid SenderType = "SendGrid"
 )
 
 type Config struct {
@@ -16,6 +24,14 @@ type Config struct {
 	Domain      string
 	FrontendURL string
 	Swagger     SwaggerConfig
+
+	// Token configuration
+	TokenHashSaltLength       int
+	PhoneVerificationTokenTTL time.Duration
+	EmailVerificationTokenTTL time.Duration
+	PasswordResetTokenTTL     time.Duration
+	TwoFactorTokenTTL         time.Duration
+	MagicLinkTokenTTL         time.Duration
 
 	// Authentication configuration
 	AuthConfig     AuthConfig
@@ -29,7 +45,9 @@ type Config struct {
 
 	// Notification
 	EmailSender EmailSender
-	SMSSender   SMSSender
+	SMSSender   SMSSenderInterface
+	EmailConfig EmailConfig
+	SMSConfig   SMSConfig
 
 	// Rate limiting
 	RateLimiter       *RateLimiterConfig
@@ -52,17 +70,23 @@ type Config struct {
 
 // AuthConfig consolidates authentication-related settings
 type AuthConfig struct {
-	Cookie                        CookieConfig
-	EnableBearerAuth              bool
-	EnableTwoFactor               bool
-	EnableMultiSession            bool
-	TwoFactorMethod               string
-	EnableMagicLink               bool
-	EnableEmailVerification       bool
-	EnableSmsVerification         bool
-	EmailVerificationURL          string
-	PasswordResetURL              string
-	SendVerificationEmailOnSignup bool
+	Cookie             CookieConfig
+	EnableBearerAuth   bool
+	EnableTwoFactor    bool
+	EnableMultiSession bool
+	TwoFactorMethod    string
+	EnableMagicLink    bool
+	// EnableEmailVerification               bool
+	// EnablePhoneNumberVerification         bool
+	EnableSmsVerification                 bool
+	EmailVerificationURL                  string
+	PasswordResetURL                      string
+	SendVerificationEmailOnSignup         bool
+	UniquePhoneNumber                     bool
+	PhoneNumberColumnRequired             bool
+	PhoneNumberRequired                   bool
+	EnableEmailVerificationOnSignup       bool
+	EnablePhoneNumberVerificationOnSignup bool
 }
 
 type CustomStorageRepositoryConfig struct {
@@ -151,9 +175,9 @@ type RedisConfig struct {
 }
 
 type RateLimiterConfig struct {
-	Type          RateLimiterStorageType
-	Routes        map[string]LimiterConfig // Changed from array to map with route as key
-	DefaultConfig LimiterConfig            // Added for routes without specific config
+	Type   RateLimiterStorageType
+	Routes map[string]LimiterConfig // Changed from array to map with route as key
+	// DefaultConfig LimiterConfig            // Added for routes without specific config
 }
 
 type LimiterConfig struct {
@@ -168,4 +192,54 @@ type RecaptchaConfig struct {
 	Provider  RecaptchaProvider
 	APIURL    string
 	Routes    map[string]bool
+}
+
+// Email configuration
+type EmailConfig struct {
+	FromEmail    string
+	FromName     string
+	LogoURL      string
+	CompanyName  string
+	PrimaryColor string
+	SupportEmail string
+	CustomSender EmailSenderInterface
+
+	// sender type
+	SenderType     SenderType
+	SendGridConfig SendGridConfig
+	SESConfig      SESConfig
+}
+
+type SendGridConfig struct {
+	SendGridAPIKey string
+}
+type SESConfig struct {
+	Region          string
+	AccessKeyID     string
+	SecretAccessKey string
+}
+
+// SMS configuration
+type SMSConfig struct {
+	TwilioAccountSID string
+	TwilioAuthToken  string
+	TwilioFromNumber string
+	CompanyName      string
+	CustomSender     SMSSenderInterface
+}
+
+// Email sender interface
+type EmailSenderInterface interface {
+	SendVerification(user models.User, redirectURL string) error
+	SendWelcome(user models.User) error
+	SendPasswordReset(user models.User, redirectURL string) error
+	SendTwoFactorCode(user models.User, code string) error
+	SendMagicLink(user models.User, redirectURL string) error
+}
+
+// SMS sender interface
+type SMSSenderInterface interface {
+	SendVerificationCode(user models.User, code string) error
+	SendWelcome(user models.User) error
+	SendTwoFactorCode(user models.User, code string) error
 }

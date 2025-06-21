@@ -34,7 +34,7 @@ func createIntegrationTestConfig() types.Config {
 				MaxAge:          86400,
 			},
 			EnableTwoFactor:         false,
-			EnableEmailVerification: false,
+			EnableEmailVerificationOnSignup: false,
 		},
 		PasswordPolicy: types.PasswordPolicy{
 			HashSaltLength: 16,

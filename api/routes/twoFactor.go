@@ -108,7 +108,7 @@ func (h *AuthHandler) HandleVerifyTwoFactor(w http.ResponseWriter, r *http.Reque
 
 	// Enable two-factor authentication
 	user.TwoFactorEnabled = true
-	user.TwoFactorVerified = true
+	// user.TwoFactorVerified = true
 	err = h.Auth.Repository.GetUserRepository().UpdateUser(user)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to enable two-factor authentication: "+err.Error(), err)
@@ -165,7 +165,7 @@ func (h *AuthHandler) HandleDisableTwoFactor(w http.ResponseWriter, r *http.Requ
 
 	// Disable two-factor authentication
 	user.TwoFactorEnabled = false
-	user.TwoFactorVerified = false
+	// user.TwoFactorVerified = false
 	err = h.Auth.Repository.GetUserRepository().UpdateUser(user)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to disable two-factor authentication: "+err.Error(), err)

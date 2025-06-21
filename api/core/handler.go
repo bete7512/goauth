@@ -3,6 +3,7 @@ package core
 import (
 	"net/http"
 
+	middleware "github.com/bete7512/goauth/api/middlewares"
 	"github.com/bete7512/goauth/api/routes"
 	oauthRoutes "github.com/bete7512/goauth/api/routes/oauth"
 	"github.com/bete7512/goauth/types"
@@ -88,27 +89,23 @@ func (h *AuthHandler) GetAllRoutes() []RouteDefinition {
 
 // BuildChain creates a middleware chain for a specific route
 func (h *AuthHandler) BuildChain(routeName string, finalHandler http.Handler) http.Handler {
+	// Start with the final handler
 	handler := finalHandler
 
+	// Apply hook middleware first (closest to the actual handler)
+	handler = h.withHooks(routeName, handler)
 	// Apply rate limiter middleware if enabled
 	if h.Auth.Config.EnableRateLimiter {
 		if _, needsRateLimit := h.Auth.Config.RateLimiter.Routes[routeName]; needsRateLimit {
-			// Note: Rate limiter middleware would need to be imported and used here
-			// For now, we'll skip it to avoid import issues
+			handler = middleware.RateLimiterMiddleware(*h.Auth.RateLimiter, h.Auth.Config.RateLimiter, routeName, handler.ServeHTTP)
 		}
 	}
-
-	// Apply hook middleware (closest to the actual handler)
-	handlerFunc := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		handler.ServeHTTP(w, r)
-	})
-	handler = h.withHooks(routeName, handlerFunc)
 
 	return handler
 }
 
 // withHooks applies hook middleware to the handler
-func (h *AuthHandler) withHooks(routeName string, handler http.HandlerFunc) http.Handler {
+func (h *AuthHandler) withHooks(routeName string, handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Execute pre-hooks
 		if h.Auth.HookManager != nil && h.Auth.HookManager.GetBeforeHook(routeName) != nil {
@@ -118,10 +115,5 @@ func (h *AuthHandler) withHooks(routeName string, handler http.HandlerFunc) http
 		}
 		// Execute the main handler
 		handler.ServeHTTP(w, r)
-
-		// Execute post-hooks
-		if h.Auth.HookManager != nil {
-			h.Auth.HookManager.ExecuteAfterHooks(routeName, w, r)
-		}
 	})
 }

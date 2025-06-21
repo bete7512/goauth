@@ -27,7 +27,6 @@ func (a *GinAdapter) SetupRoutes(router interface{}) error {
 
 	// Setup Swagger if enabled
 	if a.handler.Auth.Config.Swagger.Enable {
-		// TODO: Add Swagger setup for Gin
 		docs.RegisterGinRoutes(ginEngine, docs.SwaggerInfo{
 			Title:       a.handler.Auth.Config.Swagger.Title,
 			Description: a.handler.Auth.Config.Swagger.Description,

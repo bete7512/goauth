@@ -39,7 +39,7 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 			utils.RespondWithError(w, http.StatusBadRequest, "Invalid request format: "+err.Error(), nil)
 			return
 		}
-		ctx := context.WithValue(r.Context(), "request_data", rawData)
+		ctx := context.WithValue(r.Context(), types.RequestDataKey, rawData)
 		r = r.WithContext(ctx)
 	} else {
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -76,7 +76,7 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if user == nil {
-		utils.RespondWithError(w, http.StatusUnauthorized, "Invalid email or password", nil)
+		utils.RespondWithError(w, http.StatusUnauthorized, "user not found", nil)
 		return
 	}
 	if !user.Active {
@@ -104,7 +104,7 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 				map[string]interface{}{
 					"message":           "Two-factor code sent",
 					"requires_2fa":      true,
-					"two_factor_method": h.Auth.Config.AuthConfig.TwoFactorMethod,
+					// "two_factor_method": user.TwoFactorEnabled,
 				},
 			)
 			if err != nil {

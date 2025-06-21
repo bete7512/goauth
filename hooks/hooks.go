@@ -66,7 +66,7 @@ func (h *HookManager) RegisterAfterHook(route string, hook RouteHook) error {
 // Returns false if any hook signals to abort the request
 func (h *HookManager) ExecuteBeforeHooks(route string, w http.ResponseWriter, r *http.Request) bool {
 	hooks, exists := h.hooks[route]
-	if !exists && hooks.Before == nil {
+	if !exists || hooks.Before == nil {
 		return true
 	}
 
@@ -83,8 +83,11 @@ func (h *HookManager) ExecuteBeforeHooks(route string, w http.ResponseWriter, r 
 
 // ExecuteAfterHooks executes all after hooks for a route
 func (h *HookManager) ExecuteAfterHooks(route string, w http.ResponseWriter, r *http.Request) {
+	if h.hooks == nil {
+		return
+	}
 	hooks, exists := h.hooks[route]
-	if !exists && hooks.After == nil {
+	if !exists || hooks.After == nil {
 		return
 	}
 	_, err := hooks.After(w, r)

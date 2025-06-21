@@ -187,7 +187,7 @@ func (a *AppleOauth) Callback(w http.ResponseWriter, r *http.Request) {
 			return userInfo.Email // Fallback to email if no name provided
 		}(),
 		LastName:   userInfo.Name.LastName,
-		SigninVia:  "apple",
+		SignedUpVia:  "apple",
 		ProviderId: &userInfo.ID,
 		Avatar:     nil, // Apple doesn't provide avatar
 	}
