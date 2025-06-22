@@ -25,7 +25,7 @@ func (a *GorillaMuxAdapter) SetupRoutes(router interface{}) error {
 	}
 
 	// Setup Swagger if enabled
-	if a.handler.Auth.Config.Swagger.Enable {
+	if a.handler.Auth.Config.App.Swagger.Enable {
 		// TODO: Add Swagger setup for Gorilla Mux
 	}
 
@@ -33,7 +33,7 @@ func (a *GorillaMuxAdapter) SetupRoutes(router interface{}) error {
 	allRoutes := a.handler.GetAllRoutes()
 
 	// Create a sub-router for the auth base path
-	authRouter := muxRouter.PathPrefix(a.handler.Auth.Config.BasePath).Subrouter()
+	authRouter := muxRouter.PathPrefix(a.handler.Auth.Config.App.BasePath).Subrouter()
 	{
 		for _, route := range allRoutes {
 			// Build the middleware chain

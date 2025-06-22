@@ -7,43 +7,106 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/bete7512/goauth/config"
 	"github.com/bete7512/goauth/models"
-	"github.com/bete7512/goauth/types"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 )
 
 // Integration test configuration
-func createIntegrationTestConfig() types.Config {
-	return types.Config{
-		Server: types.ServerConfig{
+func createIntegrationTestConfig() config.Config {
+	return config.Config{
+		App: config.AppConfig{
+			BasePath: "/api/v1",
+		},
+		Server: config.ServerConfig{
 			Type: "http",
 			Port: 8080,
 		},
-		Database: types.DatabaseConfig{
+		Database: config.DatabaseConfig{
 			Type: "postgres",
 			URL:  "postgres://test:test@localhost:5432/test",
 		},
-		JWTSecret: "test-secret-key-32-chars-long-for-integration-tests",
-		AuthConfig: types.AuthConfig{
-			Cookie: types.CookieConfig{
-				Name:            "auth_token",
-				AccessTokenTTL:  3600,
-				RefreshTokenTTL: 86400,
-				Path:            "/",
-				MaxAge:          86400,
+		AuthConfig: config.AuthConfig{
+			JWT: config.JWTConfig{
+				Secret:             "test-secret-key-32-chars-long-for-integration-tests",
+				AccessTokenTTL:     3600,
+				RefreshTokenTTL:    86400,
+				EnableCustomClaims: false,
 			},
-			EnableTwoFactor:         false,
-			EnableEmailVerificationOnSignup: false,
+			Cookie: config.CookieConfig{
+				Name:     "auth_token",
+				Path:     "/",
+				MaxAge:   86400,
+				Secure:   false,
+				HttpOnly: true,
+				SameSite: 1,
+			},
+			Methods: config.AuthMethodsConfig{
+				Type:                  "email",
+				EnableTwoFactor:       false,
+				EnableMultiSession:    false,
+				EnableMagicLink:       false,
+				EnableSmsVerification: false,
+				TwoFactorMethod:       "",
+				EmailVerification: config.EmailVerificationConfig{
+					EnableOnSignup:   false,
+					VerificationURL:  "http://localhost:3000/verify",
+					SendWelcomeEmail: false,
+				},
+				PhoneVerification: config.PhoneVerificationConfig{
+					EnableOnSignup:      false,
+					UniquePhoneNumber:   false,
+					PhoneColumnRequired: false,
+					PhoneRequired:       false,
+				},
+			},
+			PasswordPolicy: config.PasswordPolicy{
+				HashSaltLength: 16,
+				MinLength:      8,
+				RequireUpper:   true,
+				RequireLower:   true,
+				RequireNumber:  true,
+				RequireSpecial: false,
+			},
 		},
-		PasswordPolicy: types.PasswordPolicy{
-			HashSaltLength: 16,
-			MinLength:      8,
+		Features: config.FeaturesConfig{
+			EnableRateLimiter:   false,
+			EnableRecaptcha:     false,
+			EnableCustomJWT:     false,
+			EnableCustomStorage: false,
 		},
-		EnableRateLimiter:             false,
-		EnableRecaptcha:               false,
-		EnableCustomStorageRepository: false,
-		BasePath:                      "/api/v1",
+		Security: config.SecurityConfig{
+			RateLimiter: config.RateLimiterConfig{
+				Enabled: false,
+				Type:    "memory",
+				Routes:  make(map[string]config.LimiterConfig),
+			},
+			Recaptcha: config.RecaptchaConfig{
+				Enabled:   false,
+				SecretKey: "",
+				SiteKey:   "",
+				Provider:  "google",
+				APIURL:    "",
+				Routes:    make(map[string]bool),
+			},
+		},
+		Email: config.EmailConfig{
+			Sender: config.EmailSenderConfig{
+				Type:         "sendgrid",
+				FromEmail:    "test@example.com",
+				FromName:     "Test App",
+				SupportEmail: "support@example.com",
+				CustomSender: nil,
+			},
+		},
+		SMS: config.SMSConfig{
+			CompanyName:  "Test Company",
+			CustomSender: nil,
+		},
+		Providers: config.ProvidersConfig{
+			Enabled: []config.AuthProvider{},
+		},
 	}
 }
 
@@ -89,7 +152,7 @@ func TestIntegration_GinFramework(t *testing.T) {
 			FirstName:   "John",
 			LastName:    "Doe",
 			Email:       "john.doe@example.com",
-			PhoneNumber: "123-456-7890",
+			PhoneNumber: "+1234567890",
 			Password:    "Password123!",
 		}
 

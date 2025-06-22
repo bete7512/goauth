@@ -8,18 +8,18 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/bete7512/goauth/config"
 	"github.com/bete7512/goauth/models"
-	"github.com/bete7512/goauth/types"
 	"github.com/bete7512/goauth/utils"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/linkedin"
 )
 
 type LinkedInOauth struct {
-	Auth *types.Auth
+	Auth *config.Auth
 }
 
-func NewLinkedInOauth(auth *types.Auth) *LinkedInOauth {
+func NewLinkedInOauth(auth *config.Auth) *LinkedInOauth {
 	return &LinkedInOauth{
 		Auth: auth,
 	}
@@ -166,12 +166,12 @@ func (l *LinkedInOauth) Callback(w http.ResponseWriter, r *http.Request) {
 
 	// Create or update user in your system
 	user := models.User{
-		Email:      email,
-		FirstName:  userInfo.FirstName,
-		LastName:   userInfo.LastName,
-		SignedUpVia:  "linkedin",
-		ProviderId: &userInfo.ID,
-		Avatar:     &avatarURL,
+		Email:       email,
+		FirstName:   userInfo.FirstName,
+		LastName:    userInfo.LastName,
+		SignedUpVia: "linkedin",
+		ProviderId:  &userInfo.ID,
+		Avatar:      &avatarURL,
 	}
 
 	err = l.Auth.Repository.GetUserRepository().UpsertUserByEmail(&user)
@@ -198,7 +198,7 @@ func (l *LinkedInOauth) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Save refresh token
-	err = l.Auth.Repository.GetTokenRepository().SaveToken(user.ID, refreshToken, models.RefreshToken, l.Auth.Config.AuthConfig.Cookie.RefreshTokenTTL)
+	err = l.Auth.Repository.GetTokenRepository().SaveToken(user.ID, refreshToken, models.RefreshToken, l.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
 	if err != nil {
 		utils.RespondWithError(
 			w,
@@ -217,12 +217,12 @@ func (l *LinkedInOauth) Callback(w http.ResponseWriter, r *http.Request) {
 		HttpOnly: true,
 		Secure:   r.TLS != nil,
 		SameSite: http.SameSiteLaxMode,
-		MaxAge:   int(l.Auth.Config.AuthConfig.Cookie.AccessTokenTTL.Seconds()),
+		MaxAge:   int(l.Auth.Config.AuthConfig.JWT.AccessTokenTTL.Seconds()),
 	}
 	http.SetCookie(w, tokenCookie)
 
 	// Redirect to the frontend
-	http.Redirect(w, r, l.Auth.Config.FrontendURL, http.StatusTemporaryRedirect)
+	http.Redirect(w, r, l.Auth.Config.App.FrontendURL, http.StatusTemporaryRedirect)
 }
 
 // getUserInfo fetches the user profile information from LinkedIn API
@@ -297,5 +297,3 @@ func (l *LinkedInOauth) getUserEmail(accessToken string) (string, error) {
 
 	return result.Elements[0].Handle.EmailAddress, nil
 }
-
-// {"status":500,"message":"Failed to exchange token: oauth2: \"invalid_request\" \"A required parameter \\\"code\\\" is missing\"","error":"oauth2: \"invalid_request\" \"A required parameter \\\"code\\\" is missing\""}

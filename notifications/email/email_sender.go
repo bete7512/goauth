@@ -15,12 +15,12 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/ses"
 	"github.com/aws/aws-sdk-go-v2/service/ses/types"
+	"github.com/bete7512/goauth/config"
 	"github.com/bete7512/goauth/models"
-	configTypes "github.com/bete7512/goauth/types"
 )
 
 type EmailSender struct {
-	config     configTypes.EmailConfig
+	config     config.EmailConfig
 	templates  *template.Template
 	httpClient *http.Client
 	sesClient  *ses.Client
@@ -39,7 +39,7 @@ type EmailTemplateData struct {
 	Year         int
 }
 
-func NewEmailSender(config configTypes.EmailConfig) *EmailSender {
+func NewEmailSender(conf config.Config) *EmailSender {
 
 	var tmpl *template.Template
 	tmpl, err := template.ParseGlob("../notifications/templates/*.html")
@@ -48,15 +48,15 @@ func NewEmailSender(config configTypes.EmailConfig) *EmailSender {
 	}
 
 	var sesClient *ses.Client
-	if config.SenderType == configTypes.SES {
-		if config.SESConfig.AccessKeyID == "" || config.SESConfig.SecretAccessKey == "" {
+	if conf.Email.Sender.Type == config.SES {
+		if conf.Email.SES.AccessKeyID == "" || conf.Email.SES.SecretAccessKey == "" {
 			log.Println("SES credentials not provided, falling back to SendGrid")
 		} else {
 			cfg, err := awsConfig.LoadDefaultConfig(context.TODO(),
-				awsConfig.WithRegion(config.SESConfig.Region),
+				awsConfig.WithRegion(conf.Email.SES.Region),
 				awsConfig.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(
-					config.SESConfig.AccessKeyID,
-					config.SESConfig.SecretAccessKey,
+					conf.Email.SES.AccessKeyID,
+					conf.Email.SES.SecretAccessKey,
 					"",
 				)),
 			)
@@ -70,7 +70,7 @@ func NewEmailSender(config configTypes.EmailConfig) *EmailSender {
 	}
 
 	return &EmailSender{
-		config:    config,
+		config:    conf.Email,
 		templates: tmpl,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
@@ -81,13 +81,13 @@ func NewEmailSender(config configTypes.EmailConfig) *EmailSender {
 
 func (e *EmailSender) SendVerification(user models.User, redirectURL string) error {
 	data := EmailTemplateData{
-		LogoURL:      e.config.LogoURL,
-		CompanyName:  e.config.CompanyName,
-		PrimaryColor: e.config.PrimaryColor,
+		LogoURL:      e.config.Branding.LogoURL,
+		CompanyName:  e.config.Branding.CompanyName,
+		PrimaryColor: e.config.Branding.PrimaryColor,
 		UserName:     user.FirstName,
 		UserEmail:    user.Email,
 		ActionURL:    redirectURL,
-		SupportEmail: e.config.SupportEmail,
+		SupportEmail: e.config.Sender.SupportEmail,
 		Year:         time.Now().Year(),
 	}
 
@@ -96,27 +96,27 @@ func (e *EmailSender) SendVerification(user models.User, redirectURL string) err
 
 func (e *EmailSender) SendWelcome(user models.User) error {
 	data := EmailTemplateData{
-		LogoURL:      e.config.LogoURL,
-		CompanyName:  e.config.CompanyName,
-		PrimaryColor: e.config.PrimaryColor,
+		LogoURL:      e.config.Branding.LogoURL,
+		CompanyName:  e.config.Branding.CompanyName,
+		PrimaryColor: e.config.Branding.PrimaryColor,
 		UserName:     user.FirstName,
 		UserEmail:    user.Email,
-		SupportEmail: e.config.SupportEmail,
+		SupportEmail: e.config.Sender.SupportEmail,
 		Year:         time.Now().Year(),
 	}
 
-	return e.sendEmail(user.Email, "Welcome to "+e.config.CompanyName, "welcome", data)
+	return e.sendEmail(user.Email, "Welcome to "+e.config.Branding.CompanyName, "welcome", data)
 }
 
 func (e *EmailSender) SendPasswordReset(user models.User, redirectURL string) error {
 	data := EmailTemplateData{
-		LogoURL:      e.config.LogoURL,
-		CompanyName:  e.config.CompanyName,
-		PrimaryColor: e.config.PrimaryColor,
+		LogoURL:      e.config.Branding.LogoURL,
+		CompanyName:  e.config.Branding.CompanyName,
+		PrimaryColor: e.config.Branding.PrimaryColor,
 		UserName:     user.FirstName,
 		UserEmail:    user.Email,
 		ActionURL:    redirectURL,
-		SupportEmail: e.config.SupportEmail,
+		SupportEmail: e.config.Sender.SupportEmail,
 		Year:         time.Now().Year(),
 	}
 
@@ -125,13 +125,13 @@ func (e *EmailSender) SendPasswordReset(user models.User, redirectURL string) er
 
 func (e *EmailSender) SendTwoFactorCode(user models.User, code string) error {
 	data := EmailTemplateData{
-		LogoURL:      e.config.LogoURL,
-		CompanyName:  e.config.CompanyName,
-		PrimaryColor: e.config.PrimaryColor,
+		LogoURL:      e.config.Branding.LogoURL,
+		CompanyName:  e.config.Branding.CompanyName,
+		PrimaryColor: e.config.Branding.PrimaryColor,
 		UserName:     user.FirstName,
 		UserEmail:    user.Email,
 		Token:        code,
-		SupportEmail: e.config.SupportEmail,
+		SupportEmail: e.config.Sender.SupportEmail,
 		Year:         time.Now().Year(),
 	}
 
@@ -140,13 +140,13 @@ func (e *EmailSender) SendTwoFactorCode(user models.User, code string) error {
 
 func (e *EmailSender) SendMagicLink(user models.User, redirectURL string) error {
 	data := EmailTemplateData{
-		LogoURL:      e.config.LogoURL,
-		CompanyName:  e.config.CompanyName,
-		PrimaryColor: e.config.PrimaryColor,
+		LogoURL:      e.config.Branding.LogoURL,
+		CompanyName:  e.config.Branding.CompanyName,
+		PrimaryColor: e.config.Branding.PrimaryColor,
 		UserName:     user.FirstName,
 		UserEmail:    user.Email,
 		ActionURL:    redirectURL,
-		SupportEmail: e.config.SupportEmail,
+		SupportEmail: e.config.Sender.SupportEmail,
 		Year:         time.Now().Year(),
 	}
 
@@ -155,13 +155,13 @@ func (e *EmailSender) SendMagicLink(user models.User, redirectURL string) error 
 
 func (e *EmailSender) sendEmail(to, subject, templateName string, data EmailTemplateData) error {
 	// Use Amazon SES if configured, otherwise use SendGrid as default
-	if e.config.SenderType == configTypes.SES {
+	if e.config.Sender.Type == config.SES {
 		if e.sesClient != nil {
 			return e.sendViaSES(to, subject, templateName, data)
 		} else {
 			log.Println("SES client not available, falling back to SendGrid")
 		}
-	} else if e.config.SenderType == configTypes.SendGrid && e.config.SendGridConfig.SendGridAPIKey != "" {
+	} else if e.config.Sender.Type == config.SendGrid && e.config.SendGrid.APIKey != "" {
 		return e.sendViaSendGrid(to, subject, templateName, data)
 	} else {
 		return fmt.Errorf("neither SES nor SendGrid is properly configured")
@@ -187,8 +187,8 @@ func (e *EmailSender) sendViaSendGrid(to, subject, templateName string, data Ema
 			},
 		},
 		"from": map[string]string{
-			"email": e.config.FromEmail,
-			"name":  e.config.FromName,
+			"email": e.config.Sender.FromEmail,
+			"name":  e.config.Sender.FromName,
 		},
 		"subject": subject,
 		"content": []map[string]string{
@@ -209,7 +209,7 @@ func (e *EmailSender) sendViaSendGrid(to, subject, templateName string, data Ema
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("Authorization", "Bearer "+e.config.SendGridConfig.SendGridAPIKey)
+	req.Header.Set("Authorization", "Bearer "+e.config.SendGrid.APIKey)
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := e.httpClient.Do(req)
@@ -238,7 +238,7 @@ func (e *EmailSender) sendViaSES(to, subject, templateName string, data EmailTem
 
 	// Create SES input
 	input := &ses.SendEmailInput{
-		Source: aws.String(e.config.FromEmail),
+		Source: aws.String(e.config.Sender.FromEmail),
 		Destination: &types.Destination{
 			ToAddresses: []string{to},
 		},

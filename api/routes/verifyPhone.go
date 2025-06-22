@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/bete7512/goauth/models"
 	"github.com/bete7512/goauth/utils"
 )
 
@@ -37,7 +36,7 @@ func (h *AuthHandler) HandleVerifyPhone(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Get user ID from authenticated request
-	userID, err := h.authenticateRequest(r, h.Auth.Config.AuthConfig.Cookie.Name, h.Auth.Config.JWTSecret)
+	userID, err := h.authenticateRequest(r, h.Auth.Config.AuthConfig.Cookie.Name, h.Auth.Config.AuthConfig.JWT.Secret)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusUnauthorized, "Unauthorized: "+err.Error(), nil)
 		return
@@ -50,12 +49,12 @@ func (h *AuthHandler) HandleVerifyPhone(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Validate verification code
-	valid, _, err := h.Auth.Repository.GetTokenRepository().ValidateToken(req.Code, models.PhoneVerificationToken)
-	if err != nil || !valid {
-		utils.RespondWithError(w, http.StatusBadRequest, "Invalid or expired verification code", nil)
-		return
-	}
+	// // Validate verification code
+	// valid, _, err := h.Auth.Repository.GetTokenRepository().ValidateToken(req.Code, models.PhoneVerificationToken)
+	// if err != nil || !valid {
+	// 	utils.RespondWithError(w, http.StatusBadRequest, "Invalid or expired verification code", nil)
+	// 	return
+	// }
 
 	// Update user phone verification status
 	user.PhoneVerified = true

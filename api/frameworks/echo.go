@@ -25,7 +25,7 @@ func (a *EchoAdapter) SetupRoutes(router interface{}) error {
 	}
 
 	// Setup Swagger if enabled
-	if a.handler.Auth.Config.Swagger.Enable {
+	if a.handler.Auth.Config.App.Swagger.Enable {
 		// TODO: Add Swagger setup for Echo
 	}
 
@@ -33,7 +33,7 @@ func (a *EchoAdapter) SetupRoutes(router interface{}) error {
 	allRoutes := a.handler.GetAllRoutes()
 
 	// Create a group for the auth base path
-	authGroup := echoApp.Group(a.handler.Auth.Config.BasePath)
+	authGroup := echoApp.Group(a.handler.Auth.Config.App.BasePath)
 	{
 		for _, route := range allRoutes {
 			// Build the middleware chain

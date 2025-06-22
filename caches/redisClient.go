@@ -6,7 +6,7 @@ import (
 	"strconv" 
 	"time"
 
-	"github.com/bete7512/goauth/types"
+	"github.com/bete7512/goauth/config"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -17,7 +17,7 @@ type RedisClient struct {
 }
 
 // NewRedisClient creates a new Redis client
-func NewRedisClient(config types.RedisConfig) *RedisClient {
+func NewRedisClient(config config.RedisConfig) *RedisClient {
 	// Convert port to string properly
 	portStr := strconv.Itoa(config.Port)
 

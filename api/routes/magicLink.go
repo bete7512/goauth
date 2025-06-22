@@ -2,14 +2,12 @@ package routes
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/bete7512/goauth/models"
 	"github.com/bete7512/goauth/utils"
-	"gorm.io/gorm"
 )
 
 // HandleResendVerificationEmail resends verification email
@@ -49,12 +47,12 @@ func (h *AuthHandler) SendMagicLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Send magic link email
-	if h.Auth.Config.EmailSender != nil {
+	if h.Auth.Config.Email.Sender.CustomSender != nil {
 		magicLinkURL := fmt.Sprintf("%s?token=%s&email=%s",
-			h.Auth.Config.FrontendURL,
+			h.Auth.Config.App.FrontendURL,
 			magicLinkToken,
 			user.Email)
-		err = h.Auth.Config.EmailSender.SendMagicLink(*user, magicLinkURL)
+		err = h.Auth.Config.Email.Sender.CustomSender.SendMagicLink(*user, magicLinkURL)
 		if err != nil {
 			utils.RespondWithError(w, http.StatusInternalServerError, "Failed to send magic link email", err)
 			return
@@ -77,6 +75,7 @@ func (h *AuthHandler) HandleVerifyMagicLink(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	var req struct {
+		Email string `json:"email"`
 		Token string `json:"token"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -84,21 +83,30 @@ func (h *AuthHandler) HandleVerifyMagicLink(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	valid, userID, err := h.Auth.Repository.GetTokenRepository().ValidateToken(req.Token, models.MakicLinkToken)
-	if err != nil || !valid || userID == nil {
-		utils.RespondWithError(w, http.StatusBadRequest, "Invalid or expired magic link token", err)
-		return
-	}
-	// Get user
-	user, err := h.Auth.Repository.GetUserRepository().GetUserByID(*userID)
+	user, err := h.Auth.Repository.GetUserRepository().GetUserByEmail(req.Email)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			utils.RespondWithError(w, http.StatusBadRequest, "User not found", err)
-			return
-		}
-		utils.RespondWithError(w, http.StatusBadRequest, "Internal server error", err)
+		utils.RespondWithError(w, http.StatusBadRequest, "User not found", err)
 		return
 	}
+	if user == nil {
+		utils.RespondWithError(w, http.StatusBadRequest, "User not found", nil)
+		return
+	}
+	// valid, userID, err := h.Auth.Repository.GetTokenRepository().ValidateToken(req.Token, models.MakicLinkToken)
+	// if err != nil || !valid || userID == nil {
+	// 	utils.RespondWithError(w, http.StatusBadRequest, "Invalid or expired magic link token", err)
+	// 	return
+	// }
+	// // Get user
+	// user, err := h.Auth.Repository.GetUserRepository().GetUserByID(*userID)
+	// if err != nil {
+	// 	if errors.Is(err, gorm.ErrRecordNotFound) {
+	// 		utils.RespondWithError(w, http.StatusBadRequest, "User not found", err)
+	// 		return
+	// 	}
+	// 	utils.RespondWithError(w, http.StatusBadRequest, "Internal server error", err)
+	// 	return
+	// }
 	// Generate access and refresh tokens
 	accessToken, refreshToken, err := h.Auth.TokenManager.GenerateTokens(user)
 	if err != nil {
@@ -106,7 +114,7 @@ func (h *AuthHandler) HandleVerifyMagicLink(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	// Save refresh token
-	err = h.Auth.Repository.GetTokenRepository().SaveToken(user.ID, refreshToken, models.RefreshToken, h.Auth.Config.AuthConfig.Cookie.RefreshTokenTTL)
+	err = h.Auth.Repository.GetTokenRepository().SaveToken(user.ID, refreshToken, models.RefreshToken, h.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to save refresh token", err)
 		return
@@ -115,7 +123,7 @@ func (h *AuthHandler) HandleVerifyMagicLink(w http.ResponseWriter, r *http.Reque
 	http.SetCookie(w, &http.Cookie{
 		Name:     h.Auth.Config.AuthConfig.Cookie.Name,
 		Value:    accessToken,
-		Expires:  time.Now().Add(h.Auth.Config.AuthConfig.Cookie.AccessTokenTTL),
+		Expires:  time.Now().Add(h.Auth.Config.AuthConfig.JWT.AccessTokenTTL),
 		Domain:   h.Auth.Config.AuthConfig.Cookie.Domain,
 		Path:     h.Auth.Config.AuthConfig.Cookie.Path,
 		SameSite: http.SameSiteLaxMode,

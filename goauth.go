@@ -5,33 +5,20 @@ import (
 
 	"github.com/bete7512/goauth/api"
 	"github.com/bete7512/goauth/api/core"
+	"github.com/bete7512/goauth/config"
 	"github.com/bete7512/goauth/hooks"
-	"github.com/bete7512/goauth/interfaces"
-	"github.com/bete7512/goauth/logger"
-	tokenManager "github.com/bete7512/goauth/tokens"
-	"github.com/bete7512/goauth/types"
 	"github.com/gin-gonic/gin"
 )
 
 // AuthService is the main service for the authentication system.
 type AuthService struct {
-	Config           types.Config
-	Repository       interfaces.RepositoryFactory
-	HookManager      *hooks.HookManager
-	RateLimiter      types.RateLimiter
-	RecaptchaManager types.CaptchaVerifier
-	Logger           logger.Log
-
-	// authContext holds the shared dependencies for handlers.
-	authContext *types.Auth
-
-	// Unified API for all frameworks
-	authAPI *api.AuthAPI
+	config.Auth
+	AuthAPI *api.AuthAPI
 }
 
 // NewAuth uses a builder to create and initialize a new AuthService.
 // This is a simple entry point for common use cases.
-func NewAuth(conf types.Config) (*AuthService, error) {
+func NewAuth(conf config.Config) (*AuthService, error) {
 	return NewBuilder().
 		WithConfig(conf).
 		Build()
@@ -47,28 +34,12 @@ func (a *AuthService) RegisterAfterHook(route string, hook hooks.RouteHook) erro
 	return a.HookManager.RegisterAfterHook(route, hook)
 }
 
-// initAuthContext initializes the shared context for all handlers.
-// This is called internally by the builder.
-func (a *AuthService) initAuthContext() {
-	if a.authContext == nil {
-		a.authContext = &types.Auth{
-			Config:       a.Config,
-			Repository:   a.Repository,
-			HookManager:  a.HookManager,
-			TokenManager: tokenManager.NewTokenManager(a.Config),
-			RateLimiter:  &a.RateLimiter,
-			Logger:       a.Logger,
-		}
-	}
-}
-
 // getAuthAPI lazily initializes and returns a singleton AuthAPI.
 func (a *AuthService) getAuthAPI() *api.AuthAPI {
-	if a.authAPI == nil {
-		a.initAuthContext()
-		a.authAPI = api.NewAuthAPI(a.authContext)
+	if a.AuthAPI == nil {
+		a.AuthAPI = api.NewAuthAPI(&a.Auth)
 	}
-	return a.authAPI
+	return a.AuthAPI
 }
 
 // GetSupportedFrameworks returns a list of all supported frameworks.

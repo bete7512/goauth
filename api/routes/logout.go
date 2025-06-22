@@ -25,7 +25,7 @@ func (h *AuthHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	userID := claims["user_id"].(string)
-	if h.Auth.Config.AuthConfig.EnableMultiSession {
+	if h.Auth.Config.AuthConfig.Methods.EnableMultiSession {
 		err = h.Auth.Repository.GetTokenRepository().InvalidateToken(userID, token, models.RefreshToken)
 		if err != nil {
 			utils.RespondWithError(w, http.StatusInternalServerError, "Failed to invalidate refresh tokens", nil)

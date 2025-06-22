@@ -8,18 +8,18 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/bete7512/goauth/config"
 	"github.com/bete7512/goauth/models"
-	"github.com/bete7512/goauth/types"
 	"github.com/bete7512/goauth/utils"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )
 
 type GoogleOauth struct {
-	Auth *types.Auth
+	Auth *config.Auth
 }
 
-func NewGoogleOauth(auth *types.Auth) *GoogleOauth {
+func NewGoogleOauth(auth *config.Auth) *GoogleOauth {
 	return &GoogleOauth{
 		Auth: auth,
 	}
@@ -173,7 +173,7 @@ func (g *GoogleOauth) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Save refresh token
-	err = g.Auth.Repository.GetTokenRepository().SaveToken(user.ID, refreshToken, models.RefreshToken, g.Auth.Config.AuthConfig.Cookie.RefreshTokenTTL)
+	err = g.Auth.Repository.GetTokenRepository().SaveToken(user.ID, refreshToken, models.RefreshToken, g.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
 	if err != nil {
 		utils.RespondWithError(
 			w,
@@ -192,12 +192,12 @@ func (g *GoogleOauth) Callback(w http.ResponseWriter, r *http.Request) {
 		HttpOnly: true,
 		Secure:   r.TLS != nil,
 		SameSite: http.SameSiteLaxMode,
-		MaxAge:   int(g.Auth.Config.AuthConfig.Cookie.AccessTokenTTL.Seconds()),
+		MaxAge:   int(g.Auth.Config.AuthConfig.JWT.AccessTokenTTL.Seconds()),
 	}
 	http.SetCookie(w, tokenCookie)
 
 	// Redirect to the frontend
-	http.Redirect(w, r, g.Auth.Config.FrontendURL, http.StatusTemporaryRedirect)
+	http.Redirect(w, r, g.Auth.Config.App.FrontendURL, http.StatusTemporaryRedirect)
 }
 
 // getUserInfo fetches the user information from Google API

@@ -55,21 +55,21 @@ func (h *AuthHandler) HandleResendEmailVerification(w http.ResponseWriter, r *ht
 		return
 	}
 	// Save verification token
-	err = h.Auth.Repository.GetTokenRepository().SaveToken(user.ID, hashedVerificationToken, models.EmailVerificationToken, h.Auth.Config.EmailVerificationTokenTTL)
+	err = h.Auth.Repository.GetTokenRepository().SaveToken(user.ID, hashedVerificationToken, models.EmailVerificationToken, h.Auth.Config.AuthConfig.Tokens.EmailVerificationTTL)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to save verification token", nil)
 		return
 	}
 
 	// Send verification email
-	if h.Auth.Config.EmailSender != nil {
-		verificationURL := h.Auth.Config.AuthConfig.EmailVerificationURL + "?token=" + verificationToken + "&email=" + user.Email
-		err = h.Auth.Config.EmailSender.SendVerification(*user, verificationURL)
-		if err != nil {
-			utils.RespondWithError(w, http.StatusInternalServerError, "Failed to send verification email", nil)
-			return
-		}
-	}
+	// if h.Auth.Config.EmailSender != nil {
+	// 	verificationURL := h.Auth.Config.AuthConfig.EmailVerificationURL + "?token=" + verificationToken + "&email=" + user.Email
+	// 	err = h.Auth.Config.EmailSender.SendVerification(*user, verificationURL)
+	// 	if err != nil {
+	// 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to send verification email", nil)
+	// 		return
+	// 	}
+	// }
 
 	utils.RespondWithJSON(w, http.StatusOK, map[string]interface{}{
 		"message": "Verification email sent successfully",

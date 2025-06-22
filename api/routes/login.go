@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/bete7512/goauth/config"
 	"github.com/bete7512/goauth/models"
 	"github.com/bete7512/goauth/schemas"
-	"github.com/bete7512/goauth/types"
 	"github.com/bete7512/goauth/utils"
 )
 
@@ -23,7 +23,7 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	ip := utils.GetIpFromRequest(r)
 	var req schemas.LoginRequest
 	// Then your hook can access both
-	if h.Auth.HookManager.GetAfterHook(types.RouteLogin) != nil {
+	if h.Auth.HookManager.GetAfterHook(config.RouteLogin) != nil {
 		var rawData map[string]interface{}
 		bodyBytes, err := io.ReadAll(r.Body)
 		if err != nil {
@@ -39,7 +39,7 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 			utils.RespondWithError(w, http.StatusBadRequest, "Invalid request format: "+err.Error(), nil)
 			return
 		}
-		ctx := context.WithValue(r.Context(), types.RequestDataKey, rawData)
+		ctx := context.WithValue(r.Context(), config.RequestDataKey, rawData)
 		r = r.WithContext(ctx)
 	} else {
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -49,12 +49,12 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// check for recaptcha if enabled
-	if h.Auth.Config.EnableRecaptcha && h.Auth.Config.RecaptchaConfig.Routes[types.RouteLogin] {
+	if h.Auth.Config.Security.Recaptcha.Enabled && h.Auth.Config.Security.Recaptcha.Routes[config.RouteLogin] {
 		if req.RecaptchaToken == "" {
 			utils.RespondWithError(w, http.StatusBadRequest, "Recaptcha token is required", nil)
 			return
 		}
-		ok, err := h.Auth.RecaptchaManager.Verify(req.RecaptchaToken, ip)
+		ok, err := h.Auth.RecaptchaManager.Verify(req.RecaptchaToken, ip) // TODO: add recaptcha manager to test auth handler
 		if err != nil {
 			utils.RespondWithError(w, http.StatusInternalServerError, "Recaptcha verification failed: "+err.Error(), nil)
 			return
@@ -91,7 +91,7 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Handle two-factor authentication if enabled
-	if h.Auth.Config.AuthConfig.EnableTwoFactor && user.TwoFactorEnabled {
+	if h.Auth.Config.AuthConfig.Methods.EnableTwoFactor && user.TwoFactorEnabled {
 		if req.TwoFactorCode == "" {
 			err = h.sendTwoFactorCode(user)
 			if err != nil {
@@ -102,8 +102,8 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 				w,
 				http.StatusOK,
 				map[string]interface{}{
-					"message":           "Two-factor code sent",
-					"requires_2fa":      true,
+					"message":      "Two-factor code sent",
+					"requires_2fa": true,
 					// "two_factor_method": user.TwoFactorEnabled,
 				},
 			)
@@ -128,8 +128,13 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	deviceIdToken, err := h.Auth.TokenManager.GenerateBase64Token(24)
+	if err != nil {
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to generate device id token", nil)
+		return
+	}
 	// Save refresh token
-	err = h.Auth.Repository.GetTokenRepository().SaveToken(user.ID, refreshToken, models.RefreshToken, h.Auth.Config.AuthConfig.Cookie.RefreshTokenTTL)
+	err = h.Auth.Repository.GetTokenRepository().SaveTokenWithDeviceId(user.ID, refreshToken, deviceIdToken, models.RefreshToken, h.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to save refresh token", nil)
 		return
@@ -138,7 +143,7 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "___goauth_access_token_" + h.Auth.Config.AuthConfig.Cookie.Name,
 		Value:    accessToken,
-		Expires:  time.Now().Add(h.Auth.Config.AuthConfig.Cookie.AccessTokenTTL),
+		Expires:  time.Now().Add(h.Auth.Config.AuthConfig.JWT.AccessTokenTTL),
 		Domain:   h.Auth.Config.AuthConfig.Cookie.Domain,
 		Path:     h.Auth.Config.AuthConfig.Cookie.Path,
 		Secure:   h.Auth.Config.AuthConfig.Cookie.Secure,
@@ -150,7 +155,7 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "___goauth_refresh_token_" + h.Auth.Config.AuthConfig.Cookie.Name,
 		Value:    refreshToken,
-		Expires:  time.Now().Add(h.Auth.Config.AuthConfig.Cookie.RefreshTokenTTL),
+		Expires:  time.Now().Add(h.Auth.Config.AuthConfig.JWT.RefreshTokenTTL),
 		Domain:   h.Auth.Config.AuthConfig.Cookie.Domain,
 		Path:     h.Auth.Config.AuthConfig.Cookie.Path,
 		Secure:   h.Auth.Config.AuthConfig.Cookie.Secure,
@@ -158,7 +163,18 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		SameSite: h.Auth.Config.AuthConfig.Cookie.SameSite,
 		MaxAge:   h.Auth.Config.AuthConfig.Cookie.MaxAge,
 	})
-	if h.Auth.HookManager.GetAfterHook(types.RouteLogin) != nil {
+	http.SetCookie(w, &http.Cookie{
+		Name:     "___goauth_device_id_" + h.Auth.Config.AuthConfig.Cookie.Name,
+		Value:    deviceIdToken,
+		Expires:  time.Now().Add(h.Auth.Config.AuthConfig.JWT.RefreshTokenTTL),
+		Domain:   h.Auth.Config.AuthConfig.Cookie.Domain,
+		Path:     h.Auth.Config.AuthConfig.Cookie.Path,
+		Secure:   h.Auth.Config.AuthConfig.Cookie.Secure,
+		HttpOnly: h.Auth.Config.AuthConfig.Cookie.HttpOnly,
+		SameSite: h.Auth.Config.AuthConfig.Cookie.SameSite,
+		MaxAge:   h.Auth.Config.AuthConfig.Cookie.MaxAge,
+	})
+	if h.Auth.HookManager.GetAfterHook(config.RouteLogin) != nil {
 
 		ctx := context.WithValue(r.Context(), "response_data", map[string]interface{}{
 			"id":            user.ID,
@@ -167,7 +183,7 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 			"refresh_token": refreshToken,
 		})
 		r = r.WithContext(ctx)
-		h.Auth.HookManager.ExecuteAfterHooks(types.RouteLogin, w, r)
+		h.Auth.HookManager.ExecuteAfterHooks(config.RouteLogin, w, r)
 	} else {
 		userResponse := schemas.UserResponse{
 			ID:        user.ID,

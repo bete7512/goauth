@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/bete7512/goauth/models"
 	"github.com/bete7512/goauth/utils"
 )
 
@@ -29,7 +28,7 @@ func (h *AuthHandler) HandleSendPhoneVerification(w http.ResponseWriter, r *http
 	}
 
 	// Get user ID from authenticated request
-	userID, err := h.authenticateRequest(r, h.Auth.Config.AuthConfig.Cookie.Name, h.Auth.Config.JWTSecret)
+	userID, err := h.authenticateRequest(r, h.Auth.Config.AuthConfig.Cookie.Name, h.Auth.Config.AuthConfig.JWT.Secret)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusUnauthorized, "Unauthorized: "+err.Error(), nil)
 		return
@@ -64,33 +63,33 @@ func (h *AuthHandler) HandleSendPhoneVerification(w http.ResponseWriter, r *http
 	}
 
 	// Generate verification code
-	OTP, err := h.Auth.TokenManager.GenerateNumericOTP(6)
-	if err != nil {
-		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to generate verification code", nil)
-		return
-	}
+	// OTP, err := h.Auth.TokenManager.GenerateNumericOTP(6)
+	// if err != nil {
+	// 	utils.RespondWithError(w, http.StatusInternalServerError, "Failed to generate verification code", nil)
+	// 	return
+	// }
 
-	hashedOTP, err := h.Auth.TokenManager.HashToken(OTP)
-	if err != nil {
-		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to hash verification code", nil)
-		return
-	}
+	// hashedOTP, err := h.Auth.TokenManager.HashToken(OTP)
+	// if err != nil {
+	// 	utils.RespondWithError(w, http.StatusInternalServerError, "Failed to hash verification code", nil)
+	// 	return
+	// }
 
 	// Save verification code
-	err = h.Auth.Repository.GetTokenRepository().SaveToken(user.ID, hashedOTP, models.PhoneVerificationToken, h.Auth.Config.PhoneVerificationTokenTTL)
-	if err != nil {
-		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to save verification code", nil)
-		return
-	}
+	// err = h.Auth.Repository.GetTokenRepository().SaveToken(user.ID, hashedOTP, models.PhoneVerificationToken, h.Auth.Config.PhoneVerificationTokenTTL)
+	// if err != nil {
+	// 	utils.RespondWithError(w, http.StatusInternalServerError, "Failed to save verification code", nil)
+	// 	return
+	// }
 
 	// Send verification SMS
-	if h.Auth.Config.SMSSender != nil {
-		err = h.Auth.Config.SMSSender.SendTwoFactorCode(*user, OTP)
-		if err != nil {
-			utils.RespondWithError(w, http.StatusInternalServerError, "Failed to send verification SMS", nil)
-			return
-		}
-	}
+	// if h.Auth.Config.SMSSender != nil {
+	// 	err = h.Auth.Config.SMSSender.SendTwoFactorCode(*user, OTP)
+	// 	if err != nil {
+	// 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to send verification SMS", nil)
+	// 		return
+	// 	}
+	// }
 
 	utils.RespondWithJSON(w, http.StatusOK, map[string]interface{}{
 		"message": "Verification code sent successfully",

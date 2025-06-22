@@ -6,41 +6,51 @@ import (
 	middleware "github.com/bete7512/goauth/api/middlewares"
 	"github.com/bete7512/goauth/api/routes"
 	oauthRoutes "github.com/bete7512/goauth/api/routes/oauth"
-	"github.com/bete7512/goauth/types"
+	"github.com/bete7512/goauth/config"
 )
 
 // AuthHandler implements RouteRegistry and MiddlewareChain interfaces
 type AuthHandler struct {
-	Auth *types.Auth
+	Auth *config.Auth
 }
 
 // NewAuthHandler creates a new AuthHandler instance
-func NewAuthHandler(auth *types.Auth) *AuthHandler {
+func NewAuthHandler(auth *config.Auth) *AuthHandler {
 	return &AuthHandler{Auth: auth}
 }
 
 // GetCoreRoutes returns all standard authentication routes
 func (h *AuthHandler) GetCoreRoutes() []RouteDefinition {
 	// Create a routes handler to access the route methods
-	routesHandler := &routes.AuthHandler{Auth: h.Auth}
+	routesHandler := &routes.AuthHandler{
+		Auth: &config.Auth{
+			Config:           h.Auth.Config,
+			Repository:       h.Auth.Repository,
+			HookManager:      h.Auth.HookManager,
+			RateLimiter:      h.Auth.RateLimiter,
+			RecaptchaManager: h.Auth.RecaptchaManager,
+			Logger:           h.Auth.Logger,
+			TokenManager:     h.Auth.TokenManager,
+		},
+	}
 
 	return []RouteDefinition{
-		{Name: types.RouteRegister, Method: http.MethodPost, Path: "/register", Handler: routesHandler.HandleRegister},
-		{Name: types.RouteLogin, Method: http.MethodPost, Path: "/login", Handler: routesHandler.HandleLogin},
-		{Name: types.RouteMagicLink, Method: http.MethodPost, Path: "/send-magic-link", Handler: routesHandler.SendMagicLink},
-		{Name: types.RouteMagicLinkLogin, Method: http.MethodPost, Path: "/verify-magic-login", Handler: routesHandler.HandleVerifyMagicLink},
-		{Name: types.RouteLogout, Method: http.MethodPost, Path: "/logout", Handler: routesHandler.HandleLogout},
-		{Name: types.RouteRefreshToken, Method: http.MethodPost, Path: "/refresh-token", Handler: routesHandler.HandleRefreshToken},
-		{Name: types.RouteForgotPassword, Method: http.MethodPost, Path: "/forgot-password", Handler: routesHandler.HandleForgotPassword},
-		{Name: types.RouteResetPassword, Method: http.MethodPost, Path: "/reset-password", Handler: routesHandler.HandleResetPassword},
-		{Name: types.RouteUpdateProfile, Method: http.MethodPost, Path: "/update-profile", Handler: routesHandler.HandleUpdateProfile},
-		{Name: types.RouteDeactivateUser, Method: http.MethodPost, Path: "/deactivate-user", Handler: routesHandler.HandleDeactivateUser},
-		{Name: types.RouteGetMe, Method: http.MethodGet, Path: "/me", Handler: routesHandler.HandleGetUser},
-		{Name: types.RouteEnableTwoFactor, Method: http.MethodPost, Path: "/enable-two-factor", Handler: routesHandler.HandleEnableTwoFactor},
-		{Name: types.RouteVerifyTwoFactor, Method: http.MethodPost, Path: "/verify-two-factor", Handler: routesHandler.HandleVerifyTwoFactor},
-		{Name: types.RouteDisableTwoFactor, Method: http.MethodPost, Path: "/disable-two-factor", Handler: routesHandler.HandleDisableTwoFactor},
-		{Name: types.RouteVerifyEmail, Method: http.MethodPost, Path: "/verify-email", Handler: routesHandler.HandleVerifyEmail},
-		{Name: types.RouteResendVerificationEmail, Method: http.MethodPost, Path: "/resend-verification-email", Handler: routesHandler.HandleResendVerificationEmail},
+		{Name: config.RouteRegister, Method: http.MethodPost, Path: "/register", Handler: routesHandler.HandleRegister},
+		{Name: config.RouteLogin, Method: http.MethodPost, Path: "/login", Handler: routesHandler.HandleLogin},
+		{Name: config.RouteMagicLink, Method: http.MethodPost, Path: "/send-magic-link", Handler: routesHandler.SendMagicLink},
+		{Name: config.RouteMagicLinkLogin, Method: http.MethodPost, Path: "/verify-magic-login", Handler: routesHandler.HandleVerifyMagicLink},
+		{Name: config.RouteLogout, Method: http.MethodPost, Path: "/logout", Handler: routesHandler.HandleLogout},
+		{Name: config.RouteRefreshToken, Method: http.MethodPost, Path: "/refresh-token", Handler: routesHandler.HandleRefreshToken},
+		{Name: config.RouteForgotPassword, Method: http.MethodPost, Path: "/forgot-password", Handler: routesHandler.HandleForgotPassword},
+		{Name: config.RouteResetPassword, Method: http.MethodPost, Path: "/reset-password", Handler: routesHandler.HandleResetPassword},
+		{Name: config.RouteUpdateProfile, Method: http.MethodPost, Path: "/update-profile", Handler: routesHandler.HandleUpdateProfile},
+		{Name: config.RouteDeactivateUser, Method: http.MethodPost, Path: "/deactivate-user", Handler: routesHandler.HandleDeactivateUser},
+		{Name: config.RouteGetMe, Method: http.MethodGet, Path: "/me", Handler: routesHandler.HandleGetUser},
+		{Name: config.RouteEnableTwoFactor, Method: http.MethodPost, Path: "/enable-two-factor", Handler: routesHandler.HandleEnableTwoFactor},
+		{Name: config.RouteVerifyTwoFactor, Method: http.MethodPost, Path: "/verify-two-factor", Handler: routesHandler.HandleVerifyTwoFactor},
+		{Name: config.RouteDisableTwoFactor, Method: http.MethodPost, Path: "/disable-two-factor", Handler: routesHandler.HandleDisableTwoFactor},
+		{Name: config.RouteVerifyEmail, Method: http.MethodPost, Path: "/verify-email", Handler: routesHandler.HandleVerifyEmail},
+		// {Name: config.RouteResendVerificationEmail, Method: http.MethodPost, Path: "/resend-verification-email", Handler: routesHandler.HandleResendVerificationEmail},
 	}
 }
 
@@ -95,9 +105,9 @@ func (h *AuthHandler) BuildChain(routeName string, finalHandler http.Handler) ht
 	// Apply hook middleware first (closest to the actual handler)
 	handler = h.withHooks(routeName, handler)
 	// Apply rate limiter middleware if enabled
-	if h.Auth.Config.EnableRateLimiter {
-		if _, needsRateLimit := h.Auth.Config.RateLimiter.Routes[routeName]; needsRateLimit {
-			handler = middleware.RateLimiterMiddleware(*h.Auth.RateLimiter, h.Auth.Config.RateLimiter, routeName, handler.ServeHTTP)
+	if h.Auth.Config.Features.EnableRateLimiter {
+		if _, needsRateLimit := h.Auth.Config.Security.RateLimiter.Routes[routeName]; needsRateLimit {
+			handler = middleware.RateLimiterMiddleware(*h.Auth.RateLimiter, &h.Auth.Config.Security.RateLimiter, routeName, handler.ServeHTTP)
 		}
 	}
 

@@ -197,7 +197,7 @@ func TestHandleLogin_UserInactive(t *testing.T) {
 
 func TestHandleLogin_EmailNotVerified(t *testing.T) {
 	config := CreateTestConfig()
-	config.AuthConfig.EnableEmailVerificationOnSignup = true
+	config.AuthConfig.Methods.EmailVerification.EnableOnSignup = true
 	handler := CreateTestAuthHandler(config)
 
 	// Setup mocks

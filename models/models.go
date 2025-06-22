@@ -53,15 +53,16 @@ type User struct {
 	DeletedAt   gorm.DeletedAt `json:"-" gorm:"index"`
 }
 type Token struct {
-	ID         string    `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	UserID     string    `gorm:"index"`
-	TokenType  TokenType `gorm:"index"`
-	TokenValue string    `gorm:"index"`
-	ExpiresAt  time.Time `gorm:"index"`
-	Used       bool      `gorm:"default:false"`
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
-	DeletedAt  gorm.DeletedAt `gorm:"index"`
+	ID         string         `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	UserID     string         `gorm:"not null"`
+	TokenType  TokenType      `gorm:"not null"`
+	TokenValue string         `gorm:"not null"`
+	DeviceId   string         `gorm:"default:null"`
+	ExpiresAt  time.Time      `gorm:"not null"`
+	Used       bool           `gorm:"default:false"`
+	CreatedAt  time.Time      `gorm:"autoCreateTime"`
+	UpdatedAt  time.Time      `gorm:"autoUpdateTime"`
+	DeletedAt  gorm.DeletedAt `json:"-" gorm:"index"`
 }
 
 type AccountToken struct {

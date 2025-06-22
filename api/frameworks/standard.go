@@ -24,7 +24,7 @@ func (a *StandardAdapter) SetupRoutes(router interface{}) error {
 	}
 
 	// Setup Swagger if enabled
-	if a.handler.Auth.Config.Swagger.Enable {
+	if a.handler.Auth.Config.App.Swagger.Enable {
 		// TODO: Add Swagger setup for Standard HTTP
 	}
 
@@ -37,7 +37,7 @@ func (a *StandardAdapter) SetupRoutes(router interface{}) error {
 		chainedHandler := a.handler.BuildChain(route.Name, http.HandlerFunc(route.Handler))
 
 		// Create the full path
-		fullPath := a.handler.Auth.Config.BasePath + route.Path
+		fullPath := a.handler.Auth.Config.App.BasePath + route.Path
 
 		// Register the route
 		serveMux.HandleFunc(fullPath, func(w http.ResponseWriter, r *http.Request) {

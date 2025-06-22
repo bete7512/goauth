@@ -8,18 +8,18 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/bete7512/goauth/config"
 	"github.com/bete7512/goauth/models"
-	"github.com/bete7512/goauth/types"
 	"github.com/bete7512/goauth/utils"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/microsoft"
 )
 
 type MicrosoftOauth struct {
-	Auth *types.Auth
+	Auth *config.Auth
 }
 
-func NewMicrosoftOauth(auth *types.Auth) *MicrosoftOauth {
+func NewMicrosoftOauth(auth *config.Auth) *MicrosoftOauth {
 	return &MicrosoftOauth{
 		Auth: auth,
 	}
@@ -223,10 +223,10 @@ func (m *MicrosoftOauth) Callback(w http.ResponseWriter, r *http.Request) {
 			}
 			return userInfo.DisplayName
 		}(),
-		LastName:   userInfo.Surname,
-		SignedUpVia:  "microsoft",
-		ProviderId: &userInfo.ID,
-		Avatar:     nil, // Microsoft Graph API requires additional requests for photo
+		LastName:    userInfo.Surname,
+		SignedUpVia: "microsoft",
+		ProviderId:  &userInfo.ID,
+		Avatar:      nil, // Microsoft Graph API requires additional requests for photo
 	}
 
 	err = m.Auth.Repository.GetUserRepository().UpsertUserByEmail(&user)
@@ -253,7 +253,7 @@ func (m *MicrosoftOauth) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Save refresh token
-	err = m.Auth.Repository.GetTokenRepository().SaveToken(user.ID, refreshToken, models.RefreshToken, m.Auth.Config.AuthConfig.Cookie.RefreshTokenTTL)
+	err = m.Auth.Repository.GetTokenRepository().SaveToken(user.ID, refreshToken, models.RefreshToken, m.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
 	if err != nil {
 		utils.RespondWithError(
 			w,
@@ -272,12 +272,12 @@ func (m *MicrosoftOauth) Callback(w http.ResponseWriter, r *http.Request) {
 		HttpOnly: m.Auth.Config.AuthConfig.Cookie.HttpOnly,
 		Secure:   m.Auth.Config.AuthConfig.Cookie.Secure,
 		SameSite: m.Auth.Config.AuthConfig.Cookie.SameSite,
-		MaxAge:   int(m.Auth.Config.AuthConfig.Cookie.AccessTokenTTL.Seconds()),
+		MaxAge:   int(m.Auth.Config.AuthConfig.JWT.AccessTokenTTL.Seconds()),
 	}
 	http.SetCookie(w, tokenCookie)
 
 	// Redirect to the frontend
-	http.Redirect(w, r, m.Auth.Config.FrontendURL, http.StatusTemporaryRedirect)
+	http.Redirect(w, r, m.Auth.Config.App.FrontendURL, http.StatusTemporaryRedirect)
 }
 
 // getUserInfo fetches the user information from Microsoft Graph API
@@ -309,8 +309,3 @@ func (m *MicrosoftOauth) getUserInfo(accessToken string) (*MicrosoftUserInfo, er
 	return &userInfo, nil
 }
 
-/*
-
-{"status":400,"message":"OAuth error: invalid_request - The request is not valid for the application's 'userAudience' configuration. In order to use /common/ endpoint, the application must not be configured with 'Consumer' as the user audience. The userAudience should be configured with 'All' to use /common/ endpoint.","error":"invalid_request: The request is not valid for the application's 'userAudience' configuration. In order to use /common/ endpoint, the application must not be configured with 'Consumer' as the user audience. The userAudience should be configured with 'All' to use /common/ endpoint."}
-
-*/

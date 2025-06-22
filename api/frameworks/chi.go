@@ -25,7 +25,7 @@ func (a *ChiAdapter) SetupRoutes(router interface{}) error {
 	}
 
 	// Setup Swagger if enabled
-	if a.handler.Auth.Config.Swagger.Enable {
+	if a.handler.Auth.Config.App.Swagger.Enable {
 		// TODO: Add Swagger setup for Chi
 	}
 
@@ -33,7 +33,7 @@ func (a *ChiAdapter) SetupRoutes(router interface{}) error {
 	allRoutes := a.handler.GetAllRoutes()
 
 	// Create a sub-router for the auth base path
-	chiRouter.Route(a.handler.Auth.Config.BasePath, func(r chi.Router) {
+	chiRouter.Route(a.handler.Auth.Config.App.BasePath, func(r chi.Router) {
 		for _, route := range allRoutes {
 			// Build the middleware chain
 			chainedHandler := a.handler.BuildChain(route.Name, http.HandlerFunc(route.Handler))

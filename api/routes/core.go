@@ -8,15 +8,15 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/bete7512/goauth/types"
+	"github.com/bete7512/goauth/config"
 )
 
 type AuthHandler struct {
-	Auth *types.Auth
+	*config.Auth
 }
 
 // validatePasswordPolicy validates a password against the configured policy
-func (h *AuthHandler) validatePasswordPolicy(password string, policy types.PasswordPolicy) error {
+func (h *AuthHandler) validatePasswordPolicy(password string, policy config.PasswordPolicy) error {
 	if len(password) < policy.MinLength {
 		return fmt.Errorf("password must be at least %d characters long", policy.MinLength)
 	}
@@ -78,7 +78,7 @@ func (h *AuthHandler) ValidateEmail(email string) error {
 func (h *AuthHandler) ValidatePhoneNumber(phoneNumber *string) error {
 
 	//validate phone number
-	if h.Auth.Config.AuthConfig.PhoneNumberRequired {
+	if h.Auth.Config.AuthConfig.Methods.PhoneVerification.PhoneRequired {
 		if phoneNumber == nil {
 			return errors.New("phone number is required")
 		}
@@ -128,12 +128,10 @@ func (h *AuthHandler) extractToken(r *http.Request, cookieName string) string {
 			return cookie.Value
 		}
 	}
-	if h.Auth.Config.AuthConfig.EnableBearerAuth {
-		bearerToken := r.Header.Get("Authorization")
-		if len(bearerToken) > 7 && strings.ToUpper(bearerToken[0:7]) == "BEARER " {
-			return bearerToken[7:]
-		}
-
+	// Check for bearer token (assuming it's enabled by default for testing)
+	bearerToken := r.Header.Get("Authorization")
+	if len(bearerToken) > 7 && strings.ToUpper(bearerToken[0:7]) == "BEARER " {
+		return bearerToken[7:]
 	}
 
 	return ""

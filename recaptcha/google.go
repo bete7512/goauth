@@ -3,9 +3,9 @@ package recaptcha
 import (
 	"context"
 
+	"github.com/bete7512/goauth/config"
 	"github.com/bete7512/goauth/external"
 	"github.com/bete7512/goauth/logger"
-	"github.com/bete7512/goauth/types"
 	"github.com/bete7512/goauth/utils"
 )
 
@@ -19,7 +19,7 @@ type googleResponse struct {
 	ErrorCodes []string `json:"error-codes,omitempty"`
 }
 
-func NewGoogleVerifier(secret string, url string) types.CaptchaVerifier {
+func NewGoogleVerifier(secret string, url string) config.CaptchaVerifier {
 	return &googleVerifier{
 		Secret: secret,
 		Url:    url,

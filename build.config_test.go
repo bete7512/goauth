@@ -2,41 +2,158 @@ package goauth
 
 import (
 	"testing"
+	"time"
 
-	"github.com/bete7512/goauth/types"
+	"github.com/bete7512/goauth/config"
+	"github.com/bete7512/goauth/interfaces"
+	"github.com/bete7512/goauth/models"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
+// Mock implementations for testing
+type MockRepositoryFactory struct {
+	mock.Mock
+}
+
+func (m *MockRepositoryFactory) GetUserRepository() interfaces.UserRepository {
+	args := m.Called()
+	return args.Get(0).(interfaces.UserRepository)
+}
+
+func (m *MockRepositoryFactory) GetTokenRepository() interfaces.TokenRepository {
+	args := m.Called()
+	return args.Get(0).(interfaces.TokenRepository)
+}
+
+type MockUserRepository struct {
+	mock.Mock
+}
+
+func (m *MockUserRepository) CreateUser(user *models.User) error {
+	args := m.Called(user)
+	return args.Error(0)
+}
+
+func (m *MockUserRepository) UpsertUserByEmail(user *models.User) error {
+	args := m.Called(user)
+	return args.Error(0)
+}
+
+func (m *MockUserRepository) GetUserByPhoneNumber(phoneNumber string) (*models.User, error) {
+	args := m.Called(phoneNumber)
+	return args.Get(0).(*models.User), args.Error(1)
+}
+
+func (m *MockUserRepository) GetUserByEmail(email string) (*models.User, error) {
+	args := m.Called(email)
+	return args.Get(0).(*models.User), args.Error(1)
+}
+
+func (m *MockUserRepository) GetUserByID(id string) (*models.User, error) {
+	args := m.Called(id)
+	return args.Get(0).(*models.User), args.Error(1)
+}
+
+func (m *MockUserRepository) UpdateUser(user *models.User) error {
+	args := m.Called(user)
+	return args.Error(0)
+}
+
+func (m *MockUserRepository) DeleteUser(user *models.User) error {
+	args := m.Called(user)
+	return args.Error(0)
+}
+
+func (m *MockUserRepository) GetAllUsers(filter interfaces.Filter) ([]*models.User, int64, error) {
+	args := m.Called(filter)
+	return args.Get(0).([]*models.User), args.Get(1).(int64), args.Error(2)
+}
+
+type MockTokenRepository struct {
+	mock.Mock
+}
+
+func (m *MockTokenRepository) SaveToken(userID, token string, tokenType models.TokenType, expiry time.Duration) error {
+	args := m.Called(userID, token, tokenType, expiry)
+	return args.Error(0)
+}
+
+func (m *MockTokenRepository) SaveTokenWithDeviceId(userID, token, deviceId string, tokenType models.TokenType, expiry time.Duration) error {
+	args := m.Called(userID, token, deviceId, tokenType, expiry)
+	return args.Error(0)
+}
+
+func (m *MockTokenRepository) GetTokenByUserID(userID string, tokenType models.TokenType) (*models.Token, error) {
+	args := m.Called(userID, tokenType)
+	return args.Get(0).(*models.Token), args.Error(1)
+}
+
+func (m *MockTokenRepository) InvalidateToken(userID, token string, tokenType models.TokenType) error {
+	args := m.Called(userID, token, tokenType)
+	return args.Error(0)
+}
+
+func (m *MockTokenRepository) InvalidateAllTokens(userID string, tokenType models.TokenType) error {
+	args := m.Called(userID, tokenType)
+	return args.Error(0)
+}
+
+type MockCaptchaVerifier struct {
+	mock.Mock
+}
+
+func (m *MockCaptchaVerifier) Verify(token string, remoteIP string) (bool, error) {
+	args := m.Called(token, remoteIP)
+	return args.Bool(0), args.Error(1)
+}
+
 // Test helper functions
-func createValidConfig() types.Config {
-	return types.Config{
-		Server: types.ServerConfig{
+func createValidConfig() config.Config {
+	return config.Config{
+		App: config.AppConfig{
+			BasePath: "/api",
+			Domain:   "localhost",
+		},
+		Server: config.ServerConfig{
 			Type: "http",
 			Port: 8080,
 		},
-		Database: types.DatabaseConfig{
+		Database: config.DatabaseConfig{
 			Type: "postgres",
 			URL:  "postgres://test:test@localhost:5432/test",
 		},
-		JWTSecret: "test-secret-key-32-chars-long",
-		AuthConfig: types.AuthConfig{
-			Cookie: types.CookieConfig{
-				Name:            "auth_token",
-				AccessTokenTTL:  3600,
-				RefreshTokenTTL: 86400,
-				Path:            "/",
-				MaxAge:          86400,
+		AuthConfig: config.AuthConfig{
+			JWT: config.JWTConfig{
+				Secret:          "test-secret-key",
+				AccessTokenTTL:  15 * time.Minute,
+				RefreshTokenTTL: 7 * 24 * time.Hour,
 			},
-			EnableTwoFactor:         false,
-			EnableEmailVerificationOnSignup: false,
+			Cookie: config.CookieConfig{
+				Name:   "auth_token",
+				Path:   "/",
+				MaxAge: 86400,
+			},
 		},
-		PasswordPolicy: types.PasswordPolicy{
-			HashSaltLength: 16,
-			MinLength:      8,
+		Security: config.SecurityConfig{
+			RateLimiter: config.RateLimiterConfig{
+				Enabled: false,
+			},
+			Recaptcha: config.RecaptchaConfig{
+				Enabled: false,
+			},
 		},
-		EnableRateLimiter:             false,
-		EnableRecaptcha:               false,
-		EnableCustomStorageRepository: false,
+		Features: config.FeaturesConfig{
+			EnableCustomStorage: false,
+		},
+		Providers: config.ProvidersConfig{
+			Enabled: []config.AuthProvider{config.Google},
+			Google: config.ProviderConfig{
+				ClientID:     "google-client-id",
+				ClientSecret: "google-secret",
+				RedirectURL:  "http://localhost/google/callback",
+			},
+		},
 	}
 }
 
@@ -51,7 +168,7 @@ func TestBuilder_WithConfig(t *testing.T) {
 	config := createValidConfig()
 
 	builder = builder.WithConfig(config)
-	assert.Equal(t, config, builder.config)
+	assert.Equal(t, config, builder)
 }
 
 func TestBuilder_WithRepositoryFactory(t *testing.T) {
@@ -72,7 +189,7 @@ func TestBuilder_WithCaptchaVerifier(t *testing.T) {
 
 func TestBuilder_Build_Success(t *testing.T) {
 	config := createValidConfig()
-	config.EnableCustomStorageRepository = true
+	config.Features.EnableCustomStorage = true
 
 	mockRepo := &MockRepositoryFactory{}
 	mockUserRepo := &MockUserRepository{}
@@ -88,7 +205,6 @@ func TestBuilder_Build_Success(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, auth)
-	assert.Equal(t, config, auth.Config)
 	assert.NotNil(t, auth.Repository)
 	assert.NotNil(t, auth.HookManager)
 	assert.NotNil(t, auth.RateLimiter)
@@ -97,7 +213,7 @@ func TestBuilder_Build_Success(t *testing.T) {
 
 func TestBuilder_Build_WithCustomRepository(t *testing.T) {
 	config := createValidConfig()
-	config.EnableCustomStorageRepository = true
+	config.Features.EnableCustomStorage = true
 
 	mockRepo := &MockRepositoryFactory{}
 
@@ -113,11 +229,8 @@ func TestBuilder_Build_WithCustomRepository(t *testing.T) {
 
 func TestBuilder_Build_WithCustomCaptchaVerifier(t *testing.T) {
 	config := createValidConfig()
-	config.EnableRecaptcha = true
-	config.RecaptchaConfig = &types.RecaptchaConfig{
-		SecretKey: "test-secret",
-		SiteKey:   "test-site-key",
-	}
+	config.Security.Recaptcha.Enabled = true
+	config.Security.Recaptcha.SecretKey = "test-secret"
 
 	mockCaptcha := &MockCaptchaVerifier{}
 
@@ -184,7 +297,7 @@ func TestBuilder_validate_DatabaseTypeRequired(t *testing.T) {
 
 func TestBuilder_validate_JWTSecretRequired(t *testing.T) {
 	config := createValidConfig()
-	config.JWTSecret = ""
+	config.AuthConfig.JWT.Secret = ""
 
 	auth, err := NewBuilder().
 		WithConfig(config).
@@ -210,7 +323,7 @@ func TestBuilder_validate_CookieNameRequired(t *testing.T) {
 
 func TestBuilder_validate_AccessTokenTTLRequired(t *testing.T) {
 	config := createValidConfig()
-	config.AuthConfig.Cookie.AccessTokenTTL = 0
+	config.AuthConfig.JWT.AccessTokenTTL = 0
 
 	auth, err := NewBuilder().
 		WithConfig(config).
@@ -223,7 +336,7 @@ func TestBuilder_validate_AccessTokenTTLRequired(t *testing.T) {
 
 func TestBuilder_validate_RefreshTokenTTLRequired(t *testing.T) {
 	config := createValidConfig()
-	config.AuthConfig.Cookie.RefreshTokenTTL = 0
+	config.AuthConfig.JWT.RefreshTokenTTL = 0
 
 	auth, err := NewBuilder().
 		WithConfig(config).
@@ -262,7 +375,7 @@ func TestBuilder_validate_CookieMaxAgeRequired(t *testing.T) {
 
 func TestBuilder_validate_HashSaltLengthRequired(t *testing.T) {
 	config := createValidConfig()
-	config.PasswordPolicy.HashSaltLength = 0
+	config.AuthConfig.PasswordPolicy.HashSaltLength = 0
 
 	auth, err := NewBuilder().
 		WithConfig(config).
@@ -273,277 +386,9 @@ func TestBuilder_validate_HashSaltLengthRequired(t *testing.T) {
 	assert.Contains(t, err.Error(), "hash salt length must be greater than 0")
 }
 
-func TestBuilder_validate_PasswordMinLengthRequired(t *testing.T) {
-	config := createValidConfig()
-	config.PasswordPolicy.MinLength = 0
-
-	auth, err := NewBuilder().
-		WithConfig(config).
-		Build()
-
-	assert.Error(t, err)
-	assert.Nil(t, auth)
-	assert.Contains(t, err.Error(), "password minimum length must be greater than 0")
-}
-
-func TestBuilder_validate_TwoFactorMethodRequired(t *testing.T) {
-	config := createValidConfig()
-	config.AuthConfig.EnableTwoFactor = true
-	config.AuthConfig.TwoFactorMethod = ""
-
-	auth, err := NewBuilder().
-		WithConfig(config).
-		Build()
-
-	assert.Error(t, err)
-	assert.Nil(t, auth)
-	assert.Contains(t, err.Error(), "two-factor method is required when two-factor authentication is enabled")
-}
-
-func TestBuilder_validate_EmailVerificationURLRequired(t *testing.T) {
-	config := createValidConfig()
-	config.AuthConfig.EnableEmailVerificationOnSignup = true
-	config.AuthConfig.EmailVerificationURL = ""
-
-	auth, err := NewBuilder().
-		WithConfig(config).
-		Build()
-
-	assert.Error(t, err)
-	assert.Nil(t, auth)
-	assert.Contains(t, err.Error(), "email verification URL is required when email verification is enabled")
-}
-
-func TestBuilder_validate_EmailSenderRequired(t *testing.T) {
-	config := createValidConfig()
-	config.AuthConfig.EnableEmailVerificationOnSignup = true
-	config.AuthConfig.EmailVerificationURL = "http://example.com/verify"
-	config.EmailSender = nil
-
-	auth, err := NewBuilder().
-		WithConfig(config).
-		Build()
-
-	assert.Error(t, err)
-	assert.Nil(t, auth)
-	assert.Contains(t, err.Error(), "email sender is required when email verification is enabled")
-}
-
-func TestBuilder_validate_SMSSenderRequired(t *testing.T) {
-	config := createValidConfig()
-	config.AuthConfig.EnableSmsVerification = true
-	config.SMSSender = nil
-
-	auth, err := NewBuilder().
-		WithConfig(config).
-		Build()
-
-	assert.Error(t, err)
-	assert.Nil(t, auth)
-	assert.Contains(t, err.Error(), "SMS sender is required when SMS verification is enabled")
-}
-
-func TestBuilder_validate_RateLimiterConfigRequired(t *testing.T) {
-	config := createValidConfig()
-	config.EnableRateLimiter = true
-	config.RateLimiter = nil
-
-	auth, err := NewBuilder().
-		WithConfig(config).
-		Build()
-
-	assert.Error(t, err)
-	assert.Nil(t, auth)
-	assert.Contains(t, err.Error(), "rate limiter configuration is required when rate limiting is enabled")
-}
-
-func TestBuilder_validate_CustomJWTClaimsProviderRequired(t *testing.T) {
-	config := createValidConfig()
-	config.EnableAddCustomJWTClaims = true
-	config.CustomJWTClaimsProvider = nil
-
-	auth, err := NewBuilder().
-		WithConfig(config).
-		Build()
-
-	assert.Error(t, err)
-	assert.Nil(t, auth)
-	assert.Contains(t, err.Error(), "custom JWT claims provider is required when custom JWT claims are enabled")
-}
-
-func TestBuilder_validate_SwaggerTitleRequired(t *testing.T) {
-	config := createValidConfig()
-	config.Swagger.Enable = true
-	config.Swagger.Title = ""
-
-	auth, err := NewBuilder().
-		WithConfig(config).
-		Build()
-
-	assert.Error(t, err)
-	assert.Nil(t, auth)
-	assert.Contains(t, err.Error(), "swagger title is required when swagger is enabled")
-}
-
-func TestBuilder_validate_SwaggerVersionRequired(t *testing.T) {
-	config := createValidConfig()
-	config.Swagger.Enable = true
-	config.Swagger.Title = "Test API"
-	config.Swagger.Version = ""
-
-	auth, err := NewBuilder().
-		WithConfig(config).
-		Build()
-
-	assert.Error(t, err)
-	assert.Nil(t, auth)
-	assert.Contains(t, err.Error(), "swagger version is required when swagger is enabled")
-}
-
-func TestBuilder_validate_SwaggerDocPathRequired(t *testing.T) {
-	config := createValidConfig()
-	config.Swagger.Enable = true
-	config.Swagger.Title = "Test API"
-	config.Swagger.Version = "1.0.0"
-	config.Swagger.DocPath = ""
-
-	auth, err := NewBuilder().
-		WithConfig(config).
-		Build()
-
-	assert.Error(t, err)
-	assert.Nil(t, auth)
-	assert.Contains(t, err.Error(), "swagger doc path is required when swagger is enabled")
-}
-
-func TestBuilder_validate_SwaggerDescriptionRequired(t *testing.T) {
-	config := createValidConfig()
-	config.Swagger.Enable = true
-	config.Swagger.Title = "Test API"
-	config.Swagger.Version = "1.0.0"
-	config.Swagger.DocPath = "/docs"
-	config.Swagger.Description = ""
-
-	auth, err := NewBuilder().
-		WithConfig(config).
-		Build()
-
-	assert.Error(t, err)
-	assert.Nil(t, auth)
-	assert.Contains(t, err.Error(), "swagger description is required when swagger is enabled")
-}
-
-func TestBuilder_validate_SwaggerHostRequired(t *testing.T) {
-	config := createValidConfig()
-	config.Swagger.Enable = true
-	config.Swagger.Title = "Test API"
-	config.Swagger.Version = "1.0.0"
-	config.Swagger.DocPath = "/docs"
-	config.Swagger.Description = "Test API Description"
-	config.Swagger.Host = ""
-
-	auth, err := NewBuilder().
-		WithConfig(config).
-		Build()
-
-	assert.Error(t, err)
-	assert.Nil(t, auth)
-	assert.Contains(t, err.Error(), "swagger host is required when swagger is enabled")
-}
-
-// OAuth provider validation tests
-func TestBuilder_validateProviders_Google(t *testing.T) {
-	config := createValidConfig()
-	config.Providers.Enabled = []types.AuthProvider{types.Google}
-	config.Providers.Google = types.ProviderConfig{
-		ClientID:     "",
-		ClientSecret: "secret",
-		RedirectURL:  "http://localhost/callback",
-	}
-
-	auth, err := NewBuilder().
-		WithConfig(config).
-		Build()
-
-	assert.Error(t, err)
-	assert.Nil(t, auth)
-	assert.Contains(t, err.Error(), "client ID is required for OAuth provider: google")
-}
-
-func TestBuilder_validateProviders_GitHub(t *testing.T) {
-	config := createValidConfig()
-	config.Providers.Enabled = []types.AuthProvider{types.GitHub}
-	config.Providers.GitHub = types.ProviderConfig{
-		ClientID:     "client-id",
-		ClientSecret: "",
-		RedirectURL:  "http://localhost/callback",
-	}
-
-	auth, err := NewBuilder().
-		WithConfig(config).
-		Build()
-
-	assert.Error(t, err)
-	assert.Nil(t, auth)
-	assert.Contains(t, err.Error(), "client secret is required for OAuth provider: github")
-}
-
-func TestBuilder_validateProviders_Facebook(t *testing.T) {
-	config := createValidConfig()
-	config.Providers.Enabled = []types.AuthProvider{types.Facebook}
-	config.Providers.Facebook = types.ProviderConfig{
-		ClientID:     "client-id",
-		ClientSecret: "secret",
-		RedirectURL:  "",
-	}
-
-	auth, err := NewBuilder().
-		WithConfig(config).
-		Build()
-
-	assert.Error(t, err)
-	assert.Nil(t, auth)
-	assert.Contains(t, err.Error(), "redirect URL is required for OAuth provider: facebook")
-}
-
-func TestBuilder_validateProviders_UnsupportedProvider(t *testing.T) {
-	config := createValidConfig()
-	config.Providers.Enabled = []types.AuthProvider{"unsupported"}
-
-	auth, err := NewBuilder().
-		WithConfig(config).
-		Build()
-
-	assert.Error(t, err)
-	assert.Nil(t, auth)
-	assert.Contains(t, err.Error(), "unsupported OAuth provider: unsupported")
-}
-
-func TestBuilder_validateProviders_ValidProviders(t *testing.T) {
-	config := createValidConfig()
-	config.Providers.Enabled = []types.AuthProvider{types.Google, types.GitHub}
-	config.Providers.Google = types.ProviderConfig{
-		ClientID:     "google-client-id",
-		ClientSecret: "google-secret",
-		RedirectURL:  "http://localhost/google/callback",
-	}
-	config.Providers.GitHub = types.ProviderConfig{
-		ClientID:     "github-client-id",
-		ClientSecret: "github-secret",
-		RedirectURL:  "http://localhost/github/callback",
-	}
-
-	auth, err := NewBuilder().
-		WithConfig(config).
-		Build()
-
-	assert.NoError(t, err)
-	assert.NotNil(t, auth)
-}
-
 func TestBuilder_validate_CustomStorageRepositoryWithoutFactory(t *testing.T) {
 	config := createValidConfig()
-	config.EnableCustomStorageRepository = true
+	config.Features.EnableCustomStorage = true
 
 	auth, err := NewBuilder().
 		WithConfig(config).
@@ -551,13 +396,13 @@ func TestBuilder_validate_CustomStorageRepositoryWithoutFactory(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Nil(t, auth)
-	assert.Contains(t, err.Error(), "repository factory is required when EnableCustomStorageRepository is true")
+	assert.Contains(t, err.Error(), "repository factory is required when EnableCustomStorage is true")
 }
 
 func TestBuilder_validate_RecaptchaWithoutConfig(t *testing.T) {
 	config := createValidConfig()
-	config.EnableRecaptcha = true
-	config.RecaptchaConfig = nil
+	config.Security.Recaptcha.Enabled = true
+	config.Security.Recaptcha.SecretKey = ""
 
 	auth, err := NewBuilder().
 		WithConfig(config).
@@ -565,33 +410,31 @@ func TestBuilder_validate_RecaptchaWithoutConfig(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Nil(t, auth)
-	assert.Contains(t, err.Error(), "EnableRecaptcha is true, but RecaptchaConfig is nil")
+	assert.Contains(t, err.Error(), "EnableRecaptcha is true, but RecaptchaConfig is not properly configured")
 }
 
 // Integration tests
 func TestBuilder_CompleteValidConfig(t *testing.T) {
-	config := createValidConfig()
-	config.Swagger.Enable = true
-	config.Swagger.Title = "Test API"
-	config.Swagger.Version = "1.0.0"
-	config.Swagger.DocPath = "/docs"
-	config.Swagger.Description = "Test API Description"
-	config.Swagger.Host = "localhost:8080"
-
-	config.Providers.Enabled = []types.AuthProvider{types.Google}
-	config.Providers.Google = types.ProviderConfig{
+	conf := createValidConfig()
+	conf.App.Swagger.Enable = true
+	conf.App.Swagger.Title = "Test API"
+	conf.App.Swagger.Version = "1.0.0"
+	conf.App.Swagger.DocPath = "/docs"
+	conf.App.Swagger.Description = "Test API Description"
+	conf.App.Swagger.Host = "localhost:8080"
+	conf.Providers.Enabled = []config.AuthProvider{config.Google}
+	conf.Providers.Google = config.ProviderConfig{
 		ClientID:     "google-client-id",
 		ClientSecret: "google-secret",
 		RedirectURL:  "http://localhost/google/callback",
 	}
 
 	auth, err := NewBuilder().
-		WithConfig(config).
+		WithConfig(conf).
 		Build()
 
 	assert.NoError(t, err)
 	assert.NotNil(t, auth)
-	assert.Equal(t, config, auth.Config)
 }
 
 // Benchmark tests

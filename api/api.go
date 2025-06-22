@@ -5,7 +5,7 @@ import (
 
 	"github.com/bete7512/goauth/api/core"
 	"github.com/bete7512/goauth/api/frameworks"
-	"github.com/bete7512/goauth/types"
+	"github.com/bete7512/goauth/config"
 )
 
 // AuthAPI provides a unified interface for authentication across different frameworks
@@ -14,9 +14,10 @@ type AuthAPI struct {
 }
 
 // NewAuthAPI creates a new AuthAPI instance
-func NewAuthAPI(auth *types.Auth) *AuthAPI {
+func NewAuthAPI(auth *config.Auth) *AuthAPI {
 	return &AuthAPI{
 		handler: core.NewAuthHandler(auth),
+		
 	}
 }
 

@@ -49,20 +49,17 @@ func (h *AuthHandler) HandleForgotPassword(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Send reset email
-	if h.Auth.Config.EmailSender != nil {
-		resetURL := fmt.Sprintf("%s?token=%s&email=%s",
-			h.Auth.Config.AuthConfig.PasswordResetURL,
-			resetToken,
-			user.Email)
-
-		err = h.Auth.Config.EmailSender.SendPasswordReset(*user, resetURL)
+	resetURL := fmt.Sprintf("%s?token=%s&email=%s",
+		h.Auth.Config.AuthConfig.Methods.EmailVerification.VerificationURL,
+		resetToken,
+		user.Email)
+	if h.Auth.Config.Email.Sender.CustomSender != nil {
+		err = h.Auth.Config.Email.Sender.CustomSender.SendPasswordReset(*user, resetURL)
 		if err != nil {
-			// fmt.Printf("Failed to send password reset email: %v\n", err)
 			utils.RespondWithError(w, http.StatusInternalServerError, "Failed to send password reset email", err)
 			return
 		}
 	}
-
 	err = utils.RespondWithJSON(w, http.StatusOK, map[string]string{
 		"message": "If your email address exists in our database, you will receive a password recovery link at your email address shortly.",
 	})

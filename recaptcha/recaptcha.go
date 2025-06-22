@@ -1,8 +1,8 @@
 package recaptcha
 
-import "github.com/bete7512/goauth/types"
+import "github.com/bete7512/goauth/config"
 
-func NewRecaptchaVerifier(config types.RecaptchaConfig) types.CaptchaVerifier {
+func NewRecaptchaVerifier(config config.RecaptchaConfig) config.CaptchaVerifier {
 	switch config.Provider {
 	case "google":
 		return NewGoogleVerifier(config.SecretKey, config.APIURL)

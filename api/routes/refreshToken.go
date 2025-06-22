@@ -20,6 +20,7 @@ func (h *AuthHandler) HandleRefreshToken(w http.ResponseWriter, r *http.Request)
 		utils.RespondWithError(w, http.StatusBadRequest, "No refresh token provided", nil)
 		return
 	}
+	// deviceId := r.Header.Get("User-Agent")
 
 	// Validate refresh token
 	claims, err := h.Auth.TokenManager.ValidateJWTToken(token)
@@ -34,11 +35,12 @@ func (h *AuthHandler) HandleRefreshToken(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	valid, err := h.Auth.Repository.GetTokenRepository().ValidateTokenWithUserID(userID, token, models.RefreshToken)
-	if err != nil || !valid {
+	tokenRecord, err := h.Auth.Repository.GetTokenRepository().GetTokenByUserID(userID, models.RefreshToken)
+	if err != nil || tokenRecord == nil {
 		utils.RespondWithError(w, http.StatusUnauthorized, "Invalid or expired refresh token", nil)
 		return
 	}
+
 
 	// Get user
 	user, err := h.Auth.Repository.GetUserRepository().GetUserByID(userID)
@@ -67,7 +69,7 @@ func (h *AuthHandler) HandleRefreshToken(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Save new refresh token
-	err = h.Auth.Repository.GetTokenRepository().SaveToken(user.ID, refreshToken, models.RefreshToken, h.Auth.Config.AuthConfig.Cookie.RefreshTokenTTL)
+	err = h.Auth.Repository.GetTokenRepository().SaveTokenWithDeviceId(user.ID, refreshToken, r.Header.Get("User-Agent"), models.RefreshToken, h.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to save refresh token", nil)
 		return
@@ -77,7 +79,7 @@ func (h *AuthHandler) HandleRefreshToken(w http.ResponseWriter, r *http.Request)
 	http.SetCookie(w, &http.Cookie{
 		Name:     "___goauth_access_token_" + h.Auth.Config.AuthConfig.Cookie.Name,
 		Value:    accessToken,
-		Expires:  time.Now().Add(h.Auth.Config.AuthConfig.Cookie.AccessTokenTTL),
+		Expires:  time.Now().Add(h.Auth.Config.AuthConfig.JWT.AccessTokenTTL),
 		Domain:   h.Auth.Config.AuthConfig.Cookie.Domain,
 		Path:     h.Auth.Config.AuthConfig.Cookie.Path,
 		Secure:   h.Auth.Config.AuthConfig.Cookie.Secure,
@@ -90,7 +92,7 @@ func (h *AuthHandler) HandleRefreshToken(w http.ResponseWriter, r *http.Request)
 	http.SetCookie(w, &http.Cookie{
 		Name:     "___goauth_refresh_token_" + h.Auth.Config.AuthConfig.Cookie.Name,
 		Value:    refreshToken,
-		Expires:  time.Now().Add(h.Auth.Config.AuthConfig.Cookie.RefreshTokenTTL),
+		Expires:  time.Now().Add(h.Auth.Config.AuthConfig.JWT.RefreshTokenTTL),
 		Domain:   h.Auth.Config.AuthConfig.Cookie.Domain,
 		Path:     h.Auth.Config.AuthConfig.Cookie.Path,
 		Secure:   h.Auth.Config.AuthConfig.Cookie.Secure,

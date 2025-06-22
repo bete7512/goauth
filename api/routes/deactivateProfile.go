@@ -20,7 +20,7 @@ func (h *AuthHandler) HandleDeactivateUser(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Authenticate user
-	userID, err := h.authenticateRequest(r, h.Auth.Config.AuthConfig.Cookie.Name, h.Auth.Config.JWTSecret)
+	userID, err := h.authenticateRequest(r, h.Auth.Config.AuthConfig.Cookie.Name, h.Auth.Config.AuthConfig.JWT.Secret)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusUnauthorized, "Unauthorized: "+err.Error(), nil)
 		return

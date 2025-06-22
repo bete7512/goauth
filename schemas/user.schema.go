@@ -3,12 +3,12 @@ package schemas
 import "time"
 
 type RegisterRequest struct {
-	FirstName      string `json:"first_name" binding:"required"`
-	LastName       string `json:"last_name" binding:"required"`
-	Email          string `json:"email" binding:"required,email"`
+	FirstName      string  `json:"first_name" binding:"required"`
+	LastName       string  `json:"last_name" binding:"required"`
+	Email          string  `json:"email" binding:"required,email"`
 	PhoneNumber    *string `json:"phone_number"`
-	Password       string `json:"password" binding:"required,min=8"`
-	RecaptchaToken string `json:"recaptcha_token,omitempty"`
+	Password       string  `json:"password" binding:"required,min=8"`
+	RecaptchaToken string  `json:"recaptcha_token,omitempty"`
 }
 
 // LoginRequest represents the request body for user login
@@ -16,6 +16,7 @@ type LoginRequest struct {
 	Email          string `json:"email" validate:"required,email"`
 	Password       string `json:"password" validate:"required"`
 	TwoFactorCode  string `json:"two_factor_code,omitempty"`
+	DeviceId       string `json:"device_id,omitempty"`
 	RecaptchaToken string `json:"recaptcha_token,omitempty"`
 }
 
@@ -88,9 +89,9 @@ type ResendVerificationEmailRequest struct {
 
 // UserResponse represents the user data returned to clients
 type UserResponse struct {
-	ID             string    `json:"id"`
-	FirstName      string    `json:"first_name"`
-	LastName       string    `json:"last_name"`
-	Email          string    `json:"email"`
-	CreatedAt      time.Time `json:"created_at"`
+	ID        string    `json:"id"`
+	FirstName string    `json:"first_name"`
+	LastName  string    `json:"last_name"`
+	Email     string    `json:"email"`
+	CreatedAt time.Time `json:"created_at"`
 }

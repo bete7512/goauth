@@ -26,7 +26,7 @@ func (a *FiberAdapter) SetupRoutes(router interface{}) error {
 	}
 
 	// Setup Swagger if enabled
-	if a.handler.Auth.Config.Swagger.Enable {
+	if a.handler.Auth.Config.App.Swagger.Enable {
 		// TODO: Add Swagger setup for Fiber
 	}
 
@@ -34,7 +34,7 @@ func (a *FiberAdapter) SetupRoutes(router interface{}) error {
 	allRoutes := a.handler.GetAllRoutes()
 
 	// Create a group for the auth base path
-	authGroup := fiberApp.Group(a.handler.Auth.Config.BasePath)
+	authGroup := fiberApp.Group(a.handler.Auth.Config.App.BasePath)
 	{
 		for _, route := range allRoutes {
 			// Build the middleware chain

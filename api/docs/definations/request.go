@@ -19,7 +19,7 @@ func RegisterRequestDefinition() map[string]interface{} {
 			},
 			"phone_number": map[string]interface{}{
 				"type":    "string",
-				"example": "123-456-7890",
+				"example": "+1234567890",
 			},
 			"password": map[string]interface{}{
 				"type":    "string",
@@ -106,7 +106,7 @@ func UpdateProfileRequestDefinition() map[string]interface{} {
 			},
 			"phone_number": map[string]interface{}{
 				"type":    "string",
-				"example": "123-456-7890",
+				"example": "+1234567890",
 			},
 			"address": map[string]interface{}{
 				"type":    "string",

@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/bete7512/goauth/types"
+	"github.com/bete7512/goauth/config"
 )
 
 // getClientIP extracts the client IP address from the request
@@ -41,7 +41,7 @@ func getClientIP(r *http.Request) string {
 }
 
 // RateLimiterMiddleware applies rate limiting to HTTP requests
-func RateLimiterMiddleware(limiter types.RateLimiter, config *types.RateLimiterConfig, route string, next http.HandlerFunc) http.HandlerFunc {
+func RateLimiterMiddleware(limiter config.RateLimiter, config *config.RateLimiterConfig, route string, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Skip rate limiting if limiter is nil or rate limiting is disabled
 		if limiter == nil {

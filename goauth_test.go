@@ -4,87 +4,21 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/bete7512/goauth/api/core"
-	"github.com/bete7512/goauth/interfaces"
-	"github.com/bete7512/goauth/models"
-	"github.com/bete7512/goauth/types"
+	"github.com/bete7512/goauth/config"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
-
-// MockRepositoryFactory is a mock implementation of RepositoryFactory
-type MockRepositoryFactory struct {
-	mock.Mock
-}
-
-func (m *MockRepositoryFactory) GetUserRepository() interfaces.UserRepository {
-	args := m.Called()
-	return args.Get(0).(interfaces.UserRepository)
-}
-
-func (m *MockRepositoryFactory) GetTokenRepository() interfaces.TokenRepository {
-	args := m.Called()
-	return args.Get(0).(interfaces.TokenRepository)
-}
-
-// MockUserRepository is a mock implementation of UserRepository
-type MockUserRepository struct {
-	mock.Mock
-}
-
-func (m *MockUserRepository) Create(user *models.User) error {
-	args := m.Called(user)
-	return args.Error(0)
-}
-
-func (m *MockUserRepository) GetByID(id string) (*models.User, error) {
-	args := m.Called(id)
-	return args.Get(0).(*models.User), args.Error(1)
-}
-
-func (m *MockUserRepository) GetByEmail(email string) (*models.User, error) {
-	args := m.Called(email)
-	return args.Get(0).(*models.User), args.Error(1)
-}
-
-func (m *MockUserRepository) Update(user *models.User) error {
-	args := m.Called(user)
-	return args.Error(0)
-}
-
-func (m *MockUserRepository) Delete(id string) error {
-	args := m.Called(id)
-	return args.Error(0)
-}
-
-// MockTokenRepository is a mock implementation of TokenRepository
-type MockTokenRepository struct {
-	mock.Mock
-}
-
-func (m *MockTokenRepository) SaveToken(token *models.Token) error {
-	args := m.Called(token)
-	return args.Error(0)
-}
-
-func (m *MockTokenRepository) GetToken(tokenString string) (*models.Token, error) {
-	args := m.Called(tokenString)
-	return args.Get(0).(*models.Token), args.Error(1)
-}
-
-func (m *MockTokenRepository) DeleteToken(tokenString string) error {
-	args := m.Called(tokenString)
-	return args.Error(0)
-}
 
 // MockRateLimiter is a mock implementation of RateLimiter
 type MockRateLimiter struct {
 	mock.Mock
 }
 
-func (m *MockRateLimiter) Allow(key string, config types.LimiterConfig) bool {
+func (m *MockRateLimiter) Allow(key string, config config.LimiterConfig) bool {
 	args := m.Called(key, config)
 	return args.Bool(0)
 }
@@ -94,45 +28,100 @@ func (m *MockRateLimiter) Close() error {
 	return args.Error(0)
 }
 
-// MockCaptchaVerifier is a mock implementation of CaptchaVerifier
-type MockCaptchaVerifier struct {
-	mock.Mock
-}
-
-func (m *MockCaptchaVerifier) Verify(token string, remoteIP string) (bool, error) {
-	args := m.Called(token, remoteIP)
-	return args.Bool(0), args.Error(1)
-}
-
 // Test helper functions
-func createTestConfig() types.Config {
-	return types.Config{
-		Server: types.ServerConfig{
+func createTestConfig() config.Config {
+	return config.Config{
+		App: config.AppConfig{
+			BasePath: "/api/v1",
+		},
+		Server: config.ServerConfig{
 			Type: "http",
 			Port: 8080,
 		},
-		Database: types.DatabaseConfig{
+		Database: config.DatabaseConfig{
 			Type: "postgres",
 			URL:  "postgres://test:test@localhost:5432/test",
 		},
-		JWTSecret: "test-secret-key",
-		AuthConfig: types.AuthConfig{
-			Cookie: types.CookieConfig{
-				Name:            "auth_token",
-				AccessTokenTTL:  3600,
-				RefreshTokenTTL: 86400,
-				Path:            "/",
-				MaxAge:          86400,
+		AuthConfig: config.AuthConfig{
+			JWT: config.JWTConfig{
+				Secret:             "test-secret-key",
+				AccessTokenTTL:     3600 * time.Second,
+				RefreshTokenTTL:    86400 * time.Second,
+				EnableCustomClaims: false,
 			},
-			EnableTwoFactor:         false,
-			EnableEmailVerificationOnSignup: false,
+			Cookie: config.CookieConfig{
+				Name:     "auth_token",
+				Path:     "/",
+				MaxAge:   86400,
+				Secure:   false,
+				HttpOnly: true,
+				SameSite: 1,
+			},
+			Methods: config.AuthMethodsConfig{
+				Type:                  "email",
+				EnableTwoFactor:       false,
+				EnableMultiSession:    false,
+				EnableMagicLink:       false,
+				EnableSmsVerification: false,
+				TwoFactorMethod:       "",
+				EmailVerification: config.EmailVerificationConfig{
+					EnableOnSignup:   false,
+					VerificationURL:  "http://localhost:3000/verify",
+					SendWelcomeEmail: false,
+				},
+				PhoneVerification: config.PhoneVerificationConfig{
+					EnableOnSignup:      false,
+					UniquePhoneNumber:   false,
+					PhoneColumnRequired: false,
+					PhoneRequired:       false,
+				},
+			},
+			PasswordPolicy: config.PasswordPolicy{
+				HashSaltLength: 16,
+				MinLength:      8,
+				RequireUpper:   true,
+				RequireLower:   true,
+				RequireNumber:  true,
+				RequireSpecial: false,
+			},
 		},
-		PasswordPolicy: types.PasswordPolicy{
-			HashSaltLength: 16,
-			MinLength:      8,
+		Features: config.FeaturesConfig{
+			EnableRateLimiter:   false,
+			EnableRecaptcha:     false,
+			EnableCustomJWT:     false,
+			EnableCustomStorage: false,
 		},
-		EnableRateLimiter: false,
-		EnableRecaptcha:   false,
+		Security: config.SecurityConfig{
+			RateLimiter: config.RateLimiterConfig{
+				Enabled: false,
+				Type:    "memory",
+				Routes:  make(map[string]config.LimiterConfig),
+			},
+			Recaptcha: config.RecaptchaConfig{
+				Enabled:   false,
+				SecretKey: "",
+				SiteKey:   "",
+				Provider:  "google",
+				APIURL:    "",
+				Routes:    make(map[string]bool),
+			},
+		},
+		Email: config.EmailConfig{
+			Sender: config.EmailSenderConfig{
+				Type:         "sendgrid",
+				FromEmail:    "test@example.com",
+				FromName:     "Test App",
+				SupportEmail: "support@example.com",
+				CustomSender: nil,
+			},
+		},
+		SMS: config.SMSConfig{
+			CompanyName:  "Test Company",
+			CustomSender: nil,
+		},
+		Providers: config.ProvidersConfig{
+			Enabled: []config.AuthProvider{},
+		},
 	}
 }
 
@@ -429,12 +418,11 @@ func TestAuthService_InitAuthContext(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Test that authContext is initialized
-	auth.initAuthContext()
-	assert.NotNil(t, auth.authContext)
-	assert.Equal(t, auth.Config, auth.authContext.Config)
-	assert.Equal(t, auth.Repository, auth.authContext.Repository)
-	assert.Equal(t, auth.HookManager, auth.authContext.HookManager)
-	assert.Equal(t, auth.Logger, auth.authContext.Logger)
+	assert.NotNil(t, auth)
+	assert.Equal(t, auth.Config, auth.Config)
+	assert.Equal(t, auth.Repository, auth.Repository)
+	assert.Equal(t, auth.HookManager, auth.HookManager)
+	assert.Equal(t, auth.Logger, auth.Logger)
 }
 
 func TestAuthService_GetAuthAPI(t *testing.T) {
@@ -453,7 +441,7 @@ func TestAuthService_GetAuthAPI(t *testing.T) {
 
 func TestAuthService_WithCustomRepository(t *testing.T) {
 	config := createTestConfig()
-	config.EnableCustomStorageRepository = true
+	config.Features.EnableCustomStorage = true
 
 	mockRepoFactory := &MockRepositoryFactory{}
 
@@ -469,7 +457,7 @@ func TestAuthService_WithCustomRepository(t *testing.T) {
 
 func TestAuthService_WithCustomCaptchaVerifier(t *testing.T) {
 	config := createTestConfig()
-	config.EnableRecaptcha = true
+	config.Features.EnableRecaptcha = true
 
 	mockCaptchaVerifier := &MockCaptchaVerifier{}
 

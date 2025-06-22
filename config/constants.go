@@ -1,4 +1,4 @@
-package types
+package config
 
 const (
 	RecaptchaAPIURL  = "https://www.google.com/recaptcha/api/siteverify"
@@ -62,9 +62,19 @@ const (
 	DatabaseRateLimiter RateLimiterStorageType = "database"
 )
 
-
-
 const (
 	ResponseDataKey contextKey = "response_data"
 	RequestDataKey  contextKey = "request_data"
+)
+
+const (
+	AuthenticationTypeCookie  AuthenticationType = "cookie"
+	AuthenticationTypeBearer  AuthenticationType = "bearer"
+	AuthenticationTypeSession AuthenticationType = "session"
+)
+
+
+const (
+	SES      SenderType = "SES"
+	SendGrid SenderType = "SendGrid"
 )

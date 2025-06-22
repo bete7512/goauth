@@ -26,14 +26,14 @@ func (a *GinAdapter) SetupRoutes(router interface{}) error {
 	}
 
 	// Setup Swagger if enabled
-	if a.handler.Auth.Config.Swagger.Enable {
+	if a.handler.Auth.Config.App.Swagger.Enable {
 		docs.RegisterGinRoutes(ginEngine, docs.SwaggerInfo{
-			Title:       a.handler.Auth.Config.Swagger.Title,
-			Description: a.handler.Auth.Config.Swagger.Description,
-			Version:     a.handler.Auth.Config.Swagger.Version,
-			Host:        a.handler.Auth.Config.Swagger.Host,
-			BasePath:    a.handler.Auth.Config.BasePath,
-			DocPath:     a.handler.Auth.Config.Swagger.DocPath,
+			Title:       a.handler.Auth.Config.App.Swagger.Title,
+			Description: a.handler.Auth.Config.App.Swagger.Description,
+			Version:     a.handler.Auth.Config.App.Swagger.Version,
+			Host:        a.handler.Auth.Config.App.Swagger.Host,
+			BasePath:    a.handler.Auth.Config.App.BasePath,
+			DocPath:     a.handler.Auth.Config.App.Swagger.DocPath,
 			Schemes:     []string{"http", "https"},
 		})
 	}
@@ -42,7 +42,7 @@ func (a *GinAdapter) SetupRoutes(router interface{}) error {
 	allRoutes := a.handler.GetAllRoutes()
 
 	// Create a group for the auth base path
-	authGroup := ginEngine.Group(a.handler.Auth.Config.BasePath)
+	authGroup := ginEngine.Group(a.handler.Auth.Config.App.BasePath)
 	{
 		for _, route := range allRoutes {
 			// Build the middleware chain

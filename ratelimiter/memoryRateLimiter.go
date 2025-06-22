@@ -4,21 +4,21 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bete7512/goauth/types"
+	"github.com/bete7512/goauth/config"
 )
 
 type MemoryRateLimiter struct {
-	mutex          sync.RWMutex
-	requests       map[string][]time.Time
-	blockedUntil   map[string]time.Time
-	config         types.RateLimiterConfig
+	mutex        sync.RWMutex
+	requests     map[string][]time.Time
+	blockedUntil map[string]time.Time
+	config       config.RateLimiterConfig
 }
 
-func NewMemoryRateLimiter(config types.Config) (*MemoryRateLimiter, error) {
+func NewMemoryRateLimiter(conf config.Config) (*MemoryRateLimiter, error) {
 	limiter := &MemoryRateLimiter{
-		requests:       make(map[string][]time.Time),
-		blockedUntil:   make(map[string]time.Time),
-		config:         *config.RateLimiter,
+		requests:     make(map[string][]time.Time),
+		blockedUntil: make(map[string]time.Time),
+		config:       conf.Security.RateLimiter,
 	}
 
 	go limiter.cleanupRoutine()
@@ -27,7 +27,7 @@ func NewMemoryRateLimiter(config types.Config) (*MemoryRateLimiter, error) {
 }
 
 // Allow checks if a request is allowed based on rate limiting rules
-func (m *MemoryRateLimiter) Allow(key string, config types.LimiterConfig) bool {
+func (m *MemoryRateLimiter) Allow(key string, config config.LimiterConfig) bool {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 

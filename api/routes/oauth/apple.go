@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bete7512/goauth/config"
 	"github.com/bete7512/goauth/models"
-	"github.com/bete7512/goauth/types"
 	"github.com/bete7512/goauth/utils"
 	"golang.org/x/oauth2"
 )
@@ -18,10 +18,10 @@ import (
 // ===== APPLE OAUTH HANDLER =====
 
 type AppleOauth struct {
-	Auth *types.Auth
+	Auth *config.Auth
 }
 
-func NewAppleOauth(auth *types.Auth) *AppleOauth {
+func NewAppleOauth(auth *config.Auth) *AppleOauth {
 	return &AppleOauth{
 		Auth: auth,
 	}
@@ -216,7 +216,7 @@ func (a *AppleOauth) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Save refresh token
-	err = a.Auth.Repository.GetTokenRepository().SaveToken(user.ID, refreshToken, models.RefreshToken, a.Auth.Config.AuthConfig.Cookie.RefreshTokenTTL)
+	err = a.Auth.Repository.GetTokenRepository().SaveToken(user.ID, refreshToken, models.RefreshToken, a.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
 	if err != nil {
 		utils.RespondWithError(
 			w,
@@ -235,12 +235,12 @@ func (a *AppleOauth) Callback(w http.ResponseWriter, r *http.Request) {
 		HttpOnly: true,
 		Secure:   r.TLS != nil,
 		SameSite: http.SameSiteLaxMode,
-		MaxAge:   int(a.Auth.Config.AuthConfig.Cookie.AccessTokenTTL.Seconds()),
+		MaxAge:   int(a.Auth.Config.AuthConfig.JWT.AccessTokenTTL.Seconds()),
 	}
 	http.SetCookie(w, tokenCookie)
 
 	// Redirect to the frontend
-	http.Redirect(w, r, a.Auth.Config.FrontendURL, http.StatusTemporaryRedirect)
+	http.Redirect(w, r, a.Auth.Config.App.FrontendURL, http.StatusTemporaryRedirect)
 }
 
 // extractUserInfoFromJWT extracts user info from Apple's ID token

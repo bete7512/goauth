@@ -9,12 +9,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bete7512/goauth/config"
 	"github.com/bete7512/goauth/models"
-	"github.com/bete7512/goauth/types"
 )
 
 type SMSSender struct {
-	config     types.SMSConfig
+	config     config.SMSConfig
 	httpClient *http.Client
 }
 
@@ -23,7 +23,7 @@ func (s *SMSSender) SendMagicLink(user models.User, redirectURL string) error {
 	panic("unimplemented")
 }
 
-func NewSMSSender(config types.SMSConfig) *SMSSender {
+func NewSMSSender(config config.SMSConfig) *SMSSender {
 	return &SMSSender{
 		config: config,
 		httpClient: &http.Client{
@@ -72,15 +72,15 @@ func (s *SMSSender) sendViaTwilio(to, message string) error {
 	// Twilio API request
 	data := url.Values{}
 	data.Set("To", to)
-	data.Set("From", s.config.TwilioFromNumber)
+	data.Set("From", s.config.Twilio.FromNumber)
 	data.Set("Body", message)
 
-	req, err := http.NewRequest("POST", "https://api.twilio.com/2010-04-01/Accounts/"+s.config.TwilioAccountSID+"/Messages.json", strings.NewReader(data.Encode()))
+	req, err := http.NewRequest("POST", "https://api.twilio.com/2010-04-01/Accounts/"+s.config.Twilio.AccountSID+"/Messages.json", strings.NewReader(data.Encode()))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.SetBasicAuth(s.config.TwilioAccountSID, s.config.TwilioAuthToken)
+	req.SetBasicAuth(s.config.Twilio.AccountSID, s.config.Twilio.AuthToken)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	resp, err := s.httpClient.Do(req)

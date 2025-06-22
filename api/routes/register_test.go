@@ -17,8 +17,8 @@ import (
 )
 
 func TestHandleRegister_Success(t *testing.T) {
-	config := CreateTestConfig()
-	handler := CreateTestAuthHandler(config)
+	conf := CreateTestConfig()
+	handler := CreateTestAuthHandler(conf)
 
 	// Setup mocks
 	mockUserRepo := handler.Auth.Repository.GetUserRepository().(*MockUserRepository)

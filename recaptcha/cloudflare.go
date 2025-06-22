@@ -4,9 +4,9 @@ package recaptcha
 import (
 	"context"
 
+	"github.com/bete7512/goauth/config"
 	"github.com/bete7512/goauth/external"
 	"github.com/bete7512/goauth/logger"
-	"github.com/bete7512/goauth/types"
 	"github.com/bete7512/goauth/utils"
 )
 
@@ -20,7 +20,7 @@ type cloudflareResponse struct {
 	ErrorCodes []string `json:"error-codes,omitempty"`
 }
 
-func NewCloudflareVerifier(secret string, url string) types.CaptchaVerifier {
+func NewCloudflareVerifier(secret string, url string) config.CaptchaVerifier {
 	return &cloudflareVerifier{
 		Secret: secret,
 		Url:    url,

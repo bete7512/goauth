@@ -36,8 +36,8 @@ type UserRepository interface {
 
 type TokenRepository interface {
 	SaveToken(userID, token string, tokenType models.TokenType, expiry time.Duration) error
-	ValidateToken(token string, tokenType models.TokenType) (bool, *string, error)
-	ValidateTokenWithUserID(userID, token string, tokenType models.TokenType) (bool, error)
+	SaveTokenWithDeviceId(userID, token, deviceId string, tokenType models.TokenType, expiry time.Duration) error
+	GetTokenByUserID(userID string, tokenType models.TokenType) (*models.Token, error)
 	InvalidateToken(userID, token string, tokenType models.TokenType) error
 	InvalidateAllTokens(userID string, tokenType models.TokenType) error
 }

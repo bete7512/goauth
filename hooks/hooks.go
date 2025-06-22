@@ -110,6 +110,9 @@ func (h *HookManager) GetBeforeHook(route string) *RouteHook {
 }
 
 func (h *HookManager) GetAfterHook(route string) *RouteHook {
+	if h == nil || h.hooks == nil {
+		return nil
+	}
 	if hooks, exists := h.hooks[route]; exists && hooks.After != nil {
 		return &hooks.After
 	}

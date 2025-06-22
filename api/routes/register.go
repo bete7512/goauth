@@ -12,12 +12,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bete7512/goauth/config"
 	"github.com/bete7512/goauth/models"
 	"github.com/bete7512/goauth/schemas"
-	"github.com/bete7512/goauth/types"
 	"github.com/bete7512/goauth/utils"
 	"gorm.io/gorm"
 )
+
+
 
 // HandleRegister handles user registration
 func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
@@ -27,7 +29,7 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 	var req schemas.RegisterRequest
 	// Then your hook can access both
-	if h.Auth.HookManager.GetAfterHook(types.RouteRegister) != nil {
+	if h.Auth.HookManager.GetAfterHook(config.RouteRegister) != nil {
 		var rawData map[string]interface{}
 		bodyBytes, err := io.ReadAll(r.Body)
 		if err != nil {
@@ -43,7 +45,7 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 			utils.RespondWithError(w, http.StatusBadRequest, "Invalid request format: "+err.Error(), nil)
 			return
 		}
-		ctx := context.WithValue(r.Context(), types.RequestDataKey, rawData)
+		ctx := context.WithValue(r.Context(), config.RequestDataKey, rawData)
 		r = r.WithContext(ctx)
 	} else {
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -53,7 +55,7 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate password against policy
-	if err := h.validatePasswordPolicy(req.Password, h.Auth.Config.PasswordPolicy); err != nil {
+	if err := h.validatePasswordPolicy(req.Password, h.Auth.Config.AuthConfig.PasswordPolicy); err != nil {
 		utils.RespondWithError(w, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
@@ -71,10 +73,9 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	existingUser, err := h.Auth.Repository.GetUserRepository().GetUserByEmail(req.Email)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to check if email exists: "+err.Error(), nil)
-		h.Auth.Logger.Error("Failed to check if email exists: " + err.Error())
 		return
 	}
-	if existingUser != nil {
+	if existingUser != nil && existingUser.Email == req.Email {
 		utils.RespondWithError(w, http.StatusBadRequest, "Email already exists", nil)
 		return
 	}
@@ -89,7 +90,7 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		SignedUpVia:      "email",
 		PhoneNumber:      req.PhoneNumber,
 	}
-	if h.Auth.Config.AuthConfig.EnablePhoneNumberVerificationOnSignup || h.Auth.Config.AuthConfig.EnableEmailVerificationOnSignup {
+	if h.Auth.Config.AuthConfig.Methods.PhoneVerification.EnableOnSignup || h.Auth.Config.AuthConfig.Methods.EmailVerification.EnableOnSignup {
 		user.PhoneVerified = false
 		user.Active = false
 		user.EmailVerified = false
@@ -111,7 +112,7 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Handle email verification if enabled
-	if h.Auth.Config.AuthConfig.EnableEmailVerificationOnSignup {
+	if h.Auth.Config.AuthConfig.Methods.EmailVerification.EnableOnSignup {
 		verificationToken, err := h.Auth.TokenManager.GenerateRandomToken(32)
 		if err != nil {
 			utils.RespondWithError(w, http.StatusInternalServerError, "Failed to generate verification token", nil)
@@ -123,19 +124,19 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		// Save verification token
-		err = h.Auth.Repository.GetTokenRepository().SaveToken(user.ID, hashedVerificationToken, models.EmailVerificationToken, h.Auth.Config.EmailVerificationTokenTTL)
+		err = h.Auth.Repository.GetTokenRepository().SaveToken(user.ID, hashedVerificationToken, models.EmailVerificationToken, h.Auth.Config.AuthConfig.Tokens.EmailVerificationTTL)
 		if err != nil {
 			utils.RespondWithError(w, http.StatusInternalServerError, "Failed to save verification token", nil)
 			return
 		}
 		// Send verification email
-		if h.Auth.Config.EmailSender != nil {
+		if h.Auth.Config.Email.Sender.CustomSender != nil {
 			verificationURL := fmt.Sprintf("%s?token=%s&email=%s",
-				h.Auth.Config.AuthConfig.EmailVerificationURL,
+				h.Auth.Config.AuthConfig.Methods.EmailVerification.VerificationURL,
 				verificationToken,
 				user.Email)
 
-			err = h.Auth.Config.EmailSender.SendVerification(user, verificationURL)
+			err = h.Auth.Config.Email.Sender.CustomSender.SendVerification(user, verificationURL)
 			if err != nil {
 				log.Printf("Failed to send verification email: %v\n", err)
 			}
@@ -144,7 +145,7 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if h.Auth.Config.AuthConfig.EnablePhoneNumberVerificationOnSignup {
+	if h.Auth.Config.AuthConfig.Methods.PhoneVerification.EnableOnSignup {
 		OTP, err := h.Auth.TokenManager.GenerateNumericOTP(6)
 		if err != nil {
 			utils.RespondWithError(w, http.StatusInternalServerError, "Failed to generate verification code", nil)
@@ -156,13 +157,13 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 			utils.RespondWithError(w, http.StatusInternalServerError, "Failed to hash verification code", nil)
 			return
 		}
-		err = h.Auth.Repository.GetTokenRepository().SaveToken(user.ID, hashedOTP, models.PhoneVerificationToken, h.Auth.Config.PhoneVerificationTokenTTL)
+		err = h.Auth.Repository.GetTokenRepository().SaveToken(user.ID, hashedOTP, models.PhoneVerificationToken, h.Auth.Config.AuthConfig.Tokens.PhoneVerificationTTL)
 		if err != nil {
 			utils.RespondWithError(w, http.StatusInternalServerError, "Failed to save verification code", nil)
 			return
 		}
-		if h.Auth.Config.SMSSender != nil {
-			err = h.Auth.Config.SMSSender.SendTwoFactorCode(user, OTP)
+		if h.Auth.Config.SMS.CustomSender != nil {
+			err = h.Auth.Config.SMS.CustomSender.SendTwoFactorCode(user, OTP)
 			if err != nil {
 				utils.RespondWithError(w, http.StatusInternalServerError, "Failed to send verification SMS", nil)
 				return
@@ -172,11 +173,11 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Handle verification responses
-	if h.Auth.Config.AuthConfig.EnableEmailVerificationOnSignup || h.Auth.Config.AuthConfig.EnablePhoneNumberVerificationOnSignup {
+	if h.Auth.Config.AuthConfig.Methods.EmailVerification.EnableOnSignup || h.Auth.Config.AuthConfig.Methods.PhoneVerification.EnableOnSignup {
 		var message string
-		if h.Auth.Config.AuthConfig.EnableEmailVerificationOnSignup && h.Auth.Config.AuthConfig.EnablePhoneNumberVerificationOnSignup {
+		if h.Auth.Config.AuthConfig.Methods.EmailVerification.EnableOnSignup && h.Auth.Config.AuthConfig.Methods.PhoneVerification.EnableOnSignup {
 			message = "Verification Links and codes sent to email and phone number"
-		} else if h.Auth.Config.AuthConfig.EnableEmailVerificationOnSignup {
+		} else if h.Auth.Config.AuthConfig.Methods.EmailVerification.EnableOnSignup {
 			message = "Verification Link sent to email"
 		} else {
 			message = "Verification OTP sent to phone number"
@@ -198,10 +199,10 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 			"message": message,
 		}
 
-		if h.Auth.HookManager.GetAfterHook(types.RouteRegister) != nil {
-			ctx := context.WithValue(r.Context(), types.ResponseDataKey, response)
+		if h.Auth.HookManager.GetAfterHook(config.RouteRegister) != nil {
+			ctx := context.WithValue(r.Context(), config.ResponseDataKey, response)
 			r = r.WithContext(ctx)
-			h.Auth.HookManager.ExecuteAfterHooks(types.RouteRegister, w, r)
+			h.Auth.HookManager.ExecuteAfterHooks(config.RouteRegister, w, r)
 			return
 		} else {
 			err := utils.RespondWithJSON(w, http.StatusCreated, response)
@@ -219,7 +220,7 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Save refresh token
-	err = h.Auth.Repository.GetTokenRepository().SaveToken(user.ID, refreshToken, models.RefreshToken, h.Auth.Config.AuthConfig.Cookie.RefreshTokenTTL)
+	err = h.Auth.Repository.GetTokenRepository().SaveToken(user.ID, refreshToken, models.RefreshToken, h.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to save refresh token", nil)
 		return
@@ -227,23 +228,21 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     h.Auth.Config.AuthConfig.Cookie.Name,
 		Value:    accessToken,
-		Expires:  time.Now().Add(h.Auth.Config.AuthConfig.Cookie.AccessTokenTTL),
+		Expires:  time.Now().Add(h.Auth.Config.AuthConfig.JWT.AccessTokenTTL),
 		Domain:   h.Auth.Config.AuthConfig.Cookie.Domain,
 		Path:     h.Auth.Config.AuthConfig.Cookie.Path,
 		Secure:   h.Auth.Config.AuthConfig.Cookie.Secure,
 		HttpOnly: h.Auth.Config.AuthConfig.Cookie.HttpOnly,
-		SameSite: h.Auth.Config.AuthConfig.Cookie.SameSite,
+		SameSite: http.SameSite(h.Auth.Config.AuthConfig.Cookie.SameSite),
 		MaxAge:   h.Auth.Config.AuthConfig.Cookie.MaxAge,
 	})
 	http.SetCookie(w, &http.Cookie{
 		Name:     "___goauth_refresh_token_" + h.Auth.Config.AuthConfig.Cookie.Name,
 		Value:    refreshToken,
-		Expires:  time.Now().Add(h.Auth.Config.AuthConfig.Cookie.RefreshTokenTTL),
+		Expires:  time.Now().Add(h.Auth.Config.AuthConfig.JWT.RefreshTokenTTL),
 		Domain:   h.Auth.Config.AuthConfig.Cookie.Domain,
 		Path:     h.Auth.Config.AuthConfig.Cookie.Path,
-		Secure:   h.Auth.Config.AuthConfig.Cookie.Secure,
-		HttpOnly: h.Auth.Config.AuthConfig.Cookie.HttpOnly,
-		SameSite: h.Auth.Config.AuthConfig.Cookie.SameSite,
+		SameSite: http.SameSite(h.Auth.Config.AuthConfig.Cookie.SameSite),
 		MaxAge:   h.Auth.Config.AuthConfig.Cookie.MaxAge,
 	})
 	// Prepare response
@@ -256,10 +255,10 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		"phone_number": user.PhoneNumber,
 	}
 
-	if h.Auth.HookManager.GetAfterHook(types.RouteRegister) != nil {
-		ctx := context.WithValue(r.Context(), types.ResponseDataKey, userResponse)
+	if h.Auth.HookManager.GetAfterHook(config.RouteRegister) != nil {
+		ctx := context.WithValue(r.Context(), config.ResponseDataKey, userResponse)
 		r = r.WithContext(ctx)
-		h.Auth.HookManager.ExecuteAfterHooks(types.RouteRegister, w, r)
+		h.Auth.HookManager.ExecuteAfterHooks(config.RouteRegister, w, r)
 		return
 	} else {
 		err := utils.RespondWithJSON(w, http.StatusCreated, userResponse)
