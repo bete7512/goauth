@@ -107,7 +107,7 @@ func TestHandleLogin_UserNotFound(t *testing.T) {
 	var response map[string]interface{}
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
-	assert.Equal(t, "User Not Found", response["message"])
+	assert.Equal(t, "user not found", response["message"])
 
 	mockUserRepo.AssertExpectations(t)
 }
@@ -150,7 +150,7 @@ func TestHandleLogin_InvalidPassword(t *testing.T) {
 	var response map[string]interface{}
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
-	assert.Equal(t, "Invalid email or password", response["message"])
+	assert.Equal(t, "invalid email or password", response["message"])
 
 	mockUserRepo.AssertExpectations(t)
 	mockTokenManager.AssertExpectations(t)
@@ -165,7 +165,8 @@ func TestHandleLogin_UserInactive(t *testing.T) {
 
 	// Create inactive test user
 	testUser := CreateTestUser()
-	testUser.Active = false
+	active := false
+	testUser.Active = &active
 
 	// Mock user retrieval
 	mockUserRepo.On("GetUserByEmail", "test@example.com").Return(testUser, nil)
@@ -190,7 +191,7 @@ func TestHandleLogin_UserInactive(t *testing.T) {
 	var response map[string]interface{}
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
-	assert.Equal(t, "Account is deactivated", response["message"])
+	assert.Equal(t, "account is deactivated", response["message"])
 
 	mockUserRepo.AssertExpectations(t)
 }
@@ -207,7 +208,8 @@ func TestHandleLogin_EmailNotVerified(t *testing.T) {
 
 	// Create unverified test user
 	testUser := CreateTestUser()
-	testUser.EmailVerified = false
+	emailVerified := false
+	testUser.EmailVerified = &emailVerified
 
 	// Mock user retrieval
 	mockUserRepo.On("GetUserByEmail", "test@example.com").Return(testUser, nil)
@@ -264,7 +266,7 @@ func TestHandleLogin_MethodNotAllowed(t *testing.T) {
 	var response map[string]interface{}
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
-	assert.Equal(t, "Method not allowed", response["message"])
+	assert.Equal(t, "method not allowed", response["message"])
 }
 
 func TestHandleLogin_InvalidJSON(t *testing.T) {
@@ -282,7 +284,7 @@ func TestHandleLogin_InvalidJSON(t *testing.T) {
 	var response map[string]interface{}
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
-	assert.Contains(t, response["message"], "Invalid request body")
+	assert.Contains(t, response["message"], "invalid request body")
 }
 
 func TestHandleLogin_DatabaseError(t *testing.T) {
@@ -315,7 +317,7 @@ func TestHandleLogin_DatabaseError(t *testing.T) {
 	var response map[string]interface{}
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
-	assert.Equal(t, "Invalid email or password", response["message"])
+	assert.Equal(t, "invalid email or password", response["message"])
 
 	mockUserRepo.AssertExpectations(t)
 }

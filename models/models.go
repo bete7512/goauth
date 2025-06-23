@@ -28,22 +28,24 @@ const (
 )
 
 type User struct {
-	ID            string  `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	FirstName     string  `json:"first_name" swagger:"required example=John"`
-	LastName      string  `json:"last_name"`
-	Email         string  `json:"email" gorm:"uniqueIndex;not null"`
-	PhoneNumber   *string `json:"phone_number" gorm:"unique;"`
-	Password      string  `json:"-" gorm:"not null"`
-	EmailVerified bool    `json:"email_verified" gorm:"default:false"`
-	PhoneVerified bool    `json:"phone_verified" gorm:"default:false"`
+	ID              string     `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	FirstName       string     `json:"first_name" swagger:"required example=John"`
+	LastName        string     `json:"last_name"`
+	Email           string     `json:"email" gorm:"uniqueIndex;not null"`
+	PhoneNumber     *string    `json:"phone_number" gorm:"unique;"`
+	Password        string     `json:"-" gorm:"not null"`
+	EmailVerified   *bool      `json:"email_verified" gorm:"default:false;not null"`
+	EmailVerifiedAt *time.Time `json:"email_verified_at"`
+	PhoneVerified   *bool      `json:"phone_verified" gorm:"default:false;not null"`
+	PhoneVerifiedAt *time.Time `json:"phone_verified_at"`
 
 	// 2FA configuration
-	TwoFactorEnabled        bool            `json:"two_factor_enabled" gorm:"default:false"`
+	TwoFactorEnabled        *bool           `json:"two_factor_enabled" gorm:"default:false;not null"`
 	EnabledTwoFactorMethods datatypes.JSON  `json:"enabled_two_factor_methods" gorm:"type:jsonb"`
 	DefaultTwoFactorMethod  TwoFactorMethod `json:"default_two_factor_method" gorm:"default:email"`
 
-	Active      bool           `json:"active" gorm:"default:true"`
-	IsAdmin     bool           `json:"is_admin" gorm:"default:false"`
+	Active      *bool          `json:"active" gorm:"default:true;not null"`
+	IsAdmin     *bool          `json:"is_admin" gorm:"default:false;not null"`
 	Avatar      *string        `json:"avatar"`
 	ProviderId  *string        `json:"provider_id"`
 	CreatedAt   time.Time      `json:"created_at"`
@@ -59,7 +61,7 @@ type Token struct {
 	TokenValue string         `gorm:"not null"`
 	DeviceId   string         `gorm:"default:null"`
 	ExpiresAt  time.Time      `gorm:"not null"`
-	Used       bool           `gorm:"default:false"`
+	Used       *bool          `gorm:"default:false;not null"`
 	CreatedAt  time.Time      `gorm:"autoCreateTime"`
 	UpdatedAt  time.Time      `gorm:"autoUpdateTime"`
 	DeletedAt  gorm.DeletedAt `json:"-" gorm:"index"`
@@ -95,7 +97,7 @@ type TotpSecret struct {
 	UserID    string         `json:"user_id" gorm:"index;not null;unique"`
 	Secret    string         `json:"-" gorm:"not null"` // Encrypted TOTP secret
 	BackupURL string         `json:"-" gorm:"not null"` // QR code backup
-	Verified  bool           `json:"verified" gorm:"default:false"`
+	Verified  *bool          `json:"verified" gorm:"default:false;not null"`
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
 	DeletedAt gorm.DeletedAt `gorm:"index"`
@@ -106,7 +108,7 @@ type BackupCode struct {
 	ID        string         `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
 	UserID    string         `json:"user_id" gorm:"index;not null"`
 	Code      string         `json:"-" gorm:"not null;unique"` // Hashed backup code
-	Used      bool           `json:"used" gorm:"default:false"`
+	Used      *bool          `json:"used" gorm:"default:false;not null"`
 	UsedAt    *time.Time     `json:"used_at"`
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at" gorm:"autoUpdateTime"`

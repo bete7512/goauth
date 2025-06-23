@@ -83,6 +83,8 @@ func SwaggerDoc(info SwaggerInfo) map[string]interface{} {
 			"DisableTwoFactorRequest":        definitions.DisableTwoFactorRequestDefinition(),
 			"VerifyEmailRequest":             definitions.VerifyEmailRequestDefinition(),
 			"ResendVerificationEmailRequest": definitions.ResendVerificationEmailRequestDefinition(),
+			"SendPhoneVerificationRequest":   definitions.SendPhoneVerificationRequestDefinition(),
+			"VerifyPhoneRequest":             definitions.VerifyPhoneRequestDefinition(),
 			"UserResponse":                   definitions.UserResponseDefinition(),
 		},
 		"securityDefinitions": map[string]interface{}{
@@ -114,8 +116,10 @@ func Paths(basePath string) map[string]interface{} {
 		basePath + "/enable-two-factor":         doc_api.EnableTwoFactorPath(),
 		basePath + "/verify-two-factor":         doc_api.VerifyTwoFactorPath(),
 		basePath + "/disable-two-factor":        doc_api.DisableTwoFactorPath(),
-		basePath + "/verify-email":              doc_api.VerifyEmailPath(),
-		basePath + "/resend-verification-email": doc_api.ResendVerificationEmailPath(),
+		basePath + "/verification/email/send":   doc_api.SendVerificationEmailPath(),
+		basePath + "/verification/phone/send":   doc_api.SendPhoneVerificationPath(),
+		basePath + "/verification/email/verify": doc_api.VerifyEmailPath(),
+		basePath + "/verification/phone/verify": doc_api.VerifyPhonePath(),
 
 		// OAuth endpoints
 		basePath + "/oauth/google":             oauth.GoogleOAuthPath(),

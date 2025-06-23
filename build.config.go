@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/alitto/pond/v2"
 	"github.com/bete7512/goauth/api"
 	"github.com/bete7512/goauth/config"
 	"github.com/bete7512/goauth/database"
@@ -21,10 +22,16 @@ import (
 
 // Builder provides a flexible way to construct an AuthService.
 type Builder struct {
-	Config          config.Config
-	repoFactory     interfaces.RepositoryFactory
-	captchaVerifier config.CaptchaVerifier
-	err             error
+	Config           config.Config
+	repoFactory      interfaces.RepositoryFactory
+	captchaVerifier  config.CaptchaVerifier
+	WorkerPool       *pond.Pool
+	Logger           logger.Log
+	TokenManager     config.TokenManagerInterface
+	RateLimiter      config.RateLimiter
+	RecaptchaManager config.CaptchaVerifier
+	HookManager      *hooks.HookManager
+	err              error
 }
 
 // NewBuilder creates a new builder instance.
@@ -104,6 +111,27 @@ func (b *Builder) Build() (*AuthService, error) {
 	if b.Config.SMS.CustomSender == nil && b.Config.SMS.Twilio.AccountSID != "" {
 		b.Config.SMS.CustomSender = sms.NewSMSSender(b.Config.SMS)
 	}
+	if b.repoFactory == nil {
+		return nil, errors.New("repository factory is required")
+	}
+	if b.Config.WorkerPool == nil {
+		pool := pond.NewPool(1, pond.WithQueueSize(100))
+		b.Config.WorkerPool = &pool
+		b.WorkerPool = &pool
+		if b.Config.WorkerPool == nil {
+			return nil, errors.New("worker pool is required")
+		}
+	}
+	if b.Config.Security.RateLimiter.Enabled {
+		if b.RateLimiter == nil {
+			b.RateLimiter = ratelimiter.NewRateLimiter(b.Config)
+		}
+	}
+	if b.Config.Features.EnableRecaptcha {
+		if b.RecaptchaManager == nil {
+			b.RecaptchaManager = recaptcha.NewRecaptchaVerifier(b.Config.Security.Recaptcha)
+		}
+	}
 
 	rateLimiter := ratelimiter.NewRateLimiter(b.Config)
 	tokenManager := tokenManager.NewTokenManager(b.Config)
@@ -116,6 +144,7 @@ func (b *Builder) Build() (*AuthService, error) {
 			RecaptchaManager: b.captchaVerifier,
 			Logger:           loggerInstance,
 			TokenManager:     tokenManager,
+			WorkerPool:       *b.Config.WorkerPool,
 		},
 	}
 
@@ -139,8 +168,22 @@ func (b *Builder) Build() (*AuthService, error) {
 		b.Config.AuthConfig.Tokens.MagicLinkTTL = 10 * time.Minute
 	}
 
-	if b.repoFactory == nil {
-		return nil, errors.New("repository factory is required")
+	if b.Config.Features.EnableCustomJWT {
+		if b.Config.AuthConfig.JWT.ClaimsProvider == nil {
+			return nil, errors.New("custom JWT claims provider is required when custom JWT claims are enabled")
+		}
+
+	}
+	if b.Config.App.Swagger.Enable {
+		if b.Config.App.Swagger.Title == "" {
+			return nil, errors.New("swagger title is required when swagger is enabled")
+		}
+		if b.Config.App.Swagger.Version == "" {
+			return nil, errors.New("swagger version is required when swagger is enabled")
+		}
+		if b.Config.App.Swagger.DocPath == "" || b.Config.App.Swagger.DocPath == "/" {
+			return nil, errors.New("swagger doc path is required when swagger is enabled")
+		}
 	}
 
 	return authService, nil
@@ -245,6 +288,10 @@ func (b *Builder) validate() error {
 		if b.Config.App.Swagger.Host == "" {
 			return errors.New("swagger host is required when swagger is enabled")
 		}
+	}
+
+	if b.Config.WorkerPool == nil {
+		return errors.New("worker pool is required")
 	}
 
 	// Validate OAuth providers

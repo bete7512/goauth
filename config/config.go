@@ -2,6 +2,7 @@
 package config
 
 import (
+	"github.com/alitto/pond/v2"
 	"github.com/bete7512/goauth/hooks"
 	"github.com/bete7512/goauth/interfaces"
 	"github.com/bete7512/goauth/logger"
@@ -10,10 +11,10 @@ import (
 // Main configuration struct - keep only core settings
 type Config struct {
 	// Core application settings
-	App      AppConfig
-	Server   ServerConfig
-	AuthConfig     AuthConfig
-	Security SecurityConfig
+	App        AppConfig
+	Server     ServerConfig
+	AuthConfig AuthConfig
+	Security   SecurityConfig
 
 	// External services
 	Database  DatabaseConfig
@@ -23,6 +24,8 @@ type Config struct {
 	// Communications
 	Email EmailConfig
 	SMS   SMSConfig
+
+	WorkerPool *pond.Pool
 
 	// Features (optional/toggleable)
 	Features FeaturesConfig
@@ -52,5 +55,6 @@ type Auth struct {
 	TokenManager     TokenManagerInterface
 	RateLimiter      *RateLimiter
 	RecaptchaManager CaptchaVerifier
+	WorkerPool       pond.Pool
 	Logger           logger.Log
 }

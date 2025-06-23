@@ -31,9 +31,12 @@ const (
 	RouteVerifyTwoFactor         = "verify-two-factor"
 	RouteDisableTwoFactor        = "disable-two-factor"
 	RouteVerifyEmail             = "verify-email"
+	RouteVerifyPhone             = "verify-phone"
 	RouteResendVerificationEmail = "resend-verification-email"
 	RouteMagicLink               = "magic-link"
 	RouteMagicLinkLogin          = "magic-link-login"
+	RouteSendEmailVerification   = "send-email-verification"
+	RouteSendPhoneVerification   = "send-phone-verification"
 )
 
 const (
@@ -72,7 +75,6 @@ const (
 	AuthenticationTypeBearer  AuthenticationType = "bearer"
 	AuthenticationTypeSession AuthenticationType = "session"
 )
-
 
 const (
 	SES      SenderType = "SES"

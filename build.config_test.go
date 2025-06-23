@@ -1,6 +1,7 @@
 package goauth
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -103,8 +104,8 @@ type MockCaptchaVerifier struct {
 	mock.Mock
 }
 
-func (m *MockCaptchaVerifier) Verify(token string, remoteIP string) (bool, error) {
-	args := m.Called(token, remoteIP)
+func (m *MockCaptchaVerifier) Verify(ctx context.Context, token string, remoteIP string) (bool, error) {
+	args := m.Called(ctx, token, remoteIP)
 	return args.Bool(0), args.Error(1)
 }
 
@@ -432,7 +433,6 @@ func TestBuilder_CompleteValidConfig(t *testing.T) {
 	auth, err := NewBuilder().
 		WithConfig(conf).
 		Build()
-
 	assert.NoError(t, err)
 	assert.NotNil(t, auth)
 }

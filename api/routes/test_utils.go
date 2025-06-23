@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"context"
 	"time"
 
 	"github.com/bete7512/goauth/config"
@@ -27,43 +28,43 @@ type MockUserRepository struct {
 	mock.Mock
 }
 
-func (m *MockUserRepository) CreateUser(user *models.User) error {
-	args := m.Called(user)
+func (m *MockUserRepository) CreateUser(ctx context.Context, user *models.User) error {
+	args := m.Called(ctx, user)
 	return args.Error(0)
 }
 
-func (m *MockUserRepository) UpsertUserByEmail(user *models.User) error {
-	args := m.Called(user)
+func (m *MockUserRepository) UpsertUserByEmail(ctx context.Context, user *models.User) error {
+	args := m.Called(ctx, user)
 	return args.Error(0)
 }
 
-func (m *MockUserRepository) GetUserByPhoneNumber(phoneNumber string) (*models.User, error) {
-	args := m.Called(phoneNumber)
+func (m *MockUserRepository) GetUserByPhoneNumber(ctx context.Context, phoneNumber string) (*models.User, error) {
+	args := m.Called(ctx, phoneNumber)
 	return args.Get(0).(*models.User), args.Error(1)
 }
 
-func (m *MockUserRepository) GetUserByID(id string) (*models.User, error) {
-	args := m.Called(id)
+func (m *MockUserRepository) GetUserByID(ctx context.Context, id string) (*models.User, error) {
+	args := m.Called(ctx, id)
 	return args.Get(0).(*models.User), args.Error(1)
 }
 
-func (m *MockUserRepository) GetUserByEmail(email string) (*models.User, error) {
-	args := m.Called(email)
+func (m *MockUserRepository) GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
+	args := m.Called(ctx, email)
 	return args.Get(0).(*models.User), args.Error(1)
 }
 
-func (m *MockUserRepository) UpdateUser(user *models.User) error {
-	args := m.Called(user)
+func (m *MockUserRepository) UpdateUser(ctx context.Context, user *models.User) error {
+	args := m.Called(ctx, user)
 	return args.Error(0)
 }
 
-func (m *MockUserRepository) DeleteUser(user *models.User) error {
-	args := m.Called(user)
+func (m *MockUserRepository) DeleteUser(ctx context.Context, user *models.User) error {
+	args := m.Called(ctx, user)
 	return args.Error(0)
 }
 
-func (m *MockUserRepository) GetAllUsers(filter interfaces.Filter) ([]*models.User, int64, error) {
-	args := m.Called(filter)
+func (m *MockUserRepository) GetAllUsers(ctx context.Context, filter interfaces.Filter) ([]*models.User, int64, error) {
+	args := m.Called(ctx, filter)
 	return args.Get(0).([]*models.User), args.Get(1).(int64), args.Error(2)
 }
 
@@ -72,38 +73,38 @@ type MockTokenRepository struct {
 	mock.Mock
 }
 
-func (m *MockTokenRepository) SaveToken(userID, token string, tokenType models.TokenType, ttl time.Duration) error {
-	args := m.Called(userID, token, tokenType, ttl)
+func (m *MockTokenRepository) SaveToken(ctx context.Context, userID, token string, tokenType models.TokenType, expiry time.Duration) error {
+	args := m.Called(ctx, userID, token, tokenType, expiry)
 	return args.Error(0)
 }
 
-func (m *MockTokenRepository) SaveTokenWithDeviceId(userID, token, deviceId string, tokenType models.TokenType, expiry time.Duration) error {
-	args := m.Called(userID, token, deviceId, tokenType, expiry)
+func (m *MockTokenRepository) SaveTokenWithDeviceId(ctx context.Context, userID, token, deviceId string, tokenType models.TokenType, expiry time.Duration) error {
+	args := m.Called(ctx, userID, token, deviceId, tokenType, expiry)
 	return args.Error(0)
 }
 
-func (m *MockTokenRepository) GetTokenByUserID(userID string, tokenType models.TokenType) (*models.Token, error) {
-	args := m.Called(userID, tokenType)
+func (m *MockTokenRepository) GetActiveTokenByUserIdAndType(ctx context.Context, userID string, tokenType models.TokenType) (*models.Token, error) {
+	args := m.Called(ctx, userID, tokenType)
 	return args.Get(0).(*models.Token), args.Error(1)
 }
 
-func (m *MockTokenRepository) InvalidateToken(userID, token string, tokenType models.TokenType) error {
-	args := m.Called(userID, token, tokenType)
-	return args.Error(0)
-}
-
-func (m *MockTokenRepository) InvalidateAllTokens(userID string, tokenType models.TokenType) error {
-	args := m.Called(userID, tokenType)
-	return args.Error(0)
-}
-
-func (m *MockTokenRepository) GetToken(token string) (*models.Token, error) {
-	args := m.Called(token)
+func (m *MockTokenRepository) GetActiveTokenByUserIdTypeAndDeviceId(ctx context.Context, userID string, tokenType models.TokenType, deviceID string) (*models.Token, error) {
+	args := m.Called(ctx, userID, tokenType, deviceID)
 	return args.Get(0).(*models.Token), args.Error(1)
 }
 
-func (m *MockTokenRepository) DeleteToken(token string) error {
-	args := m.Called(token)
+func (m *MockTokenRepository) RevokeToken(ctx context.Context, tokenId string) error {
+	args := m.Called(ctx, tokenId)
+	return args.Error(0)
+}
+
+func (m *MockTokenRepository) RevokeAllTokens(ctx context.Context, userID string, tokenType models.TokenType) error {
+	args := m.Called(ctx, userID, tokenType)
+	return args.Error(0)
+}
+
+func (m *MockTokenRepository) CleanExpiredTokens(ctx context.Context, tokenType models.TokenType) error {
+	args := m.Called(ctx, tokenType)
 	return args.Error(0)
 }
 
@@ -187,28 +188,38 @@ type MockEmailSender struct {
 	mock.Mock
 }
 
-func (m *MockEmailSender) SendVerification(user models.User, redirectUrl string) error {
-	args := m.Called(user, redirectUrl)
+func (m *MockEmailSender) SendVerification(ctx context.Context, user models.User, redirectUrl string) error {
+	args := m.Called(ctx, user, redirectUrl)
 	return args.Error(0)
 }
 
-func (m *MockEmailSender) SendWelcome(user models.User) error {
-	args := m.Called(user)
+func (m *MockEmailSender) SendWelcome(ctx context.Context, user models.User) error {
+	args := m.Called(ctx, user)
 	return args.Error(0)
 }
 
-func (m *MockEmailSender) SendPasswordReset(user models.User, redirectUrl string) error {
-	args := m.Called(user, redirectUrl)
+func (m *MockEmailSender) SendPasswordReset(ctx context.Context, user models.User, redirectUrl string) error {
+	args := m.Called(ctx, user, redirectUrl)
 	return args.Error(0)
 }
 
-func (m *MockEmailSender) SendTwoFactorCode(user models.User, code string) error {
-	args := m.Called(user, code)
+func (m *MockEmailSender) SendTwoFactorCode(ctx context.Context, user models.User, code string) error {
+	args := m.Called(ctx, user, code)
 	return args.Error(0)
 }
 
-func (m *MockEmailSender) SendMagicLink(user models.User, redirectUrl string) error {
-	args := m.Called(user, redirectUrl)
+func (m *MockEmailSender) SendMagicLink(ctx context.Context, user models.User, redirectUrl string) error {
+	args := m.Called(ctx, user, redirectUrl)
+	return args.Error(0)
+}
+
+func (m *MockEmailSender) SendMagicLinkEmail(ctx context.Context, user models.User, redirectUrl string) error {
+	args := m.Called(ctx, user, redirectUrl)
+	return args.Error(0)
+}
+
+func (m *MockEmailSender) SendPasswordResetEmail(ctx context.Context, user models.User, redirectUrl string) error {
+	args := m.Called(ctx, user, redirectUrl)
 	return args.Error(0)
 }
 
@@ -217,23 +228,33 @@ type MockSMSSender struct {
 	mock.Mock
 }
 
-func (m *MockSMSSender) SendMagicLink(user models.User, redirectURL string) error {
-	args := m.Called(user, redirectURL)
+func (m *MockSMSSender) SendMagicLink(ctx context.Context, user models.User, redirectURL string) error {
+	args := m.Called(ctx, user, redirectURL)
 	return args.Error(0)
 }
 
-func (m *MockSMSSender) SendVerificationCode(user models.User, code string) error {
-	args := m.Called(user, code)
+func (m *MockSMSSender) SendVerificationCode(ctx context.Context, user models.User, code string) error {
+	args := m.Called(ctx, user, code)
 	return args.Error(0)
 }
 
-func (m *MockSMSSender) SendWelcome(user models.User) error {
-	args := m.Called(user)
+func (m *MockSMSSender) SendWelcome(ctx context.Context, user models.User) error {
+	args := m.Called(ctx, user)
 	return args.Error(0)
 }
 
-func (m *MockSMSSender) SendTwoFactorCode(user models.User, code string) error {
-	args := m.Called(user, code)
+func (m *MockSMSSender) SendTwoFactorCode(ctx context.Context, user models.User, code string) error {
+	args := m.Called(ctx, user, code)
+	return args.Error(0)
+}
+
+func (m *MockSMSSender) SendTwoFactorSMS(ctx context.Context, user models.User, code string) error {
+	args := m.Called(ctx, user, code)
+	return args.Error(0)
+}
+
+func (m *MockSMSSender) SendVerificationSMS(ctx context.Context, user models.User, code string) error {
+	args := m.Called(ctx, user, code)
 	return args.Error(0)
 }
 
@@ -242,8 +263,8 @@ type MockCaptchaVerifier struct {
 	mock.Mock
 }
 
-func (m *MockCaptchaVerifier) Verify(token string, remoteIP string) (bool, error) {
-	args := m.Called(token, remoteIP)
+func (m *MockCaptchaVerifier) Verify(ctx context.Context, token string, remoteIP string) (bool, error) {
+	args := m.Called(ctx, token, remoteIP)
 	return args.Bool(0), args.Error(1)
 }
 
@@ -400,8 +421,6 @@ func CreateTestAuthHandler(conf *config.Config) *AuthHandler {
 	mockTokenRepo := &MockTokenRepository{}
 	mockRepoFactory := &MockRepositoryFactory{}
 	mockTokenManager := &MockTokenManager{}
-	mockEmailSender := &MockEmailSender{}
-	mockSMSSender := &MockSMSSender{}
 	mockCaptchaVerifier := &MockCaptchaVerifier{}
 
 	mockRepoFactory.On("GetUserRepository").Return(mockUserRepo)
@@ -417,23 +436,26 @@ func CreateTestAuthHandler(conf *config.Config) *AuthHandler {
 	}
 
 	// Set email and SMS senders in config
-	conf.Email.Sender.CustomSender = mockEmailSender
-	conf.SMS.CustomSender = mockSMSSender
+	conf.Email.Sender.CustomSender = nil
+	conf.SMS.CustomSender = nil
 
 	return &AuthHandler{Auth: auth}
 }
 
 // Helper function to create a test user
 func CreateTestUser() *models.User {
+	active := true
+	emailVerified := true
+	twoFactorEnabled := false
 	return &models.User{
 		ID:               "test-user-id",
 		FirstName:        "John",
 		LastName:         "Doe",
 		Email:            "test@example.com",
 		Password:         "hashed_password",
-		EmailVerified:    true,
-		Active:           true,
-		TwoFactorEnabled: false,
+		EmailVerified:    &emailVerified,
+		Active:           &active,
+		TwoFactorEnabled: &twoFactorEnabled,
 		SignedUpVia:      "email",
 		CreatedAt:        time.Now(),
 		UpdatedAt:        time.Now(),

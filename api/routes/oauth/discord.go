@@ -158,7 +158,7 @@ func (d *DiscordOauth) Callback(w http.ResponseWriter, r *http.Request) {
 		Avatar:      &avatarURL,
 	}
 
-	err = d.Auth.Repository.GetUserRepository().UpsertUserByEmail(&user)
+	err = d.Auth.Repository.GetUserRepository().UpsertUserByEmail(r.Context(), &user)
 	if err != nil {
 		utils.RespondWithError(
 			w,
@@ -182,7 +182,7 @@ func (d *DiscordOauth) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Save refresh token
-	err = d.Auth.Repository.GetTokenRepository().SaveToken(user.ID, refreshToken, models.RefreshToken, d.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
+	err = d.Auth.Repository.GetTokenRepository().SaveToken(r.Context(), user.ID, refreshToken, models.RefreshToken, d.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
 	if err != nil {
 		utils.RespondWithError(
 			w,

@@ -2,103 +2,15 @@ package routes
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
-	"regexp"
 	"strings"
-	"unicode"
+	"time"
 
 	"github.com/bete7512/goauth/config"
 )
 
 type AuthHandler struct {
 	*config.Auth
-}
-
-// validatePasswordPolicy validates a password against the configured policy
-func (h *AuthHandler) validatePasswordPolicy(password string, policy config.PasswordPolicy) error {
-	if len(password) < policy.MinLength {
-		return fmt.Errorf("password must be at least %d characters long", policy.MinLength)
-	}
-
-	var hasUpper, hasLower, hasNumber, hasSpecial bool
-	for _, char := range password {
-		switch {
-		case unicode.IsUpper(char):
-			hasUpper = true
-		case unicode.IsLower(char):
-			hasLower = true
-		case unicode.IsNumber(char):
-			hasNumber = true
-		case unicode.IsPunct(char) || unicode.IsSymbol(char):
-			hasSpecial = true
-		}
-	}
-
-	if policy.RequireUpper && !hasUpper {
-		return errors.New("password must contain at least one uppercase letter")
-	}
-	if policy.RequireLower && !hasLower {
-		return errors.New("password must contain at least one lowercase letter")
-	}
-	if policy.RequireNumber && !hasNumber {
-		return errors.New("password must contain at least one number")
-	}
-	if policy.RequireSpecial && !hasSpecial {
-		return errors.New("password must contain at least one special character")
-	}
-
-	return nil
-}
-
-func (h *AuthHandler) ValidateEmail(email string) error {
-	// RFC 5322 compliant email regex
-	emailRegex := regexp.MustCompile(`^[a-zA-Z0-9.!#$%&'*+/=?^_{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$`)
-
-	if !emailRegex.MatchString(email) {
-		return errors.New("invalid email address format")
-	}
-	// Additional checks
-	if len(email) > 254 {
-		return errors.New("email address too long")
-	}
-	if len(email) < 5 {
-		return errors.New("email address too short")
-	}
-	if strings.HasSuffix(strings.ToLower(email), "@gmail.com") {
-		parts := strings.Split(email, "@")
-		localPart := parts[0]
-		if strings.Contains(localPart, ".") {
-			return errors.New("gmail addresses with dots are not allowed")
-		}
-	}
-	return nil
-}
-
-func (h *AuthHandler) ValidatePhoneNumber(phoneNumber *string) error {
-
-	//validate phone number
-	if h.Auth.Config.AuthConfig.Methods.PhoneVerification.PhoneRequired {
-		if phoneNumber == nil {
-			return errors.New("phone number is required")
-		}
-		if *phoneNumber == "" {
-			return errors.New("phone number is required")
-		}
-	}
-	// If phone number is not required and is nil, skip validation
-	if phoneNumber == nil {
-		return nil
-	}
-	//validate phone number format
-	if !regexp.MustCompile(`^\+?[1-9]\d{1,14}$`).MatchString(*phoneNumber) {
-		return errors.New("invalid phone number format, example: +1234567890")
-	}
-	//validate phone number length
-	if len(*phoneNumber) < 10 || len(*phoneNumber) > 15 {
-		return errors.New("phone number must be between 10 and 15 digits")
-	}
-	return nil
 }
 
 // authenticateRequest extracts and validates the token from a request
@@ -135,4 +47,50 @@ func (h *AuthHandler) extractToken(r *http.Request, cookieName string) string {
 	}
 
 	return ""
+}
+
+// setAccessTokenCookie sets a secure access token cookie
+func (h *AuthHandler) setAccessTokenCookie(w http.ResponseWriter, accessToken string) {
+	cookie := &http.Cookie{
+		Name:     "___goauth_access_token_" + h.Auth.Config.AuthConfig.Cookie.Name,
+		Value:    accessToken,
+		Expires:  time.Now().Add(h.Auth.Config.AuthConfig.JWT.AccessTokenTTL),
+		Domain:   h.Auth.Config.AuthConfig.Cookie.Domain,
+		Path:     h.Auth.Config.AuthConfig.Cookie.Path,
+		Secure:   h.Auth.Config.AuthConfig.Cookie.Secure,
+		HttpOnly: h.Auth.Config.AuthConfig.Cookie.HttpOnly,
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   int(h.Auth.Config.AuthConfig.JWT.AccessTokenTTL.Seconds()),
+	}
+
+	http.SetCookie(w, cookie)
+}
+
+func (h *AuthHandler) setRefreshTokenCookie(w http.ResponseWriter, refreshToken string) {
+	cookie := &http.Cookie{
+		Name:     "___goauth_refresh_token_" + h.Auth.Config.AuthConfig.Cookie.Name,
+		Value:    refreshToken,
+		Expires:  time.Now().Add(h.Auth.Config.AuthConfig.JWT.RefreshTokenTTL),
+		Domain:   h.Auth.Config.AuthConfig.Cookie.Domain,
+		Path:     h.Auth.Config.AuthConfig.Cookie.Path,
+		Secure:   h.Auth.Config.AuthConfig.Cookie.Secure,
+		HttpOnly: h.Auth.Config.AuthConfig.Cookie.HttpOnly,
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   int(h.Auth.Config.AuthConfig.JWT.RefreshTokenTTL.Seconds()),
+	}
+	http.SetCookie(w, cookie)
+}
+func (h *AuthHandler) setCsrfTokenCookie(w http.ResponseWriter, csrfToken string) {
+	cookie := &http.Cookie{
+		Name:  "___goauth_csrf_token_" + h.Auth.Config.AuthConfig.Cookie.Name,
+		Value: csrfToken,
+		// Expires:  time.Now().Add(h.Auth.Config.AuthConfig.CSRF.TTL),
+		Domain:   h.Auth.Config.AuthConfig.Cookie.Domain,
+		Path:     h.Auth.Config.AuthConfig.Cookie.Path,
+		Secure:   h.Auth.Config.AuthConfig.Cookie.Secure,
+		HttpOnly: h.Auth.Config.AuthConfig.Cookie.HttpOnly,
+		SameSite: http.SameSiteStrictMode,
+		// MaxAge:   int(h.Auth.Config.AuthConfig.CSRF.TTL.Seconds()),
+	}
+	http.SetCookie(w, cookie)
 }

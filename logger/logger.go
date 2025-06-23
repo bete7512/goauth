@@ -29,6 +29,8 @@ type Log interface {
 	Errorf(format string, args ...interface{})
 	Fatal(args ...interface{})
 	Fatalf(format string, args ...interface{})
+	SetFormatter(formatter logrus.Formatter)
+	SetReportCaller(reportCaller bool)
 }
 
 type loggerImpl struct {
@@ -48,6 +50,8 @@ func (n *noOpLogger) Error(args ...interface{})                 {}
 func (n *noOpLogger) Errorf(format string, args ...interface{}) {}
 func (n *noOpLogger) Fatal(args ...interface{})                 {}
 func (n *noOpLogger) Fatalf(format string, args ...interface{}) {}
+func (n *noOpLogger) SetFormatter(formatter logrus.Formatter)   {}
+func (n *noOpLogger) SetReportCaller(reportCaller bool)         {}
 
 func New(level string, opts LogOptions) {
 	once.Do(func() {
@@ -200,4 +204,12 @@ func (l *loggerImpl) Fatal(args ...interface{}) {
 
 func (l *loggerImpl) Fatalf(format string, args ...interface{}) {
 	l.log.Fatalf(format, args...)
+}
+
+func (l *loggerImpl) SetFormatter(formatter logrus.Formatter) {
+	l.log.SetFormatter(formatter)
+}
+
+func (l *loggerImpl) SetReportCaller(reportCaller bool) {
+	l.log.SetReportCaller(reportCaller)
 }

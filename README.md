@@ -37,42 +37,95 @@ package main
 
 import (
     "log"
-    "net/http"
+    "time"
 
     "github.com/bete7512/goauth"
-    "github.com/bete7512/goauth/types"
+    "github.com/bete7512/goauth/config"
     "github.com/gin-gonic/gin"
 )
 
 func main() {
     // Create configuration
-    config := types.Config{
-        Server: types.ServerConfig{
+    config := config.Config{
+        App: config.AppConfig{
+            BasePath:    "/api",
+            Domain:      "localhost",
+            FrontendURL: "http://localhost:3000",
+        },
+        Server: config.ServerConfig{
             Type: "gin",
+            Host: "localhost",
             Port: 8080,
         },
-        Database: types.DatabaseConfig{
-            Type: "sqlite",
-            URL:  "file::memory:?cache=shared",
+        Database: config.DatabaseConfig{
+            Type: "postgres",
+            URL:  "postgres://user:pass@localhost/dbname?sslmode=disable",
         },
-        JWTSecret: "your-secret-key-32-chars-long",
-        AuthConfig: types.AuthConfig{
-            Cookie: types.CookieConfig{
-                Name:            "auth_token",
-                AccessTokenTTL:  3600,
-                RefreshTokenTTL: 86400,
-                Path:            "/",
-                MaxAge:          86400,
+        AuthConfig: config.AuthConfig{
+            JWT: config.JWTConfig{
+                Secret:             "your-secret-key-32-chars-long",
+                AccessTokenTTL:     15 * time.Minute,
+                RefreshTokenTTL:    7 * 24 * time.Hour,
+                EnableCustomClaims: false,
+            },
+            Cookie: config.CookieConfig{
+                Name:     "auth_token",
+                Path:     "/",
+                MaxAge:   86400,
+                Secure:   false,
+                HttpOnly: true,
+                SameSite: 1,
+            },
+            PasswordPolicy: config.PasswordPolicy{
+                HashSaltLength: 16,
+                MinLength:      8,
+                RequireUpper:   true,
+                RequireLower:   true,
+                RequireNumber:  true,
+                RequireSpecial: false,
             },
         },
-        PasswordPolicy: types.PasswordPolicy{
-            HashSaltLength: 16,
-            MinLength:      8,
+        Features: config.FeaturesConfig{
+            EnableRateLimiter:   false,
+            EnableRecaptcha:     false,
+            EnableCustomJWT:     false,
+            EnableCustomStorage: false,
+        },
+        Security: config.SecurityConfig{
+            RateLimiter: config.RateLimiterConfig{
+                Enabled: false,
+                Type:    "memory",
+                Routes:  make(map[string]config.LimiterConfig),
+            },
+            Recaptcha: config.RecaptchaConfig{
+                Enabled:   false,
+                SecretKey: "",
+                SiteKey:   "",
+                Provider:  "google",
+                APIURL:    "",
+                Routes:    make(map[string]bool),
+            },
+        },
+        Email: config.EmailConfig{
+            Sender: config.EmailSenderConfig{
+                Type:         "sendgrid",
+                FromEmail:    "noreply@example.com",
+                FromName:     "My App",
+                SupportEmail: "support@example.com",
+                CustomSender: nil,
+            },
+        },
+        SMS: config.SMSConfig{
+            CompanyName:  "My App",
+            CustomSender: nil,
+        },
+        Providers: config.ProvidersConfig{
+            Enabled: []config.AuthProvider{},
         },
     }
 
-    // Initialize GoAuth
-    auth, err := goauth.NewAuth(config)
+    // Initialize GoAuth using the builder pattern
+    auth, err := goauth.NewBuilder().WithConfig(config).Build()
     if err != nil {
         log.Fatal(err)
     }
@@ -81,7 +134,7 @@ func main() {
     router := gin.Default()
 
     // Setup authentication routes
-    err = auth.GetGinAuthRoutes(router)
+    err = auth.SetupRoutes("gin", router)
     if err != nil {
         log.Fatal(err)
     }
@@ -100,16 +153,16 @@ package main
 
 import (
     "github.com/bete7512/goauth"
-    "github.com/bete7512/goauth/types"
+    "github.com/bete7512/goauth/config"
     "github.com/gin-gonic/gin"
 )
 
 func main() {
     config := createConfig()
-    auth, _ := goauth.NewAuth(config)
+    auth, _ := goauth.NewBuilder().WithConfig(config).Build()
     
     router := gin.Default()
-    auth.GetGinAuthRoutes(router)
+    auth.SetupRoutes("gin", router)
     
     router.Run(":8080")
 }
@@ -127,10 +180,10 @@ import (
 
 func main() {
     config := createConfig()
-    auth, _ := goauth.NewAuth(config)
+    auth, _ := goauth.NewBuilder().WithConfig(config).Build()
     
     e := echo.New()
-    auth.SetupEchoRoutes(e)
+    auth.SetupRoutes("echo", e)
     
     e.Start(":8080")
 }
@@ -148,10 +201,10 @@ import (
 
 func main() {
     config := createConfig()
-    auth, _ := goauth.NewAuth(config)
+    auth, _ := goauth.NewBuilder().WithConfig(config).Build()
     
     r := chi.NewRouter()
-    auth.SetupChiRoutes(r)
+    auth.SetupRoutes("chi", r)
     
     http.ListenAndServe(":8080", r)
 }
@@ -169,10 +222,10 @@ import (
 
 func main() {
     config := createConfig()
-    auth, _ := goauth.NewAuth(config)
+    auth, _ := goauth.NewBuilder().WithConfig(config).Build()
     
     app := fiber.New()
-    auth.SetupFiberRoutes(app)
+    auth.SetupRoutes("fiber", app)
     
     app.Listen(":8080")
 }
@@ -183,34 +236,63 @@ func main() {
 ### Basic Configuration
 
 ```go
-config := types.Config{
-    Server: types.ServerConfig{
+config := config.Config{
+    App: config.AppConfig{
+        BasePath:    "/api",
+        Domain:      "localhost",
+        FrontendURL: "http://localhost:3000",
+    },
+    Server: config.ServerConfig{
         Type: "gin",
+        Host: "localhost",
         Port: 8080,
     },
-    Database: types.DatabaseConfig{
+    Database: config.DatabaseConfig{
         Type: "postgres",
-        URL:  "postgres://user:pass@localhost/dbname",
+        URL:  "postgres://user:pass@localhost/dbname?sslmode=disable",
     },
-    JWTSecret: "your-secret-key-32-chars-long",
-    AuthConfig: types.AuthConfig{
-        Cookie: types.CookieConfig{
-            Name:            "auth_token",
-            AccessTokenTTL:  3600,
-            RefreshTokenTTL: 86400,
-            Path:            "/",
-            MaxAge:          86400,
+    AuthConfig: config.AuthConfig{
+        JWT: config.JWTConfig{
+            Secret:             "your-secret-key-32-chars-long",
+            AccessTokenTTL:     15 * time.Minute,
+            RefreshTokenTTL:    7 * 24 * time.Hour,
+            EnableCustomClaims: false,
         },
-        EnableTwoFactor:         true,
-        EnableEmailVerification: true,
+        Cookie: config.CookieConfig{
+            Name:     "auth_token",
+            Path:     "/",
+            MaxAge:   86400,
+            Secure:   false,
+            HttpOnly: true,
+            SameSite: 1,
+        },
+        Methods: config.AuthMethodsConfig{
+            Type:                  "email",
+            EnableTwoFactor:       true,
+            EnableMultiSession:    false,
+            EnableMagicLink:       false,
+            EnableSmsVerification: false,
+            TwoFactorMethod:       "email",
+            EmailVerification: config.EmailVerificationConfig{
+                EnableOnSignup:   true,
+                VerificationURL:  "http://localhost:3000/verify",
+                SendWelcomeEmail: false,
+            },
+        },
+        PasswordPolicy: config.PasswordPolicy{
+            HashSaltLength: 16,
+            MinLength:      8,
+            RequireUpper:   true,
+            RequireLower:   true,
+            RequireNumber:  true,
+            RequireSpecial: true,
+        },
     },
-    PasswordPolicy: types.PasswordPolicy{
-        HashSaltLength: 16,
-        MinLength:      8,
-        RequireUpper:   true,
-        RequireLower:   true,
-        RequireNumber:  true,
-        RequireSpecial: true,
+    Features: config.FeaturesConfig{
+        EnableRateLimiter:   true,
+        EnableRecaptcha:     true,
+        EnableCustomJWT:     false,
+        EnableCustomStorage: false,
     },
 }
 ```
@@ -218,13 +300,14 @@ config := types.Config{
 ### OAuth Configuration
 
 ```go
-config.Providers.Enabled = []types.AuthProvider{
-    types.Google, types.GitHub, types.Facebook,
+config.Providers.Enabled = []config.AuthProvider{
+    config.Google, config.GitHub, config.Facebook,
 }
-config.Providers.Google = types.ProviderConfig{
+config.Providers.Google = config.ProviderConfig{
     ClientID:     "your-google-client-id",
     ClientSecret: "your-google-client-secret",
     RedirectURL:  "http://localhost:8080/oauth/google/callback",
+    Scopes:       []string{"email", "profile"},
 }
 ```
 
@@ -232,27 +315,76 @@ config.Providers.Google = types.ProviderConfig{
 
 ```go
 // Rate Limiting
-config.EnableRateLimiter = true
-config.RateLimiter = &types.RateLimiterConfig{
-    DefaultConfig: types.LimiterConfig{
-        WindowSize:    60,
-        MaxRequests:   100,
-        BlockDuration: 10,
+config.Features.EnableRateLimiter = true
+config.Security.RateLimiter = config.RateLimiterConfig{
+    Enabled: true,
+    Type:    "memory",
+    Routes: map[string]config.LimiterConfig{
+        config.RouteRegister: {
+            WindowSize:    30 * time.Second,
+            MaxRequests:   10,
+            BlockDuration: 1 * time.Minute,
+        },
+        config.RouteLogin: {
+            WindowSize:    1 * time.Minute,
+            MaxRequests:   5,
+            BlockDuration: 1 * time.Minute,
+        },
     },
 }
 
 // reCAPTCHA
-config.EnableRecaptcha = true
-config.RecaptchaConfig = &types.RecaptchaConfig{
+config.Features.EnableRecaptcha = true
+config.Security.Recaptcha = config.RecaptchaConfig{
+    Enabled:   true,
+    Provider:  "google",
     SecretKey: "your-recaptcha-secret",
     SiteKey:   "your-recaptcha-site-key",
+    APIURL:    "https://www.google.com/recaptcha/api/siteverify",
+    Routes: map[string]bool{
+        config.RouteRegister: true,
+        config.RouteLogin:    true,
+    },
 }
 
 // Swagger Documentation
-config.Swagger.Enable = true
-config.Swagger.Title = "My API"
-config.Swagger.Version = "1.0.0"
-config.Swagger.DocPath = "/docs"
+config.App.Swagger = config.SwaggerConfig{
+    Enable:      true,
+    Title:       "My API",
+    Version:     "1.0.0",
+    DocPath:     "/docs",
+    Description: "API Documentation",
+    Host:        "localhost:8080",
+}
+```
+
+### Custom JWT Claims
+
+```go
+type ClaimsProvider struct{}
+
+func (c *ClaimsProvider) GetClaims(user models.User) (map[string]interface{}, error) {
+    return map[string]interface{}{
+        "tenants":           []string{"one", "two"},
+        "primary_tenant_id": "2534532",
+    }, nil
+}
+
+config.AuthConfig.JWT.EnableCustomClaims = true
+config.AuthConfig.JWT.ClaimsProvider = &ClaimsProvider{}
+```
+
+### Custom Storage Repository
+
+```go
+// Create custom repository factory
+customFactory := &MyRepositoryFactory{}
+
+// Use builder with custom repository
+auth, err := goauth.NewBuilder().
+    WithConfig(config).
+    WithRepositoryFactory(customFactory).
+    Build()
 ```
 
 ## 🔌 Available Endpoints
@@ -265,8 +397,8 @@ config.Swagger.DocPath = "/docs"
 - `POST /forgot-password` - Password reset request
 - `POST /reset-password` - Password reset
 - `GET /me` - Get current user profile
-- `PUT /update-profile` - Update user profile
-- `DELETE /deactivate-user` - Deactivate user account
+- `POST /update-profile` - Update user profile
+- `POST /deactivate-user` - Deactivate user account
 
 ### Two-Factor Authentication
 - `POST /enable-two-factor` - Enable 2FA
@@ -275,15 +407,15 @@ config.Swagger.DocPath = "/docs"
 
 ### Email Verification
 - `POST /verify-email` - Verify email address
-- `POST /resend-verification-email` - Resend verification email
+- `POST /verify-email-send` - Resend verification email
 
 ### OAuth Providers
-- `GET /oauth/{provider}/login` - OAuth login
+- `GET /oauth/{provider}` - OAuth login
 - `GET /oauth/{provider}/callback` - OAuth callback
 
 ### Magic Link
-- `POST /magic-link` - Send magic link
-- `GET /magic-link-login` - Magic link login
+- `POST /send-magic-link` - Send magic link
+- `POST /verify-magic-login` - Magic link login
 
 ## 🎣 Hooks System
 
@@ -291,14 +423,24 @@ GoAuth provides a flexible hook system for customizing authentication behavior:
 
 ```go
 // Register before hook
-auth.RegisterBeforeHook("/login", func(w http.ResponseWriter, r *http.Request) (bool, error) {
-    // Custom logic before login
+err := auth.RegisterBeforeHook(config.RouteRegister, func(w http.ResponseWriter, r *http.Request) (bool, error) {
+    // Custom logic before registration
+    log.Println("Before registration hook executing...")
     return true, nil // Return false to abort the request
 })
 
 // Register after hook
-auth.RegisterAfterHook("/register", func(w http.ResponseWriter, r *http.Request) (bool, error) {
-    // Custom logic after registration
+err = auth.RegisterAfterHook(config.RouteLogin, func(w http.ResponseWriter, r *http.Request) (bool, error) {
+    // Custom logic after login
+    log.Println("After login hook executing...")
+    
+    // Access request and response data from context
+    reqData := r.Context().Value(config.RequestDataKey)
+    respData := r.Context().Value(config.ResponseDataKey)
+    
+    log.Printf("Request data: %+v\n", reqData)
+    log.Printf("Response data: %+v\n", respData)
+    
     return true, nil
 })
 ```
@@ -328,16 +470,77 @@ make test-coverage
 
 ```go
 // Use test configurations for different scenarios
-testConfigs := goauth.GetTestConfigurations()
-
-// Minimal config for basic tests
-config := testConfigs.MinimalConfig()
-
-// Full feature config for comprehensive tests
-config := testConfigs.FullFeatureConfig()
-
-// OAuth only config
-config := testConfigs.OAuthOnlyConfig()
+func createTestConfig() config.Config {
+    return config.Config{
+        App: config.AppConfig{
+            BasePath:    "/api",
+            Domain:      "localhost",
+            FrontendURL: "http://localhost:3000",
+        },
+        Server: config.ServerConfig{
+            Type: "gin",
+            Host: "localhost",
+            Port: 8080,
+        },
+        Database: config.DatabaseConfig{
+            Type: "postgres",
+            URL:  "postgres://test:test@localhost:5432/test",
+        },
+        AuthConfig: config.AuthConfig{
+            JWT: config.JWTConfig{
+                Secret:             "test-secret-key",
+                AccessTokenTTL:     15 * time.Minute,
+                RefreshTokenTTL:    7 * 24 * time.Hour,
+                EnableCustomClaims: false,
+            },
+            Cookie: config.CookieConfig{
+                Name:     "auth_token",
+                Path:     "/",
+                MaxAge:   86400,
+                Secure:   false,
+                HttpOnly: true,
+                SameSite: 1,
+            },
+        },
+        Features: config.FeaturesConfig{
+            EnableRateLimiter:   false,
+            EnableRecaptcha:     false,
+            EnableCustomJWT:     false,
+            EnableCustomStorage: false,
+        },
+        Security: config.SecurityConfig{
+            RateLimiter: config.RateLimiterConfig{
+                Enabled: false,
+                Type:    "memory",
+                Routes:  make(map[string]config.LimiterConfig),
+            },
+            Recaptcha: config.RecaptchaConfig{
+                Enabled:   false,
+                SecretKey: "",
+                SiteKey:   "",
+                Provider:  "google",
+                APIURL:    "",
+                Routes:    make(map[string]bool),
+            },
+        },
+        Email: config.EmailConfig{
+            Sender: config.EmailSenderConfig{
+                Type:         "sendgrid",
+                FromEmail:    "test@example.com",
+                FromName:     "Test App",
+                SupportEmail: "support@example.com",
+                CustomSender: nil,
+            },
+        },
+        SMS: config.SMSConfig{
+            CompanyName:  "Test Company",
+            CustomSender: nil,
+        },
+        Providers: config.ProvidersConfig{
+            Enabled: []config.AuthProvider{},
+        },
+    }
+}
 ```
 
 ## 📚 Documentation

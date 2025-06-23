@@ -82,7 +82,7 @@ type VerifyEmailRequest struct {
 }
 
 // ResendVerificationEmailRequest represents the request body for resending verification email
-type ResendVerificationEmailRequest struct {
+type SendVerificationEmailRequest struct {
 	Email          string `json:"email" validate:"required,email"`
 	RecaptchaToken string `json:"recaptcha_token,omitempty"`
 }
@@ -94,4 +94,15 @@ type UserResponse struct {
 	LastName  string    `json:"last_name"`
 	Email     string    `json:"email"`
 	CreatedAt time.Time `json:"created_at"`
+}
+
+type SendPhoneVerificationRequest struct {
+	PhoneNumber    string `json:"phone_number" validate:"required"`
+	RecaptchaToken string `json:"recaptcha_token,omitempty"`
+}
+
+type VerifyPhoneRequest struct {
+	Code           string `json:"code" validate:"required"`
+	PhoneNumber    string `json:"phone_number" validate:"required"`
+	RecaptchaToken string `json:"recaptcha_token,omitempty"`
 }

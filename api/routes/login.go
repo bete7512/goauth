@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	responseErrors "github.com/bete7512/goauth/api/routes/errors"
 	"github.com/bete7512/goauth/config"
 	"github.com/bete7512/goauth/models"
 	"github.com/bete7512/goauth/schemas"
@@ -17,7 +18,7 @@ import (
 // HandleLogin handles user login
 func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		utils.RespondWithError(w, http.StatusMethodNotAllowed, "Method not allowed", nil)
+		utils.RespondWithError(w, http.StatusMethodNotAllowed, "method not allowed", nil)
 		return
 	}
 	ip := utils.GetIpFromRequest(r)
@@ -27,23 +28,23 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		var rawData map[string]interface{}
 		bodyBytes, err := io.ReadAll(r.Body)
 		if err != nil {
-			utils.RespondWithError(w, http.StatusBadRequest, "Failed to read request body: "+err.Error(), nil)
+			utils.RespondWithError(w, http.StatusBadRequest, "failed to read request body: "+err.Error(), nil)
 			return
 		}
 		r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 		if err := json.Unmarshal(bodyBytes, &rawData); err != nil {
-			utils.RespondWithError(w, http.StatusBadRequest, "Invalid request body JSON: "+err.Error(), nil)
+			utils.RespondWithError(w, http.StatusBadRequest, "invalid request body json: "+err.Error(), nil)
 			return
 		}
 		if err := json.Unmarshal(bodyBytes, &req); err != nil {
-			utils.RespondWithError(w, http.StatusBadRequest, "Invalid request format: "+err.Error(), nil)
+			utils.RespondWithError(w, http.StatusBadRequest, "invalid request format: "+err.Error(), nil)
 			return
 		}
 		ctx := context.WithValue(r.Context(), config.RequestDataKey, rawData)
 		r = r.WithContext(ctx)
 	} else {
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			utils.RespondWithError(w, http.StatusBadRequest, "Invalid request body: "+err.Error(), nil)
+			utils.RespondWithError(w, http.StatusBadRequest, "invalid request body: "+err.Error(), nil)
 			return
 		}
 	}
@@ -51,72 +52,72 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	// check for recaptcha if enabled
 	if h.Auth.Config.Security.Recaptcha.Enabled && h.Auth.Config.Security.Recaptcha.Routes[config.RouteLogin] {
 		if req.RecaptchaToken == "" {
-			utils.RespondWithError(w, http.StatusBadRequest, "Recaptcha token is required", nil)
+			utils.RespondWithError(w, http.StatusBadRequest, "recaptcha token is required", nil)
 			return
 		}
-		ok, err := h.Auth.RecaptchaManager.Verify(req.RecaptchaToken, ip) // TODO: add recaptcha manager to test auth handler
+		ok, err := h.Auth.RecaptchaManager.Verify(r.Context(), req.RecaptchaToken, ip) // TODO: add recaptcha manager to test auth handler
 		if err != nil {
-			utils.RespondWithError(w, http.StatusInternalServerError, "Recaptcha verification failed: "+err.Error(), nil)
+			utils.RespondWithError(w, http.StatusInternalServerError, "recaptcha verification failed: "+err.Error(), nil)
 			return
 		}
 		if !ok {
-			utils.RespondWithError(w, http.StatusBadRequest, "Recaptcha verification failed", nil)
+			utils.RespondWithError(w, http.StatusBadRequest, "recaptcha verification failed", nil)
 			return
 		}
 	}
 
 	// Get user by email
-	user, err := h.Auth.Repository.GetUserRepository().GetUserByEmail(req.Email)
+	user, err := h.Auth.Repository.GetUserRepository().GetUserByEmail(r.Context(), req.Email)
 	if err != nil {
 		if err.Error() == "user not found" {
-			utils.RespondWithError(w, http.StatusUnauthorized, "User Not Found", nil)
+			utils.RespondWithError(w, http.StatusUnauthorized, "user not found", nil)
 			return
 		}
-		utils.RespondWithError(w, http.StatusUnauthorized, "Invalid email or password", err)
+		utils.RespondWithError(w, http.StatusUnauthorized, "invalid email or password", err)
 		return
 	}
 	if user == nil {
 		utils.RespondWithError(w, http.StatusUnauthorized, "user not found", nil)
 		return
 	}
-	if !user.Active {
-		utils.RespondWithError(w, http.StatusUnauthorized, "Account is deactivated", nil)
+	if user.Active == nil || !*user.Active {
+		utils.RespondWithError(w, http.StatusUnauthorized, responseErrors.ErrUserNotActive, nil)
 		return
 	}
 
 	err = h.Auth.TokenManager.ValidatePassword(user.Password, req.Password)
 	if err != nil {
-		utils.RespondWithError(w, http.StatusUnauthorized, "Invalid email or password", err)
+		utils.RespondWithError(w, http.StatusUnauthorized, "invalid email or password", err)
 		return
 	}
 
 	// Handle two-factor authentication if enabled
-	if h.Auth.Config.AuthConfig.Methods.EnableTwoFactor && user.TwoFactorEnabled {
+	if h.Auth.Config.AuthConfig.Methods.EnableTwoFactor && user.TwoFactorEnabled != nil && *user.TwoFactorEnabled {
 		if req.TwoFactorCode == "" {
-			err = h.sendTwoFactorCode(user)
+			err = h.sendTwoFactorCode(r.Context(), user)
 			if err != nil {
-				utils.RespondWithError(w, http.StatusInternalServerError, "Failed to send two-factor code", nil)
+				utils.RespondWithError(w, http.StatusInternalServerError, "failed to send two-factor code", nil)
 				return
 			}
 			err := utils.RespondWithJSON(
 				w,
 				http.StatusOK,
 				map[string]interface{}{
-					"message":      "Two-factor code sent",
+					"message":      "two-factor code sent",
 					"requires_2fa": true,
 					// "two_factor_method": user.TwoFactorEnabled,
 				},
 			)
 			if err != nil {
-				utils.RespondWithError(w, http.StatusInternalServerError, "Failed to send response", nil)
+				utils.RespondWithError(w, http.StatusInternalServerError, "failed to send response", nil)
 				return
 			}
 			return
 		} else {
 			twoFactorTTl := 10 * time.Minute
-			err = h.Auth.Repository.GetTokenRepository().SaveToken(user.ID, req.TwoFactorCode, models.TwoFactorCode, twoFactorTTl)
+			err = h.Auth.Repository.GetTokenRepository().SaveToken(r.Context(), user.ID, req.TwoFactorCode, models.TwoFactorCode, twoFactorTTl)
 			if err != nil {
-				utils.RespondWithError(w, http.StatusUnauthorized, "Invalid two-factor code", nil)
+				utils.RespondWithError(w, http.StatusUnauthorized, "invalid two-factor code", nil)
 				return
 			}
 		}
@@ -124,19 +125,19 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 
 	accessToken, refreshToken, err := h.Auth.TokenManager.GenerateTokens(user)
 	if err != nil {
-		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to generate authentication tokens", nil)
+		utils.RespondWithError(w, http.StatusInternalServerError, "failed to generate authentication tokens", nil)
 		return
 	}
 
 	deviceIdToken, err := h.Auth.TokenManager.GenerateBase64Token(24)
 	if err != nil {
-		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to generate device id token", nil)
+		utils.RespondWithError(w, http.StatusInternalServerError, "failed to generate device id token", nil)
 		return
 	}
 	// Save refresh token
-	err = h.Auth.Repository.GetTokenRepository().SaveTokenWithDeviceId(user.ID, refreshToken, deviceIdToken, models.RefreshToken, h.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
+	err = h.Auth.Repository.GetTokenRepository().SaveTokenWithDeviceId(r.Context(), user.ID, refreshToken, deviceIdToken, models.RefreshToken, h.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
 	if err != nil {
-		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to save refresh token", nil)
+		utils.RespondWithError(w, http.StatusInternalServerError, "failed to save refresh token", nil)
 		return
 	}
 
@@ -176,7 +177,7 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	})
 	if h.Auth.HookManager.GetAfterHook(config.RouteLogin) != nil {
 
-		ctx := context.WithValue(r.Context(), "response_data", map[string]interface{}{
+		ctx := context.WithValue(r.Context(), config.ResponseDataKey, map[string]interface{}{
 			"id":            user.ID,
 			"user":          user,
 			"access_token":  accessToken,
@@ -200,7 +201,7 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		}
 		err := utils.RespondWithJSON(w, http.StatusOK, response)
 		if err != nil {
-			utils.RespondWithError(w, http.StatusInternalServerError, "Failed to send response", nil)
+			utils.RespondWithError(w, http.StatusInternalServerError, "failed to send response", nil)
 			return
 		}
 	}

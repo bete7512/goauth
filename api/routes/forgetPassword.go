@@ -25,7 +25,7 @@ func (h *AuthHandler) HandleForgotPassword(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Check if user exists
-	user, err := h.Auth.Repository.GetUserRepository().GetUserByEmail(req.Email)
+	user, err := h.Auth.Repository.GetUserRepository().GetUserByEmail(r.Context(), req.Email)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusBadRequest, "User not found", err)
 		return
@@ -42,7 +42,7 @@ func (h *AuthHandler) HandleForgotPassword(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	// Save reset token
-	err = h.Auth.Repository.GetTokenRepository().SaveToken(user.ID, resetToken, models.PasswordResetToken, 1*time.Hour)
+	err = h.Auth.Repository.GetTokenRepository().SaveToken(r.Context(), user.ID, resetToken, models.PasswordResetToken, 1*time.Hour)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to save reset token", err)
 		return
@@ -54,7 +54,7 @@ func (h *AuthHandler) HandleForgotPassword(w http.ResponseWriter, r *http.Reques
 		resetToken,
 		user.Email)
 	if h.Auth.Config.Email.Sender.CustomSender != nil {
-		err = h.Auth.Config.Email.Sender.CustomSender.SendPasswordReset(*user, resetURL)
+		err = h.Auth.Config.Email.Sender.CustomSender.SendPasswordResetEmail(r.Context(), *user, resetURL)
 		if err != nil {
 			utils.RespondWithError(w, http.StatusInternalServerError, "Failed to send password reset email", err)
 			return

@@ -1,9 +1,8 @@
 package sms
 
 import (
+	"context"
 	"fmt"
-	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -19,8 +18,12 @@ type SMSSender struct {
 }
 
 // SendMagicLink implements types.SMSSenderInterface.
-func (s *SMSSender) SendMagicLink(user models.User, redirectURL string) error {
-	panic("unimplemented")
+func (s *SMSSender) SendMagicLink(ctx context.Context, user models.User, redirectURL string) error {
+	if user.PhoneNumber == nil {
+		return fmt.Errorf("user phone number is nil")
+	}
+	message := fmt.Sprintf("Your %s magic link: %s", s.config.CompanyName, redirectURL)
+	return s.sendSMS(ctx, *user.PhoneNumber, message)
 }
 
 func NewSMSSender(config config.SMSConfig) *SMSSender {
@@ -32,50 +35,58 @@ func NewSMSSender(config config.SMSConfig) *SMSSender {
 	}
 }
 
-func (s *SMSSender) SendTwoFactorCode(user models.User, code string) error {
+func (s *SMSSender) SendTwoFactorCodeSMS(ctx context.Context, user models.User, code string) error {
 	if user.PhoneNumber == nil {
 		return fmt.Errorf("user phone number is nil")
 	}
 	message := fmt.Sprintf("Your %s verification code is: %s. Valid for 10 minutes.", s.config.CompanyName, code)
-	return s.sendSMS(*user.PhoneNumber, message)
+	return s.sendSMS(ctx, *user.PhoneNumber, message)
 }
 
-func (s *SMSSender) SendVerificationCode(user models.User, code string) error {
+func (s *SMSSender) SendTwoFactorSMS(ctx context.Context, user models.User, code string) error {
+	return s.SendTwoFactorCodeSMS(ctx, user, code)
+}
+
+func (s *SMSSender) SendVerificationCodeSMS(ctx context.Context, user models.User, code string) error {
 	if user.PhoneNumber == nil {
 		return fmt.Errorf("user phone number is nil")
 	}
 	message := fmt.Sprintf("Your %s verification code is: %s. Valid for 10 minutes.", s.config.CompanyName, code)
-	return s.sendSMS(*user.PhoneNumber, message)
+	return s.sendSMS(ctx, *user.PhoneNumber, message)
 }
 
-func (s *SMSSender) SendWelcome(user models.User) error {
+func (s *SMSSender) SendVerificationSMS(ctx context.Context, user models.User, code string) error {
+	return s.SendVerificationCodeSMS(ctx, user, code)
+}
+
+func (s *SMSSender) SendWelcomeSMS(ctx context.Context, user models.User) error {
 	if user.PhoneNumber == nil {
 		return fmt.Errorf("user phone number is nil")
 	}
 	message := fmt.Sprintf("Welcome to %s! Your account has been successfully created.", s.config.CompanyName)
-	return s.sendSMS(*user.PhoneNumber, message)
+	return s.sendSMS(ctx, *user.PhoneNumber, message)
 }
 
-func (s *SMSSender) sendSMS(to, message string) error {
+func (s *SMSSender) sendSMS(ctx context.Context, to, message string) error {
 	// If custom SMS sender is provided, use it
 	if s.config.CustomSender != nil {
 		// Create a temporary user for the interface method
 		tempUser := models.User{PhoneNumber: &to}
-		return s.config.CustomSender.SendVerificationCode(tempUser, message)
+		return s.config.CustomSender.SendVerificationSMS(ctx, tempUser, message)
 	}
 
 	// Use Twilio as default
-	return s.sendViaTwilio(to, message)
+	return s.sendViaTwilio(ctx, to, message)
 }
 
-func (s *SMSSender) sendViaTwilio(to, message string) error {
+func (s *SMSSender) sendViaTwilio(ctx context.Context, to, message string) error {
 	// Twilio API request
 	data := url.Values{}
 	data.Set("To", to)
 	data.Set("From", s.config.Twilio.FromNumber)
 	data.Set("Body", message)
 
-	req, err := http.NewRequest("POST", "https://api.twilio.com/2010-04-01/Accounts/"+s.config.Twilio.AccountSID+"/Messages.json", strings.NewReader(data.Encode()))
+	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.twilio.com/2010-04-01/Accounts/"+s.config.Twilio.AccountSID+"/Messages.json", strings.NewReader(data.Encode()))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -88,8 +99,6 @@ func (s *SMSSender) sendViaTwilio(to, message string) error {
 		return fmt.Errorf("failed to send SMS: %w", err)
 	}
 	defer resp.Body.Close()
-	j, _ := io.ReadAll(resp.Body)
-	log.Println(">>>>>>>>>>>>>>", string(j))
 	if resp.StatusCode != http.StatusCreated {
 		return fmt.Errorf("twilio API error: %d", resp.StatusCode)
 	}

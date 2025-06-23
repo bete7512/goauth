@@ -15,53 +15,54 @@ import (
 // HandleDeactivateUser handles user account deactivation
 func (h *AuthHandler) HandleDeactivateUser(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		utils.RespondWithError(w, http.StatusMethodNotAllowed, "Method not allowed", nil)
+		utils.RespondWithError(w, http.StatusMethodNotAllowed, "method not allowed", nil)
 		return
 	}
 
 	// Authenticate user
 	userID, err := h.authenticateRequest(r, h.Auth.Config.AuthConfig.Cookie.Name, h.Auth.Config.AuthConfig.JWT.Secret)
 	if err != nil {
-		utils.RespondWithError(w, http.StatusUnauthorized, "Unauthorized: "+err.Error(), nil)
+		utils.RespondWithError(w, http.StatusUnauthorized, "unauthorized: "+err.Error(), nil)
 		return
 	}
 
 	var req schemas.DeactivateUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondWithError(w, http.StatusBadRequest, "Invalid request body: "+err.Error(), nil)
+		utils.RespondWithError(w, http.StatusBadRequest, "invalid request body: "+err.Error(), nil)
 		return
 	}
 
 	// Get current user
-	user, err := h.Auth.Repository.GetUserRepository().GetUserByID(userID)
+	user, err := h.Auth.Repository.GetUserRepository().GetUserByID(r.Context(), userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			utils.RespondWithError(w, http.StatusBadRequest, "User not found", err)
+			utils.RespondWithError(w, http.StatusBadRequest, "user not found", err)
 			return
 		}
-		utils.RespondWithError(w, http.StatusBadRequest, "Internal server error", err)
+		utils.RespondWithError(w, http.StatusBadRequest, "internal server error", err)
 		return
 	}
 
 	// Verify password
 	err = h.Auth.TokenManager.ValidatePassword(user.Password, req.Password)
 	if err != nil {
-		utils.RespondWithError(w, http.StatusBadRequest, "Password is incorrect", err)
+		utils.RespondWithError(w, http.StatusBadRequest, "password is incorrect", err)
 		return
 	}
 
 	// Deactivate user
-	user.Active = false
-	err = h.Auth.Repository.GetUserRepository().UpdateUser(user)
+	active := false
+	user.Active = &active
+	err = h.Auth.Repository.GetUserRepository().UpdateUser(r.Context(), user)
 	if err != nil {
-		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to deactivate account: "+err.Error(), err)
+		utils.RespondWithError(w, http.StatusInternalServerError, "failed to deactivate account: "+err.Error(), err)
 		return
 	}
 
 	// Invalidate all refresh tokens
-	err = h.Auth.Repository.GetTokenRepository().InvalidateAllTokens(userID, models.RefreshToken)
+	err = h.Auth.Repository.GetTokenRepository().RevokeAllTokens(r.Context(), userID, models.RefreshToken)
 	if err != nil {
-		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to invalidate refresh tokens: "+err.Error(), err)
+		utils.RespondWithError(w, http.StatusInternalServerError, "failed to invalidate refresh tokens: "+err.Error(), err)
 		return
 	}
 	// Clear cookie
@@ -82,11 +83,11 @@ func (h *AuthHandler) HandleDeactivateUser(w http.ResponseWriter, r *http.Reques
 	// })
 
 	err = utils.RespondWithJSON(w, http.StatusOK, map[string]string{
-		"message": "Account deactivated successfully",
+		"message": "account deactivated successfully",
 	})
 
 	if err != nil {
-		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to send response", err)
+		utils.RespondWithError(w, http.StatusInternalServerError, "failed to send response", err)
 		return
 	}
 }

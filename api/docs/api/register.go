@@ -1,6 +1,5 @@
 package doc_api
 
-
 // RegisterPath returns the documentation for the register endpoint
 func RegisterPath() map[string]interface{} {
 	return map[string]interface{}{

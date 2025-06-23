@@ -160,13 +160,13 @@ func (g *GitHubOauth) Callback(w http.ResponseWriter, r *http.Request) {
 			}
 			return userInfo.Login
 		}(),
-		LastName:   "", // GitHub doesn't provide separated name fields
-		SignedUpVia:  "github",
-		ProviderId: &providerId,
-		Avatar:     &userInfo.AvatarURL,
+		LastName:    "", // GitHub doesn't provide separated name fields
+		SignedUpVia: "github",
+		ProviderId:  &providerId,
+		Avatar:      &userInfo.AvatarURL,
 	}
 
-	err = g.Auth.Repository.GetUserRepository().UpsertUserByEmail(&user)
+	err = g.Auth.Repository.GetUserRepository().UpsertUserByEmail(r.Context(), &user)
 	if err != nil {
 		utils.RespondWithError(
 			w,
@@ -190,7 +190,7 @@ func (g *GitHubOauth) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Save refresh token
-	err = g.Auth.Repository.GetTokenRepository().SaveToken(user.ID, refreshToken, models.RefreshToken, g.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
+	err = g.Auth.Repository.GetTokenRepository().SaveToken(r.Context(), user.ID, refreshToken, models.RefreshToken, g.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
 	if err != nil {
 		utils.RespondWithError(
 			w,

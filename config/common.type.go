@@ -23,4 +23,3 @@ type SenderType string
 
 // type RateLimiterStorageType string like redis, memory, database, etc.
 type RateLimiterStorageType string
-

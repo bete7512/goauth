@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -18,7 +19,7 @@ func NewUserRepository(db *gorm.DB) interfaces.UserRepository {
 	return &UserRepository{db: db}
 }
 
-func (u *UserRepository) GetAllUsers(filter interfaces.Filter) ([]*models.User, int64, error) {
+func (u *UserRepository) GetAllUsers(ctx context.Context, filter interfaces.Filter) ([]*models.User, int64, error) {
 	var users []*models.User
 	var total int64
 	var err error
@@ -51,7 +52,7 @@ func (u *UserRepository) GetAllUsers(filter interfaces.Filter) ([]*models.User, 
 	}
 	return users, total, nil
 }
-func (u *UserRepository) GetUserByEmail(email string) (*models.User, error) {
+func (u *UserRepository) GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
 	var user models.User
 
 	// Use FindOne instead of First to avoid the automatic error logging
@@ -67,7 +68,7 @@ func (u *UserRepository) GetUserByEmail(email string) (*models.User, error) {
 }
 
 // gorm always display error even if I hhandled error record not found and displays err with red line in my terminal
-func (u *UserRepository) GetUserByID(id string) (*models.User, error) {
+func (u *UserRepository) GetUserByID(ctx context.Context, id string) (*models.User, error) {
 	var user models.User
 	if err := u.db.Where("id = ?", id).First(&user).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -79,7 +80,7 @@ func (u *UserRepository) GetUserByID(id string) (*models.User, error) {
 }
 
 // GetUserByPhoneNumber implements interfaces.UserRepository.
-func (u *UserRepository) GetUserByPhoneNumber(phoneNumber string) (*models.User, error) {
+func (u *UserRepository) GetUserByPhoneNumber(ctx context.Context, phoneNumber string) (*models.User, error) {
 	var user models.User
 	if err := u.db.Where("phone_number = ?", phoneNumber).First(&user).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -90,21 +91,21 @@ func (u *UserRepository) GetUserByPhoneNumber(phoneNumber string) (*models.User,
 	return &user, nil
 }
 
-func (u *UserRepository) CreateUser(user *models.User) error {
+func (u *UserRepository) CreateUser(ctx context.Context, user *models.User) error {
 	user.ID = uuid.New().String()
 	if err := u.db.Create(user).Error; err != nil {
 		return fmt.Errorf("failed to create user: %w", err)
 	}
 	return nil
 }
-func (u *UserRepository) UpdateUser(user *models.User) error {
-	if err := u.db.Debug().Model(&models.User{}).Where("id = ?", user.ID).Updates(user).Error; err != nil {
+func (u *UserRepository) UpdateUser(ctx context.Context, user *models.User) error {
+	if err := u.db.Model(&models.User{}).Where("id = ?", user.ID).Updates(user).Error; err != nil {
 		return fmt.Errorf("failed to update user: %w", err)
 	}
 	return nil
 }
 
-func (u *UserRepository) UpsertUserByEmail(user *models.User) error {
+func (u *UserRepository) UpsertUserByEmail(ctx context.Context, user *models.User) error {
 	// Use a transaction for atomicity
 	tx := u.db.Begin()
 	defer func() {
@@ -132,7 +133,7 @@ func (u *UserRepository) UpsertUserByEmail(user *models.User) error {
 	return tx.Commit().Error
 }
 
-func (u *UserRepository) DeleteUser(user *models.User) error {
+func (u *UserRepository) DeleteUser(ctx context.Context, user *models.User) error {
 	if err := u.db.Delete(user).Error; err != nil {
 		return fmt.Errorf("failed to delete user: %w", err)
 	}

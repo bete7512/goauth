@@ -23,15 +23,7 @@ func NewAuthHandler(auth *config.Auth) *AuthHandler {
 func (h *AuthHandler) GetCoreRoutes() []RouteDefinition {
 	// Create a routes handler to access the route methods
 	routesHandler := &routes.AuthHandler{
-		Auth: &config.Auth{
-			Config:           h.Auth.Config,
-			Repository:       h.Auth.Repository,
-			HookManager:      h.Auth.HookManager,
-			RateLimiter:      h.Auth.RateLimiter,
-			RecaptchaManager: h.Auth.RecaptchaManager,
-			Logger:           h.Auth.Logger,
-			TokenManager:     h.Auth.TokenManager,
-		},
+		Auth: h.Auth,
 	}
 
 	return []RouteDefinition{
@@ -49,8 +41,10 @@ func (h *AuthHandler) GetCoreRoutes() []RouteDefinition {
 		{Name: config.RouteEnableTwoFactor, Method: http.MethodPost, Path: "/enable-two-factor", Handler: routesHandler.HandleEnableTwoFactor},
 		{Name: config.RouteVerifyTwoFactor, Method: http.MethodPost, Path: "/verify-two-factor", Handler: routesHandler.HandleVerifyTwoFactor},
 		{Name: config.RouteDisableTwoFactor, Method: http.MethodPost, Path: "/disable-two-factor", Handler: routesHandler.HandleDisableTwoFactor},
-		{Name: config.RouteVerifyEmail, Method: http.MethodPost, Path: "/verify-email", Handler: routesHandler.HandleVerifyEmail},
-		// {Name: config.RouteResendVerificationEmail, Method: http.MethodPost, Path: "/resend-verification-email", Handler: routesHandler.HandleResendVerificationEmail},
+		{Name: config.RouteSendEmailVerification, Method: http.MethodPost, Path: "/verification/email/send", Handler: routesHandler.HandleResendEmailVerification},
+		{Name: config.RouteSendPhoneVerification, Method: http.MethodPost, Path: "/verification/phone/send", Handler: routesHandler.HandleSendPhoneVerification},
+		{Name: config.RouteVerifyEmail, Method: http.MethodPost, Path: "/verification/email/verify", Handler: routesHandler.HandleVerifyEmail},
+		{Name: config.RouteVerifyPhone, Method: http.MethodPost, Path: "/verification/phone/verify", Handler: routesHandler.HandleVerifyPhone},
 	}
 }
 

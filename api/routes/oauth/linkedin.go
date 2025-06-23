@@ -174,7 +174,7 @@ func (l *LinkedInOauth) Callback(w http.ResponseWriter, r *http.Request) {
 		Avatar:      &avatarURL,
 	}
 
-	err = l.Auth.Repository.GetUserRepository().UpsertUserByEmail(&user)
+	err = l.Auth.Repository.GetUserRepository().UpsertUserByEmail(r.Context(), &user)
 	if err != nil {
 		utils.RespondWithError(
 			w,
@@ -198,7 +198,7 @@ func (l *LinkedInOauth) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Save refresh token
-	err = l.Auth.Repository.GetTokenRepository().SaveToken(user.ID, refreshToken, models.RefreshToken, l.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
+	err = l.Auth.Repository.GetTokenRepository().SaveToken(r.Context(), user.ID, refreshToken, models.RefreshToken, l.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
 	if err != nil {
 		utils.RespondWithError(
 			w,

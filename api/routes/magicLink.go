@@ -25,7 +25,7 @@ func (h *AuthHandler) SendMagicLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Check if user exists
-	user, err := h.Auth.Repository.GetUserRepository().GetUserByEmail(req.Email)
+	user, err := h.Auth.Repository.GetUserRepository().GetUserByEmail(r.Context(), req.Email)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusBadRequest, "User not found", err)
 		return
@@ -41,7 +41,7 @@ func (h *AuthHandler) SendMagicLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Save magic link token (valid for 10 minutes)
-	err = h.Auth.Repository.GetTokenRepository().SaveToken(user.ID, magicLinkToken, models.MakicLinkToken, 10*time.Minute)
+	err = h.Auth.Repository.GetTokenRepository().SaveToken(r.Context(), user.ID, magicLinkToken, models.MakicLinkToken, 10*time.Minute)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to save magic link token", err)
 		return
@@ -52,7 +52,7 @@ func (h *AuthHandler) SendMagicLink(w http.ResponseWriter, r *http.Request) {
 			h.Auth.Config.App.FrontendURL,
 			magicLinkToken,
 			user.Email)
-		err = h.Auth.Config.Email.Sender.CustomSender.SendMagicLink(*user, magicLinkURL)
+		err = h.Auth.Config.Email.Sender.CustomSender.SendMagicLinkEmail(r.Context(), *user, magicLinkURL)
 		if err != nil {
 			utils.RespondWithError(w, http.StatusInternalServerError, "Failed to send magic link email", err)
 			return
@@ -83,7 +83,7 @@ func (h *AuthHandler) HandleVerifyMagicLink(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	user, err := h.Auth.Repository.GetUserRepository().GetUserByEmail(req.Email)
+	user, err := h.Auth.Repository.GetUserRepository().GetUserByEmail(r.Context(), req.Email)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusBadRequest, "User not found", err)
 		return
@@ -114,7 +114,7 @@ func (h *AuthHandler) HandleVerifyMagicLink(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	// Save refresh token
-	err = h.Auth.Repository.GetTokenRepository().SaveToken(user.ID, refreshToken, models.RefreshToken, h.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
+	err = h.Auth.Repository.GetTokenRepository().SaveToken(r.Context(), user.ID, refreshToken, models.RefreshToken, h.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to save refresh token", err)
 		return

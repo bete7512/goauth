@@ -15,6 +15,10 @@ type AuthConfig struct {
 	// Policies
 	PasswordPolicy PasswordPolicy
 	Cookie         CookieConfig
+
+	// Email verification
+	BlockedEmailDomains []string
+	AllowedEmailDomains []string
 }
 
 type JWTConfig struct {
@@ -22,7 +26,6 @@ type JWTConfig struct {
 	AccessTokenTTL  time.Duration
 	RefreshTokenTTL time.Duration
 
-	
 	// Custom claims
 	EnableCustomClaims bool
 	ClaimsProvider     CustomJWTClaimsProvider

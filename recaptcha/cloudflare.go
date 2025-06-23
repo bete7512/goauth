@@ -27,7 +27,7 @@ func NewCloudflareVerifier(secret string, url string) config.CaptchaVerifier {
 	}
 }
 
-func (c *cloudflareVerifier) Verify(token string, remoteIP string) (bool, error) {
+func (c *cloudflareVerifier) Verify(ctx context.Context, token string, remoteIP string) (bool, error) {
 	data := map[string]string{
 		"secret":   c.Secret,
 		"response": token,
@@ -37,7 +37,7 @@ func (c *cloudflareVerifier) Verify(token string, remoteIP string) (bool, error)
 	var resp interface{}
 	client := external.NewAPIClient(utils.GetBaseURL(c.Url), nil)
 
-	err := client.Post(context.Background(), utils.GetEndpoint(c.Url), data, &resp)
+	err := client.Post(ctx, utils.GetEndpoint(c.Url), data, &resp)
 	if err != nil {
 		return false, err
 	}

@@ -22,7 +22,7 @@ func (h *AuthHandler) HandleGetUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get user
-	user, err := h.Auth.Repository.GetUserRepository().GetUserByID(userID)
+	user, err := h.Auth.Repository.GetUserRepository().GetUserByID(r.Context(), userID)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusBadRequest, "User not found", nil)
 		return

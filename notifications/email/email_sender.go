@@ -79,7 +79,7 @@ func NewEmailSender(conf config.Config) *EmailSender {
 	}
 }
 
-func (e *EmailSender) SendVerification(user models.User, redirectURL string) error {
+func (e *EmailSender) SendVerificationEmail(ctx context.Context, user models.User, redirectURL string) error {
 	data := EmailTemplateData{
 		LogoURL:      e.config.Branding.LogoURL,
 		CompanyName:  e.config.Branding.CompanyName,
@@ -91,10 +91,10 @@ func (e *EmailSender) SendVerification(user models.User, redirectURL string) err
 		Year:         time.Now().Year(),
 	}
 
-	return e.sendEmail(user.Email, "Verify Your Email", "verify_email", data)
+	return e.sendEmail(ctx, user.Email, "Verify Your Email", "verify_email", data)
 }
 
-func (e *EmailSender) SendWelcome(user models.User) error {
+func (e *EmailSender) SendWelcomeEmail(ctx context.Context, user models.User) error {
 	data := EmailTemplateData{
 		LogoURL:      e.config.Branding.LogoURL,
 		CompanyName:  e.config.Branding.CompanyName,
@@ -105,10 +105,10 @@ func (e *EmailSender) SendWelcome(user models.User) error {
 		Year:         time.Now().Year(),
 	}
 
-	return e.sendEmail(user.Email, "Welcome to "+e.config.Branding.CompanyName, "welcome", data)
+	return e.sendEmail(ctx, user.Email, "Welcome to "+e.config.Branding.CompanyName, "welcome", data)
 }
 
-func (e *EmailSender) SendPasswordReset(user models.User, redirectURL string) error {
+func (e *EmailSender) SendPasswordResetEmail(ctx context.Context, user models.User, redirectURL string) error {
 	data := EmailTemplateData{
 		LogoURL:      e.config.Branding.LogoURL,
 		CompanyName:  e.config.Branding.CompanyName,
@@ -120,10 +120,10 @@ func (e *EmailSender) SendPasswordReset(user models.User, redirectURL string) er
 		Year:         time.Now().Year(),
 	}
 
-	return e.sendEmail(user.Email, "Reset Your Password", "reset_password", data)
+	return e.sendEmail(ctx, user.Email, "Reset Your Password", "reset_password", data)
 }
 
-func (e *EmailSender) SendTwoFactorCode(user models.User, code string) error {
+func (e *EmailSender) SendTwoFactorCodeEmail(ctx context.Context, user models.User, code string) error {
 	data := EmailTemplateData{
 		LogoURL:      e.config.Branding.LogoURL,
 		CompanyName:  e.config.Branding.CompanyName,
@@ -135,10 +135,14 @@ func (e *EmailSender) SendTwoFactorCode(user models.User, code string) error {
 		Year:         time.Now().Year(),
 	}
 
-	return e.sendEmail(user.Email, "Your Two-Factor Code", "two_factor", data)
+	return e.sendEmail(ctx, user.Email, "Your Two-Factor Code", "two_factor", data)
 }
 
-func (e *EmailSender) SendMagicLink(user models.User, redirectURL string) error {
+func (e *EmailSender) SendTwoFactorEmail(ctx context.Context, user models.User, code string) error {
+	return e.SendTwoFactorCodeEmail(ctx, user, code)
+}
+
+func (e *EmailSender) SendMagicLinkEmail(ctx context.Context, user models.User, redirectURL string) error {
 	data := EmailTemplateData{
 		LogoURL:      e.config.Branding.LogoURL,
 		CompanyName:  e.config.Branding.CompanyName,
@@ -150,26 +154,26 @@ func (e *EmailSender) SendMagicLink(user models.User, redirectURL string) error 
 		Year:         time.Now().Year(),
 	}
 
-	return e.sendEmail(user.Email, "Your Magic Link", "magic_link", data)
+	return e.sendEmail(ctx, user.Email, "Your Magic Link", "magic_link", data)
 }
 
-func (e *EmailSender) sendEmail(to, subject, templateName string, data EmailTemplateData) error {
+func (e *EmailSender) sendEmail(ctx context.Context, to, subject, templateName string, data EmailTemplateData) error {
 	// Use Amazon SES if configured, otherwise use SendGrid as default
 	if e.config.Sender.Type == config.SES {
 		if e.sesClient != nil {
-			return e.sendViaSES(to, subject, templateName, data)
+			return e.sendViaSES(ctx, to, subject, templateName, data)
 		} else {
 			log.Println("SES client not available, falling back to SendGrid")
 		}
 	} else if e.config.Sender.Type == config.SendGrid && e.config.SendGrid.APIKey != "" {
-		return e.sendViaSendGrid(to, subject, templateName, data)
+		return e.sendViaSendGrid(ctx, to, subject, templateName, data)
 	} else {
 		return fmt.Errorf("neither SES nor SendGrid is properly configured")
 	}
 	return nil
 }
 
-func (e *EmailSender) sendViaSendGrid(to, subject, templateName string, data EmailTemplateData) error {
+func (e *EmailSender) sendViaSendGrid(ctx context.Context, to, subject, templateName string, data EmailTemplateData) error {
 	// Render template
 	var body bytes.Buffer
 	err := e.templates.ExecuteTemplate(&body, templateName+".html", data)
@@ -224,7 +228,7 @@ func (e *EmailSender) sendViaSendGrid(to, subject, templateName string, data Ema
 	return nil
 }
 
-func (e *EmailSender) sendViaSES(to, subject, templateName string, data EmailTemplateData) error {
+func (e *EmailSender) sendViaSES(ctx context.Context, to, subject, templateName string, data EmailTemplateData) error {
 	if e.sesClient == nil {
 		return fmt.Errorf("SES client not initialized")
 	}

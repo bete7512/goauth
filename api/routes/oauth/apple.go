@@ -186,13 +186,13 @@ func (a *AppleOauth) Callback(w http.ResponseWriter, r *http.Request) {
 			}
 			return userInfo.Email // Fallback to email if no name provided
 		}(),
-		LastName:   userInfo.Name.LastName,
-		SignedUpVia:  "apple",
-		ProviderId: &userInfo.ID,
-		Avatar:     nil, // Apple doesn't provide avatar
+		LastName:    userInfo.Name.LastName,
+		SignedUpVia: "apple",
+		ProviderId:  &userInfo.ID,
+		Avatar:      nil, // Apple doesn't provide avatar
 	}
 
-	err = a.Auth.Repository.GetUserRepository().UpsertUserByEmail(&user)
+	err = a.Auth.Repository.GetUserRepository().UpsertUserByEmail(r.Context(), &user)
 	if err != nil {
 		utils.RespondWithError(
 			w,
@@ -216,7 +216,7 @@ func (a *AppleOauth) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Save refresh token
-	err = a.Auth.Repository.GetTokenRepository().SaveToken(user.ID, refreshToken, models.RefreshToken, a.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
+	err = a.Auth.Repository.GetTokenRepository().SaveToken(r.Context(), user.ID, refreshToken, models.RefreshToken, a.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
 	if err != nil {
 		utils.RespondWithError(
 			w,

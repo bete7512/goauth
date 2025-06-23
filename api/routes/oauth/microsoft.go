@@ -229,7 +229,7 @@ func (m *MicrosoftOauth) Callback(w http.ResponseWriter, r *http.Request) {
 		Avatar:      nil, // Microsoft Graph API requires additional requests for photo
 	}
 
-	err = m.Auth.Repository.GetUserRepository().UpsertUserByEmail(&user)
+	err = m.Auth.Repository.GetUserRepository().UpsertUserByEmail(r.Context(), &user)
 	if err != nil {
 		utils.RespondWithError(
 			w,
@@ -253,7 +253,7 @@ func (m *MicrosoftOauth) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Save refresh token
-	err = m.Auth.Repository.GetTokenRepository().SaveToken(user.ID, refreshToken, models.RefreshToken, m.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
+	err = m.Auth.Repository.GetTokenRepository().SaveToken(r.Context(), user.ID, refreshToken, models.RefreshToken, m.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
 	if err != nil {
 		utils.RespondWithError(
 			w,
@@ -308,4 +308,3 @@ func (m *MicrosoftOauth) getUserInfo(accessToken string) (*MicrosoftUserInfo, er
 
 	return &userInfo, nil
 }
-

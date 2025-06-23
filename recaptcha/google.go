@@ -26,7 +26,7 @@ func NewGoogleVerifier(secret string, url string) config.CaptchaVerifier {
 	}
 }
 
-func (g *googleVerifier) Verify(token string, remoteIP string) (bool, error) {
+func (g *googleVerifier) Verify(ctx context.Context, token string, remoteIP string) (bool, error) {
 	data := map[string]string{
 		"secret":   g.Secret,
 		"response": token,

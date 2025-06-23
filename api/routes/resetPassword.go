@@ -11,13 +11,13 @@ import (
 // HandleResetPassword handles password reset
 func (h *AuthHandler) HandleResetPassword(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		utils.RespondWithError(w, http.StatusMethodNotAllowed, "Method not allowed", nil)
+		utils.RespondWithError(w, http.StatusMethodNotAllowed, "method not allowed", nil)
 		return
 	}
 
 	var req schemas.ResetPasswordRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondWithError(w, http.StatusBadRequest, "Invalid request body: "+err.Error(), nil)
+		utils.RespondWithError(w, http.StatusBadRequest, "invalid request body: "+err.Error(), nil)
 		return
 	}
 

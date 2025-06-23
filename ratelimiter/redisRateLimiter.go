@@ -137,4 +137,3 @@ func (r *RedisRateLimiter) Allow(key string, config config.LimiterConfig) bool {
 func (r *RedisRateLimiter) Close() error {
 	return r.client.Close()
 }
-

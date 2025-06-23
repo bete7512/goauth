@@ -17,7 +17,6 @@ type AuthAPI struct {
 func NewAuthAPI(auth *config.Auth) *AuthAPI {
 	return &AuthAPI{
 		handler: core.NewAuthHandler(auth),
-		
 	}
 }
 

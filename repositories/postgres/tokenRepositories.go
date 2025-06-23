@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -19,14 +20,15 @@ func NewTokenRepository(db *gorm.DB) *TokenRepository {
 }
 
 // SaveToken saves a token of any type
-func (t *TokenRepository) SaveToken(userID, token string, tokenType models.TokenType, expiry time.Duration) error {
+func (t *TokenRepository) SaveToken(ctx context.Context, userID, token string, tokenType models.TokenType, expiry time.Duration) error {
 	now := time.Now()
+	used := false
 	newToken := models.Token{
 		UserID:     userID,
 		TokenType:  tokenType,
 		TokenValue: token,
 		ExpiresAt:  now.Add(expiry),
-		Used:       false,
+		Used:       &used,
 		CreatedAt:  now,
 		UpdatedAt:  now,
 	}
@@ -34,60 +36,24 @@ func (t *TokenRepository) SaveToken(userID, token string, tokenType models.Token
 }
 
 // SaveTokenWithDeviceId saves a token of any type with a device ID
-func (t *TokenRepository) SaveTokenWithDeviceId(userID, token, deviceId string, tokenType models.TokenType, expiry time.Duration) error {
+func (t *TokenRepository) SaveTokenWithDeviceId(ctx context.Context, userID, token, deviceId string, tokenType models.TokenType, expiry time.Duration) error {
 	now := time.Now()
+	used := false
 	newToken := models.Token{
 		UserID:     userID,
 		TokenType:  tokenType,
 		TokenValue: token,
 		DeviceId:   deviceId,
 		ExpiresAt:  now.Add(expiry),
-		Used:       false,
+		Used:       &used,
 		CreatedAt:  now,
 		UpdatedAt:  now,
 	}
 	return t.Db.Create(&newToken).Error
 }
 
-// ValidateToken validates a token of any type
-func (t *TokenRepository) ValidateToken(token string, tokenType models.TokenType) (bool, *string, error) {
-	var tokenRecord models.Token
-
-	result := t.Db.Where(
-		"token_type = ? AND token_value = ? AND used = ? AND expires_at > ?",
-		tokenType, token, false, time.Now(),
-	).First(&tokenRecord)
-
-	if result.Error != nil {
-		if result.Error == gorm.ErrRecordNotFound {
-			return false, nil, nil
-		}
-		return false, nil, result.Error
-	}
-
-	return true, &tokenRecord.UserID, nil
-}
-
-// ValidateTokenWithUserID validates a token with a specific user ID
-func (t *TokenRepository) ValidateTokenWithUserID(userID, token string, tokenType models.TokenType) (bool, error) {
-	var tokenRecord models.Token
-
-	result := t.Db.Where(
-		"user_id = ? AND token_type = ? AND token_value = ? AND used = ? AND expires_at > ?",
-		userID, tokenType, token, false, time.Now(),
-	).First(&tokenRecord)
-
-	if result.Error != nil {
-		if result.Error == gorm.ErrRecordNotFound {
-			return false, nil
-		}
-		return false, result.Error
-	}
-
-	return true, nil
-}
-
-func (t *TokenRepository) GetTokenByUserID(userID string, tokenType models.TokenType) (*models.Token, error) {
+// GetActiveTokenByUserIdAndType implements interfaces.TokenRepository.
+func (t *TokenRepository) GetActiveTokenByUserIdAndType(ctx context.Context, userID string, tokenType models.TokenType) (*models.Token, error) {
 	var token models.Token
 	if err := t.Db.Where("user_id = ? AND token_type = ? AND used = ? AND expires_at > ?", userID, tokenType, false, time.Now()).First(&token).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -98,27 +64,29 @@ func (t *TokenRepository) GetTokenByUserID(userID string, tokenType models.Token
 	return &token, nil
 }
 
-
-// InvalidateToken invalidates a specific token
-func (t *TokenRepository) InvalidateToken(userID, token string, tokenType models.TokenType) error {
-	now := time.Now()
-	return t.Db.Model(&models.Token{}).
-		Where("user_id = ? AND token_type = ? AND token_value = ? AND used = ? AND expires_at > ?",
-			userID, tokenType, token, false, now).
-		Updates(map[string]interface{}{
-			"used":       true,
-			"updated_at": now,
-		}).Error
+// GetActiveTokenByUserIdTypeAndDeviceId implements interfaces.TokenRepository.
+func (t *TokenRepository) GetActiveTokenByUserIdTypeAndDeviceId(ctx context.Context, userID string, tokenType models.TokenType, deviceId string) (*models.Token, error) {
+	var token models.Token
+	if err := t.Db.Where("user_id = ? AND token_type = ? AND device_id = ? AND used = ? AND expires_at > ?", userID, tokenType, deviceId, false, time.Now()).First(&token).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &token, nil
 }
 
-// InvalidateAllTokens invalidates all tokens of a specific type for a user
-func (t *TokenRepository) InvalidateAllTokens(userID string, tokenType models.TokenType) error {
-	now := time.Now()
-	return t.Db.Model(&models.Token{}).
-		Where("user_id = ? AND token_type = ? AND used = ? AND expires_at > ?",
-			userID, tokenType, false, now).
-		Updates(models.Token{
-			Used:      true,
-			UpdatedAt: now,
-		}).Error
+// RevokeToken implements interfaces.TokenRepository.
+func (t *TokenRepository) RevokeToken(ctx context.Context, tokenId string) error {
+	return t.Db.Model(&models.Token{}).Where("id = ?", tokenId).Update("used", true).Error
+}
+
+// RevokeAllTokens implements interfaces.TokenRepository.
+func (t *TokenRepository) RevokeAllTokens(ctx context.Context, userID string, tokenType models.TokenType) error {
+	return t.Db.Model(&models.Token{}).Where("user_id = ? AND token_type = ?", userID, tokenType).Update("used", true).Error
+}
+
+// CleanExpiredTokens implements interfaces.TokenRepository.
+func (t *TokenRepository) CleanExpiredTokens(ctx context.Context, tokenType models.TokenType) error {
+	return t.Db.Model(&models.Token{}).Where("token_type = ? AND expires_at < ?", tokenType, time.Now()).Update("used", true).Error
 }

@@ -1,5 +1,4 @@
-package  definitions 
-
+package definitions
 
 // UserDefinition returns the User schema definition
 func UserDefinition() map[string]interface{} {

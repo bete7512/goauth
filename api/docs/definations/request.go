@@ -26,6 +26,11 @@ func RegisterRequestDefinition() map[string]interface{} {
 				"format":  "password",
 				"example": "Password123!",
 			},
+			"recaptcha_token": map[string]interface{}{
+				"type":     "string",
+				"example":  "03AFcWeA...",
+				"required": false,
+			},
 		},
 	}
 }
@@ -183,6 +188,11 @@ func VerifyEmailRequestDefinition() map[string]interface{} {
 				"type":    "string",
 				"example": "user@example.com",
 			},
+			"recaptcha_token": map[string]interface{}{
+				"type":     "string",
+				"example":  "03AFcWeA...",
+				"required": false,
+			},
 		},
 	}
 }
@@ -195,6 +205,49 @@ func ResendVerificationEmailRequestDefinition() map[string]interface{} {
 				"type":    "string",
 				"example": "user@example.com",
 			},
+			"recaptcha_token": map[string]interface{}{
+				"type":     "string",
+				"example":  "03AFcWeA...",
+				"required": false,
+			},
 		},
+	}
+}
+
+func SendPhoneVerificationRequestDefinition() map[string]interface{} {
+	return map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"phone_number": map[string]interface{}{
+				"type":    "string",
+				"example": "+1234567890",
+			},
+			"recaptcha_token": map[string]interface{}{
+				"type":    "string",
+				"example": "03AFcWeA...",
+			},
+		},
+		"required": []string{"phone_number"},
+	}
+}
+
+func VerifyPhoneRequestDefinition() map[string]interface{} {
+	return map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"code": map[string]interface{}{
+				"type":    "string",
+				"example": "123456",
+			},
+			"phone_number": map[string]interface{}{
+				"type":    "string",
+				"example": "+1234567890",
+			},
+			"recaptcha_token": map[string]interface{}{
+				"type":    "string",
+				"example": "03AFcWeA...",
+			},
+		},
+		"required": []string{"code", "phone_number"},
 	}
 }

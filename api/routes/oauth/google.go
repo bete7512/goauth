@@ -144,14 +144,14 @@ func (g *GoogleOauth) Callback(w http.ResponseWriter, r *http.Request) {
 			}
 			return userInfo.Name
 		}(),
-		LastName:   userInfo.FamilyName,
-		SignedUpVia:  "google",
-		ProviderId: &userInfo.ID,
-		Avatar:     &userInfo.Picture,
+		LastName:    userInfo.FamilyName,
+		SignedUpVia: "google",
+		ProviderId:  &userInfo.ID,
+		Avatar:      &userInfo.Picture,
 	}
 	// TODO:
 
-	err = g.Auth.Repository.GetUserRepository().UpsertUserByEmail(&user)
+	err = g.Auth.Repository.GetUserRepository().UpsertUserByEmail(r.Context(), &user)
 	if err != nil {
 		utils.RespondWithError(
 			w,
@@ -173,7 +173,7 @@ func (g *GoogleOauth) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Save refresh token
-	err = g.Auth.Repository.GetTokenRepository().SaveToken(user.ID, refreshToken, models.RefreshToken, g.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
+	err = g.Auth.Repository.GetTokenRepository().SaveToken(r.Context(), user.ID, refreshToken, models.RefreshToken, g.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
 	if err != nil {
 		utils.RespondWithError(
 			w,

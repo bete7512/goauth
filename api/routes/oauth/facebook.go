@@ -150,7 +150,7 @@ func (f *FacebookOauth) Callback(w http.ResponseWriter, r *http.Request) {
 		Avatar:      &avatarURL,
 	}
 
-	err = f.Auth.Repository.GetUserRepository().UpsertUserByEmail(&user)
+	err = f.Auth.Repository.GetUserRepository().UpsertUserByEmail(r.Context(), &user)
 	if err != nil {
 		utils.RespondWithError(
 			w,
@@ -174,7 +174,7 @@ func (f *FacebookOauth) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Save refresh token
-	err = f.Auth.Repository.GetTokenRepository().SaveToken(user.ID, refreshToken, models.RefreshToken, f.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
+	err = f.Auth.Repository.GetTokenRepository().SaveToken(r.Context(), user.ID, refreshToken, models.RefreshToken, f.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
 	if err != nil {
 		utils.RespondWithError(
 			w,

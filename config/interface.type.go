@@ -1,6 +1,7 @@
 package config
 
 import (
+	"context"
 	"time"
 
 	"github.com/bete7512/goauth/models"
@@ -24,20 +25,10 @@ type TokenManagerInterface interface {
 	GenerateBase64Token(length int) (string, error)
 }
 
-type EmailSender interface {
-	SendVerification(user models.User, redirectUrl string) error
-	SendPasswordReset(user models.User, redirectUrl string) error
-	SendTwoFactorCode(user models.User, code string) error
-	SendMagicLink(user models.User, redirectUrl string) error
-}
-
-type SMSSender interface {
-	SendTwoFactorCode(user models.User, code string) error
-}
 type RateLimiter interface {
 	Allow(key string, config LimiterConfig) bool
 	Close() error
 }
 type CaptchaVerifier interface {
-	Verify(token string, remoteIP string) (bool, error)
+	Verify(ctx context.Context, token string, remoteIP string) (bool, error)
 }

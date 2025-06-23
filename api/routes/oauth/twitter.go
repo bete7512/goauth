@@ -210,7 +210,7 @@ func (t *TwitterOauth) Callback(w http.ResponseWriter, r *http.Request) {
 		// This would need additional handling on the frontend
 	}
 
-	err = t.Auth.Repository.GetUserRepository().UpsertUserByEmail(&user)
+	err = t.Auth.Repository.GetUserRepository().UpsertUserByEmail(r.Context(), &user)
 	if err != nil {
 		utils.RespondWithError(
 			w,
@@ -234,7 +234,7 @@ func (t *TwitterOauth) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Save refresh token
-	err = t.Auth.Repository.GetTokenRepository().SaveToken(user.ID, refreshToken, models.RefreshToken, t.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
+	err = t.Auth.Repository.GetTokenRepository().SaveToken(r.Context(), user.ID, refreshToken, models.RefreshToken, t.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
 	if err != nil {
 		utils.RespondWithError(
 			w,
