@@ -18,7 +18,7 @@ import (
 )
 
 // HandleResendEmailVerification handles resending email verification with enhanced security
-func (h *AuthHandler) HandleResendEmailVerification(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) HandleSendEmailVerification(w http.ResponseWriter, r *http.Request) {
 	// Set security headers
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
@@ -48,7 +48,7 @@ func (h *AuthHandler) HandleResendEmailVerification(w http.ResponseWriter, r *ht
 	// }
 
 	// Parse request with hook support
-	req, rawData, err := h.parseResendEmailVerificationRequest(r)
+	req, rawData, err := h.parseSendEmailVerificationRequest(r)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusBadRequest, err.Error(), err)
 		return
@@ -138,7 +138,7 @@ func (h *AuthHandler) HandleResendEmailVerification(w http.ResponseWriter, r *ht
 }
 
 // parseResendVerificationRequest parses the request with hook support
-func (h *AuthHandler) parseResendEmailVerificationRequest(r *http.Request) (*schemas.SendVerificationEmailRequest, map[string]interface{}, error) {
+func (h *AuthHandler) parseSendEmailVerificationRequest(r *http.Request) (*schemas.SendVerificationEmailRequest, map[string]interface{}, error) {
 	var req schemas.SendVerificationEmailRequest
 	var rawData map[string]interface{}
 

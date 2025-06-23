@@ -1,140 +1,132 @@
 package frameworks
 
-import (
-	"bytes"
-	"net/http"
+// // FiberAdapter adapts the core authentication routes to the Fiber framework
+// type FiberAdapter struct {
+// 	handler *core.AuthHandler
+// }
 
-	"github.com/bete7512/goauth/api/core"
-	"github.com/gofiber/fiber/v2"
-)
+// // NewFiberAdapter creates a new Fiber adapter
+// func NewFiberAdapter(handler *core.AuthHandler) *FiberAdapter {
+// 	return &FiberAdapter{handler: handler}
+// }
 
-// FiberAdapter adapts the core authentication routes to the Fiber framework
-type FiberAdapter struct {
-	handler *core.AuthHandler
-}
+// // SetupRoutes registers all authentication routes with Fiber
+// func (a *FiberAdapter) SetupRoutes(router interface{}) error {
+// 	fiberApp, ok := router.(*fiber.App)
+// 	if !ok {
+// 		return &InvalidRouterError{Expected: "fiber.App", Got: router}
+// 	}
 
-// NewFiberAdapter creates a new Fiber adapter
-func NewFiberAdapter(handler *core.AuthHandler) *FiberAdapter {
-	return &FiberAdapter{handler: handler}
-}
+// 	// Setup Swagger if enabled
+// 	if a.handler.Auth.Config.App.Swagger.Enable {
+// 		// TODO: Add Swagger setup for Fiber
+// 	}
 
-// SetupRoutes registers all authentication routes with Fiber
-func (a *FiberAdapter) SetupRoutes(router interface{}) error {
-	fiberApp, ok := router.(*fiber.App)
-	if !ok {
-		return &InvalidRouterError{Expected: "fiber.App", Got: router}
-	}
+// 	// Get all routes
+// 	allRoutes := a.handler.GetAllRoutes()
 
-	// Setup Swagger if enabled
-	if a.handler.Auth.Config.App.Swagger.Enable {
-		// TODO: Add Swagger setup for Fiber
-	}
+// 	// Create a group for the auth base path
+// 	authGroup := fiberApp.Group(a.handler.Auth.Config.App.BasePath)
+// 	{
+// 		for _, route := range allRoutes {
+// 			// Build the middleware chain
+// 			chainedHandler := a.handler.BuildChain(route.Name, http.HandlerFunc(route.Handler))
 
-	// Get all routes
-	allRoutes := a.handler.GetAllRoutes()
+// 			// Adapt the http.Handler to Fiber
+// 			fiberHandler := a.adaptToFiber(chainedHandler)
 
-	// Create a group for the auth base path
-	authGroup := fiberApp.Group(a.handler.Auth.Config.App.BasePath)
-	{
-		for _, route := range allRoutes {
-			// Build the middleware chain
-			chainedHandler := a.handler.BuildChain(route.Name, http.HandlerFunc(route.Handler))
+// 			// Register the route using the correct Fiber method
+// 			switch route.Method {
+// 			case http.MethodGet:
+// 				authGroup.Get(route.Path, fiberHandler)
+// 			case http.MethodPost:
+// 				authGroup.Post(route.Path, fiberHandler)
+// 			case http.MethodPut:
+// 				authGroup.Put(route.Path, fiberHandler)
+// 			case http.MethodDelete:
+// 				authGroup.Delete(route.Path, fiberHandler)
+// 			case http.MethodPatch:
+// 				authGroup.Patch(route.Path, fiberHandler)
+// 			default:
+// 				authGroup.All(route.Path, fiberHandler)
+// 			}
+// 		}
+// 	}
 
-			// Adapt the http.Handler to Fiber
-			fiberHandler := a.adaptToFiber(chainedHandler)
+// 	return nil
+// }
 
-			// Register the route using the correct Fiber method
-			switch route.Method {
-			case http.MethodGet:
-				authGroup.Get(route.Path, fiberHandler)
-			case http.MethodPost:
-				authGroup.Post(route.Path, fiberHandler)
-			case http.MethodPut:
-				authGroup.Put(route.Path, fiberHandler)
-			case http.MethodDelete:
-				authGroup.Delete(route.Path, fiberHandler)
-			case http.MethodPatch:
-				authGroup.Patch(route.Path, fiberHandler)
-			default:
-				authGroup.All(route.Path, fiberHandler)
-			}
-		}
-	}
+// // GetMiddleware returns Fiber-specific middleware
+// func (a *FiberAdapter) GetMiddleware() interface{} {
+// 	return func(c *fiber.Ctx) error {
+// 		// Global middleware for Fiber
+// 		return c.Next()
+// 	}
+// }
 
-	return nil
-}
+// // GetFrameworkType returns the framework type
+// func (a *FiberAdapter) GetFrameworkType() core.FrameworkType {
+// 	return core.FrameworkFiber
+// }
 
-// GetMiddleware returns Fiber-specific middleware
-func (a *FiberAdapter) GetMiddleware() interface{} {
-	return func(c *fiber.Ctx) error {
-		// Global middleware for Fiber
-		return c.Next()
-	}
-}
+// // adaptToFiber converts an http.Handler to a fiber.Handler
+// func (a *FiberAdapter) adaptToFiber(h http.Handler) fiber.Handler {
+// 	return func(c *fiber.Ctx) error {
+// 		// Read the request body
+// 		body := c.Body()
 
-// GetFrameworkType returns the framework type
-func (a *FiberAdapter) GetFrameworkType() core.FrameworkType {
-	return core.FrameworkFiber
-}
+// 		// Create a custom request/response adapter for Fiber
+// 		adapter := &fiberResponseWriter{
+// 			ctx: c,
+// 		}
 
-// adaptToFiber converts an http.Handler to a fiber.Handler
-func (a *FiberAdapter) adaptToFiber(h http.Handler) fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		// Read the request body
-		body := c.Body()
+// 		// Convert fasthttp request to http.Request
+// 		httpReq, err := http.NewRequest(
+// 			string(c.Method()),
+// 			c.OriginalURL(),
+// 			bytes.NewReader(body), // ✅ Include the actual body
+// 		)
+// 		if err != nil {
+// 			return err
+// 		}
 
-		// Create a custom request/response adapter for Fiber
-		adapter := &fiberResponseWriter{
-			ctx: c,
-		}
+// 		// Copy headers
+// 		c.Request().Header.VisitAll(func(key, value []byte) {
+// 			httpReq.Header.Set(string(key), string(value))
+// 		})
 
-		// Convert fasthttp request to http.Request
-		httpReq, err := http.NewRequest(
-			string(c.Method()),
-			c.OriginalURL(),
-			bytes.NewReader(body), // ✅ Include the actual body
-		)
-		if err != nil {
-			return err
-		}
+// 		// Copy query parameters
+// 		httpReq.URL.RawQuery = string(c.Request().URI().QueryString())
 
-		// Copy headers
-		c.Request().Header.VisitAll(func(key, value []byte) {
-			httpReq.Header.Set(string(key), string(value))
-		})
+// 		// Set content length
+// 		httpReq.ContentLength = int64(len(body))
 
-		// Copy query parameters
-		httpReq.URL.RawQuery = string(c.Request().URI().QueryString())
+// 		// Set remote address
+// 		httpReq.RemoteAddr = c.IP()
 
-		// Set content length
-		httpReq.ContentLength = int64(len(body))
+// 		h.ServeHTTP(adapter, httpReq)
+// 		return nil
+// 	}
+// }
 
-		// Set remote address
-		httpReq.RemoteAddr = c.IP()
+// // fiberResponseWriter adapts Fiber's context to http.ResponseWriter interface
+// type fiberResponseWriter struct {
+// 	ctx *fiber.Ctx
+// }
 
-		h.ServeHTTP(adapter, httpReq)
-		return nil
-	}
-}
+// func (w *fiberResponseWriter) Header() http.Header {
+// 	// Return a header map that can be modified
+// 	headers := make(http.Header)
+// 	w.ctx.Context().Request.Header.VisitAll(func(key, value []byte) {
+// 		headers.Set(string(key), string(value))
+// 	})
+// 	return headers
+// }
 
-// fiberResponseWriter adapts Fiber's context to http.ResponseWriter interface
-type fiberResponseWriter struct {
-	ctx *fiber.Ctx
-}
+// func (w *fiberResponseWriter) Write(data []byte) (int, error) {
+// 	return w.ctx.Write(data)
+// }
 
-func (w *fiberResponseWriter) Header() http.Header {
-	// Return a header map that can be modified
-	headers := make(http.Header)
-	w.ctx.Context().Request.Header.VisitAll(func(key, value []byte) {
-		headers.Set(string(key), string(value))
-	})
-	return headers
-}
-
-func (w *fiberResponseWriter) Write(data []byte) (int, error) {
-	return w.ctx.Write(data)
-}
-
-func (w *fiberResponseWriter) WriteHeader(statusCode int) {
-	w.ctx.Status(statusCode)
-}
+// func (w *fiberResponseWriter) WriteHeader(statusCode int) {
+// 	w.ctx.Status(statusCode)
+// }

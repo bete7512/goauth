@@ -18,25 +18,26 @@ const (
 	FiberServer      ServerType = "fiber"
 )
 const (
-	RouteRegister                = "register"
-	RouteLogin                   = "login"
-	RouteLogout                  = "logout"
-	RouteRefreshToken            = "refresh-token"
-	RouteForgotPassword          = "forgot-password"
-	RouteResetPassword           = "reset-password"
-	RouteUpdateProfile           = "update-profile"
-	RouteDeactivateUser          = "deactivate-user"
-	RouteGetMe                   = "me"
-	RouteEnableTwoFactor         = "enable-two-factor"
-	RouteVerifyTwoFactor         = "verify-two-factor"
-	RouteDisableTwoFactor        = "disable-two-factor"
-	RouteVerifyEmail             = "verify-email"
-	RouteVerifyPhone             = "verify-phone"
-	RouteResendVerificationEmail = "resend-verification-email"
-	RouteMagicLink               = "magic-link"
-	RouteMagicLinkLogin          = "magic-link-login"
-	RouteSendEmailVerification   = "send-email-verification"
-	RouteSendPhoneVerification   = "send-phone-verification"
+	RouteRegister                 = "register"
+	RouteLogin                    = "login"
+	RouteLogout                   = "logout"
+	RouteRefreshToken             = "refresh-token"
+	RouteForgotPassword           = "forgot-password"
+	RouteResetPassword            = "reset-password"
+	RouteUpdateProfile            = "update-profile"
+	RouteDeactivateUser           = "deactivate-user"
+	RouteGetMe                    = "me"
+	RouteEnableTwoFactor          = "enable-two-factor"
+	RouteVerifyTwoFactor          = "verify-two-factor"
+	RouteDisableTwoFactor         = "disable-two-factor"
+	RouteSendMagicLink            = "send-magic-link"
+	RouteVerifyMagicLink          = "verify-magic-link"
+	RouteSendEmailVerification    = "send-email-verification"
+	RouteSendPhoneVerification    = "send-phone-verification"
+	RouteVerifyEmail              = "verify-email"
+	RouteVerifyPhone              = "verify-phone"
+	RouteSendActionConfirmation   = "send-action-confirmation"
+	RouteVerifyActionConfirmation = "verify-action-confirmation"
 )
 
 const (
@@ -68,6 +69,8 @@ const (
 const (
 	ResponseDataKey contextKey = "response_data"
 	RequestDataKey  contextKey = "request_data"
+	UserIDKey       contextKey = "user_id"
+	IsAdminKey      contextKey = "is_admin"
 )
 
 const (

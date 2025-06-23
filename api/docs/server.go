@@ -2,6 +2,7 @@ package docs
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"path"
 	"strings"
@@ -150,24 +151,26 @@ func (h *SwaggerHandler) serveSwaggerUI(w http.ResponseWriter, r *http.Request) 
 }
 
 // RegisterRoutes registers Swagger documentation routes for standard net/http
+// In your docs package
 func RegisterRoutes(mux *http.ServeMux, info SwaggerInfo) {
 	handler := NewSwaggerHandler(info)
 
-	// Register the handler for various paths
+	// Clean paths
 	basePath := strings.TrimSuffix(info.BasePath, "/")
-	docPath := info.DocPath
-
-	// Root paths
-	// Main documentation paths
-	mux.Handle(path.Join(basePath, docPath)+"/", handler)
-	// mux.Handle(path.Join(basePath, docPath), handler)
-	// if basePath != "" {
-	// 	mux.Handle(basePath+"/", handler)
-	// 	mux.Handle(basePath, handler)
-	// }
-
-	// JSON specification path
-	mux.Handle(path.Join(basePath, swaggerJSONPath), handler)
+	docPath := strings.Trim(info.DocPath, "/")
+	
+	// Register multiple path patterns to handle different request patterns
+	patterns := []string{
+		basePath + "/" + docPath + "/",           // /auth/docs/
+		basePath + "/" + docPath,                 // /auth/docs
+		basePath + "/" + docPath + "/swagger.json", // /auth/docs/swagger.json
+		basePath + "/swagger.json",               // /auth/swagger.json (fallback)
+	}
+	
+	for _, pattern := range patterns {
+		log.Printf("Registering Swagger route: %s", pattern)
+		mux.Handle(pattern, handler)
+	}
 }
 
 // RegisterGinRoutes registers Swagger documentation routes for Gin

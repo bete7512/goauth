@@ -11,6 +11,7 @@ import (
 type TokenType string
 
 type TwoFactorMethod string
+type ActionType string
 
 const (
 	TwoFactorMethodEmail TwoFactorMethod = "email"
@@ -19,12 +20,22 @@ const (
 	TwoFactorMethodPush  TwoFactorMethod = "push"
 )
 const (
-	RefreshToken           TokenType = "refresh"
-	EmailVerificationToken TokenType = "email_verification"
-	PhoneVerificationToken TokenType = "phone_verification"
-	PasswordResetToken     TokenType = "password_reset"
-	TwoFactorCode          TokenType = "two_factor"
-	MakicLinkToken         TokenType = "magic_link"
+	RefreshToken            TokenType = "refresh"
+	EmailVerificationToken  TokenType = "email-verification"
+	PhoneVerificationToken  TokenType = "phone-verification"
+	PasswordResetToken      TokenType = "password-reset"
+	TwoFactorCode           TokenType = "two-factor"
+	MakicLinkToken          TokenType = "magic-link"
+	ActionConfirmationToken TokenType = "action-confirmation"
+)
+const (
+	ActionTypeChangePhone       ActionType = "change-phone"
+	ActionTypeChangeEmail       ActionType = "change-email"
+	ActionTypeDisable2FA        ActionType = "disable-2fa"
+	ActionTypeEnable2FA         ActionType = "enable-2fa"
+	ActionTypeChangePassword    ActionType = "change-password"
+	ActionTypeDeleteAccount     ActionType = "delete-account"
+	ActionTypeDeactivateAccount ActionType = "deactivate-account"
 )
 
 type User struct {
@@ -52,6 +63,7 @@ type User struct {
 	SignedUpVia string         `json:"signed_up_via" gorm:"default:email"`
 	UpdatedAt   time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
 	LastLoginAt *time.Time     `json:"last_login_at,omitempty"`
+	IsDeleted   *bool          `json:"is_deleted" gorm:"default:false;not null"`
 	DeletedAt   gorm.DeletedAt `json:"-" gorm:"index"`
 }
 type Token struct {
@@ -59,6 +71,7 @@ type Token struct {
 	UserID     string         `gorm:"not null"`
 	TokenType  TokenType      `gorm:"not null"`
 	TokenValue string         `gorm:"not null"`
+	ActionType string         `gorm:"not null;default:''"` // e.g. "change_email", "disable_2fa"
 	DeviceId   string         `gorm:"default:null"`
 	ExpiresAt  time.Time      `gorm:"not null"`
 	Used       *bool          `gorm:"default:false;not null"`

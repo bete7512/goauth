@@ -1,90 +1,82 @@
 package frameworks
 
-import (
-	"net/http"
+// // GinAdapter adapts the core authentication routes to the Gin framework
+// type GinAdapter struct {
+// 	handler *core.AuthHandler
+// }
 
-	"github.com/bete7512/goauth/api/core"
-	"github.com/bete7512/goauth/api/docs"
-	"github.com/gin-gonic/gin"
-)
+// // NewGinAdapter creates a new Gin adapter
+// func NewGinAdapter(handler *core.AuthHandler) *GinAdapter {
+// 	return &GinAdapter{handler: handler}
+// }
 
-// GinAdapter adapts the core authentication routes to the Gin framework
-type GinAdapter struct {
-	handler *core.AuthHandler
-}
+// // SetupRoutes registers all authentication routes with Gin
+// func (a *GinAdapter) SetupRoutes(router interface{}) error {
+// 	ginEngine, ok := router.(*gin.Engine)
+// 	if !ok {
+// 		return &InvalidRouterError{Expected: "gin.Engine", Got: router}
+// 	}
 
-// NewGinAdapter creates a new Gin adapter
-func NewGinAdapter(handler *core.AuthHandler) *GinAdapter {
-	return &GinAdapter{handler: handler}
-}
+// 	// Setup Swagger if enabled
+// 	if a.handler.Auth.Config.App.Swagger.Enable {
+// 		docs.RegisterGinRoutes(ginEngine, docs.SwaggerInfo{
+// 			Title:       a.handler.Auth.Config.App.Swagger.Title,
+// 			Description: a.handler.Auth.Config.App.Swagger.Description,
+// 			Version:     a.handler.Auth.Config.App.Swagger.Version,
+// 			Host:        a.handler.Auth.Config.App.Swagger.Host,
+// 			BasePath:    a.handler.Auth.Config.App.BasePath,
+// 			DocPath:     a.handler.Auth.Config.App.Swagger.DocPath,
+// 			Schemes:     []string{"http", "https"},
+// 		})
+// 	}
 
-// SetupRoutes registers all authentication routes with Gin
-func (a *GinAdapter) SetupRoutes(router interface{}) error {
-	ginEngine, ok := router.(*gin.Engine)
-	if !ok {
-		return &InvalidRouterError{Expected: "gin.Engine", Got: router}
-	}
+// 	// Get all routes
+// 	allRoutes := a.handler.GetAllRoutes()
 
-	// Setup Swagger if enabled
-	if a.handler.Auth.Config.App.Swagger.Enable {
-		docs.RegisterGinRoutes(ginEngine, docs.SwaggerInfo{
-			Title:       a.handler.Auth.Config.App.Swagger.Title,
-			Description: a.handler.Auth.Config.App.Swagger.Description,
-			Version:     a.handler.Auth.Config.App.Swagger.Version,
-			Host:        a.handler.Auth.Config.App.Swagger.Host,
-			BasePath:    a.handler.Auth.Config.App.BasePath,
-			DocPath:     a.handler.Auth.Config.App.Swagger.DocPath,
-			Schemes:     []string{"http", "https"},
-		})
-	}
+// 	// Create a group for the auth base path
+// 	authGroup := ginEngine.Group(a.handler.Auth.Config.App.BasePath)
+// 	{
+// 		for _, route := range allRoutes {
+// 			// Build the middleware chain
+// 			chainedHandler := a.handler.BuildChain(route.Name, http.HandlerFunc(route.Handler))
 
-	// Get all routes
-	allRoutes := a.handler.GetAllRoutes()
+// 			// Adapt the http.Handler to Gin
+// 			ginHandler := a.adaptToGin(chainedHandler)
 
-	// Create a group for the auth base path
-	authGroup := ginEngine.Group(a.handler.Auth.Config.App.BasePath)
-	{
-		for _, route := range allRoutes {
-			// Build the middleware chain
-			chainedHandler := a.handler.BuildChain(route.Name, http.HandlerFunc(route.Handler))
+// 			// Register the route
+// 			authGroup.Handle(route.Method, route.Path, ginHandler)
+// 		}
+// 	}
 
-			// Adapt the http.Handler to Gin
-			ginHandler := a.adaptToGin(chainedHandler)
+// 	return nil
+// }
 
-			// Register the route
-			authGroup.Handle(route.Method, route.Path, ginHandler)
-		}
-	}
+// // GetMiddleware returns Gin-specific middleware
+// func (a *GinAdapter) GetMiddleware() interface{} {
+// 	return func(c *gin.Context) {
+// 		// Global middleware for Gin
+// 		c.Next()
+// 	}
+// }
 
-	return nil
-}
+// // GetFrameworkType returns the framework type
+// func (a *GinAdapter) GetFrameworkType() core.FrameworkType {
+// 	return core.FrameworkGin
+// }
 
-// GetMiddleware returns Gin-specific middleware
-func (a *GinAdapter) GetMiddleware() interface{} {
-	return func(c *gin.Context) {
-		// Global middleware for Gin
-		c.Next()
-	}
-}
+// // adaptToGin converts an http.Handler to a gin.HandlerFunc
+// func (a *GinAdapter) adaptToGin(h http.Handler) gin.HandlerFunc {
+// 	return func(c *gin.Context) {
+// 		h.ServeHTTP(c.Writer, c.Request)
+// 	}
+// }
 
-// GetFrameworkType returns the framework type
-func (a *GinAdapter) GetFrameworkType() core.FrameworkType {
-	return core.FrameworkGin
-}
+// // InvalidRouterError represents an error when the wrong router type is provided
+// type InvalidRouterError struct {
+// 	Expected string
+// 	Got      interface{}
+// }
 
-// adaptToGin converts an http.Handler to a gin.HandlerFunc
-func (a *GinAdapter) adaptToGin(h http.Handler) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		h.ServeHTTP(c.Writer, c.Request)
-	}
-}
-
-// InvalidRouterError represents an error when the wrong router type is provided
-type InvalidRouterError struct {
-	Expected string
-	Got      interface{}
-}
-
-func (e *InvalidRouterError) Error() string {
-	return "invalid router type: expected " + e.Expected + ", got " + string(rune(0))
-}
+// func (e *InvalidRouterError) Error() string {
+// 	return "invalid router type: expected " + e.Expected + ", got " + string(rune(0))
+// }

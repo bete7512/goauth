@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/alitto/pond/v2"
-	"github.com/bete7512/goauth/api"
+	"github.com/bete7512/goauth/api/core"
 	"github.com/bete7512/goauth/config"
 	"github.com/bete7512/goauth/database"
 	"github.com/bete7512/goauth/hooks"
@@ -136,20 +136,23 @@ func (b *Builder) Build() (*AuthService, error) {
 	rateLimiter := ratelimiter.NewRateLimiter(b.Config)
 	tokenManager := tokenManager.NewTokenManager(b.Config)
 	authService := &AuthService{
-		Auth: config.Auth{
-			Config:           &b.Config,
-			Repository:       b.repoFactory,
-			HookManager:      hooks.NewHookManager(),
-			RateLimiter:      &rateLimiter,
-			RecaptchaManager: b.captchaVerifier,
-			Logger:           loggerInstance,
-			TokenManager:     tokenManager,
-			WorkerPool:       *b.Config.WorkerPool,
+		AuthService: &core.AuthService{
+			Config: &b.Config,
+			Auth: &config.Auth{
+				Config: &b.Config,
+				Repository: b.repoFactory,
+				HookManager: hooks.NewHookManager(),
+				RateLimiter: &rateLimiter,
+				RecaptchaManager: b.captchaVerifier,
+				Logger: loggerInstance,
+				TokenManager: tokenManager,
+				WorkerPool: *b.Config.WorkerPool,
+			},
 		},
 	}
 
 	// Initialize AuthAPI after creating the service
-	authService.AuthAPI = api.NewAuthAPI(&authService.Auth)
+	// authService.AuthAPI = api.NewAuthAPI(&authService.Auth)
 
 	// Set default TTLs if not configured
 	if b.Config.AuthConfig.Tokens.EmailVerificationTTL <= 0 {
@@ -192,9 +195,9 @@ func (b *Builder) Build() (*AuthService, error) {
 // validate performs comprehensive validation of the configuration
 func (b *Builder) validate() error {
 	// Validate server configuration
-	if b.Config.Server.Type == "" {
-		return errors.New("server type is required")
-	}
+	// if b.Config.Server.Type == "" {
+	// 	return errors.New("server type is required")
+	// }
 
 	// Validate database configuration
 	if !b.Config.Features.EnableCustomStorage {

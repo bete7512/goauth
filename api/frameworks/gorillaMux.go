@@ -1,73 +1,66 @@
 package frameworks
 
-import (
-	"net/http"
+// // GorillaMuxAdapter adapts the core authentication routes to the Gorilla Mux framework
+// type GorillaMuxAdapter struct {
+// 	handler *core.AuthHandler
+// }
 
-	"github.com/bete7512/goauth/api/core"
-	"github.com/gorilla/mux"
-)
+// // NewGorillaMuxAdapter creates a new Gorilla Mux adapter
+// func NewGorillaMuxAdapter(handler *core.AuthHandler) *GorillaMuxAdapter {
+// 	return &GorillaMuxAdapter{handler: handler}
+// }
 
-// GorillaMuxAdapter adapts the core authentication routes to the Gorilla Mux framework
-type GorillaMuxAdapter struct {
-	handler *core.AuthHandler
-}
+// // SetupRoutes registers all authentication routes with Gorilla Mux
+// func (a *GorillaMuxAdapter) SetupRoutes(router interface{}) error {
+// 	muxRouter, ok := router.(*mux.Router)
+// 	if !ok {
+// 		return &InvalidRouterError{Expected: "mux.Router", Got: router}
+// 	}
 
-// NewGorillaMuxAdapter creates a new Gorilla Mux adapter
-func NewGorillaMuxAdapter(handler *core.AuthHandler) *GorillaMuxAdapter {
-	return &GorillaMuxAdapter{handler: handler}
-}
+// 	// Setup Swagger if enabled
+// 	if a.handler.Auth.Config.App.Swagger.Enable {
+// 		// TODO: Add Swagger setup for Gorilla Mux
+// 	}
 
-// SetupRoutes registers all authentication routes with Gorilla Mux
-func (a *GorillaMuxAdapter) SetupRoutes(router interface{}) error {
-	muxRouter, ok := router.(*mux.Router)
-	if !ok {
-		return &InvalidRouterError{Expected: "mux.Router", Got: router}
-	}
+// 	// Get all routes
+// 	allRoutes := a.handler.GetAllRoutes()
 
-	// Setup Swagger if enabled
-	if a.handler.Auth.Config.App.Swagger.Enable {
-		// TODO: Add Swagger setup for Gorilla Mux
-	}
+// 	// Create a sub-router for the auth base path
+// 	authRouter := muxRouter.PathPrefix(a.handler.Auth.Config.App.BasePath).Subrouter()
+// 	{
+// 		for _, route := range allRoutes {
+// 			// Build the middleware chain
+// 			chainedHandler := a.handler.BuildChain(route.Name, http.HandlerFunc(route.Handler))
 
-	// Get all routes
-	allRoutes := a.handler.GetAllRoutes()
+// 			// Adapt the http.Handler to Gorilla Mux
+// 			muxHandler := a.adaptToMux(chainedHandler)
 
-	// Create a sub-router for the auth base path
-	authRouter := muxRouter.PathPrefix(a.handler.Auth.Config.App.BasePath).Subrouter()
-	{
-		for _, route := range allRoutes {
-			// Build the middleware chain
-			chainedHandler := a.handler.BuildChain(route.Name, http.HandlerFunc(route.Handler))
+// 			// Register the route
+// 			authRouter.HandleFunc(route.Path, muxHandler).Methods(route.Method)
+// 		}
+// 	}
 
-			// Adapt the http.Handler to Gorilla Mux
-			muxHandler := a.adaptToMux(chainedHandler)
+// 	return nil
+// }
 
-			// Register the route
-			authRouter.HandleFunc(route.Path, muxHandler).Methods(route.Method)
-		}
-	}
+// // GetMiddleware returns Gorilla Mux-specific middleware
+// func (a *GorillaMuxAdapter) GetMiddleware() interface{} {
+// 	return func(next http.Handler) http.Handler {
+// 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+// 			// Global middleware for Gorilla Mux
+// 			next.ServeHTTP(w, r)
+// 		})
+// 	}
+// }
 
-	return nil
-}
+// // GetFrameworkType returns the framework type
+// func (a *GorillaMuxAdapter) GetFrameworkType() core.FrameworkType {
+// 	return core.FrameworkGorillaMux
+// }
 
-// GetMiddleware returns Gorilla Mux-specific middleware
-func (a *GorillaMuxAdapter) GetMiddleware() interface{} {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Global middleware for Gorilla Mux
-			next.ServeHTTP(w, r)
-		})
-	}
-}
-
-// GetFrameworkType returns the framework type
-func (a *GorillaMuxAdapter) GetFrameworkType() core.FrameworkType {
-	return core.FrameworkGorillaMux
-}
-
-// adaptToMux converts an http.Handler to a gorilla mux handler
-func (a *GorillaMuxAdapter) adaptToMux(h http.Handler) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		h.ServeHTTP(w, r)
-	}
-}
+// // adaptToMux converts an http.Handler to a gorilla mux handler
+// func (a *GorillaMuxAdapter) adaptToMux(h http.Handler) http.HandlerFunc {
+// 	return func(w http.ResponseWriter, r *http.Request) {
+// 		h.ServeHTTP(w, r)
+// 	}
+// }
