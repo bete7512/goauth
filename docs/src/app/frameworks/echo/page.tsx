@@ -1,15 +1,18 @@
+"use client";
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Code, Zap, Shield, Download, Play } from "lucide-react";
+import { CodeBlock, CodeBlockWithLines } from "@/components/ui/code-block";
 import Link from "next/link";
 
 export default function EchoPage() {
   return (
     <div className="flex min-h-screen">
       {/* Sidebar */}
-      <div className="w-64 border-r bg-muted/40">
+      <aside className="w-64 border-r bg-muted/40">
         <div className="p-6">
           <div className="flex items-center space-x-2">
             <Shield className="h-6 w-6 text-primary" />
@@ -21,17 +24,17 @@ export default function EchoPage() {
         </div>
         
         <div className="p-4">
-          <Link href="/frameworks" className="flex items-center text-sm text-muted-foreground hover:text-foreground">
+          <Link href="/frameworks" className="flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Frameworks
           </Link>
         </div>
-      </div>
+      </aside>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto">
         <div className="container mx-auto p-8 max-w-4xl">
-          <div className="mb-8">
+          <header className="mb-8">
             <div className="flex items-center space-x-4 mb-4">
               <div className="p-3 bg-blue-100 dark:bg-blue-900 rounded-lg">
                 <Zap className="h-8 w-8 text-blue-600 dark:text-blue-400" />
@@ -39,17 +42,17 @@ export default function EchoPage() {
               <div>
                 <h1 className="text-3xl font-bold">Echo Framework</h1>
                 <p className="text-lg text-muted-foreground">
-                  High performance, extensible, minimalist Go web framework
+                  High performance, extensible HTTP web framework
                 </p>
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
               <Badge variant="secondary">High Performance</Badge>
-              <Badge variant="secondary">Minimalist API</Badge>
+              <Badge variant="secondary">Minimalist</Badge>
               <Badge variant="secondary">Extensible</Badge>
-              <Badge variant="secondary">Middleware Support</Badge>
+              <Badge variant="secondary">Fast</Badge>
             </div>
-          </div>
+          </header>
 
           {/* Installation */}
           <Card className="mb-8">
@@ -63,10 +66,10 @@ export default function EchoPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="bg-muted p-4 rounded-lg font-mono text-sm">
-                <div className="text-foreground">go get github.com/labstack/echo/v4</div>
-                <div className="text-foreground">go get github.com/bete7512/goauth</div>
-              </div>
+              <CodeBlock language="bash" title="Install Dependencies">
+{`go get github.com/labstack/echo/v4
+go get github.com/bete7512/goauth`}
+              </CodeBlock>
             </CardContent>
           </Card>
 
@@ -78,54 +81,128 @@ export default function EchoPage() {
                 Basic Implementation
               </CardTitle>
               <CardDescription>
-                Complete example of integrating go-auth with Echo
+                Complete example of integrating go-auth with Echo using the new builder pattern
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="bg-muted p-4 rounded-lg font-mono text-sm">
-                <div className="text-foreground">
-                  {`package main
+              <CodeBlockWithLines language="go" title="main.go">
+{`package main
 
 import (
     "log"
+    "net/http"
+    "time"
+
     "github.com/labstack/echo/v4"
     "github.com/labstack/echo/v4/middleware"
     "github.com/bete7512/goauth"
-    "github.com/bete7512/goauth/types"
+    "github.com/bete7512/goauth/config"
 )
 
 func main() {
-    // Configuration
-    config := types.Config{
-        JWTSecret: "your-super-secret-jwt-key-change-this",
-        Database: types.DatabaseConfig{
-            Type: "postgres",
-            URL:  "postgres://user:password@localhost:5432/goauth_db",
+    // Create configuration
+    config := config.Config{
+        App: config.AppConfig{
+            BasePath:    "/auth",
+            Domain:      "localhost",
+            FrontendURL: "http://localhost:3000",
         },
-        AuthConfig: types.AuthConfig{
-            Cookie: types.CookieConfig{
-                Name:           "auth_token",
-                AccessTokenTTL: 3600,   // 1 hour
-                RefreshTokenTTL: 604800, // 7 days
-                Path:           "/",
-                MaxAge:         604800,
-                Secure:         false,   // Set to true in production
-                HttpOnly:       true,
-                SameSite:       "lax",
+        Database: config.DatabaseConfig{
+            Type:        "postgres",
+            URL:         "postgres://user:password@localhost:5432/goauth_db?sslmode=disable",
+            AutoMigrate: true,
+        },
+        AuthConfig: config.AuthConfig{
+            JWT: config.JWTConfig{
+                Secret:             "your-secret-key-32-chars-long",
+                AccessTokenTTL:     15 * time.Minute,
+                RefreshTokenTTL:    7 * 24 * time.Hour,
+                EnableCustomClaims: false,
+            },
+            Tokens: config.TokenConfig{
+                HashSaltLength:       16,
+                PhoneVerificationTTL: 10 * time.Minute,
+                EmailVerificationTTL: 1 * time.Hour,
+                PasswordResetTTL:     10 * time.Minute,
+                TwoFactorTTL:         10 * time.Minute,
+                MagicLinkTTL:         10 * time.Minute,
+            },
+            Methods: config.AuthMethodsConfig{
+                Type:                  config.AuthenticationTypeEmail,
+                EnableTwoFactor:       true,
+                EnableMultiSession:    false,
+                EnableMagicLink:       false,
+                EnableSmsVerification: false,
+                TwoFactorMethod:       "email",
+                EmailVerification: config.EmailVerificationConfig{
+                    EnableOnSignup:   true,
+                    VerificationURL:  "http://localhost:3000/verify",
+                    SendWelcomeEmail: false,
+                },
+            },
+            PasswordPolicy: config.PasswordPolicy{
+                HashSaltLength: 16,
+                MinLength:      8,
+                RequireUpper:   true,
+                RequireLower:   true,
+                RequireNumber:  true,
+                RequireSpecial: true,
+            },
+            Cookie: config.CookieConfig{
+                Name:     "auth_token",
+                Path:     "/",
+                MaxAge:   86400,
+                Secure:   false,     // Set to true in production
+                HttpOnly: true,
+                SameSite: 1,         // http.SameSiteLaxMode
             },
         },
+        Features: config.FeaturesConfig{
+            EnableRateLimiter:   false,
+            EnableRecaptcha:     false,
+            EnableCustomJWT:     false,
+            EnableCustomStorage: false,
+        },
+        Security: config.SecurityConfig{
+            RateLimiter: config.RateLimiterConfig{
+                Enabled: false,
+                Type:    config.MemoryRateLimiter,
+                Routes:  make(map[string]config.LimiterConfig),
+            },
+            Recaptcha: config.RecaptchaConfig{
+                Enabled:   false,
+                SecretKey: "",
+                SiteKey:   "",
+                Provider:  "google",
+                APIURL:    "",
+                Routes:    make(map[string]bool),
+            },
+        },
+        Email: config.EmailConfig{
+            Sender: config.EmailSenderConfig{
+                Type:         "sendgrid",
+                FromEmail:    "noreply@example.com",
+                FromName:     "My App",
+                SupportEmail: "support@example.com",
+                CustomSender: nil,
+            },
+        },
+        SMS: config.SMSConfig{
+            CompanyName:  "My App",
+            CustomSender: nil,
+        },
+        Providers: config.ProvidersConfig{
+            Enabled: []config.AuthProvider{},
+        },
     }
 
-    // Create auth service
-    authService, err := goauth.NewBuilder().
-        WithConfig(config).
-        Build()
-
+    // Initialize GoAuth using the builder pattern
+    auth, err := goauth.NewBuilder().WithConfig(config).Build()
     if err != nil {
-        log.Fatal("Failed to create auth service:", err)
+        log.Fatal(err)
     }
 
-    // Setup Echo
+    // Setup Echo instance
     e := echo.New()
     
     // Add middleware
@@ -133,12 +210,16 @@ func main() {
     e.Use(middleware.Recover())
     e.Use(middleware.CORS())
 
-    // Register auth routes
-    authService.RegisterEchoRoutes(e)
+    // Register auth routes manually (recommended approach)
+    authRoutes := auth.GetRoutes()
+    for _, route := range authRoutes {
+        handler := auth.GetWrappedHandler(route)
+        e.Any(route.Path, echo.WrapHandler(http.HandlerFunc(handler)))
+    }
 
     // Public routes
     e.GET("/", func(c echo.Context) error {
-        return c.JSON(200, map[string]string{
+        return c.JSON(http.StatusOK, map[string]interface{}{
             "message": "Welcome to go-auth with Echo!",
             "status":  "running",
         })
@@ -146,20 +227,20 @@ func main() {
 
     // Protected routes
     api := e.Group("/api")
-    api.Use(authService.EchoAuthMiddleware())
+    api.Use(auth.GetEchoAuthMiddleware())
     {
         api.GET("/profile", func(c echo.Context) error {
-            user := c.Get("user").(types.User)
-            return c.JSON(200, map[string]interface{}{
-                "user": user,
+            userID := c.Get("user_id").(string)
+            return c.JSON(http.StatusOK, map[string]interface{}{
+                "user_id": userID,
                 "message": "Protected route accessed successfully",
             })
         })
 
         api.GET("/dashboard", func(c echo.Context) error {
-            user := c.Get("user").(types.User)
-            return c.JSON(200, map[string]interface{}{
-                "user": user,
+            userID := c.Get("user_id").(string)
+            return c.JSON(http.StatusOK, map[string]interface{}{
+                "user_id":   userID,
                 "dashboard": "Welcome to your dashboard",
             })
         })
@@ -168,8 +249,7 @@ func main() {
     log.Println("Server starting on :8080")
     e.Start(":8080")
 }`}
-                </div>
-              </div>
+              </CodeBlockWithLines>
             </CardContent>
           </Card>
 
@@ -192,101 +272,97 @@ func main() {
                 <TabsContent value="oauth" className="mt-6">
                   <div className="space-y-4">
                     <h4 className="font-semibold">OAuth Configuration</h4>
-                    <div className="bg-muted p-4 rounded-lg font-mono text-sm">
-                      <div className="text-foreground">
-                        {`// Add OAuth providers to your config
-config := types.Config{
+                    <CodeBlock language="go" title="OAuth Setup">
+{`// Add OAuth providers to your config
+config := config.Config{
     // ... other config
-    Providers: types.ProvidersConfig{
-        Enabled: []string{"google", "github"},
-        Google: types.ProviderConfig{
+    Providers: config.ProvidersConfig{
+        Enabled: []config.AuthProvider{config.Google, config.GitHub},
+        Google: config.ProviderConfig{
             ClientID:     "your-google-client-id",
             ClientSecret: "your-google-client-secret",
-            RedirectURL:  "https://yourapp.com/auth/google/callback",
+            RedirectURL:  "http://localhost:8080/auth/oauth/google/callback",
+            Scopes:       []string{"email", "profile"},
         },
-        GitHub: types.ProviderConfig{
+        GitHub: config.ProviderConfig{
             ClientID:     "your-github-client-id",
             ClientSecret: "your-github-client-secret",
-            RedirectURL:  "https://yourapp.com/auth/github/callback",
+            RedirectURL:  "http://localhost:8080/auth/oauth/github/callback",
+            Scopes:       []string{"user:email", "read:user"},
         },
     },
 }
 
-// OAuth routes are automatically registered
-// /auth/google - Google OAuth login
-// /auth/github - GitHub OAuth login
-// /auth/google/callback - Google OAuth callback
-// /auth/github/callback - GitHub OAuth callback`}
-                      </div>
-                    </div>
+// OAuth routes are automatically registered with your auth routes
+// Users can now login with:
+// GET /auth/oauth/google
+// GET /auth/oauth/github`}
+                    </CodeBlock>
                   </div>
                 </TabsContent>
 
                 <TabsContent value="middleware" className="mt-6">
                   <div className="space-y-4">
                     <h4 className="font-semibold">Custom Middleware</h4>
-                    <div className="bg-muted p-4 rounded-lg font-mono text-sm">
-                      <div className="text-foreground">
-                        {`// Custom middleware with role-based access
-func RoleMiddleware(roles ...string) echo.MiddlewareFunc {
+                    <CodeBlock language="go" title="Custom Middleware">
+{`// Create custom middleware that uses go-auth
+func CustomAuthMiddleware(auth *goauth.Auth) echo.MiddlewareFunc {
     return func(next echo.HandlerFunc) echo.HandlerFunc {
         return func(c echo.Context) error {
-            user := c.Get("user").(types.User)
-            
-            // Check if user has required role
-            for _, role := range roles {
-                if user.Role == role {
-                    return next(c)
-                }
+            // Get user ID from context (set by go-auth middleware)
+            userID := c.Get("user_id")
+            if userID == nil {
+                return c.JSON(http.StatusUnauthorized, map[string]string{
+                    "error": "Unauthorized",
+                })
             }
-            
-            return c.JSON(403, map[string]string{
-                "error": "Insufficient permissions",
-            })
+
+            // Add custom logic here
+            c.Set("custom_user_id", userID)
+            return next(c)
         }
     }
 }
 
-// Usage
-admin := api.Group("/admin")
-admin.Use(authService.EchoAuthMiddleware())
-admin.Use(RoleMiddleware("admin"))
+// Use in your routes
+api := e.Group("/api")
+api.Use(auth.GetEchoAuthMiddleware())
+api.Use(CustomAuthMiddleware(auth))
 {
-    admin.GET("/users", func(c echo.Context) error {
-        // Admin only endpoint
-        return c.JSON(200, map[string]string{"message": "Admin panel"})
+    api.GET("/custom", func(c echo.Context) error {
+        customUserID := c.Get("custom_user_id").(string)
+        return c.JSON(http.StatusOK, map[string]string{
+            "custom_user_id": customUserID,
+        })
     })
 }`}
-                      </div>
-                    </div>
+                    </CodeBlock>
                   </div>
                 </TabsContent>
 
                 <TabsContent value="hooks" className="mt-6">
                   <div className="space-y-4">
                     <h4 className="font-semibold">Event Hooks</h4>
-                    <div className="bg-muted p-4 rounded-lg font-mono text-sm">
-                      <div className="text-foreground">
-                        {`// Configure hooks for custom behavior
-config := types.Config{
-    // ... other config
-    Hooks: types.HooksConfig{
-        OnUserRegistered: func(user types.User) {
-            // Send welcome email
+                    <CodeBlock language="go" title="Event Hooks">
+{`// Use builder pattern with custom hooks
+auth, err := goauth.NewBuilder().
+    WithConfig(config).
+    WithHooks(&goauth.Hooks{
+        OnUserRegistered: func(user *models.User) {
             log.Printf("New user registered: %s", user.Email)
+            // Send welcome email, create profile, etc.
         },
-        OnUserLoggedIn: func(user types.User) {
-            // Log login activity
+        OnUserLoggedIn: func(user *models.User) {
             log.Printf("User logged in: %s", user.Email)
+            // Update last login time, log activity, etc.
         },
-        OnPasswordChanged: func(user types.User) {
-            // Send password change notification
+        OnPasswordChanged: func(user *models.User) {
             log.Printf("Password changed for user: %s", user.Email)
+            // Send password change notification, etc.
         },
-    },
-}`}
-                      </div>
-                    </div>
+    }).
+    Build()`}
+                    </CodeBlock>
                   </div>
                 </TabsContent>
               </Tabs>
@@ -298,7 +374,7 @@ config := types.Config{
             <CardHeader>
               <CardTitle className="flex items-center">
                 <Play className="h-5 w-5 mr-2" />
-                Testing Your Implementation
+                Testing Your Setup
               </CardTitle>
               <CardDescription>
                 Test your Echo + go-auth integration
@@ -307,99 +383,96 @@ config := types.Config{
             <CardContent>
               <div className="space-y-4">
                 <div>
-                  <h4 className="font-semibold mb-2">1. Start the server</h4>
-                  <div className="bg-muted p-4 rounded-lg font-mono text-sm">
-                    <div className="text-foreground">go run main.go</div>
-                  </div>
+                  <h4 className="font-semibold mb-3">1. Start the server</h4>
+                  <CodeBlock language="bash" title="Start Server">
+                    go run main.go
+                  </CodeBlock>
                 </div>
                 
                 <div>
-                  <h4 className="font-semibold mb-2">2. Register a user</h4>
-                  <div className="bg-muted p-4 rounded-lg font-mono text-sm">
-                    <div className="text-foreground">curl -X POST http://localhost:8080/auth/register \</div>
-                    <div className="text-foreground ml-4">-H "Content-Type: application/json" \</div>
-                    <div className="text-foreground ml-4">-d '{"email":"user@example.com","password":"password123"}'</div>
-                  </div>
+                  <h4 className="font-semibold mb-3">2. Test registration</h4>
+                  <CodeBlock language="bash" title="Register User">
+{`curl -X POST http://localhost:8080/auth/register \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "email": "user@example.com",
+    "password": "SecurePass123!",
+    "firstName": "John",
+    "lastName": "Doe"
+  }'`}
+                  </CodeBlock>
                 </div>
                 
                 <div>
-                  <h4 className="font-semibold mb-2">3. Login</h4>
-                  <div className="bg-muted p-4 rounded-lg font-mono text-sm">
-                    <div className="text-foreground">curl -X POST http://localhost:8080/auth/login \</div>
-                    <div className="text-foreground ml-4">-H "Content-Type: application/json" \</div>
-                    <div className="text-foreground ml-4">-d '{"email":"user@example.com","password":"password123"}'</div>
-                  </div>
+                  <h4 className="font-semibold mb-3">3. Test login</h4>
+                  <CodeBlock language="bash" title="Login">
+{`curl -X POST http://localhost:8080/auth/login \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "email": "user@example.com",
+    "password": "SecurePass123!"
+  }'`}
+                  </CodeBlock>
                 </div>
                 
                 <div>
-                  <h4 className="font-semibold mb-2">4. Access protected route</h4>
-                  <div className="bg-muted p-4 rounded-lg font-mono text-sm">
-                    <div className="text-foreground">curl -X GET http://localhost:8080/api/profile \</div>
-                    <div className="text-foreground ml-4">-H "Cookie: auth_token=YOUR_TOKEN_HERE"</div>
-                  </div>
+                  <h4 className="font-semibold mb-3">4. Test protected route</h4>
+                  <CodeBlock language="bash" title="Protected Route">
+{`curl -X GET http://localhost:8080/api/profile \\
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"`}
+                  </CodeBlock>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Best Practices */}
-          <Card className="mb-8">
+          {/* Next Steps */}
+          <Card>
             <CardHeader>
-              <CardTitle>Best Practices</CardTitle>
+              <CardTitle>Next Steps</CardTitle>
               <CardDescription>
-                Follow these best practices for production deployments
+                Explore more features and configurations
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div className="p-4 border rounded-lg">
-                  <h4 className="font-semibold mb-2">🔒 Security</h4>
-                  <ul className="text-sm space-y-1">
-                    <li>• Set <code className="bg-muted px-1 rounded">Secure: true</code> in production</li>
-                    <li>• Use strong JWT secrets (32+ characters)</li>
-                    <li>• Enable HTTPS in production</li>
-                    <li>• Configure proper CORS settings</li>
-                  </ul>
-                </div>
-                
-                <div className="p-4 border rounded-lg">
-                  <h4 className="font-semibold mb-2">⚡ Performance</h4>
-                  <ul className="text-sm space-y-1">
-                    <li>• Use connection pooling for database</li>
-                    <li>• Enable rate limiting</li>
-                    <li>• Use Redis for session storage</li>
-                    <li>• Monitor memory usage</li>
-                  </ul>
-                </div>
-                
-                <div className="p-4 border rounded-lg">
-                  <h4 className="font-semibold mb-2">🔧 Configuration</h4>
-                  <ul className="text-sm space-y-1">
-                    <li>• Use environment variables for secrets</li>
-                    <li>• Separate config for different environments</li>
-                    <li>• Enable logging and monitoring</li>
-                    <li>• Set up proper error handling</li>
-                  </ul>
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Button asChild variant="outline" className="h-auto p-4 flex flex-col items-start">
+                  <Link href="/configuration">
+                    <span className="font-semibold">Configuration Guide</span>
+                    <span className="text-sm text-muted-foreground mt-1">
+                      Learn about all configuration options
+                    </span>
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" className="h-auto p-4 flex flex-col items-start">
+                  <Link href="/features/oauth">
+                    <span className="font-semibold">OAuth Providers</span>
+                    <span className="text-sm text-muted-foreground mt-1">
+                      Set up social login with OAuth
+                    </span>
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" className="h-auto p-4 flex flex-col items-start">
+                  <Link href="/api/endpoints">
+                    <span className="font-semibold">API Reference</span>
+                    <span className="text-sm text-muted-foreground mt-1">
+                      Complete API documentation
+                    </span>
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" className="h-auto p-4 flex flex-col items-start">
+                  <Link href="/examples/basic-auth">
+                    <span className="font-semibold">Examples</span>
+                    <span className="text-sm text-muted-foreground mt-1">
+                      More examples and use cases
+                    </span>
+                  </Link>
+                </Button>
               </div>
             </CardContent>
           </Card>
-
-          {/* Navigation */}
-          <div className="flex justify-between">
-            <Button asChild variant="outline">
-              <Link href="/frameworks">
-                ← Back to Frameworks
-              </Link>
-            </Button>
-            <Button asChild>
-              <Link href="/frameworks/gin">
-                Next: Gin Framework →
-              </Link>
-            </Button>
-          </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 } 

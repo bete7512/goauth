@@ -2,7 +2,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Code, Zap, Shield, Globe } from "lucide-react";
+import { CodeBlock, CodeBlockWithLines } from "@/components/ui/code-block";
+import { ArrowLeft, Code, Zap, Shield } from "lucide-react";
 import Link from "next/link";
 
 export default function FrameworksPage() {
@@ -250,16 +251,15 @@ export default function FrameworksPage() {
                   <div className="space-y-4">
                     <div>
                       <h4 className="font-semibold mb-2">Installation</h4>
-                      <div className="bg-muted p-4 rounded-lg font-mono text-sm">
-                        <div className="text-foreground">go get github.com/gin-gonic/gin</div>
-                        <div className="text-foreground">go get github.com/bete7512/goauth</div>
-                      </div>
+                      <CodeBlock language="bash" title="Install Dependencies">
+{`go get github.com/gin-gonic/gin
+go get github.com/bete7512/goauth`}
+                      </CodeBlock>
                     </div>
                     <div>
                       <h4 className="font-semibold mb-2">Basic Implementation</h4>
-                      <div className="bg-muted p-4 rounded-lg font-mono text-sm">
-                        <div className="text-foreground">
-                          {`package main
+                      <CodeBlockWithLines language="go" title="main.go">
+{`package main
 
 import (
     "github.com/gin-gonic/gin"
@@ -301,8 +301,7 @@ func main() {
 
     router.Run(":8080")
 }`}
-                        </div>
-                      </div>
+                      </CodeBlockWithLines>
                     </div>
                   </div>
                 </TabsContent>
@@ -311,16 +310,15 @@ func main() {
                   <div className="space-y-4">
                     <div>
                       <h4 className="font-semibold mb-2">Installation</h4>
-                      <div className="bg-muted p-4 rounded-lg font-mono text-sm">
-                        <div className="text-foreground">go get github.com/labstack/echo/v4</div>
-                        <div className="text-foreground">go get github.com/bete7512/goauth</div>
-                      </div>
+                      <CodeBlock language="bash" title="Install Dependencies">
+{`go get github.com/labstack/echo/v4
+go get github.com/bete7512/goauth`}
+                      </CodeBlock>
                     </div>
                     <div>
                       <h4 className="font-semibold mb-2">Basic Implementation</h4>
-                      <div className="bg-muted p-4 rounded-lg font-mono text-sm">
-                        <div className="text-foreground">
-                          {`package main
+                      <CodeBlockWithLines language="go" title="main.go">
+{`package main
 
 import (
     "github.com/labstack/echo/v4"
@@ -362,8 +360,7 @@ func main() {
 
     e.Start(":8080")
 }`}
-                        </div>
-                      </div>
+                      </CodeBlockWithLines>
                     </div>
                   </div>
                 </TabsContent>
@@ -372,16 +369,15 @@ func main() {
                   <div className="space-y-4">
                     <div>
                       <h4 className="font-semibold mb-2">Installation</h4>
-                      <div className="bg-muted p-4 rounded-lg font-mono text-sm">
-                        <div className="text-foreground">go get github.com/go-chi/chi/v5</div>
-                        <div className="text-foreground">go get github.com/bete7512/goauth</div>
-                      </div>
+                      <CodeBlock language="bash" title="Install Dependencies">
+{`go get github.com/go-chi/chi/v5
+go get github.com/bete7512/goauth`}
+                      </CodeBlock>
                     </div>
                     <div>
                       <h4 className="font-semibold mb-2">Basic Implementation</h4>
-                      <div className="bg-muted p-4 rounded-lg font-mono text-sm">
-                        <div className="text-foreground">
-                          {`package main
+                      <CodeBlockWithLines language="go" title="main.go">
+{`package main
 
 import (
     "net/http"
@@ -421,14 +417,13 @@ func main() {
         r.Get("/profile", func(w http.ResponseWriter, r *http.Request) {
             user := r.Context().Value("user").(types.User)
             w.Header().Set("Content-Type", "application/json")
-            w.Write([]byte(`{"user": "profile data"}`))
+            w.Write([]byte(\`{"user": "profile data"}\`))
         })
     })
 
     http.ListenAndServe(":8080", r)
 }`}
-                        </div>
-                      </div>
+                      </CodeBlockWithLines>
                     </div>
                   </div>
                 </TabsContent>
@@ -437,16 +432,15 @@ func main() {
                   <div className="space-y-4">
                     <div>
                       <h4 className="font-semibold mb-2">Installation</h4>
-                      <div className="bg-muted p-4 rounded-lg font-mono text-sm">
-                        <div className="text-foreground">go get github.com/gofiber/fiber/v2</div>
-                        <div className="text-foreground">go get github.com/bete7512/goauth</div>
-                      </div>
+                      <CodeBlock language="bash" title="Install Dependencies">
+{`go get github.com/gofiber/fiber/v2
+go get github.com/bete7512/goauth`}
+                      </CodeBlock>
                     </div>
                     <div>
                       <h4 className="font-semibold mb-2">Basic Implementation</h4>
-                      <div className="bg-muted p-4 rounded-lg font-mono text-sm">
-                        <div className="text-foreground">
-                          {`package main
+                      <CodeBlockWithLines language="go" title="main.go">
+{`package main
 
 import (
     "github.com/gofiber/fiber/v2"
@@ -488,8 +482,7 @@ func main() {
 
     app.Listen(":8080")
 }`}
-                        </div>
-                      </div>
+                      </CodeBlockWithLines>
                     </div>
                   </div>
                 </TabsContent>
@@ -498,16 +491,15 @@ func main() {
                   <div className="space-y-4">
                     <div>
                       <h4 className="font-semibold mb-2">Installation</h4>
-                      <div className="bg-muted p-4 rounded-lg font-mono text-sm">
-                        <div className="text-foreground">go get github.com/gorilla/mux</div>
-                        <div className="text-foreground">go get github.com/bete7512/goauth</div>
-                      </div>
+                      <CodeBlock language="bash" title="Install Dependencies">
+{`go get github.com/gorilla/mux
+go get github.com/bete7512/goauth`}
+                      </CodeBlock>
                     </div>
                     <div>
                       <h4 className="font-semibold mb-2">Basic Implementation</h4>
-                      <div className="bg-muted p-4 rounded-lg font-mono text-sm">
-                        <div className="text-foreground">
-                          {`package main
+                      <CodeBlockWithLines language="go" title="main.go">
+{`package main
 
 import (
     "net/http"
@@ -544,13 +536,12 @@ func main() {
     api.HandleFunc("/profile", func(w http.ResponseWriter, r *http.Request) {
         user := r.Context().Value("user").(types.User)
         w.Header().Set("Content-Type", "application/json")
-        w.Write([]byte(`{"user": "profile data"}`))
+        w.Write([]byte(\`{"user": "profile data"}\`))
     }).Methods("GET")
 
     http.ListenAndServe(":8080", r)
 }`}
-                        </div>
-                      </div>
+                      </CodeBlockWithLines>
                     </div>
                   </div>
                 </TabsContent>
@@ -559,16 +550,15 @@ func main() {
                   <div className="space-y-4">
                     <div>
                       <h4 className="font-semibold mb-2">Installation</h4>
-                      <div className="bg-muted p-4 rounded-lg font-mono text-sm">
-                        <div className="text-foreground">go get github.com/kataras/iris/v12</div>
-                        <div className="text-foreground">go get github.com/bete7512/goauth</div>
-                      </div>
+                      <CodeBlock language="bash" title="Install Dependencies">
+{`go get github.com/kataras/iris/v12
+go get github.com/bete7512/goauth`}
+                      </CodeBlock>
                     </div>
                     <div>
                       <h4 className="font-semibold mb-2">Basic Implementation</h4>
-                      <div className="bg-muted p-4 rounded-lg font-mono text-sm">
-                        <div className="text-foreground">
-                          {`package main
+                      <CodeBlockWithLines language="go" title="main.go">
+{`package main
 
 import (
     "github.com/kataras/iris/v12"
@@ -596,22 +586,36 @@ func main() {
     app := iris.New()
     
     // Register auth routes
-    authService.RegisterIrisRoutes(app)
+    authRoutes := authService.GetRoutes()
+    for _, route := range authRoutes {
+        handler := authService.GetWrappedHandler(route)
+        app.Handle(route.Method, route.Path, iris.FromStd(handler))
+    }
     
     // Protected routes
     api := app.Party("/api")
-    api.Use(authService.IrisAuthMiddleware())
+    api.Use(func(ctx iris.Context) {
+        // Custom auth middleware for Iris
+        token := ctx.GetHeader("Authorization")
+        if token == "" {
+            ctx.StatusCode(401)
+            ctx.JSON(iris.Map{"error": "unauthorized"})
+            return
+        }
+        // Add user to context
+        ctx.Values().Set("user", "user-data")
+        ctx.Next()
+    })
     {
         api.Get("/profile", func(ctx iris.Context) {
-            user := ctx.Values().Get("user").(types.User)
+            user := ctx.Values().Get("user")
             ctx.JSON(iris.Map{"user": user})
         })
     }
 
     app.Listen(":8080")
 }`}
-                        </div>
-                      </div>
+                      </CodeBlockWithLines>
                     </div>
                   </div>
                 </TabsContent>
@@ -739,4 +743,4 @@ func main() {
       </div>
     </div>
   );
-} 
+}

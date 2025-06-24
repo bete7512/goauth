@@ -12,7 +12,6 @@ import (
 type Config struct {
 	// Core application settings
 	App        AppConfig
-	Server     ServerConfig
 	AuthConfig AuthConfig
 	Security   SecurityConfig
 

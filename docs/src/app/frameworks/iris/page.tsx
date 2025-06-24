@@ -1,14 +1,18 @@
+"use client";
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Code, Zap, Shield, Download, Play } from "lucide-react";
+import { CodeBlock, CodeBlockWithLines } from "@/components/ui/code-block";
 import Link from "next/link";
 
 export default function IrisPage() {
   return (
     <div className="flex min-h-screen">
       {/* Sidebar */}
-      <div className="w-64 border-r bg-muted/40">
+      <aside className="w-64 border-r bg-muted/40">
         <div className="p-6">
           <div className="flex items-center space-x-2">
             <Shield className="h-6 w-6 text-primary" />
@@ -20,35 +24,35 @@ export default function IrisPage() {
         </div>
         
         <div className="p-4">
-          <Link href="/frameworks" className="flex items-center text-sm text-muted-foreground hover:text-foreground">
+          <Link href="/frameworks" className="flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Frameworks
           </Link>
         </div>
-      </div>
+      </aside>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto">
         <div className="container mx-auto p-8 max-w-4xl">
-          <div className="mb-8">
+          <header className="mb-8">
             <div className="flex items-center space-x-4 mb-4">
-              <div className="p-3 bg-pink-100 dark:bg-pink-900 rounded-lg">
-                <Zap className="h-8 w-8 text-pink-600 dark:text-pink-400" />
+              <div className="p-3 bg-purple-100 dark:bg-purple-900 rounded-lg">
+                <Zap className="h-8 w-8 text-purple-600 dark:text-purple-400" />
               </div>
               <div>
                 <h1 className="text-3xl font-bold">Iris Framework</h1>
                 <p className="text-lg text-muted-foreground">
-                  Fast, simple yet efficient HTTP web framework
+                  Fast, simple yet efficient web framework for Go
                 </p>
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
               <Badge variant="secondary">Fast</Badge>
-              <Badge variant="secondary">Feature-rich</Badge>
-              <Badge variant="secondary">Simple API</Badge>
-              <Badge variant="secondary">High Performance</Badge>
+              <Badge variant="secondary">Simple</Badge>
+              <Badge variant="secondary">Efficient</Badge>
+              <Badge variant="secondary">Feature Rich</Badge>
             </div>
-          </div>
+          </header>
 
           {/* Installation */}
           <Card className="mb-8">
@@ -62,10 +66,10 @@ export default function IrisPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="bg-muted p-4 rounded-lg font-mono text-sm">
-                <div className="text-foreground">go get github.com/kataras/iris/v12</div>
-                <div className="text-foreground">go get github.com/bete7512/goauth</div>
-              </div>
+              <CodeBlock language="bash" title="Install Dependencies">
+{`go get github.com/kataras/iris/v12
+go get github.com/bete7512/goauth`}
+              </CodeBlock>
             </CardContent>
           </Card>
 
@@ -77,63 +81,151 @@ export default function IrisPage() {
                 Basic Implementation
               </CardTitle>
               <CardDescription>
-                Complete example of integrating go-auth with Iris
+                Complete example of integrating go-auth with Iris using the new builder pattern
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="bg-muted p-4 rounded-lg font-mono text-sm">
-                <div className="text-foreground">
-                  {`package main
+              <CodeBlockWithLines language="go" title="main.go">
+{`package main
 
 import (
     "log"
+    "time"
+
     "github.com/kataras/iris/v12"
     "github.com/kataras/iris/v12/middleware/logger"
     "github.com/kataras/iris/v12/middleware/recover"
     "github.com/bete7512/goauth"
-    "github.com/bete7512/goauth/types"
+    "github.com/bete7512/goauth/config"
 )
 
 func main() {
-    // Configuration
-    config := types.Config{
-        JWTSecret: "your-super-secret-jwt-key-change-this",
-        Database: types.DatabaseConfig{
-            Type: "postgres",
-            URL:  "postgres://user:password@localhost:5432/goauth_db",
+    // Create configuration
+    config := config.Config{
+        App: config.AppConfig{
+            BasePath:    "/auth",
+            Domain:      "localhost",
+            FrontendURL: "http://localhost:3000",
         },
-        AuthConfig: types.AuthConfig{
-            Cookie: types.CookieConfig{
-                Name:           "auth_token",
-                AccessTokenTTL: 3600,   // 1 hour
-                RefreshTokenTTL: 604800, // 7 days
-                Path:           "/",
-                MaxAge:         604800,
-                Secure:         false,   // Set to true in production
-                HttpOnly:       true,
-                SameSite:       "lax",
+        Database: config.DatabaseConfig{
+            Type:        "postgres",
+            URL:         "postgres://user:password@localhost:5432/goauth_db?sslmode=disable",
+            AutoMigrate: true,
+        },
+        AuthConfig: config.AuthConfig{
+            JWT: config.JWTConfig{
+                Secret:             "your-secret-key-32-chars-long",
+                AccessTokenTTL:     15 * time.Minute,
+                RefreshTokenTTL:    7 * 24 * time.Hour,
+                EnableCustomClaims: false,
+            },
+            Tokens: config.TokenConfig{
+                HashSaltLength:       16,
+                PhoneVerificationTTL: 10 * time.Minute,
+                EmailVerificationTTL: 1 * time.Hour,
+                PasswordResetTTL:     10 * time.Minute,
+                TwoFactorTTL:         10 * time.Minute,
+                MagicLinkTTL:         10 * time.Minute,
+            },
+            Methods: config.AuthMethodsConfig{
+                Type:                  config.AuthenticationTypeEmail,
+                EnableTwoFactor:       true,
+                EnableMultiSession:    false,
+                EnableMagicLink:       false,
+                EnableSmsVerification: false,
+                TwoFactorMethod:       "email",
+                EmailVerification: config.EmailVerificationConfig{
+                    EnableOnSignup:   true,
+                    VerificationURL:  "http://localhost:3000/verify",
+                    SendWelcomeEmail: false,
+                },
+            },
+            PasswordPolicy: config.PasswordPolicy{
+                HashSaltLength: 16,
+                MinLength:      8,
+                RequireUpper:   true,
+                RequireLower:   true,
+                RequireNumber:  true,
+                RequireSpecial: true,
+            },
+            Cookie: config.CookieConfig{
+                Name:     "auth_token",
+                Path:     "/",
+                MaxAge:   86400,
+                Secure:   false,     // Set to true in production
+                HttpOnly: true,
+                SameSite: 1,         // http.SameSiteLaxMode
             },
         },
+        Features: config.FeaturesConfig{
+            EnableRateLimiter:   false,
+            EnableRecaptcha:     false,
+            EnableCustomJWT:     false,
+            EnableCustomStorage: false,
+        },
+        Security: config.SecurityConfig{
+            RateLimiter: config.RateLimiterConfig{
+                Enabled: false,
+                Type:    config.MemoryRateLimiter,
+                Routes:  make(map[string]config.LimiterConfig),
+            },
+            Recaptcha: config.RecaptchaConfig{
+                Enabled:   false,
+                SecretKey: "",
+                SiteKey:   "",
+                Provider:  "google",
+                APIURL:    "",
+                Routes:    make(map[string]bool),
+            },
+        },
+        Email: config.EmailConfig{
+            Sender: config.EmailSenderConfig{
+                Type:         "sendgrid",
+                FromEmail:    "noreply@example.com",
+                FromName:     "My App",
+                SupportEmail: "support@example.com",
+                CustomSender: nil,
+            },
+        },
+        SMS: config.SMSConfig{
+            CompanyName:  "My App",
+            CustomSender: nil,
+        },
+        Providers: config.ProvidersConfig{
+            Enabled: []config.AuthProvider{},
+        },
     }
 
-    // Create auth service
-    authService, err := goauth.NewBuilder().
-        WithConfig(config).
-        Build()
-
+    // Initialize GoAuth using the builder pattern
+    auth, err := goauth.NewBuilder().WithConfig(config).Build()
     if err != nil {
-        log.Fatal("Failed to create auth service:", err)
+        log.Fatal(err)
     }
 
-    // Setup Iris
+    // Setup Iris app
     app := iris.New()
     
     // Add middleware
     app.Use(logger.New())
     app.Use(recover.New())
 
-    // Register auth routes
-    authService.RegisterIrisRoutes(app)
+    // Register auth routes manually (recommended approach)
+    authRoutes := auth.GetRoutes()
+    for _, route := range authRoutes {
+        handler := auth.GetWrappedHandler(route)
+        irisHandler := iris.FromStd(handler)
+        
+        switch route.Method {
+        case "GET":
+            app.Get(route.Path, irisHandler)
+        case "POST":
+            app.Post(route.Path, irisHandler)
+        case "PUT":
+            app.Put(route.Path, irisHandler)
+        case "DELETE":
+            app.Delete(route.Path, irisHandler)
+        }
+    }
 
     // Public routes
     app.Get("/", func(ctx iris.Context) {
@@ -145,20 +237,20 @@ func main() {
 
     // Protected routes
     api := app.Party("/api")
-    api.Use(authService.IrisAuthMiddleware())
+    api.Use(auth.GetIrisAuthMiddleware())
     {
         api.Get("/profile", func(ctx iris.Context) {
-            user := ctx.Values().Get("user").(types.User)
+            userID := ctx.Values().Get("user_id").(string)
             ctx.JSON(iris.Map{
-                "user": user,
+                "user_id": userID,
                 "message": "Protected route accessed successfully",
             })
         })
 
         api.Get("/dashboard", func(ctx iris.Context) {
-            user := ctx.Values().Get("user").(types.User)
+            userID := ctx.Values().Get("user_id").(string)
             ctx.JSON(iris.Map{
-                "user": user,
+                "user_id":   userID,
                 "dashboard": "Welcome to your dashboard",
             })
         })
@@ -167,8 +259,121 @@ func main() {
     log.Println("Server starting on :8080")
     app.Listen(":8080")
 }`}
-                </div>
-              </div>
+              </CodeBlockWithLines>
+            </CardContent>
+          </Card>
+
+          {/* Advanced Features */}
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle>Advanced Features</CardTitle>
+              <CardDescription>
+                Learn how to use advanced go-auth features with Iris
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Tabs defaultValue="oauth" className="w-full">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="oauth">OAuth</TabsTrigger>
+                  <TabsTrigger value="middleware">Middleware</TabsTrigger>
+                  <TabsTrigger value="hooks">Hooks</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="oauth" className="mt-6">
+                  <div className="space-y-4">
+                    <h4 className="font-semibold">OAuth Configuration</h4>
+                    <CodeBlock language="go" title="OAuth Setup">
+{`// Add OAuth providers to your config
+config := config.Config{
+    // ... other config
+    Providers: config.ProvidersConfig{
+        Enabled: []config.AuthProvider{config.Google, config.GitHub},
+        Google: config.ProviderConfig{
+            ClientID:     "your-google-client-id",
+            ClientSecret: "your-google-client-secret",
+            RedirectURL:  "http://localhost:8080/auth/oauth/google/callback",
+            Scopes:       []string{"email", "profile"},
+        },
+        GitHub: config.ProviderConfig{
+            ClientID:     "your-github-client-id",
+            ClientSecret: "your-github-client-secret",
+            RedirectURL:  "http://localhost:8080/auth/oauth/github/callback",
+            Scopes:       []string{"user:email", "read:user"},
+        },
+    },
+}
+
+// OAuth routes are automatically registered with your auth routes
+// Users can now login with:
+// GET /auth/oauth/google
+// GET /auth/oauth/github`}
+                    </CodeBlock>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="middleware" className="mt-6">
+                  <div className="space-y-4">
+                    <h4 className="font-semibold">Custom Middleware</h4>
+                    <CodeBlock language="go" title="Custom Middleware">
+{`// Create custom middleware that uses go-auth
+func CustomAuthMiddleware(auth *goauth.Auth) iris.Handler {
+    return func(ctx iris.Context) {
+        // Get user ID from context (set by go-auth middleware)
+        userID := ctx.Values().Get("user_id")
+        if userID == nil {
+            ctx.StatusCode(iris.StatusUnauthorized)
+            ctx.JSON(iris.Map{"error": "Unauthorized"})
+            return
+        }
+
+        // Add custom logic here
+        ctx.Values().Set("custom_user_id", userID)
+        ctx.Next()
+    }
+}
+
+// Use in your routes
+api := app.Party("/api")
+api.Use(auth.GetIrisAuthMiddleware())
+api.Use(CustomAuthMiddleware(auth))
+{
+    api.Get("/custom", func(ctx iris.Context) {
+        customUserID := ctx.Values().Get("custom_user_id").(string)
+        ctx.JSON(iris.Map{
+            "custom_user_id": customUserID,
+        })
+    })
+}`}
+                    </CodeBlock>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="hooks" className="mt-6">
+                  <div className="space-y-4">
+                    <h4 className="font-semibold">Event Hooks</h4>
+                    <CodeBlock language="go" title="Event Hooks">
+{`// Use builder pattern with custom hooks
+auth, err := goauth.NewBuilder().
+    WithConfig(config).
+    WithHooks(&goauth.Hooks{
+        OnUserRegistered: func(user *models.User) {
+            log.Printf("New user registered: %s", user.Email)
+            // Send welcome email, create profile, etc.
+        },
+        OnUserLoggedIn: func(user *models.User) {
+            log.Printf("User logged in: %s", user.Email)
+            // Update last login time, log activity, etc.
+        },
+        OnPasswordChanged: func(user *models.User) {
+            log.Printf("Password changed for user: %s", user.Email)
+            // Send password change notification, etc.
+        },
+    }).
+    Build()`}
+                    </CodeBlock>
+                  </div>
+                </TabsContent>
+              </Tabs>
             </CardContent>
           </Card>
 
@@ -177,7 +382,7 @@ func main() {
             <CardHeader>
               <CardTitle className="flex items-center">
                 <Play className="h-5 w-5 mr-2" />
-                Testing Your Implementation
+                Testing Your Setup
               </CardTitle>
               <CardDescription>
                 Test your Iris + go-auth integration
@@ -186,56 +391,96 @@ func main() {
             <CardContent>
               <div className="space-y-4">
                 <div>
-                  <h4 className="font-semibold mb-2">1. Start the server</h4>
-                  <div className="bg-muted p-4 rounded-lg font-mono text-sm">
-                    <div className="text-foreground">go run main.go</div>
-                  </div>
+                  <h4 className="font-semibold mb-3">1. Start the server</h4>
+                  <CodeBlock language="bash" title="Start Server">
+                    go run main.go
+                  </CodeBlock>
                 </div>
                 
                 <div>
-                  <h4 className="font-semibold mb-2">2. Register a user</h4>
-                  <div className="bg-muted p-4 rounded-lg font-mono text-sm">
-                    <div className="text-foreground">curl -X POST http://localhost:8080/auth/register \</div>
-                    <div className="text-foreground ml-4">-H "Content-Type: application/json" \</div>
-                    <div className="text-foreground ml-4">-d '{"email":"user@example.com","password":"password123"}'</div>
-                  </div>
+                  <h4 className="font-semibold mb-3">2. Test registration</h4>
+                  <CodeBlock language="bash" title="Register User">
+{`curl -X POST http://localhost:8080/auth/register \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "email": "user@example.com",
+    "password": "SecurePass123!",
+    "firstName": "John",
+    "lastName": "Doe"
+  }'`}
+                  </CodeBlock>
                 </div>
                 
                 <div>
-                  <h4 className="font-semibold mb-2">3. Login</h4>
-                  <div className="bg-muted p-4 rounded-lg font-mono text-sm">
-                    <div className="text-foreground">curl -X POST http://localhost:8080/auth/login \</div>
-                    <div className="text-foreground ml-4">-H "Content-Type: application/json" \</div>
-                    <div className="text-foreground ml-4">-d '{"email":"user@example.com","password":"password123"}'</div>
-                  </div>
+                  <h4 className="font-semibold mb-3">3. Test login</h4>
+                  <CodeBlock language="bash" title="Login">
+{`curl -X POST http://localhost:8080/auth/login \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "email": "user@example.com",
+    "password": "SecurePass123!"
+  }'`}
+                  </CodeBlock>
                 </div>
                 
                 <div>
-                  <h4 className="font-semibold mb-2">4. Access protected route</h4>
-                  <div className="bg-muted p-4 rounded-lg font-mono text-sm">
-                    <div className="text-foreground">curl -X GET http://localhost:8080/api/profile \</div>
-                    <div className="text-foreground ml-4">-H "Cookie: auth_token=YOUR_TOKEN_HERE"</div>
-                  </div>
+                  <h4 className="font-semibold mb-3">4. Test protected route</h4>
+                  <CodeBlock language="bash" title="Protected Route">
+{`curl -X GET http://localhost:8080/api/profile \\
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"`}
+                  </CodeBlock>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Navigation */}
-          <div className="flex justify-between">
-            <Button asChild variant="outline">
-              <Link href="/frameworks">
-                ← Back to Frameworks
-              </Link>
-            </Button>
-            <Button asChild>
-              <Link href="/quickstart">
-                Next: Quick Start Guide →
-              </Link>
-            </Button>
-          </div>
+          {/* Next Steps */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Next Steps</CardTitle>
+              <CardDescription>
+                Explore more features and configurations
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Button asChild variant="outline" className="h-auto p-4 flex flex-col items-start">
+                  <Link href="/configuration">
+                    <span className="font-semibold">Configuration Guide</span>
+                    <span className="text-sm text-muted-foreground mt-1">
+                      Learn about all configuration options
+                    </span>
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" className="h-auto p-4 flex flex-col items-start">
+                  <Link href="/features/oauth">
+                    <span className="font-semibold">OAuth Providers</span>
+                    <span className="text-sm text-muted-foreground mt-1">
+                      Set up social login with OAuth
+                    </span>
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" className="h-auto p-4 flex flex-col items-start">
+                  <Link href="/api/endpoints">
+                    <span className="font-semibold">API Reference</span>
+                    <span className="text-sm text-muted-foreground mt-1">
+                      Complete API documentation
+                    </span>
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" className="h-auto p-4 flex flex-col items-start">
+                  <Link href="/examples/basic-auth">
+                    <span className="font-semibold">Examples</span>
+                    <span className="text-sm text-muted-foreground mt-1">
+                      More examples and use cases
+                    </span>
+                  </Link>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
-      </div>
+      </main>
     </div>
   );
 } 

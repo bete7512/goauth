@@ -1,15 +1,18 @@
+"use client";
+
+import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Settings, Database, Shield, Mail, Bell } from "lucide-react";
+import { ArrowLeft, Shield, Settings, Database, Lock, Mail, MessageSquare, Globe } from "lucide-react";
+import { CodeBlock, CodeBlockWithLines } from "@/components/ui/code-block";
 import Link from "next/link";
 
-export default function ConfigurationPage() {
+const ConfigurationPage = () => {
   return (
     <div className="flex min-h-screen">
       {/* Sidebar */}
-      <div className="w-64 border-r bg-muted/40">
+      <aside className="w-64 border-r bg-muted/40">
         <div className="p-6">
           <div className="flex items-center space-x-2">
             <Shield className="h-6 w-6 text-primary" />
@@ -19,313 +22,250 @@ export default function ConfigurationPage() {
             Authentication library for Go
           </p>
         </div>
-
+        
         <div className="p-4">
-          <Link href="/" className="flex items-center text-sm text-muted-foreground hover:text-foreground">
+          <Link href="/" className="flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Home
           </Link>
         </div>
-      </div>
+      </aside>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-auto">
-        <div className="container mx-auto p-8 max-w-4xl">
-          <div className="mb-8">
+      <main className="flex-1 overflow-auto">
+        <div className="container mx-auto p-8 max-w-6xl">
+          <header className="mb-8">
+            <div className="flex items-center space-x-2 mb-4">
+              <Badge variant="secondary" className="text-sm">
+                <Settings className="h-3 w-3 mr-1" />
+                Configuration Guide
+              </Badge>
+            </div>
             <h1 className="text-3xl font-bold mb-4">Configuration</h1>
             <p className="text-lg text-muted-foreground">
-              Learn about all configuration options available in go-auth.
+              Learn how to configure go-auth with all available options and features.
             </p>
-          </div>
+          </header>
 
-          {/* Basic Configuration */}
-          <Card className="mb-8">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Settings className="h-5 w-5 mr-2" />
-                Basic Configuration
-              </CardTitle>
-              <CardDescription>
-                Essential configuration options for getting started
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="bg-muted p-4 rounded-lg font-mono text-sm">
-                <pre><code className="text-foreground">
-{`config := types.Config{
-    // Required: JWT secret for token signing
-    JWTSecret: "your-super-secret-jwt-key",
-
-    // Required: Database configuration
-    Database: types.DatabaseConfig{
-        Type: "postgres", // postgres, mysql, mongodb
-        URL:  "postgres://user:password@localhost:5432/dbname",
-    },
-
-    // Required: Authentication configuration
-    AuthConfig: types.AuthConfig{
-        Cookie: types.CookieConfig{
-            Name:           "auth_token",
-            AccessTokenTTL: 3600,   // 1 hour
-            RefreshTokenTTL: 604800, // 7 days
-            Path:           "/",
-            MaxAge:         604800,
-            Secure:         false,   // Set to true in production
-            HttpOnly:       true,
-            SameSite:       "lax",
-        },
-    },
-}`}
-                </code></pre>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Configuration Sections */}
-          <Tabs defaultValue="database" className="w-full">
-            <TabsList className="grid w-full grid-cols-5">
-              <TabsTrigger value="database">Database</TabsTrigger>
+          <Tabs defaultValue="basic" className="space-y-6">
+            <TabsList className="grid w-full grid-cols-6">
+              <TabsTrigger value="basic">Basic</TabsTrigger>
               <TabsTrigger value="auth">Auth</TabsTrigger>
-              <TabsTrigger value="oauth">OAuth</TabsTrigger>
+              <TabsTrigger value="database">Database</TabsTrigger>
               <TabsTrigger value="security">Security</TabsTrigger>
-              <TabsTrigger value="advanced">Advanced</TabsTrigger>
+              <TabsTrigger value="notifications">Notifications</TabsTrigger>
+              <TabsTrigger value="oauth">OAuth</TabsTrigger>
             </TabsList>
 
-            {/* Database Configuration */}
-            <TabsContent value="database" className="mt-6">
+            {/* Basic Configuration */}
+            <TabsContent value="basic" className="space-y-6">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center">
-                    <Database className="h-5 w-5 mr-2" />
-                    Database Configuration
+                    <Globe className="h-5 w-5 text-blue-500 mr-2" />
+                    Basic Configuration
                   </CardTitle>
                   <CardDescription>
-                    Configure your database connection and storage options
+                    Essential configuration for your application
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-6">
-                    <div>
-                      <h4 className="font-semibold mb-2">Supported Databases</h4>
-                      <div className="flex flex-wrap gap-2 mb-4">
-                        <Badge variant="secondary">PostgreSQL</Badge>
-                        <Badge variant="secondary">MySQL</Badge>
-                        <Badge variant="secondary">MongoDB</Badge>
-                      </div>
-                    </div>
-
-                    <div>
-                      <h4 className="font-semibold mb-2">Configuration Example</h4>
-                      <div className="bg-muted p-4 rounded-lg font-mono text-sm">
-                        <pre><code className="text-foreground">
-{`Database: types.DatabaseConfig{
-    Type: "postgres", // postgres, mysql, mongodb
-    URL:  "postgres://user:password@localhost:5432/dbname",
-
-    // Optional: Connection pool settings
-    MaxOpenConns: 25,
-    MaxIdleConns: 5,
-    ConnMaxLifetime: 300, // 5 minutes
-
-    // Optional: SSL settings (PostgreSQL)
-    SSLMode: "require",
-
-    // Optional: Custom storage repository
-    EnableCustomStorageRepository: false,
+                  <CodeBlockWithLines language="go" title="Basic Config">
+{`config := config.Config{
+    App: config.AppConfig{
+        BasePath:    "/auth",           // Base path for all auth routes
+        Domain:      "localhost",       // Your application domain
+        FrontendURL: "http://localhost:3000", // Frontend URL for redirects
+        Swagger: config.SwaggerConfig{
+            Enable:      true,          // Enable Swagger documentation
+            Title:       "My API",      // API title
+            Version:     "1.0.0",       // API version
+            DocPath:     "/docs",       // Swagger docs path
+            Description: "API Documentation",
+            Host:        "localhost:8080",
+        },
+    },
+    Database: config.DatabaseConfig{
+        Type:        "postgres",        // postgres, mysql, mongodb, sqlite
+        URL:         "postgres://user:pass@localhost/dbname?sslmode=disable",
+        AutoMigrate: true,              // Auto migrate database tables
+    },
+    Features: config.FeaturesConfig{
+        EnableRateLimiter:   false,     // Enable rate limiting
+        EnableRecaptcha:     false,     // Enable reCAPTCHA
+        EnableCustomJWT:     false,     // Enable custom JWT claims
+        EnableCustomStorage: false,     // Enable custom storage repository
+    },
 }`}
-                        </code></pre>
-                      </div>
-                    </div>
-
-                    <div>
-                      <h4 className="font-semibold mb-2">Connection Strings</h4>
-                      <div className="space-y-2">
-                        <div>
-                          <span className="font-medium">PostgreSQL:</span>
-                          <div className="bg-muted p-2 rounded font-mono text-sm mt-1">
-                            postgres://user:password@localhost:5432/dbname
-                          </div>
-                        </div>
-                        <div>
-                          <span className="font-medium">MySQL:</span>
-                          <div className="bg-muted p-2 rounded font-mono text-sm mt-1">
-                            user:password@tcp(localhost:3306)/dbname?parseTime=true
-                          </div>
-                        </div>
-                        <div>
-                          <span className="font-medium">MongoDB:</span>
-                          <div className="bg-muted p-2 rounded font-mono text-sm mt-1">
-                            mongodb://user:password@localhost:27017/dbname?authSource=admin
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                  </CodeBlockWithLines>
                 </CardContent>
               </Card>
             </TabsContent>
 
             {/* Auth Configuration */}
-            <TabsContent value="auth" className="mt-6">
+            <TabsContent value="auth" className="space-y-6">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center">
-                    <Shield className="h-5 w-5 mr-2" />
+                    <Lock className="h-5 w-5 text-green-500 mr-2" />
                     Authentication Configuration
                   </CardTitle>
                   <CardDescription>
-                    Configure authentication behavior and cookie settings
+                    Configure JWT, tokens, methods, and policies
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-6">
-                    <div>
-                      <h4 className="font-semibold mb-2">Cookie Configuration</h4>
-                      <div className="bg-muted p-4 rounded-lg font-mono text-sm">
-                        <pre><code className="text-foreground">
-{`AuthConfig: types.AuthConfig{
-    Cookie: types.CookieConfig{
-        Name:           "auth_token",     // Cookie name
-        AccessTokenTTL: 3600,            // Access token lifetime (seconds)
-        RefreshTokenTTL: 604800,         // Refresh token lifetime (seconds)
-        Path:           "/",             // Cookie path
-        MaxAge:         604800,          // Cookie max age (seconds)
-        Secure:         false,           // HTTPS only (set true in production)
-        HttpOnly:       true,            // Prevent XSS attacks
-        SameSite:       "lax",           // CSRF protection
-        Domain:         "",              // Cookie domain (optional)
+                  <CodeBlockWithLines language="go" title="Auth Config">
+{`AuthConfig: config.AuthConfig{
+    // JWT Configuration
+    JWT: config.JWTConfig{
+        Secret:             "your-secret-key-32-chars-long",
+        AccessTokenTTL:     15 * time.Minute,
+        RefreshTokenTTL:    7 * 24 * time.Hour,
+        EnableCustomClaims: false,
+        ClaimsProvider:     nil, // Custom claims provider
     },
-
-    // Optional: Enable email verification
-    EnableEmailVerification: true,
-    EmailVerificationURL: "https://yourapp.com/verify",
-
-    // Optional: Enable SMS verification
-    EnableSmsVerification: false,
-
-    // Optional: Enable two-factor authentication
-    EnableTwoFactor: false,
-    TwoFactorMethod: "totp", // totp, sms
-
-    // Optional: Password policy
-    PasswordPolicy: types.PasswordPolicy{
+    
+    // Token TTLs
+    Tokens: config.TokenConfig{
+        HashSaltLength:       16,
+        PhoneVerificationTTL: 10 * time.Minute,
+        EmailVerificationTTL: 1 * time.Hour,
+        PasswordResetTTL:     10 * time.Minute,
+        TwoFactorTTL:         10 * time.Minute,
+        MagicLinkTTL:         10 * time.Minute,
+    },
+    
+    // Authentication Methods
+    Methods: config.AuthMethodsConfig{
+        Type:                  config.AuthenticationTypeEmail, // email, phone, username
+        EnableTwoFactor:       true,
+        EnableMultiSession:    false,
+        EnableMagicLink:       false,
+        EnableSmsVerification: false,
+        TwoFactorMethod:       "email", // email, sms, app
+        
+        EmailVerification: config.EmailVerificationConfig{
+            EnableOnSignup:   true,
+            VerificationURL:  "http://localhost:3000/verify",
+            SendWelcomeEmail: false,
+        },
+        
+        PhoneVerification: config.PhoneVerificationConfig{
+            EnableOnSignup:      true,
+            UniquePhoneNumber:   false,
+            PhoneColumnRequired: true,
+            PhoneRequired:       true,
+        },
+    },
+    
+    // Password Policy
+    PasswordPolicy: config.PasswordPolicy{
+        HashSaltLength: 16,
         MinLength:      8,
-        RequireUppercase: true,
-        RequireLowercase: true,
-        RequireNumbers:   true,
-        RequireSymbols:   false,
-        HashSaltLength:   32,
+        RequireUpper:   true,
+        RequireLower:   true,
+        RequireNumber:  true,
+        RequireSpecial: true,
     },
+    
+    // Cookie Configuration
+    Cookie: config.CookieConfig{
+        Name:     "auth_token",
+        Path:     "/",
+        MaxAge:   86400,
+        Secure:   false,     // Set to true in production
+        HttpOnly: true,
+        SameSite: 1,         // http.SameSiteLaxMode
+    },
+    
+    // Email Domain Restrictions
+    BlockedEmailDomains: []string{"temp-mail.org", "10minutemail.com"},
+    AllowedEmailDomains: []string{}, // Empty means all domains allowed
 }`}
-                        </code></pre>
-                      </div>
-                    </div>
-
-                    <div>
-                      <h4 className="font-semibold mb-2">Features</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="flex items-center space-x-2">
-                          <Badge variant="outline">Email Verification</Badge>
-                          <span className="text-sm text-muted-foreground">Verify user email addresses</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Badge variant="outline">SMS Verification</Badge>
-                          <span className="text-sm text-muted-foreground">Verify user phone numbers</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Badge variant="outline">Two-Factor Auth</Badge>
-                          <span className="text-sm text-muted-foreground">TOTP or SMS-based 2FA</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Badge variant="outline">Password Policy</Badge>
-                          <span className="text-sm text-muted-foreground">Enforce strong passwords</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                  </CodeBlockWithLines>
                 </CardContent>
               </Card>
             </TabsContent>
 
-            {/* OAuth Configuration */}
-            <TabsContent value="oauth" className="mt-6">
+            {/* Database Configuration */}
+            <TabsContent value="database" className="space-y-6">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center">
-                    <Mail className="h-5 w-5 mr-2" />
-                    OAuth Configuration
+                    <Database className="h-5 w-5 text-purple-500 mr-2" />
+                    Database Configuration
                   </CardTitle>
                   <CardDescription>
-                    Configure OAuth providers for social login
+                    Configure database connections and storage
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-6">
+                    
+                    {/* PostgreSQL */}
                     <div>
-                      <h4 className="font-semibold mb-2">Supported Providers</h4>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
-                        <Badge variant="secondary">Google</Badge>
-                        <Badge variant="secondary">GitHub</Badge>
-                        <Badge variant="secondary">Facebook</Badge>
-                        <Badge variant="secondary">Microsoft</Badge>
-                        <Badge variant="secondary">Apple</Badge>
-                        <Badge variant="secondary">Discord</Badge>
-                        <Badge variant="secondary">Twitter</Badge>
-                        <Badge variant="secondary">LinkedIn</Badge>
-                      </div>
-                    </div>
-
-                    <div>
-                      <h4 className="font-semibold mb-2">Configuration Example</h4>
-                      <div className="bg-muted p-4 rounded-lg font-mono text-sm">
-                        <pre><code className="text-foreground">
-{`Providers: types.ProvidersConfig{
-    Enabled: []string{"google", "github", "facebook"},
-
-    Google: types.ProviderConfig{
-        ClientID:     "your-google-client-id",
-        ClientSecret: "your-google-client-secret",
-        RedirectURL:  "https://yourapp.com/auth/google/callback",
-    },
-
-    GitHub: types.ProviderConfig{
-        ClientID:     "your-github-client-id",
-        ClientSecret: "your-github-client-secret",
-        RedirectURL:  "https://yourapp.com/auth/github/callback",
-    },
-
-    Facebook: types.ProviderConfig{
-        ClientID:     "your-facebook-client-id",
-        ClientSecret: "your-facebook-client-secret",
-        RedirectURL:  "https://yourapp.com/auth/facebook/callback",
-    },
+                      <h4 className="font-semibold mb-3 text-blue-600">PostgreSQL</h4>
+                      <CodeBlock language="go" title="PostgreSQL Config">
+{`Database: config.DatabaseConfig{
+    Type:        "postgres",
+    URL:         "postgres://user:password@localhost:5432/dbname?sslmode=disable",
+    AutoMigrate: true,
 }`}
-                        </code></pre>
-                      </div>
+                      </CodeBlock>
                     </div>
 
+                    {/* MySQL */}
                     <div>
-                      <h4 className="font-semibold mb-2">Provider Setup</h4>
-                      <div className="space-y-2">
-                        <div className="p-3 border rounded">
-                          <h5 className="font-medium">Google</h5>
-                          <p className="text-sm text-muted-foreground">
-                            Create OAuth 2.0 credentials in Google Cloud Console
-                          </p>
-                        </div>
-                        <div className="p-3 border rounded">
-                          <h5 className="font-medium">GitHub</h5>
-                          <p className="text-sm text-muted-foreground">
-                            Register OAuth app in GitHub Developer Settings
-                          </p>
-                        </div>
-                        <div className="p-3 border rounded">
-                          <h5 className="font-medium">Facebook</h5>
-                          <p className="text-sm text-muted-foreground">
-                            Create Facebook App in Facebook Developers
-                          </p>
-                        </div>
-                      </div>
+                      <h4 className="font-semibold mb-3 text-orange-600">MySQL</h4>
+                      <CodeBlock language="go" title="MySQL Config">
+{`Database: config.DatabaseConfig{
+    Type:        "mysql",
+    URL:         "user:password@tcp(localhost:3306)/dbname?charset=utf8mb4&parseTime=True&loc=Local",
+    AutoMigrate: true,
+}`}
+                      </CodeBlock>
+                    </div>
+
+                    {/* MongoDB */}
+                    <div>
+                      <h4 className="font-semibold mb-3 text-green-600">MongoDB</h4>
+                      <CodeBlock language="go" title="MongoDB Config">
+{`Database: config.DatabaseConfig{
+    Type:        "mongodb",
+    URL:         "mongodb://localhost:27017/dbname",
+    AutoMigrate: true,
+}`}
+                      </CodeBlock>
+                    </div>
+
+                    {/* SQLite */}
+                    <div>
+                      <h4 className="font-semibold mb-3 text-gray-600">SQLite</h4>
+                      <CodeBlock language="go" title="SQLite Config">
+{`Database: config.DatabaseConfig{
+    Type:        "sqlite",
+    URL:         "file:./auth.db?cache=shared&_fk=1",
+    AutoMigrate: true,
+}`}
+                      </CodeBlock>
+                    </div>
+
+                    {/* Custom Storage */}
+                    <div>
+                      <h4 className="font-semibold mb-3 text-red-600">Custom Storage</h4>
+                      <CodeBlock language="go" title="Custom Storage Config">
+{`// Enable custom storage
+Features: config.FeaturesConfig{
+    EnableCustomStorage: true,
+},
+
+// Use builder with custom repository
+auth, err := goauth.NewBuilder().
+    WithConfig(config).
+    WithRepositoryFactory(customFactory).
+    Build()`}
+                      </CodeBlock>
                     </div>
                   </div>
                 </CardContent>
@@ -333,275 +273,314 @@ export default function ConfigurationPage() {
             </TabsContent>
 
             {/* Security Configuration */}
-            <TabsContent value="security" className="mt-6">
+            <TabsContent value="security" className="space-y-6">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center">
-                    <Shield className="h-5 w-5 mr-2" />
+                    <Shield className="h-5 w-5 text-red-500 mr-2" />
                     Security Configuration
                   </CardTitle>
                   <CardDescription>
-                    Configure security features and rate limiting
+                    Configure rate limiting, reCAPTCHA, and security features
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-6">
+                    
+                    {/* Rate Limiting */}
                     <div>
-                      <h4 className="font-semibold mb-2">Rate Limiting</h4>
-                      <div className="bg-muted p-4 rounded-lg font-mono text-sm">
-                        <pre><code className="text-foreground">
-{`// Enable rate limiting
-EnableRateLimiter: true,
-RateLimiter: types.RateLimiterConfig{
-    Type: "redis", // memory, redis
-    Redis: types.RedisConfig{
-        URL: "redis://localhost:6379",
-    },
-    Limits: map[string]types.Limit{
-        "login": {
-            Requests: 5,
-            Window:   300, // 5 minutes
+                      <h4 className="font-semibold mb-3 text-blue-600">Rate Limiting</h4>
+                      <CodeBlock language="go" title="Rate Limiter Config">
+{`Security: config.SecurityConfig{
+    RateLimiter: config.RateLimiterConfig{
+        Enabled: true,
+        Type:    config.MemoryRateLimiter, // memory, redis
+        Routes: map[string]config.LimiterConfig{
+            config.RouteRegister: {
+                WindowSize:    30 * time.Second,
+                MaxRequests:   10,
+                BlockDuration: 1 * time.Minute,
+            },
+            config.RouteLogin: {
+                WindowSize:    1 * time.Minute,
+                MaxRequests:   5,
+                BlockDuration: 1 * time.Minute,
+            },
+            "global": {
+                WindowSize:    1 * time.Minute,
+                MaxRequests:   100,
+                BlockDuration: 5 * time.Minute,
+            },
         },
-        "register": {
-            Requests: 3,
-            Window:   3600, // 1 hour
-        },
     },
-},`}
-                        </code></pre>
-                      </div>
+}`}
+                      </CodeBlock>
                     </div>
 
+                    {/* reCAPTCHA */}
                     <div>
-                      <h4 className="font-semibold mb-2">reCAPTCHA</h4>
-                      <div className="bg-muted p-4 rounded-lg font-mono text-sm">
-                        <pre><code className="text-foreground">
-{`// Enable reCAPTCHA
-EnableRecaptcha: true,
-RecaptchaConfig: &types.RecaptchaConfig{
-    SiteKey:   "your-recaptcha-site-key",
-    SecretKey: "your-recaptcha-secret-key",
-    Provider:  "google", // google, cloudflare
-},`}
-                        </code></pre>
-                      </div>
+                      <h4 className="font-semibold mb-3 text-green-600">reCAPTCHA</h4>
+                      <CodeBlock language="go" title="reCAPTCHA Config">
+{`Security: config.SecurityConfig{
+    Recaptcha: config.RecaptchaConfig{
+        Enabled:   true,
+        Provider:  "google", // google, cloudflare
+        SecretKey: "your-recaptcha-secret-key",
+        SiteKey:   "your-recaptcha-site-key",
+        APIURL:    "https://www.google.com/recaptcha/api/siteverify",
+        Routes: map[string]bool{
+            config.RouteRegister: true,
+            config.RouteLogin:    true,
+            config.RouteForgotPassword: true,
+        },
+    },
+}`}
+                      </CodeBlock>
                     </div>
 
+                    {/* Redis Rate Limiting */}
                     <div>
-                      <h4 className="font-semibold mb-2">JWT Configuration</h4>
-                      <div className="bg-muted p-4 rounded-lg font-mono text-sm">
-                        <pre><code className="text-foreground">
-{`// JWT settings
-JWTSecret: "your-super-secret-jwt-key",
-EnableAddCustomJWTClaims: false,
-CustomJWTClaimsProvider: nil, // Custom function to add claims
+                      <h4 className="font-semibold mb-3 text-purple-600">Redis Rate Limiting</h4>
+                      <CodeBlock language="go" title="Redis Config">
+{`// Redis Configuration
+Redis: config.RedisConfig{
+    Host:     "localhost",
+    Port:     6379,
+    Database: 0,
+    Password: "",
+},
 
-// Optional: Custom JWT claims
-CustomJWTClaimsProvider: func(user types.User) map[string]interface{} {
-    return map[string]interface{}{
-        "role": user.Role,
-        "permissions": user.Permissions,
-    }
-},`}
-                        </code></pre>
-                      </div>
+// Rate Limiter with Redis
+Security: config.SecurityConfig{
+    RateLimiter: config.RateLimiterConfig{
+        Enabled: true,
+        Type:    config.RedisRateLimiter,
+        Routes:  map[string]config.LimiterConfig{
+            // ... route configurations
+        },
+    },
+}`}
+                      </CodeBlock>
                     </div>
                   </div>
                 </CardContent>
               </Card>
             </TabsContent>
 
-            {/* Advanced Configuration */}
-            <TabsContent value="advanced" className="mt-6">
+            {/* Notifications Configuration */}
+            <TabsContent value="notifications" className="space-y-6">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center">
-                    <Settings className="h-5 w-5 mr-2" />
-                    Advanced Configuration
+                    <Mail className="h-5 w-5 text-blue-500 mr-2" />
+                    Email Configuration
                   </CardTitle>
                   <CardDescription>
-                    Advanced features and customization options
+                    Configure email providers and templates
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-6">
+                    
+                    {/* SendGrid */}
                     <div>
-                      <h4 className="font-semibold mb-2">Hooks</h4>
-                      <div className="bg-muted p-4 rounded-lg font-mono text-sm">
-                        <pre><code className="text-foreground">
-{`// Custom hooks for events
-Hooks: types.HooksConfig{
-    OnUserRegistered: func(user types.User) {
-        // Send welcome email
+                      <h4 className="font-semibold mb-3 text-blue-600">SendGrid</h4>
+                      <CodeBlock language="go" title="SendGrid Config">
+{`Email: config.EmailConfig{
+    Sender: config.EmailSenderConfig{
+        Type:         "sendgrid",
+        FromEmail:    "noreply@yourdomain.com",
+        FromName:     "Your App Name",
+        SupportEmail: "support@yourdomain.com",
     },
-    OnUserLoggedIn: func(user types.User) {
-        // Log login activity
+    SendGrid: config.SendGridConfig{
+        APIKey: "your-sendgrid-api-key",
     },
-    OnPasswordChanged: func(user types.User) {
-        // Send password change notification
+    Branding: config.EmailBrandingConfig{
+        LogoURL:      "https://yourdomain.com/logo.png",
+        CompanyName:  "Your Company",
+        PrimaryColor: "#007bff",
     },
-},`}
-                        </code></pre>
-                      </div>
+}`}
+                      </CodeBlock>
                     </div>
 
+                    {/* AWS SES */}
                     <div>
-                      <h4 className="font-semibold mb-2">Email Configuration</h4>
-                      <div className="bg-muted p-4 rounded-lg font-mono text-sm">
-                        <pre><code className="text-foreground">
-{`// Email sender configuration
-EmailSender: types.EmailSender{
-    Host:     "smtp.gmail.com",
-    Port:     587,
-    Username: "your-email@gmail.com",
-    Password: "your-app-password",
-    From:     "noreply@yourapp.com",
-},`}
-                        </code></pre>
-                      </div>
+                      <h4 className="font-semibold mb-3 text-orange-600">AWS SES</h4>
+                      <CodeBlock language="go" title="AWS SES Config">
+{`Email: config.EmailConfig{
+    Sender: config.EmailSenderConfig{
+        Type:         "ses",
+        FromEmail:    "noreply@yourdomain.com",
+        FromName:     "Your App Name",
+        SupportEmail: "support@yourdomain.com",
+    },
+    SES: config.SESConfig{
+        Region:          "us-east-1",
+        AccessKeyID:     "your-access-key",
+        SecretAccessKey: "your-secret-key",
+    },
+}`}
+                      </CodeBlock>
                     </div>
 
+                    {/* Custom Email Sender */}
                     <div>
-                      <h4 className="font-semibold mb-2">SMS Configuration</h4>
-                      <div className="bg-muted p-4 rounded-lg font-mono text-sm">
-                        <pre><code className="text-foreground">
-{`// SMS sender configuration
-SMSSender: types.SMSSender{
-    Provider: "twilio", // twilio, aws-sns, etc.
-    AccountSID: "your-twilio-account-sid",
-    AuthToken:  "your-twilio-auth-token",
-    FromNumber: "+1234567890",
-},`}
-                        </code></pre>
-                      </div>
+                      <h4 className="font-semibold mb-3 text-green-600">Custom Email Sender</h4>
+                      <CodeBlock language="go" title="Custom Email Config">
+{`Email: config.EmailConfig{
+    Sender: config.EmailSenderConfig{
+        Type:         "custom",
+        FromEmail:    "noreply@yourdomain.com",
+        FromName:     "Your App Name",
+        SupportEmail: "support@yourdomain.com",
+        CustomSender: &MyEmailSender{}, // Implement EmailSenderInterface
+    },
+}`}
+                      </CodeBlock>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <MessageSquare className="h-5 w-5 text-green-500 mr-2" />
+                    SMS Configuration
+                  </CardTitle>
+                  <CardDescription>
+                    Configure SMS providers for phone verification
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    
+                    {/* Twilio */}
+                    <div>
+                      <h4 className="font-semibold mb-3 text-blue-600">Twilio</h4>
+                      <CodeBlock language="go" title="Twilio Config">
+{`SMS: config.SMSConfig{
+    Twilio: config.TwilioConfig{
+        AccountSID: "your-twilio-account-sid",
+        AuthToken:  "your-twilio-auth-token",
+        FromNumber: "+1234567890",
+    },
+    CompanyName:  "Your Company",
+    CustomSender: nil,
+}`}
+                      </CodeBlock>
                     </div>
 
+                    {/* Custom SMS Sender */}
                     <div>
-                      <h4 className="font-semibold mb-2">Swagger Documentation</h4>
-                      <div className="bg-muted p-4 rounded-lg font-mono text-sm">
-                        <pre><code className="text-foreground">
-{`// Enable Swagger documentation
-Swagger: types.SwaggerConfig{
-    Enable:      true,
-    Title:       "go-auth API",
-    Version:     "1.0.0",
-    Description: "Authentication API documentation",
-    DocPath:     "/docs",
-    Host:        "localhost:8080",
-},`}
-                        </code></pre>
-                      </div>
+                      <h4 className="font-semibold mb-3 text-purple-600">Custom SMS Sender</h4>
+                      <CodeBlock language="go" title="Custom SMS Config">
+{`SMS: config.SMSConfig{
+    Twilio: config.TwilioConfig{
+        AccountSID: "",
+        AuthToken:  "",
+        FromNumber: "",
+    },
+    CompanyName:  "Your Company",
+    CustomSender: &MySMSSender{}, // Implement SMSSenderInterface
+}`}
+                      </CodeBlock>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* OAuth Configuration */}
+            <TabsContent value="oauth" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Globe className="h-5 w-5 text-purple-500 mr-2" />
+                    OAuth Providers
+                  </CardTitle>
+                  <CardDescription>
+                    Configure OAuth providers for social login
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    
+                    {/* Google OAuth */}
+                    <div>
+                      <h4 className="font-semibold mb-3 text-red-600">Google OAuth</h4>
+                      <CodeBlock language="go" title="Google OAuth Config">
+{`Providers: config.ProvidersConfig{
+    Enabled: []config.AuthProvider{config.Google},
+    Google: config.ProviderConfig{
+        ClientID:     "your-google-client-id",
+        ClientSecret: "your-google-client-secret",
+        RedirectURL:  "http://localhost:8080/auth/oauth/google/callback",
+        Scopes:       []string{"email", "profile"},
+    },
+}`}
+                      </CodeBlock>
+                    </div>
+
+                    {/* GitHub OAuth */}
+                    <div>
+                      <h4 className="font-semibold mb-3 text-gray-600">GitHub OAuth</h4>
+                      <CodeBlock language="go" title="GitHub OAuth Config">
+{`Providers: config.ProvidersConfig{
+    Enabled: []config.AuthProvider{config.GitHub},
+    GitHub: config.ProviderConfig{
+        ClientID:     "your-github-client-id",
+        ClientSecret: "your-github-client-secret",
+        RedirectURL:  "http://localhost:8080/auth/oauth/github/callback",
+        Scopes:       []string{"user:email", "read:user"},
+    },
+}`}
+                      </CodeBlock>
+                    </div>
+
+                    {/* Multiple Providers */}
+                    <div>
+                      <h4 className="font-semibold mb-3 text-blue-600">Multiple Providers</h4>
+                      <CodeBlock language="go" title="Multiple OAuth Config">
+{`Providers: config.ProvidersConfig{
+    Enabled: []config.AuthProvider{
+        config.Google, 
+        config.GitHub, 
+        config.Facebook,
+        config.Microsoft,
+        config.Apple,
+        config.Discord,
+    },
+    Google: config.ProviderConfig{
+        ClientID:     "google-client-id",
+        ClientSecret: "google-secret",
+        RedirectURL:  "http://localhost:8080/auth/oauth/google/callback",
+    },
+    GitHub: config.ProviderConfig{
+        ClientID:     "github-client-id",
+        ClientSecret: "github-secret",
+        RedirectURL:  "http://localhost:8080/auth/oauth/github/callback",
+    },
+    Facebook: config.ProviderConfig{
+        ClientID:     "facebook-client-id",
+        ClientSecret: "facebook-secret",
+        RedirectURL:  "http://localhost:8080/auth/oauth/facebook/callback",
+    },
+    // ... other providers
+}`}
+                      </CodeBlock>
                     </div>
                   </div>
                 </CardContent>
               </Card>
             </TabsContent>
           </Tabs>
-
-          {/* Complete Example */}
-          <Card className="mt-8">
-            <CardHeader>
-              <CardTitle>Complete Configuration Example</CardTitle>
-              <CardDescription>
-                A complete configuration example with all features enabled
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="bg-muted p-4 rounded-lg font-mono text-sm overflow-x-auto">
-                <pre><code className="text-foreground">
-{`config := types.Config{
-    // Basic settings
-    JWTSecret: "your-super-secret-jwt-key-change-this-in-production",
-
-    // Database
-    Database: types.DatabaseConfig{
-        Type: "postgres",
-        URL:  "postgres://user:password@localhost:5432/goauth_db",
-    },
-
-    // Authentication
-    AuthConfig: types.AuthConfig{
-        Cookie: types.CookieConfig{
-            Name:           "auth_token",
-            AccessTokenTTL: 3600,
-            RefreshTokenTTL: 604800,
-            Path:           "/",
-            MaxAge:         604800,
-            Secure:         false, // Set to true in production
-            HttpOnly:       true,
-            SameSite:       "lax",
-        },
-        EnableEmailVerification: true,
-        EmailVerificationURL: "https://yourapp.com/verify",
-        EnableTwoFactor: false,
-        TwoFactorMethod: "totp",
-        PasswordPolicy: types.PasswordPolicy{
-            MinLength:      8,
-            RequireUppercase: true,
-            RequireLowercase: true,
-            RequireNumbers:   true,
-            RequireSymbols:   false,
-            HashSaltLength:   32,
-        },
-    },
-
-    // OAuth providers
-    Providers: types.ProvidersConfig{
-        Enabled: []string{"google", "github"},
-        Google: types.ProviderConfig{
-            ClientID:     "your-google-client-id",
-            ClientSecret: "your-google-client-secret",
-            RedirectURL:  "https://yourapp.com/auth/google/callback",
-        },
-        GitHub: types.ProviderConfig{
-            ClientID:     "your-github-client-id",
-            ClientSecret: "your-github-client-secret",
-            RedirectURL:  "https://yourapp.com/auth/github/callback",
-        },
-    },
-
-    // Security
-    EnableRateLimiter: true,
-    RateLimiter: types.RateLimiterConfig{
-        Type: "memory",
-        Limits: map[string]types.Limit{
-            "login": {Requests: 5, Window: 300},
-            "register": {Requests: 3, Window: 3600},
-        },
-    },
-
-    EnableRecaptcha: true,
-    RecaptchaConfig: &types.RecaptchaConfig{
-        SiteKey:   "your-recaptcha-site-key",
-        SecretKey: "your-recaptcha-secret-key",
-        Provider:  "google",
-    },
-
-    // Email
-    EmailSender: types.EmailSender{
-        Host:     "smtp.gmail.com",
-        Port:     587,
-        Username: "your-email@gmail.com",
-        Password: "your-app-password",
-        From:     "noreply@yourapp.com",
-    },
-
-    // Swagger
-    Swagger: types.SwaggerConfig{
-        Enable:      true,
-        Title:       "go-auth API",
-        Version:     "1.0.0",
-        Description: "Authentication API documentation",
-        DocPath:     "/docs",
-        Host:        "localhost:8080",
-    },
-}`}
-                </code></pre>
-              </div>
-            </CardContent>
-          </Card>
         </div>
-      </div>
+      </main>
     </div>
   );
-}
+};
+
+export default ConfigurationPage;

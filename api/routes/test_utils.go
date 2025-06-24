@@ -284,11 +284,6 @@ func CreateTestConfig() *config.Config {
 				Host:        "localhost:8080",
 			},
 		},
-		Server: config.ServerConfig{
-			Type: "gin",
-			Host: "localhost",
-			Port: 8080,
-		},
 		Features: config.FeaturesConfig{
 			EnableRateLimiter:   false,
 			EnableRecaptcha:     false,

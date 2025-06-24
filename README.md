@@ -21,6 +21,8 @@ A comprehensive, framework-agnostic authentication library for Go applications. 
 - 🧪 **Extensive Testing**: Unit tests, integration tests, and benchmarks
 - 📚 **Auto-Generated Docs**: Swagger/OpenAPI documentation
 - 🚀 **Production Ready**: Battle-tested with comprehensive error handling
+- 🔧 **Builder Pattern**: Flexible configuration with builder pattern
+- 🎯 **HTTP-First Design**: Clean HTTP-only implementation
 
 ## 🚀 Quick Start
 
@@ -48,14 +50,9 @@ func main() {
     // Create configuration
     config := config.Config{
         App: config.AppConfig{
-            BasePath:    "/api",
+            BasePath:    "/auth",
             Domain:      "localhost",
             FrontendURL: "http://localhost:3000",
-        },
-        Server: config.ServerConfig{
-            Type: "gin",
-            Host: "localhost",
-            Port: 8080,
         },
         Database: config.DatabaseConfig{
             Type: "postgres",
@@ -68,13 +65,26 @@ func main() {
                 RefreshTokenTTL:    7 * 24 * time.Hour,
                 EnableCustomClaims: false,
             },
-            Cookie: config.CookieConfig{
-                Name:     "auth_token",
-                Path:     "/",
-                MaxAge:   86400,
-                Secure:   false,
-                HttpOnly: true,
-                SameSite: 1,
+            Tokens: config.TokenConfig{
+                HashSaltLength:       16,
+                PhoneVerificationTTL: 10 * time.Minute,
+                EmailVerificationTTL: 1 * time.Hour,
+                PasswordResetTTL:     10 * time.Minute,
+                TwoFactorTTL:         10 * time.Minute,
+                MagicLinkTTL:         10 * time.Minute,
+            },
+            Methods: config.AuthMethodsConfig{
+                Type:                  config.AuthenticationTypeEmail,
+                EnableTwoFactor:       true,
+                EnableMultiSession:    false,
+                EnableMagicLink:       false,
+                EnableSmsVerification: false,
+                TwoFactorMethod:       "email",
+                EmailVerification: config.EmailVerificationConfig{
+                    EnableOnSignup:   true,
+                    VerificationURL:  "http://localhost:3000/verify",
+                    SendWelcomeEmail: false,
+                },
             },
             PasswordPolicy: config.PasswordPolicy{
                 HashSaltLength: 16,
@@ -82,7 +92,15 @@ func main() {
                 RequireUpper:   true,
                 RequireLower:   true,
                 RequireNumber:  true,
-                RequireSpecial: false,
+                RequireSpecial: true,
+            },
+            Cookie: config.CookieConfig{
+                Name:     "auth_token",
+                Path:     "/",
+                MaxAge:   86400,
+                Secure:   false,
+                HttpOnly: true,
+                SameSite: 1,
             },
         },
         Features: config.FeaturesConfig{
@@ -94,7 +112,7 @@ func main() {
         Security: config.SecurityConfig{
             RateLimiter: config.RateLimiterConfig{
                 Enabled: false,
-                Type:    "memory",
+                Type:    config.MemoryRateLimiter,
                 Routes:  make(map[string]config.LimiterConfig),
             },
             Recaptcha: config.RecaptchaConfig{
@@ -133,14 +151,25 @@ func main() {
     // Setup Gin router
     router := gin.Default()
 
-    // Setup authentication routes
-    err = auth.SetupRoutes("gin", router)
-    if err != nil {
-        log.Fatal(err)
+    // Register auth routes manually
+    authRoutes := auth.GetRoutes()
+    for _, route := range authRoutes {
+        handler := auth.GetWrappedHandler(route)
+        ginHandler := gin.WrapF(handler)
+        
+        switch route.Method {
+        case "GET":
+            router.GET(route.Path, ginHandler)
+        case "POST":
+            router.POST(route.Path, ginHandler)
+        case "PUT":
+            router.PUT(route.Path, ginHandler)
+        case "DELETE":
+            router.DELETE(route.Path, ginHandler)
+        }
     }
-
-    // Start server
-    log.Fatal(router.Run(":8080"))
+    
+    router.Run(":8080")
 }
 ```
 
@@ -162,7 +191,24 @@ func main() {
     auth, _ := goauth.NewBuilder().WithConfig(config).Build()
     
     router := gin.Default()
-    auth.SetupRoutes("gin", router)
+    
+    // Register auth routes manually
+    authRoutes := auth.GetRoutes()
+    for _, route := range authRoutes {
+        handler := auth.GetWrappedHandler(route)
+        ginHandler := gin.WrapF(handler)
+        
+        switch route.Method {
+        case "GET":
+            router.GET(route.Path, ginHandler)
+        case "POST":
+            router.POST(route.Path, ginHandler)
+        case "PUT":
+            router.PUT(route.Path, ginHandler)
+        case "DELETE":
+            router.DELETE(route.Path, ginHandler)
+        }
+    }
     
     router.Run(":8080")
 }
@@ -183,7 +229,13 @@ func main() {
     auth, _ := goauth.NewBuilder().WithConfig(config).Build()
     
     e := echo.New()
-    auth.SetupRoutes("echo", e)
+    
+    // Register auth routes manually
+    authRoutes := auth.GetRoutes()
+    for _, route := range authRoutes {
+        handler := auth.GetWrappedHandler(route)
+        e.Any(route.Path, echo.WrapHandler(http.HandlerFunc(handler)))
+    }
     
     e.Start(":8080")
 }
@@ -197,6 +249,7 @@ package main
 import (
     "github.com/bete7512/goauth"
     "github.com/go-chi/chi/v5"
+    "net/http"
 )
 
 func main() {
@@ -204,7 +257,13 @@ func main() {
     auth, _ := goauth.NewBuilder().WithConfig(config).Build()
     
     r := chi.NewRouter()
-    auth.SetupRoutes("chi", r)
+    
+    // Register auth routes manually
+    authRoutes := auth.GetRoutes()
+    for _, route := range authRoutes {
+        handler := auth.GetWrappedHandler(route)
+        r.HandleFunc(route.Method+" "+route.Path, handler)
+    }
     
     http.ListenAndServe(":8080", r)
 }
@@ -218,6 +277,7 @@ package main
 import (
     "github.com/bete7512/goauth"
     "github.com/gofiber/fiber/v2"
+    "github.com/gofiber/fiber/v2/middleware/adaptor"
 )
 
 func main() {
@@ -225,9 +285,53 @@ func main() {
     auth, _ := goauth.NewBuilder().WithConfig(config).Build()
     
     app := fiber.New()
-    auth.SetupRoutes("fiber", app)
+    
+    // Register auth routes manually
+    authRoutes := auth.GetRoutes()
+    for _, route := range authRoutes {
+        handler := auth.GetWrappedHandler(route)
+        fiberHandler := adaptor.HTTPHandler(http.HandlerFunc(handler))
+        
+        switch route.Method {
+        case "GET":
+            app.Get(route.Path, fiberHandler)
+        case "POST":
+            app.Post(route.Path, fiberHandler)
+        case "PUT":
+            app.Put(route.Path, fiberHandler)
+        case "DELETE":
+            app.Delete(route.Path, fiberHandler)
+        }
+    }
     
     app.Listen(":8080")
+}
+```
+
+### Standard HTTP
+
+```go
+package main
+
+import (
+    "github.com/bete7512/goauth"
+    "net/http"
+)
+
+func main() {
+    config := createConfig()
+    auth, _ := goauth.NewBuilder().WithConfig(config).Build()
+    
+    mux := http.NewServeMux()
+    
+    // Register auth routes manually
+    authRoutes := auth.GetRoutes()
+    for _, route := range authRoutes {
+        handler := auth.GetWrappedHandler(route)
+        mux.HandleFunc(route.Method+" "+route.Path, handler)
+    }
+    
+    http.ListenAndServe(":8080", mux)
 }
 ```
 
@@ -238,14 +342,9 @@ func main() {
 ```go
 config := config.Config{
     App: config.AppConfig{
-        BasePath:    "/api",
+        BasePath:    "/auth",
         Domain:      "localhost",
         FrontendURL: "http://localhost:3000",
-    },
-    Server: config.ServerConfig{
-        Type: "gin",
-        Host: "localhost",
-        Port: 8080,
     },
     Database: config.DatabaseConfig{
         Type: "postgres",
@@ -258,16 +357,16 @@ config := config.Config{
             RefreshTokenTTL:    7 * 24 * time.Hour,
             EnableCustomClaims: false,
         },
-        Cookie: config.CookieConfig{
-            Name:     "auth_token",
-            Path:     "/",
-            MaxAge:   86400,
-            Secure:   false,
-            HttpOnly: true,
-            SameSite: 1,
+        Tokens: config.TokenConfig{
+            HashSaltLength:       16,
+            PhoneVerificationTTL: 10 * time.Minute,
+            EmailVerificationTTL: 1 * time.Hour,
+            PasswordResetTTL:     10 * time.Minute,
+            TwoFactorTTL:         10 * time.Minute,
+            MagicLinkTTL:         10 * time.Minute,
         },
         Methods: config.AuthMethodsConfig{
-            Type:                  "email",
+            Type:                  config.AuthenticationTypeEmail,
             EnableTwoFactor:       true,
             EnableMultiSession:    false,
             EnableMagicLink:       false,
@@ -286,6 +385,14 @@ config := config.Config{
             RequireLower:   true,
             RequireNumber:  true,
             RequireSpecial: true,
+        },
+        Cookie: config.CookieConfig{
+            Name:     "auth_token",
+            Path:     "/",
+            MaxAge:   86400,
+            Secure:   false,
+            HttpOnly: true,
+            SameSite: 1,
         },
     },
     Features: config.FeaturesConfig{
@@ -306,7 +413,7 @@ config.Providers.Enabled = []config.AuthProvider{
 config.Providers.Google = config.ProviderConfig{
     ClientID:     "your-google-client-id",
     ClientSecret: "your-google-client-secret",
-    RedirectURL:  "http://localhost:8080/oauth/google/callback",
+    RedirectURL:  "http://localhost:8080/auth/oauth/google/callback",
     Scopes:       []string{"email", "profile"},
 }
 ```
@@ -318,7 +425,7 @@ config.Providers.Google = config.ProviderConfig{
 config.Features.EnableRateLimiter = true
 config.Security.RateLimiter = config.RateLimiterConfig{
     Enabled: true,
-    Type:    "memory",
+    Type:    config.MemoryRateLimiter,
     Routes: map[string]config.LimiterConfig{
         config.RouteRegister: {
             WindowSize:    30 * time.Second,
@@ -387,35 +494,52 @@ auth, err := goauth.NewBuilder().
     Build()
 ```
 
+### Custom Captcha Verifier
+
+```go
+// Create custom captcha verifier
+customCaptcha := &MyCaptchaVerifier{}
+
+// Use builder with custom captcha
+auth, err := goauth.NewBuilder().
+    WithConfig(config).
+    WithCaptchaVerifier(customCaptcha).
+    Build()
+```
+
 ## 🔌 Available Endpoints
 
 ### Core Authentication
-- `POST /register` - User registration
-- `POST /login` - User login
-- `POST /logout` - User logout
-- `POST /refresh-token` - Refresh access token
-- `POST /forgot-password` - Password reset request
-- `POST /reset-password` - Password reset
-- `GET /me` - Get current user profile
-- `POST /update-profile` - Update user profile
-- `POST /deactivate-user` - Deactivate user account
+- `POST /auth/register` - User registration
+- `POST /auth/login` - User login
+- `POST /auth/logout` - User logout
+- `POST /auth/refresh-token` - Refresh access token
+- `POST /auth/forgot-password` - Password reset request
+- `POST /auth/reset-password` - Password reset
+- `GET /auth/me` - Get current user profile
+- `POST /auth/update-profile` - Update user profile
+- `POST /auth/deactivate-user` - Deactivate user account
 
 ### Two-Factor Authentication
-- `POST /enable-two-factor` - Enable 2FA
-- `POST /verify-two-factor` - Verify 2FA code
-- `POST /disable-two-factor` - Disable 2FA
+- `POST /auth/enable-two-factor` - Enable 2FA
+- `POST /auth/verify-two-factor` - Verify 2FA code
+- `POST /auth/disable-two-factor` - Disable 2FA
 
 ### Email Verification
-- `POST /verify-email` - Verify email address
-- `POST /verify-email-send` - Resend verification email
+- `POST /auth/verification/email/send` - Send verification email
+- `POST /auth/verification/email/verify` - Verify email address
+
+### Phone Verification
+- `POST /auth/verification/phone/send` - Send verification SMS
+- `POST /auth/verification/phone/verify` - Verify phone number
 
 ### OAuth Providers
-- `GET /oauth/{provider}` - OAuth login
-- `GET /oauth/{provider}/callback` - OAuth callback
+- `GET /auth/oauth/{provider}` - OAuth login
+- `GET /auth/oauth/{provider}/callback` - OAuth callback
 
 ### Magic Link
-- `POST /send-magic-link` - Send magic link
-- `POST /verify-magic-login` - Magic link login
+- `POST /auth/send-magic-link` - Send magic link
+- `POST /auth/verify-magic-link` - Magic link login
 
 ## 🎣 Hooks System
 
@@ -443,6 +567,44 @@ err = auth.RegisterAfterHook(config.RouteLogin, func(w http.ResponseWriter, r *h
     
     return true, nil
 })
+```
+
+## 🔧 Middleware Usage
+
+### Authentication Middleware
+
+```go
+// Get authentication middleware
+authMiddleware := auth.GetAuthMiddleware()
+
+// Apply to your routes
+protectedHandler := authMiddleware(yourHandler)
+```
+
+### Rate Limiting Middleware
+
+```go
+// Get rate limiting middleware for specific route
+rateLimitMiddleware := auth.GetRateLimitMiddleware("login")
+
+// Apply to your routes
+rateLimitedHandler := rateLimitMiddleware(yourHandler)
+```
+
+### Manual Route Registration
+
+```go
+// Get all routes for manual registration
+routes := auth.GetRoutes()
+
+// Register routes manually with your framework
+for _, route := range routes {
+    // Apply middleware if needed
+    handler := auth.GetWrappedHandler(route)
+    
+    // Register with your router
+    router.HandleFunc(route.Method+" "+route.Path, handler)
+}
 ```
 
 ## 🧪 Testing
@@ -473,14 +635,9 @@ make test-coverage
 func createTestConfig() config.Config {
     return config.Config{
         App: config.AppConfig{
-            BasePath:    "/api",
+            BasePath:    "/auth",
             Domain:      "localhost",
             FrontendURL: "http://localhost:3000",
-        },
-        Server: config.ServerConfig{
-            Type: "gin",
-            Host: "localhost",
-            Port: 8080,
         },
         Database: config.DatabaseConfig{
             Type: "postgres",
@@ -492,6 +649,29 @@ func createTestConfig() config.Config {
                 AccessTokenTTL:     15 * time.Minute,
                 RefreshTokenTTL:    7 * 24 * time.Hour,
                 EnableCustomClaims: false,
+            },
+            Tokens: config.TokenConfig{
+                HashSaltLength:       16,
+                PhoneVerificationTTL: 10 * time.Minute,
+                EmailVerificationTTL: 1 * time.Hour,
+                PasswordResetTTL:     10 * time.Minute,
+                TwoFactorTTL:         10 * time.Minute,
+                MagicLinkTTL:         10 * time.Minute,
+            },
+            Methods: config.AuthMethodsConfig{
+                Type:                  config.AuthenticationTypeEmail,
+                EnableTwoFactor:       false,
+                EnableMultiSession:    false,
+                EnableMagicLink:       false,
+                EnableSmsVerification: false,
+            },
+            PasswordPolicy: config.PasswordPolicy{
+                HashSaltLength: 16,
+                MinLength:      8,
+                RequireUpper:   true,
+                RequireLower:   true,
+                RequireNumber:  true,
+                RequireSpecial: false,
             },
             Cookie: config.CookieConfig{
                 Name:     "auth_token",
@@ -511,7 +691,7 @@ func createTestConfig() config.Config {
         Security: config.SecurityConfig{
             RateLimiter: config.RateLimiterConfig{
                 Enabled: false,
-                Type:    "memory",
+                Type:    config.MemoryRateLimiter,
                 Routes:  make(map[string]config.LimiterConfig),
             },
             Recaptcha: config.RecaptchaConfig{
@@ -627,6 +807,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - ✅ Security features
 - ✅ Comprehensive testing
 - ✅ Documentation
+- ✅ Builder pattern implementation
+- ✅ HTTP-first design
 - 🔄 Performance optimizations
 - 🔄 Additional OAuth providers
 
@@ -643,4 +825,31 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Made with ❤️ by the GoAuth community** 
+**Made with ❤️ by the GoAuth community**
+
+## 🔧 Integration Approach
+
+GoAuth uses manual route registration to provide full control over how routes are integrated with web frameworks. This approach allows you to:
+
+- Apply framework-specific middleware to individual routes
+- Customize route handling per endpoint
+- Better debugging and logging
+- More granular control over HTTP methods
+
+```go
+// Get all auth routes
+authRoutes := auth.GetRoutes()
+
+// Register each route individually
+for _, route := range authRoutes {
+    handler := auth.GetWrappedHandler(route)
+    
+    // Apply framework-specific conversion
+    frameworkHandler := convertToFrameworkHandler(handler)
+    
+    // Register with your framework
+    registerRoute(route.Method, route.Path, frameworkHandler)
+}
+```
+
+## 📚 Framework Examples 

@@ -2,99 +2,13 @@
 
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Shield, Users, ExternalLink, Copy } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft, Shield, Globe, Github, ExternalLink, CheckCircle } from "lucide-react";
+import { CodeBlock, CodeBlockWithLines } from "@/components/ui/code-block";
 import Link from "next/link";
 
-// Code block component
-const CodeBlock = ({ 
-  children, 
-  title 
-}: { 
-  children: string; 
-  title?: string; 
-}) => {
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-  };
-
-  return (
-    <div className="relative">
-      {title && (
-        <div className="bg-muted/60 px-4 py-2 text-xs font-medium text-muted-foreground border-b">
-          {title}
-        </div>
-      )}
-      <div className="bg-muted p-4 rounded-lg font-mono text-sm relative group">
-        <button
-          onClick={() => copyToClipboard(children)}
-          className="absolute top-2 right-2 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-background"
-          title="Copy to clipboard"
-        >
-          <Copy className="h-4 w-4" />
-        </button>
-        <pre className="overflow-x-auto">
-          <code className="text-foreground whitespace-pre">{children}</code>
-        </pre>
-      </div>
-    </div>
-  );
-};
-
 const OAuthPage = () => {
-  const providers = [
-    {
-      name: "Google",
-      description: "Sign in with Google accounts",
-      status: "Supported",
-      color: "bg-blue-100 text-blue-800"
-    },
-    {
-      name: "GitHub",
-      description: "Sign in with GitHub accounts",
-      status: "Supported",
-      color: "bg-gray-100 text-gray-800"
-    },
-    {
-      name: "Facebook",
-      description: "Sign in with Facebook accounts",
-      status: "Supported",
-      color: "bg-blue-100 text-blue-800"
-    },
-    {
-      name: "Microsoft",
-      description: "Sign in with Microsoft accounts",
-      status: "Supported",
-      color: "bg-green-100 text-green-800"
-    },
-    {
-      name: "Apple",
-      description: "Sign in with Apple accounts",
-      status: "Supported",
-      color: "bg-black text-white"
-    },
-    {
-      name: "Discord",
-      description: "Sign in with Discord accounts",
-      status: "Supported",
-      color: "bg-purple-100 text-purple-800"
-    },
-    {
-      name: "Twitter",
-      description: "Sign in with Twitter accounts",
-      status: "Supported",
-      color: "bg-blue-100 text-blue-800"
-    },
-    {
-      name: "LinkedIn",
-      description: "Sign in with LinkedIn accounts",
-      status: "Supported",
-      color: "bg-blue-100 text-blue-800"
-    }
-  ];
-
   return (
     <div className="flex min-h-screen">
       {/* Sidebar */}
@@ -110,45 +24,89 @@ const OAuthPage = () => {
         </div>
         
         <div className="p-4">
-          <Link href="/features" className="flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <Link href="/" className="flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors">
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Features
+            Back to Home
           </Link>
         </div>
       </aside>
 
       {/* Main Content */}
       <main className="flex-1 overflow-auto">
-        <div className="container mx-auto p-8 max-w-4xl">
+        <div className="container mx-auto p-8 max-w-6xl">
           <header className="mb-8">
-            <div className="flex items-center space-x-3 mb-4">
-              <Users className="h-8 w-8 text-blue-600" />
-              <h1 className="text-3xl font-bold">OAuth Providers</h1>
+            <div className="flex items-center space-x-2 mb-4">
+              <Badge variant="secondary" className="text-sm">
+                <Globe className="h-3 w-3 mr-1" />
+                OAuth Providers
+              </Badge>
+              <Badge variant="secondary" className="text-sm">
+                <CheckCircle className="h-3 w-3 mr-1" />
+                8 Providers
+              </Badge>
             </div>
+            <h1 className="text-3xl font-bold mb-4">OAuth Providers</h1>
             <p className="text-lg text-muted-foreground">
-              Enable social login with popular OAuth providers. Users can sign in with their existing accounts from Google, GitHub, Facebook, and more.
+              Set up social login with popular OAuth providers including Google, GitHub, Facebook, and more.
             </p>
           </header>
 
           {/* Supported Providers */}
           <Card className="mb-8">
             <CardHeader>
-              <CardTitle>Supported Providers</CardTitle>
+              <CardTitle>Supported OAuth Providers</CardTitle>
               <CardDescription>
-                All major OAuth providers are supported out of the box
+                Choose from 8 popular OAuth providers for social login
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {providers.map((provider) => (
-                  <div key={provider.name} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div>
-                      <h3 className="font-semibold">{provider.name}</h3>
-                      <p className="text-sm text-muted-foreground">{provider.description}</p>
-                    </div>
-                    <Badge className={provider.color}>{provider.status}</Badge>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="flex items-center space-x-2 p-3 border rounded-lg">
+                  <div className="w-8 h-8 bg-red-500 rounded flex items-center justify-center">
+                    <span className="text-white text-xs font-bold">G</span>
                   </div>
-                ))}
+                  <span className="font-medium">Google</span>
+                </div>
+                <div className="flex items-center space-x-2 p-3 border rounded-lg">
+                  <Github className="w-8 h-8" />
+                  <span className="font-medium">GitHub</span>
+                </div>
+                <div className="flex items-center space-x-2 p-3 border rounded-lg">
+                  <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
+                    <span className="text-white text-xs font-bold">f</span>
+                  </div>
+                  <span className="font-medium">Facebook</span>
+                </div>
+                <div className="flex items-center space-x-2 p-3 border rounded-lg">
+                  <div className="w-8 h-8 bg-blue-500 rounded flex items-center justify-center">
+                    <span className="text-white text-xs font-bold">M</span>
+                  </div>
+                  <span className="font-medium">Microsoft</span>
+                </div>
+                <div className="flex items-center space-x-2 p-3 border rounded-lg">
+                  <div className="w-8 h-8 bg-black rounded flex items-center justify-center">
+                    <span className="text-white text-xs font-bold">A</span>
+                  </div>
+                  <span className="font-medium">Apple</span>
+                </div>
+                <div className="flex items-center space-x-2 p-3 border rounded-lg">
+                  <div className="w-8 h-8 bg-indigo-600 rounded flex items-center justify-center">
+                    <span className="text-white text-xs font-bold">D</span>
+                  </div>
+                  <span className="font-medium">Discord</span>
+                </div>
+                <div className="flex items-center space-x-2 p-3 border rounded-lg">
+                  <div className="w-8 h-8 bg-blue-400 rounded flex items-center justify-center">
+                    <span className="text-white text-xs font-bold">T</span>
+                  </div>
+                  <span className="font-medium">Twitter</span>
+                </div>
+                <div className="flex items-center space-x-2 p-3 border rounded-lg">
+                  <div className="w-8 h-8 bg-blue-700 rounded flex items-center justify-center">
+                    <span className="text-white text-xs font-bold">L</span>
+                  </div>
+                  <span className="font-medium">LinkedIn</span>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -156,220 +114,248 @@ const OAuthPage = () => {
           {/* Configuration */}
           <Card className="mb-8">
             <CardHeader>
-              <CardTitle>Configuration</CardTitle>
+              <CardTitle>OAuth Configuration</CardTitle>
               <CardDescription>
-                Set up OAuth providers in your application
+                Configure OAuth providers in your go-auth setup
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Tabs defaultValue="config" className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="config">Configuration</TabsTrigger>
-                  <TabsTrigger value="setup">Setup</TabsTrigger>
-                  <TabsTrigger value="usage">Usage</TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="config" className="mt-6">
-                  <div className="space-y-6">
-                    <div>
-                      <h3 className="text-lg font-semibold mb-3">Provider Configuration</h3>
-                      <CodeBlock title="config.go">
-{`config := types.Config{
+              <CodeBlockWithLines language="go" title="OAuth Configuration">
+{`config := config.Config{
     // ... other config
     
-    Providers: types.ProvidersConfig{
-        Enabled: []string{
-            "google",
-            "github",
-            "facebook",
+    Providers: config.ProvidersConfig{
+        Enabled: []config.AuthProvider{
+            config.Google,
+            config.GitHub,
+            config.Facebook,
+            config.Microsoft,
+            config.Apple,
+            config.Discord,
+            config.Twitter,
+            config.LinkedIn,
         },
-        Google: types.ProviderConfig{
+        
+        // Google OAuth
+        Google: config.ProviderConfig{
             ClientID:     "your-google-client-id",
             ClientSecret: "your-google-client-secret",
             RedirectURL:  "http://localhost:8080/auth/oauth/google/callback",
+            Scopes:       []string{"email", "profile"},
         },
-        GitHub: types.ProviderConfig{
+        
+        // GitHub OAuth
+        GitHub: config.ProviderConfig{
             ClientID:     "your-github-client-id",
             ClientSecret: "your-github-client-secret",
             RedirectURL:  "http://localhost:8080/auth/oauth/github/callback",
+            Scopes:       []string{"user:email", "read:user"},
         },
-        Facebook: types.ProviderConfig{
+        
+        // Facebook OAuth
+        Facebook: config.ProviderConfig{
             ClientID:     "your-facebook-client-id",
             ClientSecret: "your-facebook-client-secret",
             RedirectURL:  "http://localhost:8080/auth/oauth/facebook/callback",
+            Scopes:       []string{"email", "public_profile"},
+        },
+        
+        // Microsoft OAuth
+        Microsoft: config.ProviderConfig{
+            ClientID:     "your-microsoft-client-id",
+            ClientSecret: "your-microsoft-client-secret",
+            RedirectURL:  "http://localhost:8080/auth/oauth/microsoft/callback",
+            Scopes:       []string{"user.read", "email"},
+        },
+        
+        // Apple OAuth
+        Apple: config.ProviderConfig{
+            ClientID:     "your-apple-client-id",
+            ClientSecret: "your-apple-client-secret",
+            RedirectURL:  "http://localhost:8080/auth/oauth/apple/callback",
+            Scopes:       []string{"email", "name"},
+        },
+        
+        // Discord OAuth
+        Discord: config.ProviderConfig{
+            ClientID:     "your-discord-client-id",
+            ClientSecret: "your-discord-client-secret",
+            RedirectURL:  "http://localhost:8080/auth/oauth/discord/callback",
+            Scopes:       []string{"identify", "email"},
+        },
+        
+        // Twitter OAuth
+        Twitter: config.ProviderConfig{
+            ClientID:     "your-twitter-client-id",
+            ClientSecret: "your-twitter-client-secret",
+            RedirectURL:  "http://localhost:8080/auth/oauth/twitter/callback",
+            Scopes:       []string{"tweet.read", "users.read"},
+        },
+        
+        // LinkedIn OAuth
+        LinkedIn: config.ProviderConfig{
+            ClientID:     "your-linkedin-client-id",
+            ClientSecret: "your-linkedin-client-secret",
+            RedirectURL:  "http://localhost:8080/auth/oauth/linkedin/callback",
+            Scopes:       []string{"r_liteprofile", "r_emailaddress"},
         },
     },
 }`}
-                      </CodeBlock>
-                    </div>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="setup" className="mt-6">
-                  <div className="space-y-6">
-                    <div>
-                      <h3 className="text-lg font-semibold mb-3">1. Create OAuth App</h3>
-                      <div className="space-y-4">
-                        <div className="p-4 border rounded-lg">
-                          <h4 className="font-semibold mb-2">Google</h4>
-                          <p className="text-sm text-muted-foreground mb-2">
-                            1. Go to <a href="https://console.developers.google.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Google Cloud Console</a>
-                          </p>
-                          <p className="text-sm text-muted-foreground mb-2">
-                            2. Create a new project or select existing one
-                          </p>
-                          <p className="text-sm text-muted-foreground mb-2">
-                            3. Enable Google+ API
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            4. Create OAuth 2.0 credentials
-                          </p>
-                        </div>
-                        
-                        <div className="p-4 border rounded-lg">
-                          <h4 className="font-semibold mb-2">GitHub</h4>
-                          <p className="text-sm text-muted-foreground mb-2">
-                            1. Go to <a href="https://github.com/settings/developers" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">GitHub Developer Settings</a>
-                          </p>
-                          <p className="text-sm text-muted-foreground mb-2">
-                            2. Click "New OAuth App"
-                          </p>
-                          <p className="text-sm text-muted-foreground mb-2">
-                            3. Fill in application details
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            4. Set callback URL to your application
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="usage" className="mt-6">
-                  <div className="space-y-6">
-                    <div>
-                      <h3 className="text-lg font-semibold mb-3">Frontend Integration</h3>
-                      <CodeBlock title="login.html">
-{`<!-- OAuth Login Buttons -->
-<div class="oauth-buttons">
-  <a href="/auth/oauth/google" class="btn btn-google">
-    Sign in with Google
-  </a>
-  <a href="/auth/oauth/github" class="btn btn-github">
-    Sign in with GitHub
-  </a>
-  <a href="/auth/oauth/facebook" class="btn btn-facebook">
-    Sign in with Facebook
-  </a>
-</div>`}
-                      </CodeBlock>
-                    </div>
-                    
-                    <div>
-                      <h3 className="text-lg font-semibold mb-3">Handle Callback</h3>
-                      <CodeBlock title="callback.js">
-{`// The OAuth callback is handled automatically by go-auth
-// Users will be redirected to your application after successful authentication
-// You can customize the redirect URL in your configuration
-
-// Example: Redirect to dashboard after login
-window.location.href = '/dashboard';`}
-                      </CodeBlock>
-                    </div>
-                  </div>
-                </TabsContent>
-              </Tabs>
+              </CodeBlockWithLines>
             </CardContent>
           </Card>
 
-          {/* Security Best Practices */}
+          {/* Setup Guides */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            
+            {/* Google Setup */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <div className="w-8 h-8 bg-red-500 rounded flex items-center justify-center mr-3">
+                    <span className="text-white text-sm font-bold">G</span>
+                  </div>
+                  Google OAuth Setup
+                </CardTitle>
+                <CardDescription>
+                  Set up Google OAuth 2.0 for your application
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    1. Go to Google Cloud Console and create a new project
+                  </p>
+                  <Button asChild variant="outline" size="sm">
+                    <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      Google Cloud Console
+                    </a>
+                  </Button>
+                  <p className="text-sm text-muted-foreground">
+                    2. Enable Google+ API and OAuth 2.0 API
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    3. Create OAuth 2.0 credentials with redirect URI:
+                  </p>
+                  <CodeBlock language="text" title="Redirect URI">
+                    http://localhost:8080/auth/oauth/google/callback
+                  </CodeBlock>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* GitHub Setup */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Github className="w-8 h-8 mr-3" />
+                  GitHub OAuth Setup
+                </CardTitle>
+                <CardDescription>
+                  Set up GitHub OAuth for your application
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    1. Go to GitHub Developer Settings
+                  </p>
+                  <Button asChild variant="outline" size="sm">
+                    <a href="https://github.com/settings/developers" target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      GitHub Developer Settings
+                    </a>
+                  </Button>
+                  <p className="text-sm text-muted-foreground">
+                    2. Create a new OAuth App
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    3. Set callback URL to:
+                  </p>
+                  <CodeBlock language="text" title="Callback URL">
+                    http://localhost:8080/auth/oauth/github/callback
+                  </CodeBlock>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Usage Example */}
           <Card className="mb-8">
             <CardHeader>
-              <CardTitle>Security Best Practices</CardTitle>
+              <CardTitle>Frontend Integration</CardTitle>
               <CardDescription>
-                Follow these guidelines to ensure secure OAuth implementation
+                Add OAuth login buttons to your frontend
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <CodeBlock language="html" title="OAuth Buttons">
+{`<!-- Google OAuth Button -->
+<a href="/auth/oauth/google" class="oauth-button google">
+  <img src="/google-icon.svg" alt="Google" />
+  Continue with Google
+</a>
+
+<!-- GitHub OAuth Button -->
+<a href="/auth/oauth/github" class="oauth-button github">
+  <svg><!-- GitHub icon --></svg>
+  Continue with GitHub
+</a>
+
+<!-- Facebook OAuth Button -->
+<a href="/auth/oauth/facebook" class="oauth-button facebook">
+  <svg><!-- Facebook icon --></svg>
+  Continue with Facebook
+</a>
+
+<!-- After OAuth callback, user will be redirected to your frontend
+     with authentication cookies set automatically`}
+              </CodeBlock>
+            </CardContent>
+          </Card>
+
+          {/* Testing */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Testing OAuth</CardTitle>
+              <CardDescription>
+                Test your OAuth implementation
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
-                  <div>
-                    <h4 className="font-semibold">Use HTTPS in Production</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Always use HTTPS for OAuth redirect URLs in production environments
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
-                  <div>
-                    <h4 className="font-semibold">Secure Client Secrets</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Store client secrets securely using environment variables or secret management systems
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
-                  <div>
-                    <h4 className="font-semibold">Validate Redirect URLs</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Ensure redirect URLs match exactly what's configured in your OAuth provider
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
-                  <div>
-                    <h4 className="font-semibold">Handle State Parameter</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Use state parameters to prevent CSRF attacks (handled automatically by go-auth)
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+                <div>
+                  <h4 className="font-semibold mb-3">Test OAuth Flow</h4>
+                  <CodeBlock language="bash" title="Test Commands">
+{`# Test OAuth initiation
+curl -I http://localhost:8080/auth/oauth/google
 
-          {/* Next Steps */}
-          <Card>
-            <CardHeader>
-              <CardTitle>What&apos;s Next?</CardTitle>
-              <CardDescription>
-                Continue exploring other authentication features
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Button asChild variant="outline" className="h-auto p-4 flex flex-col items-start">
-                  <Link href="/features/jwt">
-                    <span className="font-semibold">JWT Authentication</span>
-                    <span className="text-sm text-muted-foreground mt-1">
-                      Learn about token-based authentication
-                    </span>
-                  </Link>
-                </Button>
-                <Button asChild variant="outline" className="h-auto p-4 flex flex-col items-start">
-                  <Link href="/features/two-factor">
-                    <span className="font-semibold">Two-Factor Auth</span>
-                    <span className="text-sm text-muted-foreground mt-1">
-                      Enhance security with 2FA
-                    </span>
-                  </Link>
-                </Button>
-                <Button asChild variant="outline" className="h-auto p-4 flex flex-col items-start">
-                  <Link href="/features/rate-limiting">
-                    <span className="font-semibold">Rate Limiting</span>
-                    <span className="text-sm text-muted-foreground mt-1">
-                      Protect your API from abuse
-                    </span>
-                  </Link>
-                </Button>
+# Expected: 302 redirect to Google OAuth consent screen
+
+# After successful OAuth login, check user profile
+curl -X GET http://localhost:8080/auth/me \\
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \\
+  -H "Content-Type: application/json"`}
+                  </CodeBlock>
+                </div>
+                
+                <div>
+                  <h4 className="font-semibold mb-3">Expected Response</h4>
+                  <CodeBlock language="json" title="User Profile">
+{`{
+  "id": "user_id",
+  "email": "user@example.com",
+  "firstName": "John",
+  "lastName": "Doe",
+  "provider": "google",
+  "providerId": "google_user_id",
+  "emailVerified": true,
+  "createdAt": "2024-01-01T00:00:00Z",
+  "updatedAt": "2024-01-01T00:00:00Z"
+}`}
+                  </CodeBlock>
+                </div>
               </div>
             </CardContent>
           </Card>
