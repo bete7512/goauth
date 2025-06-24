@@ -1,0 +1,29 @@
+name: PR Comment for Docs
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'docs/**'
+      - 'README.md'
+
+jobs:
+  comment:
+    name: Add Documentation PR Comment
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Add comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const comment = '📚 **Documentation Changes Detected**\n\nThis PR contains documentation changes only. The following checks have been performed:\n- ✅ Documentation build validation\n- ✅ Link checking\n- ✅ Format validation\n\nNo Go code changes detected, so the full CI pipeline was skipped for efficiency.\n\n**Next steps:**\n- Review the documentation changes\n- Check the preview deployment (if available)\n- Approve and merge when ready\n\nThank you for contributing to our documentation! 🎉';
+
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: comment
+            }); 

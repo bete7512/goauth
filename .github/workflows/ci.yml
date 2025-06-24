@@ -3,8 +3,16 @@ name: CI/CD Pipeline
 on:
   push:
     branches: [ main, develop ]
+    paths-ignore:
+      - 'docs/**'
+      - 'README.md'
+      - '.github/workflows/docs.yml'
   pull_request:
     branches: [ main, develop ]
+    paths-ignore:
+      - 'docs/**'
+      - 'README.md'
+      - '.github/workflows/docs.yml'
   release:
     types: [ published ]
 
@@ -13,10 +21,47 @@ env:
   CGO_ENABLED: 1
 
 jobs:
-  # Lint and format check
+  # Check if changes are docs-only
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      docs-only: ${{ steps.filter.outputs.docs }}
+      go-changes: ${{ steps.filter.outputs.go }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changes
+        id: filter
+        uses: dorny/paths-filter@v2
+        with:
+          filters: |
+            docs:
+              - 'docs/**'
+              - 'README.md'
+              - '.github/workflows/docs.yml'
+            go:
+              - '**/*.go'
+              - 'go.mod'
+              - 'go.sum'
+              - '**/*.yml'
+              - '**/*.yaml'
+              - '**/*.json'
+              - '**/*.md'
+              - '**/*.txt'
+              - '**/*.sh'
+              - '**/*.dockerfile'
+              - '**/Dockerfile*'
+
+  # Lint and format check (skip for docs-only)
   lint:
     name: Lint and Format
     runs-on: ubuntu-latest
+    if: ${{ needs.changes.outputs.go-changes == 'true' }}
+    needs: changes
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -44,10 +89,12 @@ jobs:
             exit 1
           fi
 
-  # Unit tests
+  # Unit tests (skip for docs-only)
   test:
     name: Unit Tests
     runs-on: ubuntu-latest
+    if: ${{ needs.changes.outputs.go-changes == 'true' }}
+    needs: changes
     strategy:
       matrix:
         go-version: [1.21, 1.22, 1.23]
@@ -74,11 +121,12 @@ jobs:
           flags: unittests
           name: codecov-umbrella
 
-  # Integration tests
+  # Integration tests (skip for docs-only)
   integration:
     name: Integration Tests
     runs-on: ubuntu-latest
-    needs: test
+    if: ${{ needs.changes.outputs.go-changes == 'true' }}
+    needs: [changes, test]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -95,10 +143,12 @@ jobs:
       - name: Run integration tests
         run: go test -v -tags=integration ./integration_test.go
 
-  # Security scanning
+  # Security scanning (skip for docs-only)
   security:
     name: Security Scan
     runs-on: ubuntu-latest
+    if: ${{ needs.changes.outputs.go-changes == 'true' }}
+    needs: changes
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -120,11 +170,12 @@ jobs:
         with:
           sarif_file: results.sarif
 
-  # Documentation generation
+  # Documentation generation (run for all changes)
   docs:
     name: Generate Documentation
     runs-on: ubuntu-latest
-    needs: test
+    needs: [changes, test]
+    if: always() && needs.test.result != 'failure'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -152,11 +203,12 @@ jobs:
           name: swagger-docs
           path: docs/
 
-  # Library validation
+  # Library validation (skip for docs-only)
   validate:
     name: Library Validation
     runs-on: ubuntu-latest
-    needs: test
+    if: ${{ needs.changes.outputs.go-changes == 'true' }}
+    needs: [changes, test]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -183,12 +235,12 @@ jobs:
           # Test that the library can be imported
           go list -f '{{.ImportPath}}' ./...
 
-  # Release automation
+  # Release automation (skip for docs-only)
   release:
     name: Create Release
     runs-on: ubuntu-latest
-    needs: [lint, test, integration, security, validate, docs]
-    if: github.event_name == 'release' && github.event.action == 'published'
+    needs: [changes, lint, test, integration, security, validate, docs]
+    if: github.event_name == 'release' && github.event.action == 'published' && needs.changes.outputs.go-changes == 'true'
     permissions:
       contents: write
     steps:
@@ -218,10 +270,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # Dependency vulnerability check
+  # Dependency vulnerability check (skip for docs-only)
   vulncheck:
     name: Vulnerability Check
     runs-on: ubuntu-latest
+    if: ${{ needs.changes.outputs.go-changes == 'true' }}
+    needs: changes
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -235,11 +289,12 @@ jobs:
       - name: Run govulncheck
         run: govulncheck ./...
 
-  # Performance benchmarks
+  # Performance benchmarks (skip for docs-only)
   benchmark:
     name: Performance Benchmarks
     runs-on: ubuntu-latest
-    needs: test
+    if: ${{ needs.changes.outputs.go-changes == 'true' }}
+    needs: [changes, test]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

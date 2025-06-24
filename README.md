@@ -324,12 +324,15 @@ func main() {
     
     mux := http.NewServeMux()
     
-    // Register auth routes manually
+    // Option 1: Manual route registration
     authRoutes := auth.GetRoutes()
     for _, route := range authRoutes {
         handler := auth.GetWrappedHandler(route)
         mux.HandleFunc(route.Method+" "+route.Path, handler)
     }
+    
+    // Option 2: Wildcard mounting
+    // mux.Handle("/auth/", http.StripPrefix("/auth", auth))
     
     http.ListenAndServe(":8080", mux)
 }
@@ -470,7 +473,7 @@ config.App.Swagger = config.SwaggerConfig{
 ```go
 type ClaimsProvider struct{}
 
-func (c *ClaimsProvider) GetClaims(user models.User) (map[string]interface{}, error) {
+func (c *ClaimsProvider) GetClaims(user types.User) (map[string]interface{}, error) {
     return map[string]interface{}{
         "tenants":           []string{"one", "two"},
         "primary_tenant_id": "2534532",

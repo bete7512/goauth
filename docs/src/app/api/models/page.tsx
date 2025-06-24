@@ -68,7 +68,7 @@ const ModelsPage = () => (
           </div>
           <p className="text-lg text-muted-foreground">Core data models used in go-auth.</p>
         </header>
-        {models.map((model) => (
+        {types.map((model) => (
           <Card className="mb-6" key={model.name}>
             <CardHeader>
               <CardTitle>{model.name}</CardTitle>
