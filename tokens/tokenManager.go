@@ -7,17 +7,17 @@ import (
 	"errors"
 	"time"
 
+	"github.com/bete7512/goauth/config"
 	"github.com/bete7512/goauth/models"
-	"github.com/bete7512/goauth/types"
 	"github.com/golang-jwt/jwt/v4"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type TokenManager struct {
-	Config types.Config
+	Config config.Config
 }
 
-func NewTokenManager(config types.Config) *TokenManager {
+func NewTokenManager(config config.Config) *TokenManager {
 	return &TokenManager{Config: config}
 }
 
@@ -26,8 +26,8 @@ func (t *TokenManager) GenerateAccessToken(user models.User, duration time.Durat
 		"user_id": user.ID,
 		"exp":     time.Now().Add(duration).Unix(),
 	}
-	if t.Config.EnableAddCustomJWTClaims && t.Config.CustomJWTClaimsProvider != nil {
-		customClaims, err := t.Config.CustomJWTClaimsProvider.GetClaims(user)
+	if t.Config.Features.EnableCustomJWT && t.Config.AuthConfig.JWT.ClaimsProvider != nil {
+		customClaims, err := t.Config.AuthConfig.JWT.ClaimsProvider.GetClaims(user)
 		if err != nil {
 			return "", err
 		}
@@ -42,7 +42,7 @@ func (t *TokenManager) GenerateAccessToken(user models.User, duration time.Durat
 
 // HashPassword creates a bcrypt hash of the password
 func (t *TokenManager) HashPassword(password string) (string, error) {
-	bytes, err := bcrypt.GenerateFromPassword([]byte(password), t.Config.PasswordPolicy.HashSaltLength)
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), t.Config.AuthConfig.PasswordPolicy.HashSaltLength)
 	return string(bytes), err
 }
 
@@ -59,12 +59,12 @@ func (t *TokenManager) GenerateTokens(user *models.User) (accessToken string, re
 	}
 	accessTokenClaims := jwt.MapClaims{
 		"user_id": user.ID,
-		"exp":     time.Now().Add(t.Config.AuthConfig.Cookie.AccessTokenTTL).Unix(),
+		"exp":     time.Now().Add(t.Config.AuthConfig.JWT.AccessTokenTTL).Unix(),
 		"iat":     time.Now().Unix(),
 		"type":    "access",
 	}
-	if t.Config.EnableAddCustomJWTClaims && t.Config.CustomJWTClaimsProvider != nil {
-		customClaims, err := t.Config.CustomJWTClaimsProvider.GetClaims(*user)
+	if t.Config.Features.EnableCustomJWT && t.Config.AuthConfig.JWT.ClaimsProvider != nil {
+		customClaims, err := t.Config.AuthConfig.JWT.ClaimsProvider.GetClaims(*user)
 		if err != nil {
 			return "", "", err
 		}
@@ -73,19 +73,11 @@ func (t *TokenManager) GenerateTokens(user *models.User) (accessToken string, re
 		}
 	}
 	accessTokenObj := jwt.NewWithClaims(jwt.SigningMethodHS256, accessTokenClaims)
-	accessToken, err = accessTokenObj.SignedString([]byte(t.Config.JWTSecret))
+	accessToken, err = accessTokenObj.SignedString([]byte(t.Config.AuthConfig.JWT.Secret))
 	if err != nil {
 		return "", "", err
 	}
-	// Create refresh token
-	refreshTokenClaims := jwt.MapClaims{
-		"user_id": user.ID,
-		"exp":     time.Now().Add(t.Config.AuthConfig.Cookie.RefreshTokenTTL).Unix(),
-		"iat":     time.Now().Unix(),
-		"type":    "refresh",
-	}
-	refreshTokenObj := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshTokenClaims)
-	refreshToken, err = refreshTokenObj.SignedString([]byte(t.Config.JWTSecret))
+	refreshToken, err = t.GenerateRandomToken(32)
 	if err != nil {
 		return "", "", err
 	}
@@ -94,12 +86,12 @@ func (t *TokenManager) GenerateTokens(user *models.User) (accessToken string, re
 }
 
 // ValidateToken validates a JWT token
-func (t *TokenManager) ValidateToken(tokenString string) (jwt.MapClaims, error) {
+func (t *TokenManager) ValidateJWTToken(tokenString string) (jwt.MapClaims, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errors.New("unexpected signing method")
 		}
-		return []byte(t.Config.JWTSecret), nil
+		return []byte(t.Config.AuthConfig.JWT.Secret), nil
 	})
 
 	if err != nil {
@@ -129,10 +121,32 @@ func (t *TokenManager) GenerateRandomToken(length int) (string, error) {
 	return hex.EncodeToString(bytes), nil
 }
 
+func (t *TokenManager) GenerateNumericOTP(length int) (string, error) {
+	digits := "0123456789"
+	token := make([]byte, length)
+	_, err := rand.Read(token)
+	if err != nil {
+		return "", err
+	}
+	for i := range token {
+		token[i] = digits[int(token[i])%10]
+	}
+	return string(token), nil
+}
+
 func (t *TokenManager) GenerateBase64Token(length int) (string, error) {
 	bytes := make([]byte, length)
 	if _, err := rand.Read(bytes); err != nil {
 		return "", err
 	}
 	return base64.URLEncoding.EncodeToString(bytes), nil
+}
+
+func (t *TokenManager) HashToken(token string) (string, error) {
+	hashedToken, err := bcrypt.GenerateFromPassword([]byte(token), t.Config.AuthConfig.Tokens.HashSaltLength)
+	return string(hashedToken), err
+}
+
+func (t *TokenManager) ValidateHashedToken(hashedToken, token string) error {
+	return bcrypt.CompareHashAndPassword([]byte(hashedToken), []byte(token))
 }

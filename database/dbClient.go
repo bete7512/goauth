@@ -5,8 +5,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/bete7512/goauth/config"
 	"github.com/bete7512/goauth/models"
-	"github.com/bete7512/goauth/types"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"gorm.io/driver/mysql"
@@ -21,36 +21,36 @@ type DBClient interface {
 }
 
 type PostgresClient struct {
-	Config      *types.DatabaseConfig
+	Config      *config.Config
 	DB          *gorm.DB
 	URL         string
 	AutoMigrate bool
 }
 
 type MySQLClient struct {
-	Config      *types.DatabaseConfig
+	Config      *config.DatabaseConfig
 	DB          *gorm.DB
 	URL         string
 	AutoMigrate bool
 }
 
 type MongoDBClient struct {
-	Config      *types.DatabaseConfig
+	Config      *config.DatabaseConfig
 	DB          *mongo.Client
 	URL         string
 	AutoMigrate bool
 }
 
-func NewDBClient(config types.DatabaseConfig) (DBClient, error) {
-	switch config.Type {
-	case types.PostgreSQL:
-		return &PostgresClient{Config: &config, URL: config.URL, AutoMigrate: config.AutoMigrate}, nil
-	case types.MySQL:
-		return &MySQLClient{Config: &config, URL: config.URL, AutoMigrate: config.AutoMigrate}, nil
-	case types.MongoDB:
-		return &MongoDBClient{Config: &config, URL: config.URL, AutoMigrate: config.AutoMigrate}, nil
+func NewDBClient(conf config.Config) (DBClient, error) {
+	switch conf.Database.Type {
+	case config.PostgreSQL:
+		return &PostgresClient{Config: &conf, URL: conf.Database.URL, AutoMigrate: conf.Database.AutoMigrate}, nil
+	case config.MySQL:
+		return &MySQLClient{Config: &conf.Database, URL: conf.Database.URL, AutoMigrate: conf.Database.AutoMigrate}, nil
+	case config.MongoDB:
+		return &MongoDBClient{Config: &conf.Database, URL: conf.Database.URL, AutoMigrate: conf.Database.AutoMigrate}, nil
 	default:
-		return nil, fmt.Errorf("unsupported database type: %s", config.Type)
+		return nil, fmt.Errorf("unsupported database type: %s", conf.Database.Type)
 	}
 }
 
@@ -65,6 +65,19 @@ func (c *PostgresClient) Connect() error {
 			&models.Token{},
 		); err != nil {
 			return fmt.Errorf("failed to auto-migrate: %w", err)
+		}
+
+		if c.Config.AuthConfig.Methods.PhoneVerification.PhoneColumnRequired {
+			err := db.Exec(`ALTER TABLE users ALTER COLUMN phone_number SET NOT NULL`).Error
+			if err != nil {
+				return fmt.Errorf("failed to alter phone_number column: %w", err)
+			}
+		}
+		if c.Config.AuthConfig.Methods.PhoneVerification.UniquePhoneNumber {
+			err := db.Exec(`ALTER TABLE users ADD CONSTRAINT unique_phone_number UNIQUE (phone_number)`).Error
+			if err != nil {
+				return fmt.Errorf("failed to add unique constraint to phone_number column: %w", err)
+			}
 		}
 	}
 
@@ -123,25 +136,25 @@ func (c *MySQLClient) GetDB() interface{} {
 func (c *MongoDBClient) Connect() error {
 	// Set client options
 	clientOptions := options.Client().ApplyURI(c.URL)
-	
+
 	// Connect to MongoDB
 	client, err := mongo.Connect(context.TODO(), clientOptions)
 	if err != nil {
 		return fmt.Errorf("failed to connect to MongoDB: %w", err)
 	}
-	
+
 	// Check the connection
 	err = client.Ping(context.TODO(), nil)
 	if err != nil {
 		return fmt.Errorf("failed to ping MongoDB: %w", err)
 	}
-	
+
 	c.DB = client
 	if c.AutoMigrate {
 		// TODO: do some research on MongoDB migrations
 		// at least check if the collections exist and create them if they don't exist
 	}
-	
+
 	return nil
 }
 

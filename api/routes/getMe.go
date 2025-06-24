@@ -15,14 +15,14 @@ func (h *AuthHandler) HandleGetUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Authenticate user
-	userID, err := h.authenticateRequest(r, h.Auth.Config.AuthConfig.Cookie.Name, h.Auth.Config.JWTSecret)
+	userID, err := h.authenticateRequest(r, h.Auth.Config.AuthConfig.Cookie.Name, h.Auth.Config.AuthConfig.JWT.Secret)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusUnauthorized, "Unauthorized: "+err.Error(), nil)
 		return
 	}
 
 	// Get user
-	user, err := h.Auth.Repository.GetUserRepository().GetUserByID(userID)
+	user, err := h.Auth.Repository.GetUserRepository().GetUserByID(r.Context(), userID)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusBadRequest, "User not found", nil)
 		return

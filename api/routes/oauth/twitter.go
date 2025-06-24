@@ -8,17 +8,17 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/bete7512/goauth/config"
 	"github.com/bete7512/goauth/models"
-	"github.com/bete7512/goauth/types"
 	"github.com/bete7512/goauth/utils"
 	"golang.org/x/oauth2"
 )
 
 type TwitterOauth struct {
-	Auth *types.Auth
+	Auth *config.Auth
 }
 
-func NewTwitterOauth(auth *types.Auth) *TwitterOauth {
+func NewTwitterOauth(auth *config.Auth) *TwitterOauth {
 	return &TwitterOauth{
 		Auth: auth,
 	}
@@ -193,12 +193,12 @@ func (t *TwitterOauth) Callback(w http.ResponseWriter, r *http.Request) {
 	// Create or update user in your system
 	// Note: Twitter might not always provide an email
 	user := models.User{
-		Email:      userInfo.Email, // This might be empty
-		FirstName:  userInfo.Name,
-		LastName:   "", // Twitter doesn't provide separate first/last name
-		SigninVia:  "twitter",
-		ProviderId: &userInfo.ID,
-		Avatar:     &userInfo.ProfileImageURL,
+		Email:       userInfo.Email, // This might be empty
+		FirstName:   userInfo.Name,
+		LastName:    "", // Twitter doesn't provide separate first/last name
+		SignedUpVia: "twitter",
+		ProviderId:  &userInfo.ID,
+		Avatar:      &userInfo.ProfileImageURL,
 	}
 
 	// Handle the case where email is not provided
@@ -210,7 +210,7 @@ func (t *TwitterOauth) Callback(w http.ResponseWriter, r *http.Request) {
 		// This would need additional handling on the frontend
 	}
 
-	err = t.Auth.Repository.GetUserRepository().UpsertUserByEmail(&user)
+	err = t.Auth.Repository.GetUserRepository().UpsertUserByEmail(r.Context(), &user)
 	if err != nil {
 		utils.RespondWithError(
 			w,
@@ -234,7 +234,7 @@ func (t *TwitterOauth) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Save refresh token
-	err = t.Auth.Repository.GetTokenRepository().SaveToken(user.ID, refreshToken, models.RefreshToken, t.Auth.Config.AuthConfig.Cookie.RefreshTokenTTL)
+	err = t.Auth.Repository.GetTokenRepository().SaveToken(r.Context(), user.ID, refreshToken, models.RefreshToken, t.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
 	if err != nil {
 		utils.RespondWithError(
 			w,
@@ -253,12 +253,12 @@ func (t *TwitterOauth) Callback(w http.ResponseWriter, r *http.Request) {
 		HttpOnly: true,
 		Secure:   r.TLS != nil,
 		SameSite: http.SameSiteLaxMode,
-		MaxAge:   int(t.Auth.Config.AuthConfig.Cookie.AccessTokenTTL.Seconds()),
+		MaxAge:   int(t.Auth.Config.AuthConfig.JWT.AccessTokenTTL.Seconds()),
 	}
 	http.SetCookie(w, tokenCookie)
 
 	// Redirect to the frontend
-	http.Redirect(w, r, t.Auth.Config.FrontendURL, http.StatusTemporaryRedirect)
+	http.Redirect(w, r, t.Auth.Config.App.FrontendURL, http.StatusTemporaryRedirect)
 }
 
 // getUserInfo fetches the user information from Twitter API

@@ -7,29 +7,29 @@ import (
 	"time"
 
 	"github.com/bete7512/goauth/caches"
-	"github.com/bete7512/goauth/types"
+	"github.com/bete7512/goauth/config"
 	"github.com/redis/go-redis/v9"
 )
 
 type RedisRateLimiter struct {
 	client caches.RedisClient
-	config types.RateLimiterConfig
+	config config.RateLimiterConfig
 }
 
-func NewRedisRateLimiter(config types.Config) (*RedisRateLimiter, error) {
-	redisClient := caches.NewRedisClient(config.RedisConfig)
+func NewRedisRateLimiter(conf config.Config) (*RedisRateLimiter, error) {
+	redisClient := caches.NewRedisClient(conf.Redis)
 	if redisClient == nil {
 		return nil, errors.New("failed to create Redis client")
 	}
 
 	return &RedisRateLimiter{
 		client: *redisClient,
-		config: *config.RateLimiter,
+		config: conf.Security.RateLimiter,
 	}, nil
 }
 
 // Allow checks if a request is allowed based on rate limiting rules
-func (r *RedisRateLimiter) Allow(key string, config types.LimiterConfig) bool {
+func (r *RedisRateLimiter) Allow(key string, config config.LimiterConfig) bool {
 	prefixedKey := "ratelimit:" + key
 	now := time.Now().Unix()
 	windowKey := prefixedKey + ":window"
@@ -137,4 +137,3 @@ func (r *RedisRateLimiter) Allow(key string, config types.LimiterConfig) bool {
 func (r *RedisRateLimiter) Close() error {
 	return r.client.Close()
 }
-

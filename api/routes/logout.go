@@ -11,30 +11,37 @@ import (
 // HandleLogout handles user logout
 func (h *AuthHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		utils.RespondWithError(w, http.StatusMethodNotAllowed, "Method not allowed", nil)
+		utils.RespondWithError(w, http.StatusMethodNotAllowed, "method not allowed", nil)
 		return
 	}
 	token := h.extractToken(r, h.Auth.Config.AuthConfig.Cookie.Name)
 	if token == "" {
-		utils.RespondWithError(w, http.StatusBadRequest, "No authentication token provided", nil)
+		utils.RespondWithError(w, http.StatusBadRequest, "no authentication token provided", nil)
 		return
 	}
-	claims, err := h.Auth.TokenManager.ValidateToken(token)
+	claims, err := h.Auth.TokenManager.ValidateJWTToken(token)
 	if err != nil {
-		utils.RespondWithError(w, http.StatusUnauthorized, "Invalid authentication token", nil)
+		utils.RespondWithError(w, http.StatusUnauthorized, "invalid authentication token", nil)
 		return
 	}
+
+	refreshToken, err := h.Auth.Repository.GetTokenRepository().GetActiveTokenByUserIdAndType(r.Context(), claims["user_id"].(string), models.RefreshToken)
+	if err != nil {
+		utils.RespondWithError(w, http.StatusInternalServerError, "failed to get refresh token", nil)
+		return
+	}
+
 	userID := claims["user_id"].(string)
-	if h.Auth.Config.AuthConfig.EnableMultiSession {
-		err = h.Auth.Repository.GetTokenRepository().InvalidateToken(userID, token, models.RefreshToken)
+	if h.Auth.Config.AuthConfig.Methods.EnableMultiSession {
+		err = h.Auth.Repository.GetTokenRepository().RevokeToken(r.Context(), refreshToken.ID)
 		if err != nil {
-			utils.RespondWithError(w, http.StatusInternalServerError, "Failed to invalidate refresh tokens", nil)
+			utils.RespondWithError(w, http.StatusInternalServerError, "failed to invalidate refresh tokens", nil)
 			return
 		}
 	} else {
-		err = h.Auth.Repository.GetTokenRepository().InvalidateAllTokens(userID, models.RefreshToken)
+		err = h.Auth.Repository.GetTokenRepository().RevokeAllTokens(r.Context(), userID, models.RefreshToken)
 		if err != nil {
-			utils.RespondWithError(w, http.StatusInternalServerError, "Failed to invalidate refresh tokens", nil)
+			utils.RespondWithError(w, http.StatusInternalServerError, "failed to invalidate refresh tokens", nil)
 			return
 		}
 	}
@@ -63,10 +70,10 @@ func (h *AuthHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
 	})
 
 	err = utils.RespondWithJSON(w, http.StatusOK, map[string]string{
-		"message": "Successfully logged out",
+		"message": "successfully logged out",
 	})
 	if err != nil {
-		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to send response", nil)
+		utils.RespondWithError(w, http.StatusInternalServerError, "failed to send response", nil)
 		return
 	}
 }

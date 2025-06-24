@@ -114,7 +114,7 @@ func TestRegisterBothHooksToSameRoute(t *testing.T) {
 func TestExecuteBeforeHooks(t *testing.T) {
 	manager := NewHookManager()
 	route := "/test"
-	
+
 	tests := []struct {
 		name           string
 		hook           RouteHook
@@ -147,7 +147,7 @@ func TestExecuteBeforeHooks(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Clear hooks first
 			manager.ClearAll()
-			
+
 			// Register the test hook
 			err := manager.RegisterBeforeHook(route, tt.hook)
 			if err != nil {
@@ -187,17 +187,17 @@ func TestExecuteBeforeHooksForNonExistentRoute(t *testing.T) {
 func TestExecuteAfterHooks(t *testing.T) {
 	manager := NewHookManager()
 	route := "/test"
-	
+
 	// Test case where hook executes without error
 	successHook := func(w http.ResponseWriter, r *http.Request) (bool, error) {
 		return true, nil
 	}
-	
+
 	// Test case where hook returns error
 	errorHook := func(w http.ResponseWriter, r *http.Request) (bool, error) {
 		return false, errors.New("hook error")
 	}
-	
+
 	tests := []struct {
 		name        string
 		hook        RouteHook
@@ -219,7 +219,7 @@ func TestExecuteAfterHooks(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Clear hooks first
 			manager.ClearAll()
-			
+
 			// Register the test hook
 			err := manager.RegisterAfterHook(route, tt.hook)
 			if err != nil {
@@ -232,7 +232,7 @@ func TestExecuteAfterHooks(t *testing.T) {
 
 			// Execute hooks
 			manager.ExecuteAfterHooks(route, w, req)
-			
+
 			// Check response status
 			resp := w.Result()
 			if tt.expectError && resp.StatusCode != http.StatusInternalServerError {
@@ -309,17 +309,17 @@ func TestGetAfterHook(t *testing.T) {
 
 func TestGetHooks(t *testing.T) {
 	manager := NewHookManager()
-	
+
 	// Register some hooks
 	route1 := "/route1"
 	route2 := "/route2"
 	hook := func(w http.ResponseWriter, r *http.Request) (bool, error) { return true, nil }
-	
+
 	manager.RegisterBeforeHook(route1, hook)
 	manager.RegisterAfterHook(route2, hook)
-	
+
 	hooks := manager.GetHooks()
-	
+
 	if len(hooks) != 2 {
 		t.Fatalf("Expected 2 routes, got %d", len(hooks))
 	}
@@ -335,14 +335,14 @@ func TestSetHook(t *testing.T) {
 	manager := NewHookManager()
 	route := "/test"
 	hook := func(w http.ResponseWriter, r *http.Request) (bool, error) { return true, nil }
-	
+
 	routeHooks := &RouteHooks{
 		Before: hook,
 		After:  hook,
 	}
-	
+
 	manager.SetHook(route, routeHooks)
-	
+
 	retrievedHooks := manager.hooks[route]
 	if retrievedHooks == nil {
 		t.Fatal("Expected hooks to be set")
@@ -359,14 +359,14 @@ func TestClear(t *testing.T) {
 	manager := NewHookManager()
 	route := "/test"
 	hook := func(w http.ResponseWriter, r *http.Request) (bool, error) { return true, nil }
-	
+
 	// Register some hooks
 	manager.RegisterBeforeHook(route, hook)
 	manager.RegisterAfterHook("/other", hook)
-	
+
 	// Clear one route
 	manager.Clear(route)
-	
+
 	if _, exists := manager.hooks[route]; exists {
 		t.Fatal("Expected route to be removed")
 	}
@@ -378,14 +378,14 @@ func TestClear(t *testing.T) {
 func TestClearAll(t *testing.T) {
 	manager := NewHookManager()
 	hook := func(w http.ResponseWriter, r *http.Request) (bool, error) { return true, nil }
-	
+
 	// Register some hooks
 	manager.RegisterBeforeHook("/route1", hook)
 	manager.RegisterAfterHook("/route2", hook)
-	
+
 	// Clear all routes
 	manager.ClearAll()
-	
+
 	if len(manager.hooks) != 0 {
 		t.Fatalf("Expected empty hooks map, got %d entries", len(manager.hooks))
 	}

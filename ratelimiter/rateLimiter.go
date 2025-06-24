@@ -1,27 +1,24 @@
 package ratelimiter
 
-import (
-	"github.com/bete7512/goauth/types"
-)
+import "github.com/bete7512/goauth/config"
 
+func NewRateLimiter(conf config.Config) config.RateLimiter {
 
-func NewRateLimiter(config types.Config) types.RateLimiter {
-
-	switch config.RateLimiter.Type {
-	case types.MemoryRateLimiter:
-		rateLimiter, err := NewMemoryRateLimiter(config)
+	switch conf.Security.RateLimiter.Type {
+	case config.MemoryRateLimiter:
+		rateLimiter, err := NewMemoryRateLimiter(conf)
 		if err != nil {
 			return nil
 		}
 		return rateLimiter
-	case types.RedisRateLimiter:
-		rateLimiter, err := NewRedisRateLimiter(config)
+	case config.RedisRateLimiter:
+		rateLimiter, err := NewRedisRateLimiter(conf)
 		if err != nil {
 			return nil
 		}
 		return rateLimiter
 	default:
-		rateLimiter, err := NewMemoryRateLimiter(config)
+		rateLimiter, err := NewMemoryRateLimiter(conf)
 		if err != nil {
 			return nil
 		}

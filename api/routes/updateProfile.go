@@ -11,27 +11,27 @@ import (
 // HandleUpdateUser handles user profile updates
 func (h *AuthHandler) HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPut && r.Method != http.MethodPatch {
-		utils.RespondWithError(w, http.StatusMethodNotAllowed, "Method not allowed", nil)
+		utils.RespondWithError(w, http.StatusMethodNotAllowed, "method not allowed", nil)
 		return
 	}
 
 	// Authenticate user
-	userID, err := h.authenticateRequest(r, h.Auth.Config.AuthConfig.Cookie.Name, h.Auth.Config.JWTSecret)
+	userID, err := h.authenticateRequest(r, h.Auth.Config.AuthConfig.Cookie.Name, h.Auth.Config.AuthConfig.JWT.Secret)
 	if err != nil {
-		utils.RespondWithError(w, http.StatusUnauthorized, "Unauthorized: "+err.Error(), nil)
+		utils.RespondWithError(w, http.StatusUnauthorized, "unauthorized: "+err.Error(), nil)
 		return
 	}
 
 	var req schemas.UpdateProfileRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondWithError(w, http.StatusBadRequest, "Invalid request body: "+err.Error(), nil)
+		utils.RespondWithError(w, http.StatusBadRequest, "invalid request body: "+err.Error(), nil)
 		return
 	}
 
 	// Get current user
-	user, err := h.Auth.Repository.GetUserRepository().GetUserByID(userID)
+	user, err := h.Auth.Repository.GetUserRepository().GetUserByID(r.Context(), userID)
 	if err != nil {
-		utils.RespondWithError(w, http.StatusBadRequest, "User not found", err)
+		utils.RespondWithError(w, http.StatusBadRequest, "user not found", err)
 		return
 	}
 
@@ -44,9 +44,9 @@ func (h *AuthHandler) HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update user
-	err = h.Auth.Repository.GetUserRepository().UpdateUser(user)
+	err = h.Auth.Repository.GetUserRepository().UpdateUser(r.Context(), user)
 	if err != nil {
-		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to update user: "+err.Error(), err)
+		utils.RespondWithError(w, http.StatusInternalServerError, "failed to update user: "+err.Error(), err)
 		return
 	}
 
@@ -61,10 +61,10 @@ func (h *AuthHandler) HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	err = utils.RespondWithJSON(w, http.StatusOK, map[string]interface{}{
 		"user":    userResponse,
-		"message": "User updated successfully",
+		"message": "user updated successfully",
 	})
 	if err != nil {
-		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to send response", err)
+		utils.RespondWithError(w, http.StatusInternalServerError, "failed to send response", err)
 		return
 	}
 }
