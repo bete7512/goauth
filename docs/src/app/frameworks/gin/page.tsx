@@ -352,15 +352,15 @@ protected.Use(CustomAuthMiddleware(auth))
 auth, err := goauth.NewBuilder().
     WithConfig(config).
     WithHooks(&goauth.Hooks{
-        OnUserRegistered: func(user *models.User) {
+        OnUserRegistered: func(user *types.User) {
             log.Printf("New user registered: %s", user.Email)
             // Send welcome email, create profile, etc.
         },
-        OnUserLoggedIn: func(user *models.User) {
+        OnUserLoggedIn: func(user *types.User) {
             log.Printf("User logged in: %s", user.Email)
             // Update last login time, log activity, etc.
         },
-        OnPasswordChanged: func(user *models.User) {
+        OnPasswordChanged: func(user *types.User) {
             log.Printf("Password changed for user: %s", user.Email)
             // Send password change notification, etc.
         },
