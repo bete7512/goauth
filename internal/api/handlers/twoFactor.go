@@ -11,7 +11,7 @@ import (
 
 	"github.com/bete7512/goauth/internal/schemas"
 	"github.com/bete7512/goauth/internal/utils"
-	"github.com/bete7512/goauth/pkg/types"
+	"github.com/bete7512/goauth/pkg/models"
 	"gorm.io/gorm"
 )
 
@@ -185,12 +185,12 @@ func (h *AuthRoutes) HandleDisableTwoFactor(w http.ResponseWriter, r *http.Reque
 }
 
 // sendTwoFactorCode sends a two-factor verification code
-func (h *AuthRoutes) sendTwoFactorCode(ctx context.Context, user *types.User) error {
+func (h *AuthRoutes) sendTwoFactorCode(ctx context.Context, user *models.User) error {
 	// Generate random 6-digit code
 	code := fmt.Sprintf("%06d", rand.Intn(1000000))
 
 	// Save code (valid for 10 minutes)
-	err := h.Auth.Repository.GetTokenRepository().SaveToken(ctx, user.ID, code, types.TwoFactorCode, 10*time.Minute)
+	err := h.Auth.Repository.GetTokenRepository().SaveToken(ctx, user.ID, code, models.TwoFactorCode, 10*time.Minute)
 	if err != nil {
 		return err
 	}

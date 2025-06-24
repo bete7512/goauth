@@ -10,7 +10,7 @@ import (
 
 	"github.com/bete7512/goauth/internal/utils"
 	"github.com/bete7512/goauth/pkg/config"
-	"github.com/bete7512/goauth/pkg/types"
+	"github.com/bete7512/goauth/pkg/models"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/microsoft"
 )
@@ -215,7 +215,7 @@ func (m *MicrosoftOauth) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create or update user in your system
-	user := types.User{
+	user := models.User{
 		Email: email,
 		FirstName: func() string {
 			if userInfo.GivenName != "" {
@@ -253,7 +253,7 @@ func (m *MicrosoftOauth) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Save refresh token
-	err = m.Auth.Repository.GetTokenRepository().SaveToken(r.Context(), user.ID, refreshToken, types.RefreshToken, m.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
+	err = m.Auth.Repository.GetTokenRepository().SaveToken(r.Context(), user.ID, refreshToken, models.RefreshToken, m.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
 	if err != nil {
 		utils.RespondWithError(
 			w,

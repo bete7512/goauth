@@ -8,7 +8,7 @@ package goauth
 // 	"testing"
 
 // 	"github.com/bete7512/goauth/pkg/config"
-// 	"github.com/bete7512/goauth/pkg/types"
+// 	"github.com/bete7512/goauth/pkg/models"
 // 	"github.com/gin-gonic/gin"
 // 	"github.com/stretchr/testify/assert"
 // )
@@ -128,7 +128,7 @@ package goauth
 // 	Message      string       `json:"message"`
 // 	AccessToken  string       `json:"access_token"`
 // 	RefreshToken string       `json:"refresh_token"`
-// 	User         *types.User `json:"user"`
+// 	User         *models.User `json:"user"`
 // }
 
 // // Integration test for Gin framework
@@ -240,7 +240,7 @@ package goauth
 // 		// Should return 200 for authenticated request
 // 		assert.Equal(t, 200, w.Code)
 
-// 		var userResponse types.User
+// 		var userResponsemodels.User
 // 		err = json.Unmarshal(w.Body.Bytes(), &userResponse)
 // 		assert.NoError(t, err)
 // 		assert.Equal(t, "john.doe@example.com", userResponse.Email)

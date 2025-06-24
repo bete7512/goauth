@@ -8,7 +8,7 @@ import (
 
 	"github.com/bete7512/goauth/internal/schemas"
 	"github.com/bete7512/goauth/internal/utils"
-	"github.com/bete7512/goauth/pkg/types"
+	"github.com/bete7512/goauth/pkg/models"
 )
 
 // HandleForgotPassword handles password reset requests
@@ -42,7 +42,7 @@ func (h *AuthRoutes) HandleForgotPassword(w http.ResponseWriter, r *http.Request
 		return
 	}
 	// Save reset token
-	err = h.Auth.Repository.GetTokenRepository().SaveToken(r.Context(), user.ID, resetToken, types.PasswordResetToken, 1*time.Hour)
+	err = h.Auth.Repository.GetTokenRepository().SaveToken(r.Context(), user.ID, resetToken, models.PasswordResetToken, 1*time.Hour)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to save reset token", err)
 		return

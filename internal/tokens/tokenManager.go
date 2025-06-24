@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/bete7512/goauth/pkg/config"
-	"github.com/bete7512/goauth/pkg/types"
+	"github.com/bete7512/goauth/pkg/models"
 	"github.com/golang-jwt/jwt/v4"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -21,7 +21,7 @@ func NewTokenManager(config config.Config) *TokenManager {
 	return &TokenManager{Config: config}
 }
 
-func (t *TokenManager) GenerateAccessToken(user types.User, duration time.Duration, secretKey string) (string, error) {
+func (t *TokenManager) GenerateAccessToken(user models.User, duration time.Duration, secretKey string) (string, error) {
 	claims := jwt.MapClaims{
 		"user_id": user.ID,
 		"exp":     time.Now().Add(duration).Unix(),
@@ -52,7 +52,7 @@ func (t *TokenManager) ValidatePassword(hashedPassword, password string) error {
 }
 
 // GenerateTokens creates a new JWT access token and refresh token
-func (t *TokenManager) GenerateTokens(user *types.User) (accessToken string, refreshToken string, err error) {
+func (t *TokenManager) GenerateTokens(user *models.User) (accessToken string, refreshToken string, err error) {
 	// Create access token
 	if user == nil {
 		return "", "", errors.New("user is nil")

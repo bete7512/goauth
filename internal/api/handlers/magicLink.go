@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/bete7512/goauth/internal/utils"
-	"github.com/bete7512/goauth/pkg/types"
+	"github.com/bete7512/goauth/pkg/models"
 )
 
 // HandleResendVerificationEmail resends verification email
@@ -41,7 +41,7 @@ func (h *AuthRoutes) SendMagicLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Save magic link token (valid for 10 minutes)
-	err = h.Auth.Repository.GetTokenRepository().SaveToken(r.Context(), user.ID, magicLinkToken, types.MakicLinkToken, 10*time.Minute)
+	err = h.Auth.Repository.GetTokenRepository().SaveToken(r.Context(), user.ID, magicLinkToken, models.MakicLinkToken, 10*time.Minute)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to save magic link token", err)
 		return
@@ -114,7 +114,7 @@ func (h *AuthRoutes) HandleVerifyMagicLink(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	// Save refresh token
-	err = h.Auth.Repository.GetTokenRepository().SaveToken(r.Context(), user.ID, refreshToken, types.RefreshToken, h.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
+	err = h.Auth.Repository.GetTokenRepository().SaveToken(r.Context(), user.ID, refreshToken, models.RefreshToken, h.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to save refresh token", err)
 		return

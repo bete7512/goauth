@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/bete7512/goauth/pkg/types"
+	"github.com/bete7512/goauth/pkg/models"
 	"gorm.io/gorm"
 )
 
@@ -20,10 +20,10 @@ func NewTokenRepository(db *gorm.DB) *TokenRepository {
 }
 
 // SaveToken saves a token of any type
-func (t *TokenRepository) SaveToken(ctx context.Context, userID, token string, tokenType types.TokenType, expiry time.Duration) error {
+func (t *TokenRepository) SaveToken(ctx context.Context, userID, token string, tokenType models.TokenType, expiry time.Duration) error {
 	now := time.Now()
 	used := false
-	newToken := types.Token{
+	newToken := models.Token{
 		UserID:     userID,
 		TokenType:  tokenType,
 		TokenValue: token,
@@ -36,10 +36,10 @@ func (t *TokenRepository) SaveToken(ctx context.Context, userID, token string, t
 }
 
 // SaveTokenWithDeviceId saves a token of any type with a device ID
-func (t *TokenRepository) SaveTokenWithDeviceId(ctx context.Context, userID, token, deviceId string, tokenType types.TokenType, expiry time.Duration) error {
+func (t *TokenRepository) SaveTokenWithDeviceId(ctx context.Context, userID, token, deviceId string, tokenType models.TokenType, expiry time.Duration) error {
 	now := time.Now()
 	used := false
-	newToken := types.Token{
+	newToken := models.Token{
 		UserID:     userID,
 		TokenType:  tokenType,
 		TokenValue: token,
@@ -53,8 +53,8 @@ func (t *TokenRepository) SaveTokenWithDeviceId(ctx context.Context, userID, tok
 }
 
 // GetActiveTokenByUserIdAndType implements interfaces.TokenRepository.
-func (t *TokenRepository) GetActiveTokenByUserIdAndType(ctx context.Context, userID string, tokenType types.TokenType) (*types.Token, error) {
-	var token types.Token
+func (t *TokenRepository) GetActiveTokenByUserIdAndType(ctx context.Context, userID string, tokenType models.TokenType) (*models.Token, error) {
+	var token models.Token
 	if err := t.Db.Where("user_id = ? AND token_type = ? AND used = ? AND expires_at > ?", userID, tokenType, false, time.Now()).First(&token).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
@@ -65,8 +65,8 @@ func (t *TokenRepository) GetActiveTokenByUserIdAndType(ctx context.Context, use
 }
 
 // GetActiveTokenByUserIdTypeAndDeviceId implements interfaces.TokenRepository.
-func (t *TokenRepository) GetActiveTokenByUserIdTypeAndDeviceId(ctx context.Context, userID string, tokenType types.TokenType, deviceId string) (*types.Token, error) {
-	var token types.Token
+func (t *TokenRepository) GetActiveTokenByUserIdTypeAndDeviceId(ctx context.Context, userID string, tokenType models.TokenType, deviceId string) (*models.Token, error) {
+	var token models.Token
 	if err := t.Db.Where("user_id = ? AND token_type = ? AND device_id = ? AND used = ? AND expires_at > ?", userID, tokenType, deviceId, false, time.Now()).First(&token).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
@@ -78,15 +78,15 @@ func (t *TokenRepository) GetActiveTokenByUserIdTypeAndDeviceId(ctx context.Cont
 
 // RevokeToken implements interfaces.TokenRepository.
 func (t *TokenRepository) RevokeToken(ctx context.Context, tokenId string) error {
-	return t.Db.Model(&types.Token{}).Where("id = ?", tokenId).Update("used", true).Error
+	return t.Db.Model(&models.Token{}).Where("id = ?", tokenId).Update("used", true).Error
 }
 
 // RevokeAllTokens implements interfaces.TokenRepository.
-func (t *TokenRepository) RevokeAllTokens(ctx context.Context, userID string, tokenType types.TokenType) error {
-	return t.Db.Model(&types.Token{}).Where("user_id = ? AND token_type = ?", userID, tokenType).Update("used", true).Error
+func (t *TokenRepository) RevokeAllTokens(ctx context.Context, userID string, tokenType models.TokenType) error {
+	return t.Db.Model(&models.Token{}).Where("user_id = ? AND token_type = ?", userID, tokenType).Update("used", true).Error
 }
 
 // CleanExpiredTokens implements interfaces.TokenRepository.
-func (t *TokenRepository) CleanExpiredTokens(ctx context.Context, tokenType types.TokenType) error {
-	return t.Db.Model(&types.Token{}).Where("token_type = ? AND expires_at < ?", tokenType, time.Now()).Update("used", true).Error
+func (t *TokenRepository) CleanExpiredTokens(ctx context.Context, tokenType models.TokenType) error {
+	return t.Db.Model(&models.Token{}).Where("token_type = ? AND expires_at < ?", tokenType, time.Now()).Update("used", true).Error
 }

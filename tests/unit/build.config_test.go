@@ -7,7 +7,7 @@ package goauth
 
 // 	"github.com/bete7512/goauth/pkg/config"
 // 	"github.com/bete7512/goauth/internal/interfaces"
-// 	"github.com/bete7512/goauth/pkg/types"
+// 	"github.com/bete7512/goauth/pkg/models"
 // 	"github.com/stretchr/testify/assert"
 // 	"github.com/stretchr/testify/mock"
 // )
@@ -31,44 +31,44 @@ package goauth
 // 	mock.Mock
 // }
 
-// func (m *MockUserRepository) CreateUser(user *types.User) error {
+// func (m *MockUserRepository) CreateUser(user *models.User) error {
 // 	args := m.Called(user)
 // 	return args.Error(0)
 // }
 
-// func (m *MockUserRepository) UpsertUserByEmail(user *types.User) error {
+// func (m *MockUserRepository) UpsertUserByEmail(user *models.User) error {
 // 	args := m.Called(user)
 // 	return args.Error(0)
 // }
 
-// func (m *MockUserRepository) GetUserByPhoneNumber(phoneNumber string) (*types.User, error) {
+// func (m *MockUserRepository) GetUserByPhoneNumber(phoneNumber string) (*models.User, error) {
 // 	args := m.Called(phoneNumber)
-// 	return args.Get(0).(*types.User), args.Error(1)
+// 	return args.Get(0).(*models.User), args.Error(1)
 // }
 
-// func (m *MockUserRepository) GetUserByEmail(email string) (*types.User, error) {
+// func (m *MockUserRepository) GetUserByEmail(email string) (*models.User, error) {
 // 	args := m.Called(email)
-// 	return args.Get(0).(*types.User), args.Error(1)
+// 	return args.Get(0).(*models.User), args.Error(1)
 // }
 
-// func (m *MockUserRepository) GetUserByID(id string) (*types.User, error) {
+// func (m *MockUserRepository) GetUserByID(id string) (*models.User, error) {
 // 	args := m.Called(id)
-// 	return args.Get(0).(*types.User), args.Error(1)
+// 	return args.Get(0).(*models.User), args.Error(1)
 // }
 
-// func (m *MockUserRepository) UpdateUser(user *types.User) error {
+// func (m *MockUserRepository) UpdateUser(user *models.User) error {
 // 	args := m.Called(user)
 // 	return args.Error(0)
 // }
 
-// func (m *MockUserRepository) DeleteUser(user *types.User) error {
+// func (m *MockUserRepository) DeleteUser(user *models.User) error {
 // 	args := m.Called(user)
 // 	return args.Error(0)
 // }
 
-// func (m *MockUserRepository) GetAllUsers(filter interfaces.Filter) ([]*types.User, int64, error) {
+// func (m *MockUserRepository) GetAllUsers(filter interfaces.Filter) ([]*models.User, int64, error) {
 // 	args := m.Called(filter)
-// 	return args.Get(0).([]*types.User), args.Get(1).(int64), args.Error(2)
+// 	return args.Get(0).([]*models.User), args.Get(1).(int64), args.Error(2)
 // }
 
 // type MockTokenRepository struct {

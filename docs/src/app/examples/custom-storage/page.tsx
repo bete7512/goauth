@@ -75,7 +75,7 @@ authService, err := goauth.NewBuilder().
             <CodeBlock title="MyCustomRepository.go">
 {`type MyCustomRepository struct {}
 
-func (r *MyCustomRepository) CreateUser(user *types.User) error {
+func (r *MyCustomRepository) CreateUser(user *models.User) error {
   // ...
   return nil
 }

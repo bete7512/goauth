@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/bete7512/goauth/internal/schemas"
-	"github.com/bete7512/goauth/pkg/types"
+	models "github.com/bete7512/goauth/pkg/models"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -37,7 +37,7 @@ func TestHandleLogin_Success(t *testing.T) {
 	mockTokenManager.On("GenerateTokens", testUser).Return("access_token", "refresh_token", nil)
 
 	// Mock token saving
-	mockTokenRepo.On("SaveToken", testUser.ID, "refresh_token", types.RefreshToken, time.Duration(86400)).Return(nil)
+	mockTokenRepo.On("SaveToken", testUser.ID, "refresh_token", models.RefreshToken, time.Duration(86400)).Return(nil)
 
 	// Create request
 	reqBody := schemas.LoginRequest{
@@ -85,7 +85,7 @@ func TestHandleLogin_UserNotFound(t *testing.T) {
 	mockUserRepo := handler.Auth.Repository.GetUserRepository().(*MockUserRepository)
 
 	// Mock user not found
-	mockUserRepo.On("GetUserByEmail", "test@example.com").Return((*types.User)(nil), errors.New("user not found"))
+	mockUserRepo.On("GetUserByEmail", "test@example.com").Return((*models.User)(nil), errors.New("user not found"))
 
 	// Create request
 	reqBody := schemas.LoginRequest{
@@ -221,7 +221,7 @@ func TestHandleLogin_EmailNotVerified(t *testing.T) {
 	mockTokenManager.On("GenerateTokens", testUser).Return("access_token", "refresh_token", nil)
 
 	// Mock token saving
-	mockTokenRepo.On("SaveToken", testUser.ID, "refresh_token", types.RefreshToken, time.Duration(86400)).Return(nil)
+	mockTokenRepo.On("SaveToken", testUser.ID, "refresh_token", models.RefreshToken, time.Duration(86400)).Return(nil)
 
 	// Create request
 	reqBody := schemas.LoginRequest{
@@ -295,7 +295,7 @@ func TestHandleLogin_DatabaseError(t *testing.T) {
 	mockUserRepo := handler.Auth.Repository.GetUserRepository().(*MockUserRepository)
 
 	// Mock database error
-	mockUserRepo.On("GetUserByEmail", "test@example.com").Return((*types.User)(nil), errors.New("database connection failed"))
+	mockUserRepo.On("GetUserByEmail", "test@example.com").Return((*models.User)(nil), errors.New("database connection failed"))
 
 	// Create request
 	reqBody := schemas.LoginRequest{

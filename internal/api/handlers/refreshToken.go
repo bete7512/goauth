@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/bete7512/goauth/internal/utils"
-	"github.com/bete7512/goauth/pkg/types"
+	"github.com/bete7512/goauth/pkg/models"
 )
 
 // HandleRefreshToken handles token refresh
@@ -35,7 +35,7 @@ func (h *AuthRoutes) HandleRefreshToken(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	tokenRecord, err := h.Auth.Repository.GetTokenRepository().GetActiveTokenByUserIdAndType(r.Context(), userID, types.RefreshToken)
+	tokenRecord, err := h.Auth.Repository.GetTokenRepository().GetActiveTokenByUserIdAndType(r.Context(), userID, models.RefreshToken)
 	if err != nil || tokenRecord == nil {
 		utils.RespondWithError(w, http.StatusUnauthorized, "invalid or expired refresh token", nil)
 		return
@@ -68,7 +68,7 @@ func (h *AuthRoutes) HandleRefreshToken(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Save new refresh token
-	err = h.Auth.Repository.GetTokenRepository().SaveTokenWithDeviceId(r.Context(), user.ID, refreshToken, r.Header.Get("User-Agent"), types.RefreshToken, h.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
+	err = h.Auth.Repository.GetTokenRepository().SaveTokenWithDeviceId(r.Context(), user.ID, refreshToken, r.Header.Get("User-Agent"), models.RefreshToken, h.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "failed to save refresh token", nil)
 		return

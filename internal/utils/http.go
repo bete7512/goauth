@@ -5,7 +5,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/bete7512/goauth/pkg/types"
+	"github.com/bete7512/goauth/pkg/models"
 )
 
 func RespondWithJSON(w http.ResponseWriter, status int, data interface{}) error {
@@ -15,7 +15,7 @@ func RespondWithJSON(w http.ResponseWriter, status int, data interface{}) error 
 }
 
 func RespondWithError(w http.ResponseWriter, status int, message string, err error) {
-	response := types.ErrorResponse{
+	response := models.ErrorResponse{
 		Status:  status,
 		Message: message,
 	}

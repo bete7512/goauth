@@ -11,7 +11,7 @@ import (
 
 	"github.com/bete7512/goauth/internal/utils"
 	"github.com/bete7512/goauth/pkg/config"
-	"github.com/bete7512/goauth/pkg/types"
+	"github.com/bete7512/goauth/pkg/models"
 	"golang.org/x/oauth2"
 )
 
@@ -178,7 +178,7 @@ func (a *AppleOauth) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create or update user in your system
-	user := types.User{
+	user := models.User{
 		Email: userInfo.Email,
 		FirstName: func() string {
 			if userInfo.Name.FirstName != "" {
@@ -216,7 +216,7 @@ func (a *AppleOauth) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Save refresh token
-	err = a.Auth.Repository.GetTokenRepository().SaveToken(r.Context(), user.ID, refreshToken, types.RefreshToken, a.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
+	err = a.Auth.Repository.GetTokenRepository().SaveToken(r.Context(), user.ID, refreshToken, models.RefreshToken, a.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
 	if err != nil {
 		utils.RespondWithError(
 			w,

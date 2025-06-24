@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/bete7512/goauth/pkg/interfaces"
-	"github.com/bete7512/goauth/pkg/types"
+	"github.com/bete7512/goauth/pkg/models"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -19,8 +19,8 @@ func NewUserRepository(db *gorm.DB) interfaces.UserRepository {
 	return &UserRepository{db: db}
 }
 
-func (u *UserRepository) GetAllUsers(ctx context.Context, filter interfaces.Filter) ([]*types.User, int64, error) {
-	var users []*types.User
+func (u *UserRepository) GetAllUsers(ctx context.Context, filter interfaces.Filter) ([]*models.User, int64, error) {
+	var users []*models.User
 	var total int64
 	var err error
 	if filter.Search != "" {
@@ -31,7 +31,7 @@ func (u *UserRepository) GetAllUsers(ctx context.Context, filter interfaces.Filt
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to get all users: %w", err)
 	}
-	if err := u.db.Model(&types.User{}).Count(&total).Error; err != nil {
+	if err := u.db.Model(&models.User{}).Count(&total).Error; err != nil {
 		return nil, 0, fmt.Errorf("failed to count users: %w", err)
 	}
 	if filter.Page > 0 && filter.Limit > 0 {
@@ -52,8 +52,8 @@ func (u *UserRepository) GetAllUsers(ctx context.Context, filter interfaces.Filt
 	}
 	return users, total, nil
 }
-func (u *UserRepository) GetUserByEmail(ctx context.Context, email string) (*types.User, error) {
-	var user types.User
+func (u *UserRepository) GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
+	var user models.User
 
 	// Use FindOne instead of First to avoid the automatic error logging
 	err := u.db.Where("email = ?", email).Take(&user).Error
@@ -68,8 +68,8 @@ func (u *UserRepository) GetUserByEmail(ctx context.Context, email string) (*typ
 }
 
 // gorm always display error even if I hhandled error record not found and displays err with red line in my terminal
-func (u *UserRepository) GetUserByID(ctx context.Context, id string) (*types.User, error) {
-	var user types.User
+func (u *UserRepository) GetUserByID(ctx context.Context, id string) (*models.User, error) {
+	var user models.User
 	if err := u.db.Where("id = ?", id).First(&user).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
@@ -80,8 +80,8 @@ func (u *UserRepository) GetUserByID(ctx context.Context, id string) (*types.Use
 }
 
 // GetUserByPhoneNumber implements interfaces.UserRepository.
-func (u *UserRepository) GetUserByPhoneNumber(ctx context.Context, phoneNumber string) (*types.User, error) {
-	var user types.User
+func (u *UserRepository) GetUserByPhoneNumber(ctx context.Context, phoneNumber string) (*models.User, error) {
+	var user models.User
 	if err := u.db.Where("phone_number = ?", phoneNumber).First(&user).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("user not found")
@@ -91,21 +91,21 @@ func (u *UserRepository) GetUserByPhoneNumber(ctx context.Context, phoneNumber s
 	return &user, nil
 }
 
-func (u *UserRepository) CreateUser(ctx context.Context, user *types.User) error {
+func (u *UserRepository) CreateUser(ctx context.Context, user *models.User) error {
 	user.ID = uuid.New().String()
 	if err := u.db.Create(user).Error; err != nil {
 		return fmt.Errorf("failed to create user: %w", err)
 	}
 	return nil
 }
-func (u *UserRepository) UpdateUser(ctx context.Context, user *types.User) error {
-	if err := u.db.Model(&types.User{}).Where("id = ?", user.ID).Updates(user).Error; err != nil {
+func (u *UserRepository) UpdateUser(ctx context.Context, user *models.User) error {
+	if err := u.db.Model(&models.User{}).Where("id = ?", user.ID).Updates(user).Error; err != nil {
 		return fmt.Errorf("failed to update user: %w", err)
 	}
 	return nil
 }
 
-func (u *UserRepository) UpsertUserByEmail(ctx context.Context, user *types.User) error {
+func (u *UserRepository) UpsertUserByEmail(ctx context.Context, user *models.User) error {
 	// Use a transaction for atomicity
 	tx := u.db.Begin()
 	defer func() {
@@ -115,7 +115,7 @@ func (u *UserRepository) UpsertUserByEmail(ctx context.Context, user *types.User
 	}()
 
 	// Try to update first (more efficient for existing users)
-	result := tx.Model(&types.User{}).Where("email = ?", user.Email).Updates(user)
+	result := tx.Model(&models.User{}).Where("email = ?", user.Email).Updates(user)
 	if result.Error != nil {
 		tx.Rollback()
 		return fmt.Errorf("failed to update user: %w", result.Error)
@@ -133,7 +133,7 @@ func (u *UserRepository) UpsertUserByEmail(ctx context.Context, user *types.User
 	return tx.Commit().Error
 }
 
-func (u *UserRepository) DeleteUser(ctx context.Context, user *types.User) error {
+func (u *UserRepository) DeleteUser(ctx context.Context, user *models.User) error {
 	if err := u.db.Delete(user).Error; err != nil {
 		return fmt.Errorf("failed to delete user: %w", err)
 	}

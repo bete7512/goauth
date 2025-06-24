@@ -294,7 +294,7 @@ func main() {
     protected.Use(authService.GinAuthMiddleware())
     {
         protected.GET("/profile", func(c *gin.Context) {
-            user := c.MustGet("user").(types.User)
+            user := c.MustGet("user").(models.User)
             c.JSON(200, gin.H{"user": user})
         })
     }
@@ -353,7 +353,7 @@ func main() {
     api.Use(authService.EchoAuthMiddleware())
     {
         api.GET("/profile", func(c echo.Context) error {
-            user := c.Get("user").(types.User)
+            user := c.Get("user").(models.User)
             return c.JSON(200, map[string]interface{}{"user": user})
         })
     }
@@ -415,7 +415,7 @@ func main() {
     r.Route("/api", func(r chi.Router) {
         r.Use(authService.ChiAuthMiddleware())
         r.Get("/profile", func(w http.ResponseWriter, r *http.Request) {
-            user := r.Context().Value("user").(types.User)
+            user := r.Context().Value("user").(models.User)
             w.Header().Set("Content-Type", "application/json")
             w.Write([]byte(\`{"user": "profile data"}\`))
         })
@@ -475,7 +475,7 @@ func main() {
     api.Use(authService.FiberAuthMiddleware())
     {
         api.Get("/profile", func(c *fiber.Ctx) error {
-            user := c.Locals("user").(types.User)
+            user := c.Locals("user").(models.User)
             return c.JSON(fiber.Map{"user": user})
         })
     }
@@ -534,7 +534,7 @@ func main() {
     api := r.PathPrefix("/api").Subrouter()
     api.Use(authService.GorillaMuxAuthMiddleware())
     api.HandleFunc("/profile", func(w http.ResponseWriter, r *http.Request) {
-        user := r.Context().Value("user").(types.User)
+        user := r.Context().Value("user").(models.User)
         w.Header().Set("Content-Type", "application/json")
         w.Write([]byte(\`{"user": "profile data"}\`))
     }).Methods("GET")

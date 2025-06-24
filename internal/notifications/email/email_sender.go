@@ -17,7 +17,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ses"
 	"github.com/aws/aws-sdk-go-v2/service/ses/types"
 	"github.com/bete7512/goauth/pkg/config"
-	authTypes "github.com/bete7512/goauth/pkg/types"
+	"github.com/bete7512/goauth/pkg/models"
 )
 
 type EmailSender struct {
@@ -83,7 +83,7 @@ func NewEmailSender(conf config.Config) *EmailSender {
 	}
 }
 
-func (e *EmailSender) SendVerificationEmail(ctx context.Context, user authTypes.User, redirectURL string) error {
+func (e *EmailSender) SendVerificationEmail(ctx context.Context, user models.User, redirectURL string) error {
 	data := EmailTemplateData{
 		LogoURL:      e.config.Branding.LogoURL,
 		CompanyName:  e.config.Branding.CompanyName,
@@ -98,7 +98,7 @@ func (e *EmailSender) SendVerificationEmail(ctx context.Context, user authTypes.
 	return e.sendEmail(ctx, user.Email, "Verify Your Email", "verify_email", data)
 }
 
-func (e *EmailSender) SendWelcomeEmail(ctx context.Context, user authTypes.User) error {
+func (e *EmailSender) SendWelcomeEmail(ctx context.Context, user models.User) error {
 	data := EmailTemplateData{
 		LogoURL:      e.config.Branding.LogoURL,
 		CompanyName:  e.config.Branding.CompanyName,
@@ -112,7 +112,7 @@ func (e *EmailSender) SendWelcomeEmail(ctx context.Context, user authTypes.User)
 	return e.sendEmail(ctx, user.Email, "Welcome to "+e.config.Branding.CompanyName, "welcome", data)
 }
 
-func (e *EmailSender) SendPasswordResetEmail(ctx context.Context, user authTypes.User, redirectURL string) error {
+func (e *EmailSender) SendPasswordResetEmail(ctx context.Context, user models.User, redirectURL string) error {
 	data := EmailTemplateData{
 		LogoURL:      e.config.Branding.LogoURL,
 		CompanyName:  e.config.Branding.CompanyName,
@@ -127,7 +127,7 @@ func (e *EmailSender) SendPasswordResetEmail(ctx context.Context, user authTypes
 	return e.sendEmail(ctx, user.Email, "Reset Your Password", "reset_password", data)
 }
 
-func (e *EmailSender) SendTwoFactorCodeEmail(ctx context.Context, user authTypes.User, code string) error {
+func (e *EmailSender) SendTwoFactorCodeEmail(ctx context.Context, user models.User, code string) error {
 	data := EmailTemplateData{
 		LogoURL:      e.config.Branding.LogoURL,
 		CompanyName:  e.config.Branding.CompanyName,
@@ -142,11 +142,11 @@ func (e *EmailSender) SendTwoFactorCodeEmail(ctx context.Context, user authTypes
 	return e.sendEmail(ctx, user.Email, "Your Two-Factor Code", "two_factor", data)
 }
 
-func (e *EmailSender) SendTwoFactorEmail(ctx context.Context, user authTypes.User, code string) error {
+func (e *EmailSender) SendTwoFactorEmail(ctx context.Context, user models.User, code string) error {
 	return e.SendTwoFactorCodeEmail(ctx, user, code)
 }
 
-func (e *EmailSender) SendMagicLinkEmail(ctx context.Context, user authTypes.User, redirectURL string) error {
+func (e *EmailSender) SendMagicLinkEmail(ctx context.Context, user models.User, redirectURL string) error {
 	data := EmailTemplateData{
 		LogoURL:      e.config.Branding.LogoURL,
 		CompanyName:  e.config.Branding.CompanyName,

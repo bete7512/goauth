@@ -8,7 +8,7 @@ import (
 	"github.com/bete7512/goauth/internal/hooks"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/interfaces"
-	models "github.com/bete7512/goauth/pkg/types"
+	models "github.com/bete7512/goauth/pkg/models"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/stretchr/testify/mock"
 )

@@ -8,7 +8,7 @@ import (
 
 	"github.com/bete7512/goauth/internal/schemas"
 	"github.com/bete7512/goauth/internal/utils"
-	"github.com/bete7512/goauth/pkg/types"
+	"github.com/bete7512/goauth/pkg/models"
 	"gorm.io/gorm"
 )
 
@@ -60,7 +60,7 @@ func (h *AuthRoutes) HandleDeactivateUser(w http.ResponseWriter, r *http.Request
 	}
 
 	// Invalidate all refresh tokens
-	err = h.Auth.Repository.GetTokenRepository().RevokeAllTokens(r.Context(), userID, types.RefreshToken)
+	err = h.Auth.Repository.GetTokenRepository().RevokeAllTokens(r.Context(), userID, models.RefreshToken)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "failed to invalidate refresh tokens: "+err.Error(), err)
 		return

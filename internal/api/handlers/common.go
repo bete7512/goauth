@@ -6,12 +6,13 @@ import (
 	"fmt"
 
 	responseErrors "github.com/bete7512/goauth/internal/api/handlers/errors"
-	"github.com/bete7512/goauth/pkg/types"
+	"github.com/bete7512/goauth/pkg/models"
+
 	"gorm.io/gorm"
 )
 
 // setupEmailVerification sets up email verification for a user
-func (h *AuthRoutes) setupEmailVerification(ctx context.Context, user *types.User) error {
+func (h *AuthRoutes) setupEmailVerification(ctx context.Context, user *models.User) error {
 	if h.Auth.Config.Email.Sender.CustomSender == nil {
 		return errors.New("email sender not configured")
 	}
@@ -27,8 +28,8 @@ func (h *AuthRoutes) setupEmailVerification(ctx context.Context, user *types.Use
 		return fmt.Errorf("failed to hash verification token: %w", err)
 	}
 
-	// Save verification token
-	if err := h.Auth.Repository.GetTokenRepository().SaveToken(ctx, user.ID, hashedVerificationToken, types.EmailVerificationToken, h.Auth.Config.AuthConfig.Tokens.EmailVerificationTTL); err != nil {
+		// Save verification token
+		if err := h.Auth.Repository.GetTokenRepository().SaveToken(ctx, user.ID, hashedVerificationToken, models.EmailVerificationToken, h.Auth.Config.AuthConfig.Tokens.EmailVerificationTTL); err != nil {
 		return fmt.Errorf("failed to save verification token: %w", err)
 	}
 
@@ -49,7 +50,7 @@ func (h *AuthRoutes) setupEmailVerification(ctx context.Context, user *types.Use
 }
 
 // setupPhoneVerification sets up phone verification for a user
-func (h *AuthRoutes) setupPhoneVerification(ctx context.Context, user *types.User) error {
+func (h *AuthRoutes) setupPhoneVerification(ctx context.Context, user *models.User) error {
 	if h.Auth.Config.SMS.CustomSender == nil {
 		return errors.New("SMS sender not configured")
 	}
@@ -66,7 +67,7 @@ func (h *AuthRoutes) setupPhoneVerification(ctx context.Context, user *types.Use
 	}
 
 	// Save verification token
-	if err := h.Auth.Repository.GetTokenRepository().SaveToken(ctx, user.ID, hashedOTP, types.PhoneVerificationToken, h.Auth.Config.AuthConfig.Tokens.PhoneVerificationTTL); err != nil {
+	if err := h.Auth.Repository.GetTokenRepository().SaveToken(ctx, user.ID, hashedOTP, models.PhoneVerificationToken, h.Auth.Config.AuthConfig.Tokens.PhoneVerificationTTL); err != nil {
 		return fmt.Errorf("failed to save verification OTP: %w", err)
 	}
 
@@ -82,7 +83,7 @@ func (h *AuthRoutes) setupPhoneVerification(ctx context.Context, user *types.Use
 }
 
 // getUserByEmail retrieves user by email with proper error handling
-func (h *AuthRoutes) getUserByEmail(ctx context.Context, email string) (*types.User, error) {
+func (h *AuthRoutes) getUserByEmail(ctx context.Context, email string) (*models.User, error) {
 	user, err := h.Auth.Repository.GetUserRepository().GetUserByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -99,7 +100,7 @@ func (h *AuthRoutes) getUserByEmail(ctx context.Context, email string) (*types.U
 }
 
 // getUserByPhoneNumber retrieves user by phone number with proper error handling
-func (h *AuthRoutes) getUserByPhoneNumber(ctx context.Context, phoneNumber string) (*types.User, error) {
+func (h *AuthRoutes) getUserByPhoneNumber(ctx context.Context, phoneNumber string) (*models.User, error) {
 	// Try to get authenticated user first
 	user, err := h.Auth.Repository.GetUserRepository().GetUserByPhoneNumber(ctx, phoneNumber)
 	if err != nil {

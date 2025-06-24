@@ -10,17 +10,17 @@ const hooks = [
   {
     name: "BeforeRegister",
     description: "Called before a user is registered.",
-    signature: `func(user *types.User) error { ... }`
+    signature: `func(user *models.User) error { ... }`
   },
   {
     name: "AfterLogin",
     description: "Called after a user successfully logs in.",
-    signature: `func(user *types.User) error { ... }`
+    signature: `func(user *models.User) error { ... }`
   },
   {
     name: "BeforeTokenRefresh",
     description: "Called before a refresh token is issued.",
-    signature: `func(user *types.User) error { ... }`
+    signature: `func(user *models.User) error { ... }`
   }
 ];
 

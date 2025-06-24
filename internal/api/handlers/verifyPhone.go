@@ -14,7 +14,7 @@ import (
 	"github.com/bete7512/goauth/internal/schemas"
 	"github.com/bete7512/goauth/internal/utils"
 	"github.com/bete7512/goauth/pkg/config"
-	"github.com/bete7512/goauth/pkg/types"
+	"github.com/bete7512/goauth/pkg/models"
 )
 
 // HandleVerifyPhone verifies user's phone with enhanced security and features
@@ -105,7 +105,7 @@ func (h *AuthRoutes) HandleVerifyPhone(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate verification token
-	token, err := h.Auth.Repository.GetTokenRepository().GetActiveTokenByUserIdAndType(r.Context(), user.ID, types.PhoneVerificationToken)
+	token, err := h.Auth.Repository.GetTokenRepository().GetActiveTokenByUserIdAndType(r.Context(), user.ID, models.PhoneVerificationToken)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusBadRequest, responseErrors.ErrInvalidToken, err)
 		return
@@ -213,7 +213,7 @@ func (h *AuthRoutes) parseVerifyPhoneRequest(r *http.Request) (*schemas.VerifyPh
 }
 
 // generatePhoneVerificationResponse creates the appropriate response based on request method
-func (h *AuthRoutes) generatePhoneVerificationResponse(ctx context.Context, method string, user *types.User, w http.ResponseWriter) (map[string]interface{}, error) {
+func (h *AuthRoutes) generatePhoneVerificationResponse(ctx context.Context, method string, user *models.User, w http.ResponseWriter) (map[string]interface{}, error) {
 	baseResponse := map[string]interface{}{
 		"message": "phone verified successfully",
 		"user": map[string]interface{}{
@@ -235,7 +235,7 @@ func (h *AuthRoutes) generatePhoneVerificationResponse(ctx context.Context, meth
 			return nil, errors.New("failed to hash refresh token")
 		}
 		// Save refresh token with correct type and TTL
-		if err := h.Auth.Repository.GetTokenRepository().SaveToken(ctx, user.ID, hashedRefreshToken, types.RefreshToken, h.Auth.Config.AuthConfig.JWT.RefreshTokenTTL); err != nil {
+		if err := h.Auth.Repository.GetTokenRepository().SaveToken(ctx, user.ID, hashedRefreshToken, models.RefreshToken, h.Auth.Config.AuthConfig.JWT.RefreshTokenTTL); err != nil {
 			return nil, errors.New("failed to save refresh token")
 		}
 

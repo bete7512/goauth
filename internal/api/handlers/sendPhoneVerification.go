@@ -14,7 +14,7 @@ import (
 	"github.com/bete7512/goauth/internal/schemas"
 	"github.com/bete7512/goauth/internal/utils"
 	"github.com/bete7512/goauth/pkg/config"
-	"github.com/bete7512/goauth/pkg/types"
+	"github.com/bete7512/goauth/pkg/models"
 )
 
 // HandleSendPhoneVerification handles sending phone verification code with enhanced security
@@ -74,7 +74,7 @@ func (h *AuthRoutes) HandleSendPhoneVerification(w http.ResponseWriter, r *http.
 	}
 
 	// Get user - either by authentication or by phone number
-	var user *types.User
+	var user *models.User
 
 	// Try to get authenticated user first
 	userID, err := h.authenticateRequest(r, h.Auth.Config.AuthConfig.Cookie.Name, h.Auth.Config.AuthConfig.JWT.Secret)
@@ -111,7 +111,7 @@ func (h *AuthRoutes) HandleSendPhoneVerification(w http.ResponseWriter, r *http.
 		return
 	}
 
-	existingToken, err := h.Auth.Repository.GetTokenRepository().GetActiveTokenByUserIdAndType(r.Context(), user.ID, types.PhoneVerificationToken)
+	existingToken, err := h.Auth.Repository.GetTokenRepository().GetActiveTokenByUserIdAndType(r.Context(), user.ID, models.PhoneVerificationToken)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "failed to get existing verification token", err)
 		return
@@ -132,7 +132,7 @@ func (h *AuthRoutes) HandleSendPhoneVerification(w http.ResponseWriter, r *http.
 	}
 
 	// Save verification code
-	if err := h.Auth.Repository.GetTokenRepository().SaveToken(r.Context(), user.ID, hashedCode, types.PhoneVerificationToken, h.Auth.Config.AuthConfig.Tokens.PhoneVerificationTTL); err != nil {
+	if err := h.Auth.Repository.GetTokenRepository().SaveToken(r.Context(), user.ID, hashedCode, models.PhoneVerificationToken, h.Auth.Config.AuthConfig.Tokens.PhoneVerificationTTL); err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "failed to save verification code", err)
 		return
 	}
@@ -212,7 +212,7 @@ func (h *AuthRoutes) generatePhoneVerificationCode() (string, string, error) {
 }
 
 // sendPhoneVerificationSMSAsync sends verification SMS in background
-func (h *AuthRoutes) sendPhoneVerificationSMSAsync(ctx context.Context, user *types.User, verificationCode string) error {
+func (h *AuthRoutes) sendPhoneVerificationSMSAsync(ctx context.Context, user *models.User, verificationCode string) error {
 	// Send SMS asynchronously
 	h.Auth.WorkerPool.Submit(func() {
 		smsCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
