@@ -1,11 +1,14 @@
 # GoAuth 🔐
 
+[![Alpha Stage](https://img.shields.io/badge/status-alpha-orange.svg)](https://github.com/bete7512/goauth)
 [![Go Report Card](https://goreportcard.com/badge/github.com/bete7512/goauth)](https://goreportcard.com/report/github.com/bete7512/goauth)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/bete7512/goauth)](https://go.dev/)
 [![License](https://img.shields.io/github/license/bete7512/goauth)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/bete7512/goauth)](https://github.com/bete7512/goauth/releases)
 [![CI/CD](https://img.shields.io/github/actions/workflow/status/bete7512/goauth/ci.yml?branch=main)](https://github.com/bete7512/goauth/actions)
 [![Coverage](https://img.shields.io/codecov/c/github/bete7512/goauth)](https://codecov.io/gh/bete7512/goauth)
+
+> **⚠️ Alpha Stage**: This project is currently in alpha development. APIs may change, and some features may not be fully stable. We recommend testing thoroughly before using in production.
 
 A comprehensive, framework-agnostic authentication library for Go applications. GoAuth provides a unified authentication system that works seamlessly across multiple web frameworks including Gin, Echo, Chi, Fiber, and standard HTTP.
 

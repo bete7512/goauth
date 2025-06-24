@@ -139,6 +139,9 @@ export default function Home() {
               OAuth providers, and advanced security features.
             </p>
             <div className="flex items-center justify-center space-x-4 mb-8">
+              <Badge variant="destructive" className="text-sm">
+                ⚠️ Alpha Stage
+              </Badge>
               <Badge variant="secondary" className="text-sm">
                 <Star className="h-3 w-3 mr-1" />
                 Production Ready
@@ -167,6 +170,29 @@ export default function Home() {
               </Button>
             </div>
           </div>
+
+          {/* Alpha Stage Warning */}
+          <Card className="mb-8 border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-950/20">
+            <CardContent className="pt-6">
+              <div className="flex items-start space-x-3">
+                <div className="flex-shrink-0">
+                  <div className="w-6 h-6 bg-orange-100 dark:bg-orange-900 rounded-full flex items-center justify-center">
+                    <span className="text-orange-600 dark:text-orange-400 text-sm font-bold">⚠️</span>
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-orange-800 dark:text-orange-200 mb-2">
+                    Alpha Stage Development
+                  </h3>
+                  <p className="text-orange-700 dark:text-orange-300 text-sm leading-relaxed">
+                    This project is currently in <strong>alpha stage</strong>. APIs may change, and some features may not be fully stable. 
+                    We recommend testing thoroughly before using in production environments. 
+                    Please report any issues or provide feedback on our <a href="https://github.com/bete7512/goauth" className="underline hover:text-orange-800 dark:hover:text-orange-100">GitHub repository</a>.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Features Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
