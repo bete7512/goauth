@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/bete7512/goauth/pkg/config"
-	"github.com/bete7512/goauth/pkg/types"
+	"github.com/bete7512/goauth/pkg/models"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"gorm.io/driver/mysql"
@@ -61,8 +61,8 @@ func (c *PostgresClient) Connect() error {
 	}
 	if c.AutoMigrate {
 		if err := db.AutoMigrate(
-			&types.User{},
-			&types.Token{},
+			&models.User{},
+			&models.Token{},
 		); err != nil {
 			return fmt.Errorf("failed to auto-migrate: %w", err)
 		}
@@ -107,8 +107,8 @@ func (c *MySQLClient) Connect() error {
 	}
 	if c.AutoMigrate {
 		if err := db.AutoMigrate(
-			&types.User{},
-			&types.Token{},
+			&models.User{},
+			&models.Token{},
 		); err != nil {
 			return fmt.Errorf("failed to auto-migrate: %w", err)
 		}

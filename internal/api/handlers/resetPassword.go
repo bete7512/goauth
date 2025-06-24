@@ -72,7 +72,7 @@ func (h *AuthRoutes) HandleResetPassword(w http.ResponseWriter, r *http.Request)
 	// 	return
 	// }
 	// // Invalidate all refresh tokens for security
-	// err = h.Auth.Repository.GetTokenRepository().InvalidateAllTokens(*userID, types.RefreshToken)
+	// err = h.Auth.Repository.GetTokenRepository().InvalidateAllTokens(*userID,models.RefreshToken)
 	// if err != nil {
 	// 	utils.RespondWithError(w, http.StatusInternalServerError, "Failed to invalidate refresh tokens: "+err.Error(), err)
 	// 	return

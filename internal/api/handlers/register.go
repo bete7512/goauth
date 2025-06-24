@@ -14,13 +14,13 @@ import (
 	"github.com/bete7512/goauth/internal/schemas"
 	"github.com/bete7512/goauth/internal/utils"
 	"github.com/bete7512/goauth/pkg/config"
-	"github.com/bete7512/goauth/pkg/types"
+	"github.com/bete7512/goauth/pkg/models"
 	"gorm.io/gorm"
 )
 
 // RegistrationResult holds the result of user registration
 type RegistrationResult struct {
-	User                 *types.User
+	User                 *models.User
 	RequiresVerification bool
 	VerificationMessage  string
 	AccessToken          string
@@ -230,7 +230,7 @@ func (h *AuthRoutes) createUserAccount(ctx context.Context, req *schemas.Registe
 	emailVerified := !requiresEmailVerification
 	phoneVerified := !requiresPhoneVerification
 
-	user := types.User{
+	user := models.User{
 		FirstName:        req.FirstName,
 		LastName:         req.LastName,
 		Email:            req.Email,
@@ -260,7 +260,7 @@ func (h *AuthRoutes) createUserAccount(ctx context.Context, req *schemas.Registe
 			return nil, fmt.Errorf("failed to generate authentication tokens: %w", err)
 		}
 		// Save refresh token
-		if err := h.Auth.Repository.GetTokenRepository().SaveToken(ctx, user.ID, refreshToken, types.RefreshToken, h.Auth.Config.AuthConfig.JWT.RefreshTokenTTL); err != nil {
+		if err := h.Auth.Repository.GetTokenRepository().SaveToken(ctx, user.ID, refreshToken, models.RefreshToken, h.Auth.Config.AuthConfig.JWT.RefreshTokenTTL); err != nil {
 			return nil, fmt.Errorf("failed to save refresh token: %w", err)
 		}
 
@@ -272,7 +272,7 @@ func (h *AuthRoutes) createUserAccount(ctx context.Context, req *schemas.Registe
 }
 
 // handleVerificationFlow handles email and/or phone verification setup
-func (h *AuthRoutes) handleVerificationFlow(ctx context.Context, user *types.User) error {
+func (h *AuthRoutes) handleVerificationFlow(ctx context.Context, user *models.User) error {
 
 	// Handle email verification
 	if h.Auth.Config.AuthConfig.Methods.EmailVerification.EnableOnSignup {

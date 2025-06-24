@@ -343,15 +343,15 @@ r.Route("/api", func(r chi.Router) {
 auth, err := goauth.NewBuilder().
     WithConfig(config).
     WithHooks(&goauth.Hooks{
-        OnUserRegistered: func(user *types.User) {
+        OnUserRegistered: func(user *models.User) {
             log.Printf("New user registered: %s", user.Email)
             // Send welcome email, create profile, etc.
         },
-        OnUserLoggedIn: func(user *types.User) {
+        OnUserLoggedIn: func(user *models.User) {
             log.Printf("User logged in: %s", user.Email)
             // Update last login time, log activity, etc.
         },
-        OnPasswordChanged: func(user *types.User) {
+        OnPasswordChanged: func(user *models.User) {
             log.Printf("Password changed for user: %s", user.Email)
             // Send password change notification, etc.
         },

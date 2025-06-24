@@ -10,7 +10,7 @@ import (
 
 	"github.com/bete7512/goauth/internal/utils"
 	"github.com/bete7512/goauth/pkg/config"
-	"github.com/bete7512/goauth/pkg/types"
+	"github.com/bete7512/goauth/pkg/models"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )
@@ -136,7 +136,7 @@ func (g *GoogleOauth) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create or update user in your system
-	user := types.User{
+	user := models.User{
 		Email: userInfo.Email,
 		FirstName: func() string {
 			if userInfo.GivenName != "" {
@@ -173,7 +173,7 @@ func (g *GoogleOauth) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Save refresh token
-	err = g.Auth.Repository.GetTokenRepository().SaveToken(r.Context(), user.ID, refreshToken, types.RefreshToken, g.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
+	err = g.Auth.Repository.GetTokenRepository().SaveToken(r.Context(), user.ID, refreshToken, models.RefreshToken, g.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
 	if err != nil {
 		utils.RespondWithError(
 			w,

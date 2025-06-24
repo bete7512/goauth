@@ -4,11 +4,11 @@ import (
 	"context"
 	"time"
 
-	"github.com/bete7512/goauth/pkg/types"
+	"github.com/bete7512/goauth/pkg/models"
 )
 
 type CustomJWTClaimsProvider interface {
-	GetClaims(user types.User) (map[string]interface{}, error)
+	GetClaims(user models.User) (map[string]interface{}, error)
 }
 
 type RateLimiter interface {

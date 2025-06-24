@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/bete7512/goauth/pkg/types"
+	models "github.com/bete7512/goauth/pkg/models"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/stretchr/testify/assert"
 )
@@ -27,7 +27,7 @@ func TestHandleLogout_Success(t *testing.T) {
 	mockTokenManager.On("ValidateToken", "valid_token").Return(testClaims, nil)
 
 	// Mock token invalidation
-	mockTokenRepo.On("InvalidateAllTokens", testUser.ID, types.RefreshToken).Return(nil)
+	mockTokenRepo.On("InvalidateAllTokens", testUser.ID, models.RefreshToken).Return(nil)
 
 	// Create request with valid token
 	req := httptest.NewRequest(http.MethodPost, "/logout", nil)
@@ -146,7 +146,7 @@ func TestHandleLogout_TokenInvalidationError(t *testing.T) {
 	mockTokenManager.On("ValidateToken", "valid_token").Return(testClaims, nil)
 
 	// Mock token invalidation error
-	mockTokenRepo.On("InvalidateAllTokens", testUser.ID, types.RefreshToken).Return(assert.AnError)
+	mockTokenRepo.On("InvalidateAllTokens", testUser.ID, models.RefreshToken).Return(assert.AnError)
 
 	// Create request with valid token
 	req := httptest.NewRequest(http.MethodPost, "/logout", nil)

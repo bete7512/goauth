@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/bete7512/goauth/internal/utils"
-	"github.com/bete7512/goauth/pkg/types"
+	"github.com/bete7512/goauth/pkg/models"
 )
 
 // HandleLogout handles user logout
@@ -25,7 +25,7 @@ func (h *AuthRoutes) HandleLogout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	refreshToken, err := h.Auth.Repository.GetTokenRepository().GetActiveTokenByUserIdAndType(r.Context(), claims["user_id"].(string), types.RefreshToken)
+	refreshToken, err := h.Auth.Repository.GetTokenRepository().GetActiveTokenByUserIdAndType(r.Context(), claims["user_id"].(string), models.RefreshToken)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "failed to get refresh token", nil)
 		return
@@ -39,7 +39,7 @@ func (h *AuthRoutes) HandleLogout(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		err = h.Auth.Repository.GetTokenRepository().RevokeAllTokens(r.Context(), userID, types.RefreshToken)
+		err = h.Auth.Repository.GetTokenRepository().RevokeAllTokens(r.Context(), userID, models.RefreshToken)
 		if err != nil {
 			utils.RespondWithError(w, http.StatusInternalServerError, "failed to invalidate refresh tokens", nil)
 			return

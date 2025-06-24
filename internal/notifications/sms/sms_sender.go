@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/bete7512/goauth/pkg/config"
-	"github.com/bete7512/goauth/pkg/types"
+	"github.com/bete7512/goauth/pkg/models"
 )
 
 type SMSSender struct {
@@ -18,7 +18,7 @@ type SMSSender struct {
 }
 
 // SendMagicLink implements types.SMSSenderInterface.
-func (s *SMSSender) SendMagicLink(ctx context.Context, user types.User, redirectURL string) error {
+func (s *SMSSender) SendMagicLink(ctx context.Context, user models.User, redirectURL string) error {
 	if user.PhoneNumber == nil {
 		return fmt.Errorf("user phone number is nil")
 	}
@@ -35,7 +35,7 @@ func NewSMSSender(config config.SMSConfig) *SMSSender {
 	}
 }
 
-func (s *SMSSender) SendTwoFactorCodeSMS(ctx context.Context, user types.User, code string) error {
+func (s *SMSSender) SendTwoFactorCodeSMS(ctx context.Context, user models.User, code string) error {
 	if user.PhoneNumber == nil {
 		return fmt.Errorf("user phone number is nil")
 	}
@@ -43,11 +43,11 @@ func (s *SMSSender) SendTwoFactorCodeSMS(ctx context.Context, user types.User, c
 	return s.sendSMS(ctx, *user.PhoneNumber, message)
 }
 
-func (s *SMSSender) SendTwoFactorSMS(ctx context.Context, user types.User, code string) error {
+func (s *SMSSender) SendTwoFactorSMS(ctx context.Context, user models.User, code string) error {
 	return s.SendTwoFactorCodeSMS(ctx, user, code)
 }
 
-func (s *SMSSender) SendVerificationCodeSMS(ctx context.Context, user types.User, code string) error {
+func (s *SMSSender) SendVerificationCodeSMS(ctx context.Context, user models.User, code string) error {
 	if user.PhoneNumber == nil {
 		return fmt.Errorf("user phone number is nil")
 	}
@@ -55,11 +55,11 @@ func (s *SMSSender) SendVerificationCodeSMS(ctx context.Context, user types.User
 	return s.sendSMS(ctx, *user.PhoneNumber, message)
 }
 
-func (s *SMSSender) SendVerificationSMS(ctx context.Context, user types.User, code string) error {
+func (s *SMSSender) SendVerificationSMS(ctx context.Context, user models.User, code string) error {
 	return s.SendVerificationCodeSMS(ctx, user, code)
 }
 
-func (s *SMSSender) SendWelcomeSMS(ctx context.Context, user types.User) error {
+func (s *SMSSender) SendWelcomeSMS(ctx context.Context, user models.User) error {
 	if user.PhoneNumber == nil {
 		return fmt.Errorf("user phone number is nil")
 	}
@@ -71,7 +71,7 @@ func (s *SMSSender) sendSMS(ctx context.Context, to, message string) error {
 	// If custom SMS sender is provided, use it
 	if s.config.CustomSender != nil {
 		// Create a temporary user for the interface method
-		tempUser := types.User{PhoneNumber: &to}
+		tempUser := models.User{PhoneNumber: &to}
 		return s.config.CustomSender.SendVerificationSMS(ctx, tempUser, message)
 	}
 

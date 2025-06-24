@@ -1,5 +1,4 @@
-// auth/types.go
-package types
+package models
 
 import (
 	"time"

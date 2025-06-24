@@ -473,7 +473,7 @@ config.App.Swagger = config.SwaggerConfig{
 ```go
 type ClaimsProvider struct{}
 
-func (c *ClaimsProvider) GetClaims(user types.User) (map[string]interface{}, error) {
+func (c *ClaimsProvider) GetClaims(usermodels.User) (map[string]interface{}, error) {
     return map[string]interface{}{
         "tenants":           []string{"one", "two"},
         "primary_tenant_id": "2534532",

@@ -14,7 +14,7 @@ import (
 	"github.com/bete7512/goauth/internal/schemas"
 	"github.com/bete7512/goauth/internal/utils"
 	"github.com/bete7512/goauth/pkg/config"
-	"github.com/bete7512/goauth/pkg/types"
+	"github.com/bete7512/goauth/pkg/models"
 )
 
 // HandleVerifyEmail verifies user's email with enhanced security and features
@@ -105,7 +105,7 @@ func (h *AuthRoutes) HandleVerifyEmail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate verification token
-	token, err := h.Auth.Repository.GetTokenRepository().GetActiveTokenByUserIdAndType(r.Context(), user.ID, types.EmailVerificationToken)
+	token, err := h.Auth.Repository.GetTokenRepository().GetActiveTokenByUserIdAndType(r.Context(), user.ID, models.EmailVerificationToken)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusBadRequest, responseErrors.ErrInvalidToken, err)
 		return
@@ -225,7 +225,7 @@ func (h *AuthRoutes) validateVerifyEmailRequest(req *schemas.VerifyEmailRequest)
 }
 
 // generateVerificationResponse creates the appropriate response based on request method
-func (h *AuthRoutes) generateVerificationResponse(ctx context.Context, method string, user *types.User, w http.ResponseWriter) (map[string]interface{}, error) {
+func (h *AuthRoutes) generateVerificationResponse(ctx context.Context, method string, user *models.User, w http.ResponseWriter) (map[string]interface{}, error) {
 	baseResponse := map[string]interface{}{
 		"message": "email verified successfully",
 		"user": map[string]interface{}{
@@ -247,7 +247,7 @@ func (h *AuthRoutes) generateVerificationResponse(ctx context.Context, method st
 			return nil, errors.New("failed to hash refresh token")
 		}
 		// Save refresh token with correct type and TTL
-		if err := h.Auth.Repository.GetTokenRepository().SaveToken(ctx, user.ID, hashedRefreshToken, types.RefreshToken, h.Auth.Config.AuthConfig.JWT.RefreshTokenTTL); err != nil {
+		if err := h.Auth.Repository.GetTokenRepository().SaveToken(ctx, user.ID, hashedRefreshToken, models.RefreshToken, h.Auth.Config.AuthConfig.JWT.RefreshTokenTTL); err != nil {
 			return nil, errors.New("failed to save refresh token")
 		}
 
@@ -265,7 +265,7 @@ func (h *AuthRoutes) generateVerificationResponse(ctx context.Context, method st
 }
 
 // sendWelcomeEmailAsync sends welcome email in background
-func (h *AuthRoutes) sendWelcomeEmailAsync(ctx context.Context, user *types.User) {
+func (h *AuthRoutes) sendWelcomeEmailAsync(ctx context.Context, user *models.User) {
 	if !h.Auth.Config.AuthConfig.Methods.EmailVerification.SendWelcomeEmail {
 		return
 	}

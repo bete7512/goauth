@@ -10,7 +10,7 @@ import (
 
 	"github.com/bete7512/goauth/internal/utils"
 	"github.com/bete7512/goauth/pkg/config"
-	"github.com/bete7512/goauth/pkg/types"
+	"github.com/bete7512/goauth/pkg/models"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/facebook"
 )
@@ -141,7 +141,7 @@ func (f *FacebookOauth) Callback(w http.ResponseWriter, r *http.Request) {
 
 	// Create or update user in your system
 	avatarURL := userInfo.Picture.Data.URL
-	user := types.User{
+	user := models.User{
 		Email:       userInfo.Email,
 		FirstName:   userInfo.FirstName,
 		LastName:    userInfo.LastName,
@@ -174,7 +174,7 @@ func (f *FacebookOauth) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Save refresh token
-	err = f.Auth.Repository.GetTokenRepository().SaveToken(r.Context(), user.ID, refreshToken, types.RefreshToken, f.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
+	err = f.Auth.Repository.GetTokenRepository().SaveToken(r.Context(), user.ID, refreshToken, models.RefreshToken, f.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
 	if err != nil {
 		utils.RespondWithError(
 			w,

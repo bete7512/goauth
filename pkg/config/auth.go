@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/bete7512/goauth/pkg/types"
+	"github.com/bete7512/goauth/pkg/interfaces"
 )
 
 type AuthConfig struct {
@@ -33,7 +33,7 @@ type JWTConfig struct {
 
 	// Custom claims
 	EnableCustomClaims bool
-	ClaimsProvider     types.CustomJWTClaimsProvider
+	ClaimsProvider     interfaces.CustomJWTClaimsProvider
 }
 
 type TokenConfig struct {

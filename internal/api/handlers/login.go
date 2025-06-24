@@ -12,7 +12,7 @@ import (
 	"github.com/bete7512/goauth/internal/schemas"
 	"github.com/bete7512/goauth/internal/utils"
 	"github.com/bete7512/goauth/pkg/config"
-	"github.com/bete7512/goauth/pkg/types"
+	"github.com/bete7512/goauth/pkg/models"
 )
 
 // HandleLogin handles user login
@@ -115,7 +115,7 @@ func (h *AuthRoutes) HandleLogin(w http.ResponseWriter, r *http.Request) {
 			return
 		} else {
 			twoFactorTTl := 10 * time.Minute
-			err = h.Auth.Repository.GetTokenRepository().SaveToken(r.Context(), user.ID, req.TwoFactorCode, types.TwoFactorCode, twoFactorTTl)
+			err = h.Auth.Repository.GetTokenRepository().SaveToken(r.Context(), user.ID, req.TwoFactorCode, models.TwoFactorCode, twoFactorTTl)
 			if err != nil {
 				utils.RespondWithError(w, http.StatusUnauthorized, "invalid two-factor code", nil)
 				return
@@ -135,7 +135,7 @@ func (h *AuthRoutes) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Save refresh token
-	err = h.Auth.Repository.GetTokenRepository().SaveTokenWithDeviceId(r.Context(), user.ID, refreshToken, deviceIdToken, types.RefreshToken, h.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
+	err = h.Auth.Repository.GetTokenRepository().SaveTokenWithDeviceId(r.Context(), user.ID, refreshToken, deviceIdToken, models.RefreshToken, h.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "failed to save refresh token", nil)
 		return

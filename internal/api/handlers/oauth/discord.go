@@ -10,7 +10,7 @@ import (
 
 	"github.com/bete7512/goauth/internal/utils"
 	"github.com/bete7512/goauth/pkg/config"
-	"github.com/bete7512/goauth/pkg/types"
+	"github.com/bete7512/goauth/pkg/models"
 	"golang.org/x/oauth2"
 )
 
@@ -149,7 +149,7 @@ func (d *DiscordOauth) Callback(w http.ResponseWriter, r *http.Request) {
 		firstName = userInfo.Username
 	}
 
-	user := types.User{
+	user := models.User{
 		Email:       userInfo.Email,
 		FirstName:   firstName,
 		LastName:    "", // Discord doesn't provide last name
@@ -182,7 +182,7 @@ func (d *DiscordOauth) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Save refresh token
-	err = d.Auth.Repository.GetTokenRepository().SaveToken(r.Context(), user.ID, refreshToken, types.RefreshToken, d.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
+	err = d.Auth.Repository.GetTokenRepository().SaveToken(r.Context(), user.ID, refreshToken, models.RefreshToken, d.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
 	if err != nil {
 		utils.RespondWithError(
 			w,

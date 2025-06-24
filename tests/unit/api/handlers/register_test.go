@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/bete7512/goauth/internal/schemas"
-	"github.com/bete7512/goauth/pkg/types"
+	models "github.com/bete7512/goauth/pkg/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"gorm.io/gorm"
@@ -26,19 +26,19 @@ func TestHandleRegister_Success(t *testing.T) {
 	mockTokenManager := handler.Auth.TokenManager.(*MockTokenManager)
 
 	// Mock user not exists
-	mockUserRepo.On("GetUserByEmail", "test@example.com").Return((*types.User)(nil), gorm.ErrRecordNotFound)
+	mockUserRepo.On("GetUserByEmail", "test@example.com").Return((*models.User)(nil), gorm.ErrRecordNotFound)
 
 	// Mock password hashing
 	mockTokenManager.On("HashPassword", "password123").Return("hashed_password", nil)
 
 	// Mock user creation
-	mockUserRepo.On("CreateUser", mock.AnythingOfType("*types.User")).Return(nil)
+	mockUserRepo.On("CreateUser", mock.AnythingOfType("*models.User")).Return(nil)
 
 	// Mock token generation
-	mockTokenManager.On("GenerateTokens", mock.AnythingOfType("*types.User")).Return("access_token", "refresh_token", nil)
+	mockTokenManager.On("GenerateTokens", mock.AnythingOfType("*models.User")).Return("access_token", "refresh_token", nil)
 
 	// Mock token saving
-	mockTokenRepo.On("SaveToken", mock.AnythingOfType("string"), "refresh_token", types.RefreshToken, time.Duration(86400)).Return(nil)
+	mockTokenRepo.On("SaveToken", mock.AnythingOfType("string"), "refresh_token", models.RefreshToken, time.Duration(86400)).Return(nil)
 
 	// Create request
 	reqBody := schemas.RegisterRequest{
@@ -80,7 +80,7 @@ func TestHandleRegister_EmailAlreadyExists(t *testing.T) {
 	mockUserRepo := handler.Auth.Repository.GetUserRepository().(*MockUserRepository)
 
 	// Mock existing user
-	existingUser := &types.User{Email: "test@example.com"}
+	existingUser := &models.User{Email: "test@example.com"}
 	mockUserRepo.On("GetUserByEmail", "test@example.com").Return(existingUser, nil)
 
 	// Create request
@@ -118,7 +118,7 @@ func TestHandleRegister_DatabaseError(t *testing.T) {
 	mockUserRepo := handler.Auth.Repository.GetUserRepository().(*MockUserRepository)
 
 	// Mock database error
-	mockUserRepo.On("GetUserByEmail", "test@example.com").Return((*types.User)(nil), errors.New("database connection failed"))
+	mockUserRepo.On("GetUserByEmail", "test@example.com").Return((*models.User)(nil), errors.New("database connection failed"))
 
 	// Create request
 	reqBody := schemas.RegisterRequest{
@@ -156,7 +156,7 @@ func TestHandleRegister_PasswordHashingError(t *testing.T) {
 	mockTokenManager := handler.Auth.TokenManager.(*MockTokenManager)
 
 	// Mock user not exists
-	mockUserRepo.On("GetUserByEmail", "test@example.com").Return((*types.User)(nil), gorm.ErrRecordNotFound)
+	mockUserRepo.On("GetUserByEmail", "test@example.com").Return((*models.User)(nil), gorm.ErrRecordNotFound)
 
 	// Mock password hashing error
 	mockTokenManager.On("HashPassword", "password123").Return("", errors.New("hashing failed"))

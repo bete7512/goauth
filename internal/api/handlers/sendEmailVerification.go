@@ -14,7 +14,7 @@ import (
 	"github.com/bete7512/goauth/internal/schemas"
 	"github.com/bete7512/goauth/internal/utils"
 	"github.com/bete7512/goauth/pkg/config"
-	"github.com/bete7512/goauth/pkg/types"
+	"github.com/bete7512/goauth/pkg/models"
 )
 
 // HandleResendEmailVerification handles resending email verification with enhanced security
@@ -85,7 +85,7 @@ func (h *AuthRoutes) HandleSendEmailVerification(w http.ResponseWriter, r *http.
 		return
 	}
 
-	existingToken, err := h.Auth.Repository.GetTokenRepository().GetActiveTokenByUserIdAndType(r.Context(), user.ID, types.EmailVerificationToken)
+	existingToken, err := h.Auth.Repository.GetTokenRepository().GetActiveTokenByUserIdAndType(r.Context(), user.ID, models.EmailVerificationToken)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "failed to get existing verification token", err)
 		return
@@ -106,7 +106,7 @@ func (h *AuthRoutes) HandleSendEmailVerification(w http.ResponseWriter, r *http.
 	}
 
 	// Save verification token
-	if err := h.Auth.Repository.GetTokenRepository().SaveToken(r.Context(), user.ID, hashedToken, types.EmailVerificationToken, h.Auth.Config.AuthConfig.Tokens.EmailVerificationTTL); err != nil {
+	if err := h.Auth.Repository.GetTokenRepository().SaveToken(r.Context(), user.ID, hashedToken, models.EmailVerificationToken, h.Auth.Config.AuthConfig.Tokens.EmailVerificationTTL); err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "failed to save verification token", err)
 		return
 	}
@@ -186,7 +186,7 @@ func (h *AuthRoutes) generateVerificationToken() (string, string, error) {
 }
 
 // sendVerificationEmailAsync sends verification email in background
-func (h *AuthRoutes) sendVerificationEmailAsync(ctx context.Context, user *types.User, verificationToken string) error {
+func (h *AuthRoutes) sendVerificationEmailAsync(ctx context.Context, user *models.User, verificationToken string) error {
 	// Construct verification URL
 	verificationURL := h.Auth.Config.AuthConfig.Methods.EmailVerification.VerificationURL + "?token=" + verificationToken + "&email=" + user.Email
 
