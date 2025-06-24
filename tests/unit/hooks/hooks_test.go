@@ -11,11 +11,11 @@ import (
 
 func TestNewHookManager(t *testing.T) {
 	manager := hooks.NewHookManager()
-	if manager == nil {
-		t.Fatal("Expected non-nil HookManager")
+	if manager.GetHooks() == nil {
+		t.Fatal("Expected hooks map to be initialized")
 	}
 
-	if manager.GetHooks() != nil {
+	if len(manager.GetHooks()) != 0 {
 		t.Fatalf("Expected empty hooks map, got %d entries", len(manager.GetHooks()))
 	}
 }

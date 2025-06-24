@@ -1,18 +1,14 @@
 package auth
 
-import (
-	"net/http"
-)
-
 // RouteInfo represents information about an auth route
-type RouteInfo struct {
-	Method string
-	Path   string
-	Name   string
-}
+// type RouteInfo struct {
+// 	Method string
+// 	Path   string
+// 	Name   string
+// }
 
 // HookFunc represents a hook function that can be executed before or after auth operations
-type HookFunc func(http.ResponseWriter, *http.Request) (bool, error)
+// type HookFunc func(http.ResponseWriter, *http.Request) (bool, error)
 
 // AuthService is the main authentication service interface
 // type AuthService interface {

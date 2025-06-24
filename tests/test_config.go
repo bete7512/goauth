@@ -86,7 +86,7 @@ func GetTestConfig() config.Config {
 		},
 		Email: config.EmailConfig{
 			Sender: config.EmailSenderConfig{
-				Type:         "sendgrid",
+				Type:         config.SendGrid,
 				FromEmail:    "test@example.com",
 				FromName:     "Test App",
 				SupportEmail: "support@example.com",

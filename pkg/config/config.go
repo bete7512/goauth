@@ -24,7 +24,7 @@ type Config struct {
 	Email EmailConfig
 	SMS   SMSConfig
 
-	WorkerPool *pond.Pool
+	WorkerPool pond.Pool
 
 	// Features (optional/toggleable)
 	Features FeaturesConfig
@@ -55,9 +55,9 @@ type FeaturesConfig struct {
 }
 
 type Auth struct {
-	Config           *Config
+	Config           Config
 	Repository       interfaces.RepositoryFactory
-	HookManager      *hooks.HookManager
+	HookManager      hooks.HookManager
 	TokenManager     interfaces.TokenManagerInterface
 	RateLimiter      interfaces.RateLimiter
 	RecaptchaManager interfaces.CaptchaVerifier

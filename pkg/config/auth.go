@@ -89,3 +89,10 @@ type CookieConfig struct {
 	MaxAge   int
 	SameSite http.SameSite
 }
+
+type RouteInfo struct {
+	Method  string
+	Path    string
+	Name    string
+	Handler http.HandlerFunc
+}

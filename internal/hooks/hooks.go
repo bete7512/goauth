@@ -22,8 +22,8 @@ type HookManager struct {
 }
 
 // NewHookManager creates a new hook manager
-func NewHookManager() *HookManager {
-	return &HookManager{
+func NewHookManager() HookManager {
+	return HookManager{
 		Hooks: make(map[string]*RouteHooks),
 	}
 }

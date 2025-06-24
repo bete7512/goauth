@@ -32,12 +32,12 @@ func (a *AuthService) GetRateLimitMiddleware(routeName string) func(http.Handler
 
 // GetRoutes returns all auth routes for manual registration
 // This allows frameworks to register individual routes properly
-func (a *AuthService) GetRoutes() []api.RouteInfo {
+func (a *AuthService) GetRoutes() []config.RouteInfo {
 	return a.AuthHandler.GetRoutes()
 }
 
 // GetWrappedHandler returns a handler with all middleware applied
-func (a *AuthService) GetWrappedHandler(routeInfo api.RouteInfo) http.HandlerFunc {
+func (a *AuthService) GetWrappedHandler(routeInfo config.RouteInfo) http.HandlerFunc {
 	return a.AuthHandler.GetWrappedHandler(routeInfo)
 }
 

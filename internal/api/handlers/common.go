@@ -28,8 +28,8 @@ func (h *AuthRoutes) setupEmailVerification(ctx context.Context, user *models.Us
 		return fmt.Errorf("failed to hash verification token: %w", err)
 	}
 
-		// Save verification token
-		if err := h.Auth.Repository.GetTokenRepository().SaveToken(ctx, user.ID, hashedVerificationToken, models.EmailVerificationToken, h.Auth.Config.AuthConfig.Tokens.EmailVerificationTTL); err != nil {
+	// Save verification token
+	if err := h.Auth.Repository.GetTokenRepository().SaveToken(ctx, user.ID, hashedVerificationToken, models.EmailVerificationToken, h.Auth.Config.AuthConfig.Tokens.EmailVerificationTTL); err != nil {
 		return fmt.Errorf("failed to save verification token: %w", err)
 	}
 

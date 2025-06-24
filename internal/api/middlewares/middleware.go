@@ -1,4 +1,4 @@
-package middleware
+package middlewares
 
 import (
 	"context"
@@ -28,7 +28,6 @@ func (m *Middleware) RateLimiterMiddleware(limiter interfaces.RateLimiter, confi
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Skip rate limiting if limiter is nil or rate limiting is disabled
 		if limiter == nil {
-			log.Println("Rate limiting disabled or limiter is nil")
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -75,6 +74,7 @@ func (m *Middleware) RateLimiterMiddleware(limiter interfaces.RateLimiter, confi
 	}
 }
 
+// TODO: make a research before applying this middleware
 // GlobalRateLimiterMiddleware is a middleware that applies to all routes
 func (m *Middleware) GlobalRateLimiterMiddleware(limiter interfaces.RateLimiter, config *config.RateLimiterConfig, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -157,6 +157,7 @@ func (m *Middleware) AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
+		log.Println("userID?>>>>>>>>>>>>>>>>>>>>>>>>>>>>>", userID)
 		// Add user ID to context for downstream handlers
 		ctx := context.WithValue(r.Context(), config.UserIDKey, userID)
 		next.ServeHTTP(w, r.WithContext(ctx))

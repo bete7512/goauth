@@ -8,8 +8,8 @@ import (
 
 	"github.com/bete7512/goauth/internal/api/docs"
 	"github.com/bete7512/goauth/internal/api/handlers"
-	middleware "github.com/bete7512/goauth/internal/api/middlewares"
 	oauthRoutes "github.com/bete7512/goauth/internal/api/handlers/oauth"
+	"github.com/bete7512/goauth/internal/api/middlewares"
 	"github.com/bete7512/goauth/pkg/config"
 )
 
@@ -17,13 +17,13 @@ import (
 type AuthHandler struct {
 	Auth       *config.Auth
 	handlers   *handlers.AuthRoutes
-	middleware *middleware.Middleware
+	middleware *middlewares.Middleware
 }
 
 // NewAuthHandler creates a new authentication service
 func NewAuthHandler(auth *config.Auth) *AuthHandler {
 	routes := handlers.NewAuthRoutes(auth)
-	middleware := middleware.NewMiddleware(auth)
+	middleware := middlewares.NewMiddleware(auth)
 	service := &AuthHandler{
 		Auth:       auth,
 		handlers:   routes,
@@ -66,10 +66,8 @@ func (a *AuthHandler) GetHookMiddleware(routeName string) func(http.Handler) htt
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Execute before hooks
-			if a.Auth.HookManager != nil {
-				if !a.Auth.HookManager.ExecuteBeforeHooks(routeName, w, r) {
-					return // Hook handled the response
-				}
+			if len(a.Auth.HookManager.GetHooks()) > 0 && a.Auth.HookManager.GetHooks()[routeName] != nil {
+				a.Auth.HookManager.ExecuteBeforeHooks(routeName, w, r)
 			}
 
 			// Execute main handler
@@ -84,10 +82,11 @@ func (a *AuthHandler) buildMiddlewareChain(routeName string, handler http.Handle
 	// Start with the base handler
 	var finalHandler http.Handler = http.HandlerFunc(handler)
 
+	// TODO check whether handling middleware with if clause or like this
 	// Add hook middleware
 	finalHandler = a.GetHookMiddleware(routeName)(finalHandler)
 
-	// Add rate limiting if enabled
+	// Add rate limiting middleware
 	finalHandler = a.GetRateLimitMiddleware(routeName)(finalHandler)
 
 	return finalHandler.ServeHTTP
@@ -95,35 +94,27 @@ func (a *AuthHandler) buildMiddlewareChain(routeName string, handler http.Handle
 
 // Hook management methods
 func (a *AuthHandler) RegisterBeforeHook(route string, hook func(http.ResponseWriter, *http.Request) (bool, error)) error {
-	if a.Auth.HookManager == nil {
+	if len(a.Auth.HookManager.GetHooks()) == 0 {
 		return errors.New("hook manager is nil")
 	}
 	return a.Auth.HookManager.RegisterBeforeHook(route, hook)
 }
 
 func (a *AuthHandler) RegisterAfterHook(route string, hook func(http.ResponseWriter, *http.Request) (bool, error)) error {
-	if a.Auth.HookManager == nil {
+	if len(a.Auth.HookManager.GetHooks()) == 0 {
 		return errors.New("hook manager is nil")
 	}
 	return a.Auth.HookManager.RegisterAfterHook(route, hook)
 }
 
-// RouteInfo represents a single route with its metadata
-type RouteInfo struct {
-	Method  string
-	Path    string
-	Name    string
-	Handler http.HandlerFunc
-}
-
 // GetRoutes returns all routes for manual registration
-func (a *AuthHandler) GetRoutes() []RouteInfo {
+func (a *AuthHandler) GetRoutes() []config.RouteInfo {
 	basePath := a.Auth.Config.App.BasePath
 	if basePath == "" {
 		basePath = ""
 	}
 
-	routes := []RouteInfo{
+	routes := []config.RouteInfo{
 		// Public routes
 		{Method: "POST", Path: basePath + "/register", Name: config.RouteRegister, Handler: a.handlers.HandleRegister},
 		{Method: "POST", Path: basePath + "/login", Name: config.RouteLogin, Handler: a.handlers.HandleLogin},
@@ -166,8 +157,8 @@ func (a *AuthHandler) GetRoutes() []RouteInfo {
 		}
 
 		routes = append(routes,
-			RouteInfo{Method: "GET", Path: providerPath, Name: "oauth." + string(providerName) + ".signin", Handler: provider.SignIn},
-			RouteInfo{Method: "GET", Path: providerPath + "/callback", Name: "oauth." + string(providerName) + ".callback", Handler: provider.Callback},
+			config.RouteInfo{Method: "GET", Path: providerPath, Name: "oauth." + string(providerName) + ".signin", Handler: provider.SignIn},
+			config.RouteInfo{Method: "GET", Path: providerPath + "/callback", Name: "oauth." + string(providerName) + ".callback", Handler: provider.Callback},
 		)
 	}
 
@@ -181,7 +172,7 @@ func (a *AuthHandler) GetRoutes() []RouteInfo {
 }
 
 // getSwaggerRoutes returns swagger-related routes
-func (a *AuthHandler) getSwaggerRoutes(basePath string) []RouteInfo {
+func (a *AuthHandler) getSwaggerRoutes(basePath string) []config.RouteInfo {
 	swaggerInfo := docs.SwaggerInfo{
 		Title:       a.Auth.Config.App.Swagger.Title,
 		Description: a.Auth.Config.App.Swagger.Description,
@@ -206,7 +197,7 @@ func (a *AuthHandler) getSwaggerRoutes(basePath string) []RouteInfo {
 
 	docPath := strings.TrimPrefix(a.Auth.Config.App.Swagger.DocPath, "/")
 
-	return []RouteInfo{
+	return []config.RouteInfo{
 		// Main swagger UI route - this serves the HTML interface
 		{Method: "GET", Path: basePath + "/" + docPath + "/", Name: "swagger.ui", Handler: mainHandler},
 		{Method: "GET", Path: basePath + "/" + docPath, Name: "swagger.ui.redirect", Handler: mainHandler},
@@ -218,7 +209,7 @@ func (a *AuthHandler) getSwaggerRoutes(basePath string) []RouteInfo {
 }
 
 // GetWrappedHandler returns a handler with all middleware applied
-func (a *AuthHandler) GetWrappedHandler(routeInfo RouteInfo) http.HandlerFunc {
+func (a *AuthHandler) GetWrappedHandler(routeInfo config.RouteInfo) http.HandlerFunc {
 	handler := routeInfo.Handler
 	// Build middleware chain
 	return a.buildMiddlewareChain(routeInfo.Name, handler)

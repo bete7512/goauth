@@ -15,10 +15,10 @@ import (
 
 // TestAuth represents the auth structure for testing
 type TestAuth struct {
-	Config           *config.Config
+	Config           config.Config
 	Repository       interfaces.RepositoryFactory
 	TokenManager     interfaces.TokenManagerInterface
-	HookManager      *hooks.HookManager
+	HookManager      hooks.HookManager
 	RateLimiter      interfaces.RateLimiter
 	RecaptchaManager interfaces.CaptchaVerifier
 	Logger           interface{}
@@ -270,8 +270,8 @@ func (m *MockCaptchaVerifier) Verify(ctx context.Context, token string, remoteIP
 }
 
 // Helper function to create test config
-func CreateTestConfig() *config.Config {
-	return &config.Config{
+func CreateTestConfig() config.Config {
+	return config.Config{
 		App: config.AppConfig{
 			BasePath:    "/api",
 			Domain:      "localhost",
@@ -412,7 +412,7 @@ func CreateTestConfig() *config.Config {
 }
 
 // Helper function to create test auth handler
-func CreateTestAuthHandler(conf *config.Config) *handlers.AuthRoutes {
+func CreateTestAuthHandler(conf config.Config) *handlers.AuthRoutes {
 	mockUserRepo := &MockUserRepository{}
 	mockTokenRepo := &MockTokenRepository{}
 	mockRepoFactory := &MockRepositoryFactory{}

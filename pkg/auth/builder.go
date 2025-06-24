@@ -3,6 +3,7 @@ package auth
 import (
 	"errors"
 	"fmt"
+	"runtime"
 	"time"
 
 	"github.com/alitto/pond/v2"
@@ -22,19 +23,23 @@ import (
 
 // Builder provides a flexible way to construct an AuthService.
 type Builder struct {
-	Config           config.Config
-	repoFactory      interfaces.RepositoryFactory
-	captchaVerifier  interfaces.CaptchaVerifier
-	WorkerPool       *pond.Pool
-	Logger           logger.Log
-	TokenManager     interfaces.TokenManagerInterface
-	RateLimiter      interfaces.RateLimiter
-	RecaptchaManager interfaces.CaptchaVerifier
-	HookManager      *hooks.HookManager
-	err              error
+	config.Auth
 }
 
-// NewBuilder creates a new builder instance.
+/*
+type Auth struct {
+    Config           Config
+    Repository       interfaces.RepositoryFactory
+    HookManager      *hooks.HookManager
+    TokenManager     interfaces.TokenManagerInterface
+    RateLimiter      interfaces.RateLimiter
+    RecaptchaManager interfaces.CaptchaVerifier
+    WorkerPool       pond.Pool
+    Logger           logger.Log
+}
+*/
+
+// NewBuilder creates a new builder instance with sensible defaults.
 func NewBuilder() *Builder {
 	return &Builder{}
 }
@@ -47,133 +52,271 @@ func (b *Builder) WithConfig(conf config.Config) *Builder {
 
 // WithRepositoryFactory provides a custom repository factory.
 func (b *Builder) WithRepositoryFactory(factory interfaces.RepositoryFactory) *Builder {
-	b.repoFactory = factory
+	b.Repository = factory
 	return b
 }
 
 // WithCaptchaVerifier provides a custom captcha verifier.
 func (b *Builder) WithCaptchaVerifier(verifier interfaces.CaptchaVerifier) *Builder {
-	b.captchaVerifier = verifier
+	b.RecaptchaManager = verifier
+	return b
+}
+
+// WithWorkerPool provides a custom worker pool.
+func (b *Builder) WithWorkerPool(pool pond.Pool) *Builder {
+	b.WorkerPool = pool
+	return b
+}
+
+// WithLogger provides a custom logger.
+func (b *Builder) WithLogger(log logger.Log) *Builder {
+	b.Logger = log
+	return b
+}
+
+// WithTokenManager provides a custom token manager.
+func (b *Builder) WithTokenManager(tm interfaces.TokenManagerInterface) *Builder {
+	b.TokenManager = tm
+	return b
+}
+
+// WithRateLimiter provides a custom rate limiter.
+func (b *Builder) WithRateLimiter(rl interfaces.RateLimiter) *Builder {
+	b.RateLimiter = rl
+	return b
+}
+
+// WithEmailSender provides a custom email sender.
+func (b *Builder) WithEmailSender(sender interfaces.EmailSenderInterface) *Builder {
+	b.Config.Email.Sender.CustomSender = sender
+	return b
+}
+
+// WithSMSSender provides a custom SMS sender.
+func (b *Builder) WithSMSSender(sender interfaces.SMSSenderInterface) *Builder {
+	b.Config.SMS.CustomSender = sender
 	return b
 }
 
 // Build constructs the final AuthService.
 func (b *Builder) Build() (*AuthService, error) {
-	if b.err != nil {
-		return nil, fmt.Errorf("builder has previous error: %w", b.err)
+
+	if b.RecaptchaManager == nil && b.Config.Features.EnableRecaptcha {
+		b.RecaptchaManager = recaptcha.NewRecaptchaVerifier(b.Config.Security.Recaptcha)
+	}
+	if b.Config.Email.Sender.CustomSender == nil && b.Config.AuthConfig.Methods.EmailVerification.EnableOnSignup && b.Config.Email.Sender.Type == config.SendGrid {
+		b.Config.Email.Sender.CustomSender = email.NewEmailSender(b.Config)
+	}
+	if b.Config.SMS.CustomSender == nil && b.Config.AuthConfig.Methods.EnableSmsVerification && b.Config.SMS.Twilio.AccountSID != "" {
+		b.Config.SMS.CustomSender = sms.NewSMSSender(b.Config.SMS)
 	}
 
-	// Validate configuration
-	if err := b.validate(); err != nil {
+	// Validate configuration first
+	if err := b.validateConfig(); err != nil {
 		return nil, fmt.Errorf("configuration validation failed: %w", err)
 	}
 
-	// Initialize Logger
-	logger.New("info", logger.LogOptions{}) // Simplified for example
+	// Set default token TTLs
+	b.setDefaultTokenTTLs()
+
+	// Initialize components in order
+	if err := b.initializeLogger(); err != nil {
+		return nil, fmt.Errorf("failed to initialize logger: %w", err)
+	}
+
+	if err := b.initializeWorkerPool(); err != nil {
+		return nil, fmt.Errorf("failed to initialize worker pool: %w", err)
+	}
+
+	if err := b.initializeRepositoryFactory(); err != nil {
+		return nil, fmt.Errorf("failed to initialize repository factory: %w", err)
+	}
+
+	if err := b.initializeCaptchaVerifier(); err != nil {
+		return nil, fmt.Errorf("failed to initialize captcha verifier: %w", err)
+	}
+
+	if err := b.initializeNotificationSenders(); err != nil {
+		return nil, fmt.Errorf("failed to initialize notification senders: %w", err)
+	}
+
+	if err := b.initializeRateLimiter(); err != nil {
+		return nil, fmt.Errorf("failed to initialize rate limiter: %w", err)
+	}
+
+	if err := b.initializeTokenManager(); err != nil {
+		return nil, fmt.Errorf("failed to initialize token manager: %w", err)
+	}
+
+	if err := b.initializeHookManager(); err != nil {
+		return nil, fmt.Errorf("failed to initialize hook manager: %w", err)
+	}
+
+	// Create the auth handler
+	authHandler := api.NewAuthHandler(&config.Auth{
+		Config:           b.Config,
+		Repository:       b.Repository,
+		HookManager:      b.HookManager,
+		RateLimiter:      b.RateLimiter,
+		RecaptchaManager: b.RecaptchaManager,
+		Logger:           b.Logger,
+		TokenManager:     b.TokenManager,
+		WorkerPool:       b.WorkerPool,
+	})
+
+	return &AuthService{
+		AuthHandler: authHandler,
+	}, nil
+}
+
+// initializeLogger sets up the logger if not provided
+func (b *Builder) initializeLogger() error {
+	if b.Logger != nil {
+		return nil
+	}
+
+	logger.New("info", logger.LogOptions{})
 	loggerInstance := logger.Get()
 	if loggerInstance == nil {
-		return nil, errors.New("logger failed to initialize")
+		return errors.New("failed to initialize logger")
+	}
+	b.Logger = loggerInstance
+	return nil
+}
+
+// initializeWorkerPool sets up the worker pool if not provided
+func (b *Builder) initializeWorkerPool() error {
+	if b.WorkerPool != nil {
+		return nil
 	}
 
-	// If a custom repository factory isn't provided, create the default one.
-	if b.repoFactory == nil {
-		if b.Config.Features.EnableCustomStorage {
-			return nil, errors.New("EnableCustomStorage is true, but no factory was provided via WithRepositoryFactory")
-		}
-		dbClient, err := database.NewDBClient(b.Config)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create db client: %w", err)
-		}
-		if err := dbClient.Connect(); err != nil {
-			return nil, fmt.Errorf("failed to connect to database: %w", err)
-		}
-		repoFactory, err := repositories.NewRepositoryFactory(b.Config.Database.Type, dbClient.GetDB())
-		if err != nil {
-			return nil, fmt.Errorf("failed to create repository factory: %w", err)
-		}
-		b.repoFactory = repoFactory
+	if b.Config.WorkerPool != nil {
+		b.WorkerPool = b.Config.WorkerPool
+		return nil
 	}
 
-	// If a custom captcha verifier isn't provided, create the default one if enabled.
-	if b.captchaVerifier == nil && b.Config.Security.Recaptcha.Enabled {
-		if b.Config.Security.Recaptcha.SecretKey == "" {
-			return nil, errors.New("EnableRecaptcha is true, but RecaptchaConfig is not properly configured")
-		}
-		b.captchaVerifier = recaptcha.NewRecaptchaVerifier(b.Config.Security.Recaptcha)
+	// Create default worker pool
+	pool := pond.NewPool(runtime.NumGoroutine())
+	b.WorkerPool = pool
+	b.Config.WorkerPool = pool
+	return nil
+}
+
+// initializeRepositoryFactory sets up the repository factory if not provided
+func (b *Builder) initializeRepositoryFactory() error {
+	if b.Repository != nil {
+		return nil
 	}
 
-	// Initialize email sender if not provided
-	if b.Config.Email.Sender.CustomSender == nil && b.Config.Email.SendGrid.APIKey != "" {
+	if b.Config.Features.EnableCustomStorage {
+		return errors.New("custom storage is enabled but no repository factory was provided")
+	}
+
+	dbClient, err := database.NewDBClient(b.Config)
+	if err != nil {
+		return fmt.Errorf("failed to create database client: %w", err)
+	}
+
+	if err := dbClient.Connect(); err != nil {
+		return fmt.Errorf("failed to connect to database: %w", err)
+	}
+
+	repoFactory, err := repositories.NewRepositoryFactory(b.Config.Database.Type, dbClient.GetDB())
+	if err != nil {
+		return fmt.Errorf("failed to create repository factory: %w", err)
+	}
+
+	b.Repository = repoFactory
+	return nil
+}
+
+// initializeCaptchaVerifier sets up the captcha verifier if needed
+func (b *Builder) initializeCaptchaVerifier() error {
+	if b.RecaptchaManager != nil {
+		return nil
+	}
+
+	if !b.Config.Security.Recaptcha.Enabled && !b.Config.Features.EnableRecaptcha {
+		return nil // Not needed
+	}
+
+	if b.Config.Security.Recaptcha.SecretKey == "" {
+		return errors.New("recaptcha is enabled but secret key is not configured")
+	}
+
+	b.RecaptchaManager = recaptcha.NewRecaptchaVerifier(b.Config.Security.Recaptcha)
+	return nil
+}
+
+// initializeNotificationSenders sets up email and SMS senders if needed
+func (b *Builder) initializeNotificationSenders() error {
+	// Initialize email sender
+	if b.Config.Email.Sender.CustomSender == nil &&
+		b.Config.AuthConfig.Methods.EmailVerification.EnableOnSignup &&
+		b.Config.Email.SendGrid.APIKey != "" {
 		b.Config.Email.Sender.CustomSender = email.NewEmailSender(b.Config)
 	}
 
-	// Initialize SMS sender if not provided
-	if b.Config.SMS.CustomSender == nil && b.Config.SMS.Twilio.AccountSID != "" {
+	// Initialize SMS sender
+	if b.Config.SMS.CustomSender == nil &&
+		b.Config.AuthConfig.Methods.EnableSmsVerification &&
+		b.Config.SMS.Twilio.AccountSID != "" {
 		b.Config.SMS.CustomSender = sms.NewSMSSender(b.Config.SMS)
 	}
-	if b.repoFactory == nil {
-		return nil, errors.New("repository factory is required")
-	}
-	if b.Config.WorkerPool == nil {
-		pool := pond.NewPool(1, pond.WithQueueSize(100))
-		b.Config.WorkerPool = &pool
-		b.WorkerPool = &pool
-		if b.Config.WorkerPool == nil {
-			return nil, errors.New("worker pool is required")
-		}
-	}
-	if b.Config.Security.RateLimiter.Enabled {
-		if b.RateLimiter == nil {
-			b.RateLimiter = ratelimiter.New(b.Config)
-		}
-	}
-	if b.Config.Features.EnableRecaptcha {
-		if b.RecaptchaManager == nil {
-			b.RecaptchaManager = recaptcha.NewRecaptchaVerifier(b.Config.Security.Recaptcha)
-		}
+
+	return nil
+}
+
+// initializeRateLimiter sets up the rate limiter if needed
+func (b *Builder) initializeRateLimiter() error {
+	if b.RateLimiter != nil {
+		return nil
 	}
 
-	rateLimiter := ratelimiter.New(b.Config)
-	tokenManager := tokenManager.NewTokenManager(b.Config)
-	hookManager := hooks.NewHookManager()
-	if hookManager == nil {
-		return nil, errors.New("hook manager is required")
-	}
-	if rateLimiter == nil {
-		return nil, errors.New("rate limiter is required")
-	}
-	if tokenManager == nil {
-		return nil, errors.New("token manager is required")
-	}
-	if b.repoFactory == nil {
-		return nil, errors.New("repository factory is required")
-	}
-	if b.Config.WorkerPool == nil {
-		return nil, errors.New("worker pool is required")
-	}
-	authHandler := api.NewAuthHandler(&config.Auth{
-		Config:           &b.Config,
-		Repository:       b.repoFactory,
-		HookManager:      hookManager,
-		RateLimiter:      rateLimiter,
-		RecaptchaManager: b.captchaVerifier,
-		Logger:           loggerInstance,
-		TokenManager:     tokenManager,
-		WorkerPool:       *b.Config.WorkerPool,
-	})
-	authService := &AuthService{
-		AuthHandler: authHandler,
+	if !b.Config.Security.RateLimiter.Enabled {
+		// TODO: No need to have create a rate limiter if it's not enabled
+		b.RateLimiter = nil
+		return nil
 	}
 
-	// Set default TTLs if not configured
+	rateLimiter, err := ratelimiter.New(b.Config)
+	if err != nil {
+		return fmt.Errorf("failed to create rate limiter: %w", err)
+	}
+	b.RateLimiter = rateLimiter
+	return nil
+}
+
+// initializeTokenManager sets up the token manager if not provided
+func (b *Builder) initializeTokenManager() error {
+	if b.TokenManager != nil {
+		return nil
+	}
+
+	b.TokenManager = tokenManager.NewTokenManager(b.Config)
+	if b.TokenManager == nil {
+		return errors.New("failed to create token manager")
+	}
+	return nil
+}
+
+// initializeHookManager sets up the hook manager if not provided
+func (b *Builder) initializeHookManager() error {
+	if b.HookManager.Hooks != nil {
+		return nil
+	}
+
+	b.HookManager = hooks.NewHookManager()
+	return nil
+}
+
+// setDefaultTokenTTLs sets default TTL values for tokens if not configured
+func (b *Builder) setDefaultTokenTTLs() {
 	if b.Config.AuthConfig.Tokens.EmailVerificationTTL <= 0 {
 		b.Config.AuthConfig.Tokens.EmailVerificationTTL = 1 * time.Hour
 	}
 	if b.Config.AuthConfig.Tokens.PhoneVerificationTTL <= 0 {
 		b.Config.AuthConfig.Tokens.PhoneVerificationTTL = 10 * time.Minute
-	}
-	if b.Config.AuthConfig.Tokens.PasswordResetTTL <= 0 {
-		b.Config.AuthConfig.Tokens.PasswordResetTTL = 10 * time.Minute
 	}
 	if b.Config.AuthConfig.Tokens.TwoFactorTTL <= 0 {
 		b.Config.AuthConfig.Tokens.TwoFactorTTL = 10 * time.Minute
@@ -181,50 +324,56 @@ func (b *Builder) Build() (*AuthService, error) {
 	if b.Config.AuthConfig.Tokens.MagicLinkTTL <= 0 {
 		b.Config.AuthConfig.Tokens.MagicLinkTTL = 10 * time.Minute
 	}
-
-	if b.Config.Features.EnableCustomJWT {
-		if b.Config.AuthConfig.JWT.ClaimsProvider == nil {
-			return nil, errors.New("custom JWT claims provider is required when custom JWT claims are enabled")
-		}
-
-	}
-	if b.Config.App.Swagger.Enable {
-		if b.Config.App.Swagger.Title == "" {
-			return nil, errors.New("swagger title is required when swagger is enabled")
-		}
-		if b.Config.App.Swagger.Version == "" {
-			return nil, errors.New("swagger version is required when swagger is enabled")
-		}
-		if b.Config.App.Swagger.DocPath == "" || b.Config.App.Swagger.DocPath == "/" {
-			return nil, errors.New("swagger doc path is required when swagger is enabled")
-		}
-	}
-
-	return authService, nil
 }
 
-// validate performs comprehensive validation of the configuration
-func (b *Builder) validate() error {
-	// Validate database configuration
-	if !b.Config.Features.EnableCustomStorage {
-		if b.Config.Database.URL == "" {
-			return errors.New("database URL is required when not using custom storage repository")
-		}
-		if b.Config.Database.Type == "" {
-			return errors.New("database type is required when not using custom storage repository")
-		}
-	} else if b.repoFactory == nil {
-		return errors.New("repository factory is required when EnableCustomStorage is true")
+// validateConfig performs comprehensive validation of the configuration
+func (b *Builder) validateConfig() error {
+	validators := []func() error{
+		b.validateDatabase,
+		b.validateJWT,
+		b.validateCookie,
+		b.validatePasswordPolicy,
+		b.validateTwoFactor,
+		b.validateEmailVerification,
+		b.validateSMSVerification,
+		b.validateRateLimiter,
+		b.validateCustomJWT,
+		b.validateSwagger,
+		b.validateOAuthProviders,
 	}
 
-	// Validate JWT configuration
+	for _, validator := range validators {
+		if err := validator(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// validateDatabase validates database configuration
+func (b *Builder) validateDatabase() error {
+	if b.Config.Features.EnableCustomStorage {
+		if b.Repository == nil {
+			return errors.New("repository factory is required when custom storage is enabled")
+		}
+		return nil
+	}
+
+	if b.Config.Database.URL == "" {
+		return errors.New("database URL is required when not using custom storage")
+	}
+	if b.Config.Database.Type == "" {
+		return errors.New("database type is required when not using custom storage")
+	}
+
+	return nil
+}
+
+// validateJWT validates JWT configuration
+func (b *Builder) validateJWT() error {
 	if b.Config.AuthConfig.JWT.Secret == "" {
 		return errors.New("JWT secret is required")
-	}
-
-	// Validate cookie configuration
-	if b.Config.AuthConfig.Cookie.Name == "" {
-		return errors.New("cookie name is required")
 	}
 	if b.Config.AuthConfig.JWT.AccessTokenTTL <= 0 {
 		return errors.New("access token TTL must be greater than 0")
@@ -232,107 +381,151 @@ func (b *Builder) validate() error {
 	if b.Config.AuthConfig.JWT.RefreshTokenTTL <= 0 {
 		return errors.New("refresh token TTL must be greater than 0")
 	}
+	return nil
+}
+
+// validateCookie validates cookie configuration
+func (b *Builder) validateCookie() error {
+	if b.Config.AuthConfig.Cookie.Name == "" {
+		return errors.New("cookie name is required")
+	}
 	if b.Config.AuthConfig.Cookie.Path == "" {
 		return errors.New("cookie path is required")
 	}
 	if b.Config.AuthConfig.Cookie.MaxAge <= 0 {
-		return errors.New("max cookie age must be greater than 0")
+		return errors.New("cookie max age must be greater than 0")
+	}
+	return nil
+}
+
+// validatePasswordPolicy validates password policy configuration
+func (b *Builder) validatePasswordPolicy() error {
+	if b.Config.AuthConfig.PasswordPolicy.HashSaltLength <= 0 {
+		b.Config.AuthConfig.PasswordPolicy.HashSaltLength = 10
+	}
+	if b.Config.AuthConfig.PasswordPolicy.MinLength <= 0 {
+		b.Config.AuthConfig.PasswordPolicy.MinLength = 8
 	}
 	if b.Config.AuthConfig.Tokens.HashSaltLength <= 0 {
 		b.Config.AuthConfig.Tokens.HashSaltLength = 10
 	}
-	// Validate password policy
-	if b.Config.AuthConfig.PasswordPolicy.HashSaltLength <= 0 {
-		b.Config.AuthConfig.PasswordPolicy.HashSaltLength = 10
-	}
+	return nil
+}
 
-	if b.Config.AuthConfig.PasswordPolicy.MinLength <= 0 {
-		b.Config.AuthConfig.PasswordPolicy.MinLength = 8
-	}
-
-	// Validate two-factor authentication
-	if b.Config.AuthConfig.Methods.EnableTwoFactor && b.Config.AuthConfig.Methods.TwoFactorMethod == "" {
+// validateTwoFactor validates two-factor authentication configuration
+func (b *Builder) validateTwoFactor() error {
+	if b.Config.AuthConfig.Methods.EnableTwoFactor &&
+		b.Config.AuthConfig.Methods.TwoFactorMethod == "" {
 		return errors.New("two-factor method is required when two-factor authentication is enabled")
 	}
+	return nil
+}
 
-	// Validate email verification
-	if b.Config.AuthConfig.Methods.EmailVerification.EnableOnSignup {
-		if b.Config.AuthConfig.Methods.EmailVerification.VerificationURL == "" {
-			return errors.New("email verification URL is required when email verification is enabled")
+// validateEmailVerification validates email verification configuration
+func (b *Builder) validateEmailVerification() error {
+	if b.Config.Email.Sender.CustomSender == nil {
+		if b.Config.AuthConfig.Methods.EmailVerification.EnableOnSignup {
+			if b.Config.AuthConfig.Methods.EmailVerification.VerificationURL == "" {
+				return errors.New("email verification URL is required when email verification is enabled")
+			}
+		}
+		if b.Config.Email.Sender.Type == config.SendGrid {
+			if b.Config.Email.SendGrid.APIKey == "" {
+				return errors.New("sendgrid API key is required when email verification is enabled")
+			}
+		} else if b.Config.Email.Sender.Type == config.SES {
+			if b.Config.Email.SES.AccessKeyID == "" || b.Config.Email.SES.SecretAccessKey == "" {
+				return errors.New("ses access key id and secret access key are required when email verification is enabled")
+			}
+		} else {
+			return errors.New("either sendgrid or ses is required when email verification is enabled and custom sender is not provided")
 		}
 		if b.Config.Email.Sender.CustomSender == nil {
 			b.Config.Email.Sender.CustomSender = email.NewEmailSender(b.Config)
 		}
 	}
-
-	// Validate SMS verification
-	if b.Config.AuthConfig.Methods.EnableSmsVerification && b.Config.SMS.CustomSender == nil {
-		return errors.New("SMS sender is required when SMS verification is enabled")
-	}
-
-	// Validate rate limiter
-	if b.Config.Features.EnableRateLimiter && !b.Config.Security.RateLimiter.Enabled {
-		return errors.New("rate limiter configuration is required when rate limiting is enabled")
-	}
-
-	// Validate custom JWT claims
-	if b.Config.Features.EnableCustomJWT && b.Config.AuthConfig.JWT.ClaimsProvider == nil {
-		return errors.New("custom JWT claims provider is required when custom JWT claims are enabled")
-	}
-
-	// Validate Swagger configuration
-	if b.Config.App.Swagger.Enable {
-		if b.Config.App.Swagger.Title == "" {
-			return errors.New("swagger title is required when swagger is enabled")
-		}
-		if b.Config.App.Swagger.Version == "" {
-			return errors.New("swagger version is required when swagger is enabled")
-		}
-		if b.Config.App.Swagger.DocPath == "" || b.Config.App.Swagger.DocPath == "/" {
-			return errors.New("swagger doc path is required when swagger is enabled")
-		}
-		if b.Config.App.Swagger.Description == "" {
-			return errors.New("swagger description is required when swagger is enabled")
-		}
-		if b.Config.App.Swagger.Host == "" {
-			return errors.New("swagger host is required when swagger is enabled")
-		}
-	}
-
-	if b.Config.WorkerPool == nil {
-		return errors.New("worker pool is required")
-	}
-
-	// Validate OAuth providers
-	return b.validateProviders()
+	return nil
 }
 
-// validateProviders validates OAuth provider configurations
-func (b *Builder) validateProviders() error {
+// validateSMSVerification validates SMS verification configuration
+func (b *Builder) validateSMSVerification() error {
+	if b.Config.SMS.CustomSender == nil {
+		if b.Config.AuthConfig.Methods.EnableSmsVerification {
+			if b.Config.SMS.Twilio.AccountSID == "" || b.Config.SMS.Twilio.AuthToken == "" || b.Config.SMS.Twilio.FromNumber == "" {
+				return errors.New("twilio account sid, auth token and from number are required when SMS verification is enabled")
+			} else {
+				return errors.New("either twilio or custom sender is required when SMS verification is enabled and custom sender is not provided")
+			}
+		}
+		if b.Config.SMS.CustomSender == nil {
+			b.Config.SMS.CustomSender = sms.NewSMSSender(b.Config.SMS)
+		}
+	}
+	return nil
+}
+
+// validateRateLimiter validates rate limiter configuration
+func (b *Builder) validateRateLimiter() error {
+	if b.Config.Features.EnableRateLimiter && !b.Config.Security.RateLimiter.Enabled {
+
+		return errors.New("rate limiter configuration is required when rate limiting is enabled")
+	}
+	return nil
+}
+
+// validateCustomJWT validates custom JWT configuration
+func (b *Builder) validateCustomJWT() error {
+	if b.Config.Features.EnableCustomJWT &&
+		b.Config.AuthConfig.JWT.ClaimsProvider == nil {
+		return errors.New("custom JWT claims provider is required when custom JWT is enabled")
+	}
+	return nil
+}
+
+// validateSwagger validates Swagger configuration
+func (b *Builder) validateSwagger() error {
+	if !b.Config.App.Swagger.Enable {
+		return nil
+	}
+
+	required := map[string]string{
+		"title":       b.Config.App.Swagger.Title,
+		"version":     b.Config.App.Swagger.Version,
+		"description": b.Config.App.Swagger.Description,
+		"host":        b.Config.App.Swagger.Host,
+	}
+
+	for field, value := range required {
+		if value == "" {
+			return fmt.Errorf("swagger %s is required when swagger is enabled", field)
+		}
+	}
+
+	if b.Config.App.Swagger.DocPath == "" || b.Config.App.Swagger.DocPath == "/" {
+		return errors.New("swagger doc path is required and cannot be root when swagger is enabled")
+	}
+
+	return nil
+}
+
+// validateOAuthProviders validates OAuth provider configurations
+func (b *Builder) validateOAuthProviders() error {
+	providerConfigs := map[config.AuthProvider]*config.ProviderConfig{
+		config.Google:    &b.Config.Providers.Google,
+		config.GitHub:    &b.Config.Providers.GitHub,
+		config.Facebook:  &b.Config.Providers.Facebook,
+		config.Microsoft: &b.Config.Providers.Microsoft,
+		config.Apple:     &b.Config.Providers.Apple,
+		config.Discord:   &b.Config.Providers.Discord,
+		config.Twitter:   &b.Config.Providers.Twitter,
+		config.LinkedIn:  &b.Config.Providers.LinkedIn,
+		config.Slack:     &b.Config.Providers.Slack,
+		config.Spotify:   &b.Config.Providers.Spotify,
+	}
+
 	for _, provider := range b.Config.Providers.Enabled {
-		var providerConfig config.ProviderConfig
-		switch provider {
-		case config.Google:
-			providerConfig = b.Config.Providers.Google
-		case config.GitHub:
-			providerConfig = b.Config.Providers.GitHub
-		case config.Facebook:
-			providerConfig = b.Config.Providers.Facebook
-		case config.Microsoft:
-			providerConfig = b.Config.Providers.Microsoft
-		case config.Apple:
-			providerConfig = b.Config.Providers.Apple
-		case config.Discord:
-			providerConfig = b.Config.Providers.Discord
-		case config.Twitter:
-			providerConfig = b.Config.Providers.Twitter
-		case config.LinkedIn:
-			providerConfig = b.Config.Providers.LinkedIn
-		case config.Slack:
-			providerConfig = b.Config.Providers.Slack
-		case config.Spotify:
-			providerConfig = b.Config.Providers.Spotify
-		default:
+		providerConfig, exists := providerConfigs[provider]
+		if !exists {
 			return fmt.Errorf("unsupported OAuth provider: %s", provider)
 		}
 

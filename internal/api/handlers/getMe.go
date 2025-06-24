@@ -17,7 +17,6 @@ func (h *AuthRoutes) HandleGetUser(w http.ResponseWriter, r *http.Request) {
 	// Authenticate user
 	userID, err := h.authenticateRequest(r, h.Auth.Config.AuthConfig.Cookie.Name, h.Auth.Config.AuthConfig.JWT.Secret)
 	if err != nil {
-		h.Auth.Logger.Error("IT is meeeeeeeeeeeeeeeeeeee Unauthorized: ", err)
 		utils.RespondWithError(w, http.StatusUnauthorized, "Unauthorized: "+err.Error(), nil)
 		return
 	}
