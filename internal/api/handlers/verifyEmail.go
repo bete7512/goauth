@@ -59,23 +59,23 @@ func (h *AuthRoutes) HandleVerifyEmail(w http.ResponseWriter, r *http.Request) {
 		utils.RespondWithError(w, http.StatusBadRequest, err.Error(), err)
 		return
 	}
-	// Recaptcha verification
-	if h.Auth.Config.Security.Recaptcha.Enabled && h.Auth.RecaptchaManager != nil && h.Auth.Config.Security.Recaptcha.Routes[config.RouteVerifyEmail] {
-		if req.RecaptchaToken == "" {
-			utils.RespondWithError(w, http.StatusBadRequest, "Recaptcha token is required", nil)
-			return
-		}
-		ip := utils.GetIpFromRequest(r)
-		ok, err := h.Auth.RecaptchaManager.Verify(r.Context(), req.RecaptchaToken, ip)
-		if err != nil {
-			utils.RespondWithError(w, http.StatusInternalServerError, "Recaptcha verification failed: "+err.Error(), nil)
-			return
-		}
-		if !ok {
-			utils.RespondWithError(w, http.StatusBadRequest, "Recaptcha verification failed", nil)
-			return
-		}
-	}
+	// // Recaptcha verification
+	// if h.Auth.Config.Security.Recaptcha.Enabled && h.Auth.RecaptchaManager != nil && h.Auth.Config.Security.Recaptcha.Routes[config.RouteVerifyEmail] {
+	// 	if req.RecaptchaToken == "" {
+	// 		utils.RespondWithError(w, http.StatusBadRequest, "Recaptcha token is required", nil)
+	// 		return
+	// 	}
+	// 	ip := utils.GetIpFromRequest(r)
+	// 	ok, err := h.Auth.RecaptchaManager.Verify(r.Context(), req.RecaptchaToken, ip)
+	// 	if err != nil {
+	// 		utils.RespondWithError(w, http.StatusInternalServerError, "Recaptcha verification failed: "+err.Error(), nil)
+	// 		return
+	// 	}
+	// 	if !ok {
+	// 		utils.RespondWithError(w, http.StatusBadRequest, "Recaptcha verification failed", nil)
+	// 		return
+	// 	}
+	// }
 
 	// Get user by email
 	user, err := h.getUserByEmail(r.Context(), req.Email)
@@ -208,7 +208,7 @@ func (h *AuthRoutes) parseVerifyEmailRequest(r *http.Request) (*schemas.VerifyEm
 	// Sanitize input
 	req.Token = strings.TrimSpace(req.Token)
 	req.Email = strings.TrimSpace(req.Email)
-	req.RecaptchaToken = strings.TrimSpace(req.RecaptchaToken)
+	// req.RecaptchaToken = strings.TrimSpace(req.RecaptchaToken)
 
 	return &req, rawData, nil
 }

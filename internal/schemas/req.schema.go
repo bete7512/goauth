@@ -13,30 +13,26 @@ type RegisterRequest struct {
 
 // LoginRequest represents the request body for user login
 type LoginRequest struct {
-	Email          string `json:"email" validate:"required,email"`
-	Password       string `json:"password" validate:"required"`
-	TwoFactorCode  string `json:"two_factor_code,omitempty"`
-	DeviceId       string `json:"device_id,omitempty"`
-	RecaptchaToken string `json:"recaptcha_token,omitempty"`
+	Email         string `json:"email" validate:"required,email"`
+	Password      string `json:"password" validate:"required"`
+	TwoFactorCode string `json:"two_factor_code,omitempty"`
+	DeviceId      string `json:"device_id,omitempty"`
 }
 
 // RefreshTokenRequest represents the request body for token refresh
 type RefreshTokenRequest struct {
-	RefreshToken   string `json:"refresh_token" validate:"required"`
-	RecaptchaToken string `json:"recaptcha_token,omitempty"`
+	RefreshToken string `json:"refresh_token" validate:"required"`
 }
 
 // ForgotPasswordRequest represents the request body for password reset request
 type ForgotPasswordRequest struct {
-	Email          string `json:"email" validate:"required,email"`
-	RecaptchaToken string `json:"recaptcha_token,omitempty"`
+	Email string `json:"email" validate:"required,email"`
 }
 
 // ResetPasswordRequest represents the request body for password reset
 type ResetPasswordRequest struct {
-	Token          string `json:"token" validate:"required"`
-	NewPassword    string `json:"new_password" validate:"required"`
-	RecaptchaToken string `json:"recaptcha_token,omitempty"`
+	Token       string `json:"token" validate:"required"`
+	NewPassword string `json:"new_password" validate:"required"`
 }
 
 // UpdateUserRequest represents the request body for user profile update
@@ -58,33 +54,28 @@ type ChangePasswordRequest struct {
 
 // DeactivateUserRequest represents the request body for account deactivation
 type DeactivateUserRequest struct {
-	Password       string `json:"password" validate:"required"`
-	RecaptchaToken string `json:"recaptcha_token,omitempty"`
+	Password string `json:"password" validate:"required"`
 }
 
 // VerifyTwoFactorRequest represents the request body for two-factor verification
 type VerifyTwoFactorRequest struct {
-	Code           string `json:"code" validate:"required"`
-	RecaptchaToken string `json:"recaptcha_token,omitempty"`
+	Code string `json:"code" validate:"required"`
 }
 
 // DisableTwoFactorRequest represents the request body for disabling two-factor authentication
 type DisableTwoFactorRequest struct {
-	Password       string `json:"password" validate:"required"`
-	RecaptchaToken string `json:"recaptcha_token,omitempty"`
+	Password string `json:"password" validate:"required"`
 }
 
 // VerifyEmailRequest represents the request body for email verification
 type VerifyEmailRequest struct {
-	Token          string `json:"token" validate:"required"`
-	Email          string `json:"email" validate:"required,email"`
-	RecaptchaToken string `json:"recaptcha_token,omitempty"`
+	Token string `json:"token" validate:"required"`
+	Email string `json:"email" validate:"required,email"`
 }
 
 // ResendVerificationEmailRequest represents the request body for resending verification email
 type SendVerificationEmailRequest struct {
-	Email          string `json:"email" validate:"required,email"`
-	RecaptchaToken string `json:"recaptcha_token,omitempty"`
+	Email string `json:"email" validate:"required,email"`
 }
 
 // UserResponse represents the user data returned to clients
@@ -97,12 +88,10 @@ type UserResponse struct {
 }
 
 type SendPhoneVerificationRequest struct {
-	PhoneNumber    string `json:"phone_number" validate:"required"`
-	RecaptchaToken string `json:"recaptcha_token,omitempty"`
+	PhoneNumber string `json:"phone_number" validate:"required"`
 }
 
 type VerifyPhoneRequest struct {
-	Code           string `json:"code" validate:"required"`
-	PhoneNumber    string `json:"phone_number" validate:"required"`
-	RecaptchaToken string `json:"recaptcha_token,omitempty"`
+	Code        string `json:"code" validate:"required"`
+	PhoneNumber string `json:"phone_number" validate:"required"`
 }

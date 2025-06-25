@@ -26,19 +26,6 @@ type Builder struct {
 	config.Auth
 }
 
-/*
-type Auth struct {
-    Config           Config
-    Repository       interfaces.RepositoryFactory
-    HookManager      *hooks.HookManager
-    TokenManager     interfaces.TokenManagerInterface
-    RateLimiter      interfaces.RateLimiter
-    RecaptchaManager interfaces.CaptchaVerifier
-    WorkerPool       pond.Pool
-    Logger           logger.Log
-}
-*/
-
 // NewBuilder creates a new builder instance with sensible defaults.
 func NewBuilder() *Builder {
 	return &Builder{}

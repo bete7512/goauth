@@ -60,22 +60,22 @@ func (h *AuthRoutes) HandleVerifyPhone(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Recaptcha verification
-	if h.Auth.Config.Security.Recaptcha.Enabled && h.Auth.RecaptchaManager != nil && h.Auth.Config.Security.Recaptcha.Routes[config.RouteVerifyPhone] {
-		if req.RecaptchaToken == "" {
-			utils.RespondWithError(w, http.StatusBadRequest, "Recaptcha token is required", nil)
-			return
-		}
-		ip := utils.GetIpFromRequest(r)
-		ok, err := h.Auth.RecaptchaManager.Verify(r.Context(), req.RecaptchaToken, ip)
-		if err != nil {
-			utils.RespondWithError(w, http.StatusInternalServerError, "Recaptcha verification failed: "+err.Error(), nil)
-			return
-		}
-		if !ok {
-			utils.RespondWithError(w, http.StatusBadRequest, "Recaptcha verification failed", nil)
-			return
-		}
-	}
+	// if h.Auth.Config.Security.Recaptcha.Enabled && h.Auth.RecaptchaManager != nil && h.Auth.Config.Security.Recaptcha.Routes[config.RouteVerifyPhone] {
+	// 	if req.RecaptchaToken == "" {
+	// 		utils.RespondWithError(w, http.StatusBadRequest, "Recaptcha token is required", nil)
+	// 		return
+	// 	}
+	// 	ip := utils.GetIpFromRequest(r)
+	// 	ok, err := h.Auth.RecaptchaManager.Verify(r.Context(), req.RecaptchaToken, ip)
+	// 	if err != nil {
+	// 		utils.RespondWithError(w, http.StatusInternalServerError, "Recaptcha verification failed: "+err.Error(), nil)
+	// 		return
+	// 	}
+	// 	if !ok {
+	// 		utils.RespondWithError(w, http.StatusBadRequest, "Recaptcha verification failed", nil)
+	// 		return
+	// 	}
+	// }
 
 	// Get user by phone number or authenticated user
 	user, err := h.getUserByPhoneNumber(r.Context(), req.PhoneNumber)
@@ -207,7 +207,7 @@ func (h *AuthRoutes) parseVerifyPhoneRequest(r *http.Request) (*schemas.VerifyPh
 	// Sanitize input
 	req.Code = strings.TrimSpace(req.Code)
 	req.PhoneNumber = strings.TrimSpace(req.PhoneNumber)
-	req.RecaptchaToken = strings.TrimSpace(req.RecaptchaToken)
+	// req.RecaptchaToken = strings.TrimSpace(req.RecaptchaToken)
 
 	return &req, rawData, nil
 }

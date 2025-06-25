@@ -13,6 +13,7 @@ type CustomJWTClaimsProvider interface {
 
 type RateLimiter interface {
 	Allow(key string, windowSize time.Duration, maxRequests int, blockDuration time.Duration) bool
+	AllowN(key string, windowSize time.Duration, maxRequests int, blockDuration time.Duration, n int) bool
 	Close() error
 }
 type CaptchaVerifier interface {

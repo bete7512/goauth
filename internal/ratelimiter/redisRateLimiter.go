@@ -20,7 +20,6 @@ func NewRedisRateLimiter(conf config.Config) (*RedisRateLimiter, error) {
 	if redisClient == nil {
 		return nil, errors.New("failed to create Redis client")
 	}
-
 	return &RedisRateLimiter{
 		client: *redisClient,
 		config: conf.Security.RateLimiter,
@@ -48,13 +47,13 @@ func (r *RedisRateLimiter) AllowN(key string, windowSize time.Duration, maxReque
 
 	// Check if blocked
 	existsCmd := pipe.Exists(ctx, blockKey)
-	
+
 	now := time.Now().Unix()
 	windowStart := now - int64(windowSize.Seconds())
 
 	// Clean up old entries
 	pipe.ZRemRangeByScore(ctx, windowKey, "0", strconv.FormatInt(windowStart, 10))
-	
+
 	// Get current count
 	countCmd := pipe.ZCard(ctx, windowKey)
 
@@ -171,7 +170,7 @@ func (r *RedisRateLimiter) Close() error {
 // Additional helper method for cleanup
 func (r *RedisRateLimiter) CleanupExpiredKeys() error {
 	ctx := r.client.Ctx
-	
+
 	// Get all rate limit keys
 	keys, err := r.client.Client.Keys(ctx, "ratelimit:*:window").Result()
 	if err != nil {

@@ -33,15 +33,30 @@ func NewAuthHandler(auth *config.Auth) *AuthHandler {
 }
 
 // GetAuthMiddleware returns standard HTTP middleware for protecting routes
-func (a *AuthHandler) GetAuthMiddleware() func(http.Handler) http.Handler {
+func (a *AuthHandler) GetAuthMiddleware() func(http.HandlerFunc) http.HandlerFunc {
+	return func(next http.HandlerFunc) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			wrappedHandler := a.middleware.AuthMiddleware(next)
+			wrappedHandler(w, r)
+		}
+	}
+}
+
+// GetRecaptchaMiddleware returns recaptcha middleware
+func (a *AuthHandler) GetRecaptchaMiddleware(routeName string) func(http.Handler) http.Handler {
+	if !a.Auth.Config.Security.Recaptcha.Enabled {
+		return func(next http.Handler) http.Handler { return next }
+	}
+	if _, needsRecaptcha := a.Auth.Config.Security.Recaptcha.Routes[routeName]; !needsRecaptcha {
+		return func(next http.Handler) http.Handler { return next }
+	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			wrappedHandler := a.middleware.AuthMiddleware(next.ServeHTTP)
+			wrappedHandler := a.middleware.RecaptchaMiddleware(next.ServeHTTP)
 			wrappedHandler(w, r)
 		})
 	}
 }
-
 // GetRateLimitMiddleware returns rate limiting middleware
 func (a *AuthHandler) GetRateLimitMiddleware(routeName string) func(http.Handler) http.Handler {
 	if !a.Auth.Config.Features.EnableRateLimiter {
@@ -85,6 +100,9 @@ func (a *AuthHandler) buildMiddlewareChain(routeName string, handler http.Handle
 	// TODO check whether handling middleware with if clause or like this
 	// Add hook middleware
 	finalHandler = a.GetHookMiddleware(routeName)(finalHandler)
+
+	// Add recaptcha middleware
+	finalHandler = a.GetRecaptchaMiddleware(routeName)(finalHandler)
 
 	// Add rate limiting middleware
 	finalHandler = a.GetRateLimitMiddleware(routeName)(finalHandler)
