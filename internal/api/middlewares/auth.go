@@ -3,6 +3,7 @@ package middlewares
 import (
 	"context"
 	"errors"
+	"log"
 	"net/http"
 
 	"github.com/bete7512/goauth/internal/utils"
@@ -42,7 +43,7 @@ func (m *Middleware) AdminMiddleware(next http.HandlerFunc) http.HandlerFunc {
 // AuthMiddleware validates user authentication but doesn't require admin privileges
 func (m *Middleware) AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-
+		log.Println("AuthMiddleware")
 		userID, err := m.getUserIdFromRequest(r, m.Auth.Config.AuthConfig.Cookie.Name)
 		if err != nil {
 			utils.RespondWithError(w, http.StatusUnauthorized, "unauthorized", err)

@@ -33,12 +33,12 @@ func NewAuthHandler(auth *config.Auth) *AuthHandler {
 }
 
 // GetAuthMiddleware returns standard HTTP middleware for protecting routes
-func (a *AuthHandler) GetAuthMiddleware() func(http.HandlerFunc) http.HandlerFunc {
-	return func(next http.HandlerFunc) http.HandlerFunc {
-		return func(w http.ResponseWriter, r *http.Request) {
-			wrappedHandler := a.middleware.AuthMiddleware(next)
+func (a *AuthHandler) GetAuthMiddleware() func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			wrappedHandler := a.middleware.AuthMiddleware(next.ServeHTTP)
 			wrappedHandler(w, r)
-		}
+		})
 	}
 }
 
@@ -57,6 +57,7 @@ func (a *AuthHandler) GetRecaptchaMiddleware(routeName string) func(http.Handler
 		})
 	}
 }
+
 // GetRateLimitMiddleware returns rate limiting middleware
 func (a *AuthHandler) GetRateLimitMiddleware(routeName string) func(http.Handler) http.Handler {
 	if !a.Auth.Config.Features.EnableRateLimiter {

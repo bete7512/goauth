@@ -21,7 +21,7 @@ func NewAuth(conf config.Config) (*AuthService, error) {
 }
 
 // GetAuthMiddleware returns authentication middleware for protecting routes
-func (a *AuthService) GetAuthMiddleware() func(http.HandlerFunc) http.HandlerFunc {
+func (a *AuthService) GetAuthMiddleware() func(http.Handler) http.Handler {
 	return a.AuthHandler.GetAuthMiddleware()
 }
 
