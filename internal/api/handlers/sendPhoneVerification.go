@@ -59,20 +59,6 @@ func (h *AuthRoutes) HandleSendPhoneVerification(w http.ResponseWriter, r *http.
 		return
 	}
 
-	// // Recaptcha verification
-	// if h.Auth.Config.Security.Recaptcha.Enabled && h.Auth.RecaptchaManager != nil && h.Auth.Config.Security.Recaptcha.Routes[config.RouteSendPhoneVerification] {
-	// 	ip := utils.GetIpFromRequest(r)
-	// 	ok, err := h.Auth.RecaptchaManager.Verify(r.Context(), req.RecaptchaToken, ip)
-	// 	if err != nil {
-	// 		utils.RespondWithError(w, http.StatusBadRequest, err.Error(), err)
-	// 		return
-	// 	}
-	// 	if !ok {
-	// 		utils.RespondWithError(w, http.StatusBadRequest, "recaptcha verification failed", nil)
-	// 		return
-	// 	}
-	// }
-
 	// Get user - either by authentication or by phone number
 	var user *models.User
 
@@ -191,7 +177,6 @@ func (h *AuthRoutes) parsePhoneVerificationRequest(r *http.Request) (*schemas.Se
 
 	// Sanitize input
 	req.PhoneNumber = strings.TrimSpace(req.PhoneNumber)
-	// req.RecaptchaToken = strings.TrimSpace(req.RecaptchaToken)
 
 	return &req, rawData, nil
 }

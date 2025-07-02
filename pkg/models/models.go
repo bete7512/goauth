@@ -26,6 +26,7 @@ const (
 	TwoFactorCode           TokenType = "two-factor"
 	MakicLinkToken          TokenType = "magic-link"
 	ActionConfirmationToken TokenType = "action-confirmation"
+	InvitationToken         TokenType = "invitation"
 )
 const (
 	ActionTypeChangePhone       ActionType = "change-phone"

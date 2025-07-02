@@ -2,10 +2,14 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"time"
 
 	responseErrors "github.com/bete7512/goauth/internal/api/handlers/errors"
+	"github.com/bete7512/goauth/internal/utils"
 	"github.com/bete7512/goauth/pkg/models"
 
 	"gorm.io/gorm"
@@ -112,4 +116,107 @@ func (h *AuthRoutes) getUserByPhoneNumber(ctx context.Context, phoneNumber strin
 	}
 
 	return user, nil
+}
+
+// HandleSendActionConfirmation handles sending a confirmation code for sensitive actions (change password/email/phone)
+func (h *AuthRoutes) HandleSendActionConfirmation(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		utils.RespondWithError(w, http.StatusMethodNotAllowed, "method not allowed", nil)
+		return
+	}
+	userID := r.Context().Value("user_id")
+	if userID == nil {
+		utils.RespondWithError(w, http.StatusUnauthorized, "user not authenticated", nil)
+		return
+	}
+	var req struct {
+		Method string `json:"method"` // "email" or "sms"
+		Action string `json:"action"` // e.g. "change-password", "change-email", "change-phone"
+		Resend bool   `json:"resend"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		utils.RespondWithError(w, http.StatusBadRequest, "invalid request body", err)
+		return
+	}
+	if req.Method != "email" && req.Method != "sms" {
+		utils.RespondWithError(w, http.StatusBadRequest, "invalid confirmation method", nil)
+		return
+	}
+	if req.Action == "" {
+		utils.RespondWithError(w, http.StatusBadRequest, "action is required", nil)
+		return
+	}
+	// Generate code
+	code, err := h.Auth.TokenManager.GenerateNumericOTP(6)
+	if err != nil {
+		utils.RespondWithError(w, http.StatusInternalServerError, "failed to generate code", err)
+		return
+	}
+	hashedCode, err := h.Auth.TokenManager.HashToken(code)
+	if err != nil {
+		utils.RespondWithError(w, http.StatusInternalServerError, "failed to hash code", err)
+		return
+	}
+	// Save code as action confirmation token
+	expiry := 10 * time.Minute
+	if err := h.Auth.Repository.GetTokenRepository().SaveToken(r.Context(), userID.(string), hashedCode, models.ActionConfirmationToken, expiry); err != nil {
+		utils.RespondWithError(w, http.StatusInternalServerError, "failed to save confirmation code", err)
+		return
+	}
+	// Send code via email or SMS
+	user, err := h.Auth.Repository.GetUserRepository().GetUserByID(r.Context(), userID.(string))
+	if err != nil || user == nil {
+		utils.RespondWithError(w, http.StatusInternalServerError, "user not found", err)
+		return
+	}
+	if req.Method == "email" {
+		// TODO: Use your email sender to send code
+		// h.Auth.EmailSender.SendActionConfirmation(user.Email, code, req.Action)
+	} else if req.Method == "sms" && user.PhoneNumber != nil {
+		// TODO: Use your SMS sender to send code
+		// h.Auth.SMSSender.SendActionConfirmation(*user.PhoneNumber, code, req.Action)
+	}
+	utils.RespondWithJSON(w, http.StatusOK, map[string]interface{}{"message": "confirmation code sent"})
+}
+
+// HandleVerifyActionConfirmation verifies the confirmation code for a sensitive action
+func (h *AuthRoutes) HandleVerifyActionConfirmation(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		utils.RespondWithError(w, http.StatusMethodNotAllowed, "method not allowed", nil)
+		return
+	}
+	userID := r.Context().Value("user_id")
+	if userID == nil {
+		utils.RespondWithError(w, http.StatusUnauthorized, "user not authenticated", nil)
+		return
+	}
+	var req struct {
+		Action string `json:"action"`
+		Code   string `json:"code"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		utils.RespondWithError(w, http.StatusBadRequest, "invalid request body", err)
+		return
+	}
+	if req.Action == "" || req.Code == "" {
+		utils.RespondWithError(w, http.StatusBadRequest, "action and code are required", nil)
+		return
+	}
+	// Get token from DB
+	token, err := h.Auth.Repository.GetTokenRepository().GetActiveTokenByUserIdAndType(r.Context(), userID.(string), models.ActionConfirmationToken)
+	if err != nil || token == nil {
+		utils.RespondWithError(w, http.StatusBadRequest, "confirmation code not found", err)
+		return
+	}
+	// Compare code
+	if err := h.Auth.TokenManager.ValidateHashedToken(token.TokenValue, req.Code); err != nil {
+		utils.RespondWithError(w, http.StatusBadRequest, "invalid confirmation code", err)
+		return
+	}
+	// Mark as used
+	if err := h.Auth.Repository.GetTokenRepository().RevokeToken(r.Context(), token.ID); err != nil {
+		utils.RespondWithError(w, http.StatusInternalServerError, "failed to mark code as used", err)
+		return
+	}
+	utils.RespondWithJSON(w, http.StatusOK, map[string]interface{}{"message": "action confirmed"})
 }

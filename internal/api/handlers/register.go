@@ -47,24 +47,6 @@ func (h *AuthRoutes) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		utils.RespondWithError(w, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
-	// 3.1 Validate recaptcha if enabled
-	if h.Auth.Config.Security.Recaptcha.Enabled && h.Auth.RecaptchaManager != nil && h.Auth.Config.Security.Recaptcha.Routes[config.RouteRegister] {
-		if req.RecaptchaToken == "" {
-			utils.RespondWithError(w, http.StatusBadRequest, "recaptcha token is required", nil)
-			return
-		}
-		// TODO: add
-		ip := utils.GetIpFromRequest(r)
-		ok, err := h.Auth.RecaptchaManager.Verify(r.Context(), req.RecaptchaToken, ip)
-		if err != nil {
-			utils.RespondWithError(w, http.StatusInternalServerError, "recaptcha verification failed: "+err.Error(), nil)
-			return
-		}
-		if !ok {
-			utils.RespondWithError(w, http.StatusBadRequest, "recaptcha verification failed", nil)
-			return
-		}
-	}
 
 	// 4. Check for existing user and create new user
 	result, err := h.createUserAccount(r.Context(), req)

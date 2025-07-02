@@ -61,6 +61,8 @@ type Auth struct {
 	TokenManager     interfaces.TokenManagerInterface
 	RateLimiter      interfaces.RateLimiter
 	RecaptchaManager interfaces.CaptchaVerifier
+	CSRFManager      interfaces.CSRFManager
+	EmailSender      interfaces.EmailSenderInterface
 	WorkerPool       pond.Pool
 	Logger           logger.Log
 }

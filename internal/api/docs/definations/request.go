@@ -26,11 +26,6 @@ func RegisterRequestDefinition() map[string]interface{} {
 				"format":  "password",
 				"example": "Password123!",
 			},
-			"recaptcha_token": map[string]interface{}{
-				"type":     "string",
-				"example":  "03AFcWeA...",
-				"required": false,
-			},
 		},
 	}
 }
@@ -188,11 +183,6 @@ func VerifyEmailRequestDefinition() map[string]interface{} {
 				"type":    "string",
 				"example": "user@example.com",
 			},
-			"recaptcha_token": map[string]interface{}{
-				"type":     "string",
-				"example":  "03AFcWeA...",
-				"required": false,
-			},
 		},
 	}
 }
@@ -204,11 +194,6 @@ func ResendVerificationEmailRequestDefinition() map[string]interface{} {
 			"email": map[string]interface{}{
 				"type":    "string",
 				"example": "user@example.com",
-			},
-			"recaptcha_token": map[string]interface{}{
-				"type":     "string",
-				"example":  "03AFcWeA...",
-				"required": false,
 			},
 		},
 	}

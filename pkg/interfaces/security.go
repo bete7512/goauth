@@ -16,6 +16,14 @@ type RateLimiter interface {
 	AllowN(key string, windowSize time.Duration, maxRequests int, blockDuration time.Duration, n int) bool
 	Close() error
 }
+
 type CaptchaVerifier interface {
 	Verify(ctx context.Context, token string, remoteIP string) (bool, error)
+}
+
+type CSRFManager interface {
+	GenerateToken(ctx context.Context, userID string) (string, error)
+	ValidateToken(ctx context.Context, token string, userID string) (bool, error)
+	RevokeToken(ctx context.Context, token string) error
+	Close() error
 }

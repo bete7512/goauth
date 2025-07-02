@@ -161,6 +161,22 @@ func (e *EmailSender) SendMagicLinkEmail(ctx context.Context, user models.User, 
 	return e.sendEmail(ctx, user.Email, "Your Magic Link", "magic_link", data)
 }
 
+func (e *EmailSender) SendInvitationEmail(ctx context.Context, email string, firstName string, invitationURL string, invitedBy string) error {
+	data := EmailTemplateData{
+		LogoURL:      e.config.Branding.LogoURL,
+		CompanyName:  e.config.Branding.CompanyName,
+		PrimaryColor: e.config.Branding.PrimaryColor,
+		UserName:     firstName,
+		UserEmail:    email,
+		ActionURL:    invitationURL,
+		Token:        invitedBy, // Using Token field to pass invitedBy info
+		SupportEmail: e.config.Sender.SupportEmail,
+		Year:         time.Now().Year(),
+	}
+
+	return e.sendEmail(ctx, email, "You've Been Invited to Join "+e.config.Branding.CompanyName, "invitation", data)
+}
+
 func (e *EmailSender) sendEmail(ctx context.Context, to, subject, templateName string, data EmailTemplateData) error {
 	// Use Amazon SES if configured, otherwise use SendGrid as default
 	if e.config.Sender.Type == config.SES {

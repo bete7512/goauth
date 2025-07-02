@@ -49,23 +49,6 @@ func (h *AuthRoutes) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// // check for recaptcha if enabled
-	// if h.Auth.Config.Security.Recaptcha.Enabled && h.Auth.Config.Security.Recaptcha.Routes[config.RouteLogin] {
-	// 	if req.RecaptchaToken == "" {
-	// 		utils.RespondWithError(w, http.StatusBadRequest, "recaptcha token is required", nil)
-	// 		return
-	// 	}
-	// 	ok, err := h.Auth.RecaptchaManager.Verify(r.Context(), req.RecaptchaToken, ip) // TODO: add recaptcha manager to test auth handler
-	// 	if err != nil {
-	// 		utils.RespondWithError(w, http.StatusInternalServerError, "recaptcha verification failed: "+err.Error(), nil)
-	// 		return
-	// 	}
-	// 	if !ok {
-	// 		utils.RespondWithError(w, http.StatusBadRequest, "recaptcha verification failed", nil)
-	// 		return
-	// 	}
-	// }
-
 	// Get user by email
 	user, err := h.Auth.Repository.GetUserRepository().GetUserByEmail(r.Context(), req.Email)
 	if err != nil {

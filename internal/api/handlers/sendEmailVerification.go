@@ -59,20 +59,6 @@ func (h *AuthRoutes) HandleSendEmailVerification(w http.ResponseWriter, r *http.
 		return
 	}
 
-	// // Recaptcha verification
-	// if h.Auth.Config.Security.Recaptcha.Enabled && h.Auth.RecaptchaManager != nil && h.Auth.Config.Security.Recaptcha.Routes[config.RouteSendEmailVerification] {
-	// 	ip := utils.GetIpFromRequest(r)
-	// 	ok, err := h.Auth.RecaptchaManager.Verify(r.Context(), req.RecaptchaToken, ip)
-	// 	if err != nil {
-	// 		utils.RespondWithError(w, http.StatusBadRequest, err.Error(), err)
-	// 		return
-	// 	}
-	// 	if !ok {
-	// 		utils.RespondWithError(w, http.StatusBadRequest, "recaptcha verification failed", nil)
-	// 		return
-	// 	}
-	// }
-
 	// Get user by email
 	user, err := h.getUserByEmail(r.Context(), req.Email)
 	if err != nil {
@@ -165,7 +151,6 @@ func (h *AuthRoutes) parseSendEmailVerificationRequest(r *http.Request) (*schema
 
 	// Sanitize input
 	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
-	// req.RecaptchaToken = strings.TrimSpace(req.RecaptchaToken)
 
 	return &req, rawData, nil
 }

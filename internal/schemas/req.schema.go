@@ -3,12 +3,11 @@ package schemas
 import "time"
 
 type RegisterRequest struct {
-	FirstName      string  `json:"first_name" binding:"required"`
-	LastName       string  `json:"last_name" binding:"required"`
-	Email          string  `json:"email" binding:"required,email"`
-	PhoneNumber    *string `json:"phone_number"`
-	Password       string  `json:"password" binding:"required,min=8"`
-	RecaptchaToken string  `json:"recaptcha_token,omitempty"`
+	FirstName   string  `json:"first_name" binding:"required"`
+	LastName    string  `json:"last_name" binding:"required"`
+	Email       string  `json:"email" binding:"required,email"`
+	PhoneNumber *string `json:"phone_number"`
+	Password    string  `json:"password" binding:"required,min=8"`
 }
 
 // LoginRequest represents the request body for user login
@@ -42,14 +41,12 @@ type UpdateProfileRequest struct {
 	PhoneNumber     string `json:"phone_number,omitempty"`
 	Address         string `json:"address,omitempty"`
 	ProfileImageURL string `json:"profile_image_url,omitempty"`
-	RecaptchaToken  string `json:"recaptcha_token,omitempty"`
 }
 
 // change password request
 type ChangePasswordRequest struct {
 	CurrentPassword string `json:"current_password" validate:"required"`
 	NewPassword     string `json:"new_password" validate:"required"`
-	RecaptchaToken  string `json:"recaptcha_token,omitempty"`
 }
 
 // DeactivateUserRequest represents the request body for account deactivation

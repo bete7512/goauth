@@ -10,7 +10,6 @@ const (
 	RecaptchaCloudflare RecaptchaProvider = "cloudflare"
 )
 
-
 const (
 	RouteRegister                 = "register"
 	RouteLogin                    = "login"
@@ -32,6 +31,9 @@ const (
 	RouteVerifyPhone              = "verify-phone"
 	RouteSendActionConfirmation   = "send-action-confirmation"
 	RouteVerifyActionConfirmation = "verify-action-confirmation"
+	RouteInviteUser               = "admin.invitations.create"
+	RouteListInvitations          = "admin.invitations.list"
+	RouteCancelInvitation         = "admin.invitations.cancel"
 )
 
 const (
@@ -58,6 +60,11 @@ const (
 	RedisRateLimiter    RateLimiterStorageType = "redis"
 	MemoryRateLimiter   RateLimiterStorageType = "memory"
 	DatabaseRateLimiter RateLimiterStorageType = "database"
+)
+
+const (
+	RedisCSRF  CSRFStorageType = "redis"
+	MemoryCSRF CSRFStorageType = "memory"
 )
 
 const (
