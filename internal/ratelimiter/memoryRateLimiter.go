@@ -5,14 +5,14 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/time/rate"
 	"github.com/bete7512/goauth/pkg/config"
+	"golang.org/x/time/rate"
 )
 
 type LimiterEntry struct {
-	limiter   *rate.Limiter
-	lastUsed  time.Time
-	blocked   time.Time
+	limiter  *rate.Limiter
+	lastUsed time.Time
+	blocked  time.Time
 }
 
 type MemoryRateLimiter struct {
@@ -102,7 +102,7 @@ func (m *MemoryRateLimiter) Reserve(key string, windowSize time.Duration, maxReq
 // Wait waits until the request can be processed
 func (m *MemoryRateLimiter) Wait(ctx context.Context, key string, windowSize time.Duration, maxRequests int, blockDuration time.Duration) error {
 	m.mutex.Lock()
-	
+
 	now := time.Now()
 
 	// Get or create limiter entry
@@ -203,7 +203,7 @@ func (m *MemoryRateLimiter) SetLimiterParams(key string, windowSize time.Duratio
 	defer m.mutex.Unlock()
 
 	rps := rate.Limit(float64(maxRequests) / windowSize.Seconds())
-	
+
 	if entry, exists := m.limiters[key]; exists {
 		entry.limiter.SetLimit(rps)
 		entry.limiter.SetBurst(maxRequests)

@@ -15,6 +15,7 @@ type Service interface {
 	AdminService
 	CSRFService
 	NotificationService
+	OAuthService
 }
 
 type AuthService interface {
@@ -47,6 +48,10 @@ type TwoFactorService interface {
 	EnableTwoFactor(ctx context.Context, userID string, req *dto.EnableTwoFactorRequest) (*dto.TwoFactorSetupResponse, error)
 	VerifyTwoFactor(ctx context.Context, userID string, req *dto.TwoFactorVerificationRequest) error
 	DisableTwoFactor(ctx context.Context, userID string, req *dto.DisableTwoFactorRequest) error
+	VerifyTwoFactorSetup(ctx context.Context, userID string, req *dto.VerifyTwoFactorSetupRequest) error
+	ResendTwoFactorCode(ctx context.Context, userID string, req *dto.ResendTwoFactorCodeRequest) error
+	GetTwoFactorStatus(ctx context.Context, userID string) (*dto.TwoFactorStatusResponse, error)
+	TwoFactorLogin(ctx context.Context, req *dto.TwoFactorLoginRequest) (*dto.LoginResponse, error)
 }
 
 // AdminService handles admin-specific business logic
@@ -81,4 +86,15 @@ type NotificationService interface {
 	SendMagicLinkEmail(ctx context.Context, user *models.User, redirectURL string) error
 	SendInvitationEmail(ctx context.Context, user *models.User, invitationURL string, invitedBy string) error
 	SendVerificationSMS(ctx context.Context, user *models.User, code string) error
+}
+
+// OAuthService handles OAuth authentication business logic
+type OAuthService interface {
+	GenerateOAuthState(ctx context.Context, provider dto.OAuthProvider) (*dto.OAuthStateResponse, error)
+	GetOAuthSignInURL(ctx context.Context, provider dto.OAuthProvider, state string) (string, error)
+	HandleOAuthCallback(ctx context.Context, req *dto.OAuthCallbackRequest) (*dto.OAuthCallbackResponse, error)
+	GetOAuthProviders(ctx context.Context) (*dto.OAuthProvidersResponse, error)
+	LinkOAuthAccount(ctx context.Context, userID string, req *dto.OAuthLinkRequest) (*dto.OAuthLinkResponse, error)
+	UnlinkOAuthAccount(ctx context.Context, userID string, req *dto.OAuthUnlinkRequest) (*dto.OAuthLinkResponse, error)
+	GetUserOAuthAccounts(ctx context.Context, userID string) (*dto.OAuthUserAccountsResponse, error)
 }

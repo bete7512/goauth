@@ -1,4 +1,3 @@
-
 // pkg/adapters/gin.go
 package adapters
 

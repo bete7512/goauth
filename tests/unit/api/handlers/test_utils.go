@@ -124,6 +124,26 @@ func (m *MockRepositoryFactory) GetTokenRepository() interfaces.TokenRepository 
 	return args.Get(0).(interfaces.TokenRepository)
 }
 
+func (m *MockRepositoryFactory) GetAuditLogRepository() interfaces.AuditLogRepository {
+	args := m.Called()
+	return args.Get(0).(interfaces.AuditLogRepository)
+}
+
+func (m *MockRepositoryFactory) GetTotpSecretRepository() interfaces.TotpSecretRepository {
+	args := m.Called()
+	return args.Get(0).(interfaces.TotpSecretRepository)
+}
+
+func (m *MockRepositoryFactory) GetOauthAccountRepository() interfaces.OauthAccountRepository {
+	args := m.Called()
+	return args.Get(0).(interfaces.OauthAccountRepository)
+}
+
+func (m *MockRepositoryFactory) GetBackupCodeRepository() interfaces.BackupCodeRepository {
+	args := m.Called()
+	return args.Get(0).(interfaces.BackupCodeRepository)
+}
+
 // MockTokenManager struct
 type MockTokenManager struct {
 	mock.Mock
@@ -182,6 +202,16 @@ func (m *MockTokenManager) ValidateHashedToken(hashedToken, token string) error 
 func (m *MockTokenManager) ValidateJWTToken(tokenString string) (jwt.MapClaims, error) {
 	args := m.Called(tokenString)
 	return args.Get(0).(jwt.MapClaims), args.Error(1)
+}
+
+func (m *MockTokenManager) Decrypt(encrypted string) (string, error) {
+	args := m.Called(encrypted)
+	return args.String(0), args.Error(1)
+}
+
+func (m *MockTokenManager) Encrypt(plain string) (string, error) {
+	args := m.Called(plain)
+	return args.String(0), args.Error(1)
 }
 
 // MockEmailSender struct
@@ -267,6 +297,106 @@ type MockCaptchaVerifier struct {
 func (m *MockCaptchaVerifier) Verify(ctx context.Context, token string, remoteIP string) (bool, error) {
 	args := m.Called(ctx, token, remoteIP)
 	return args.Bool(0), args.Error(1)
+}
+
+// MockAuditLogRepository struct
+type MockAuditLogRepository struct {
+	mock.Mock
+}
+
+func (m *MockAuditLogRepository) SaveAuditLog(ctx context.Context, log *models.AuditLog) error {
+	args := m.Called(ctx, log)
+	return args.Error(0)
+}
+
+func (m *MockAuditLogRepository) GetAuditLogs(ctx context.Context, filter interfaces.Filter) ([]*models.AuditLog, int64, error) {
+	args := m.Called(ctx, filter)
+	return args.Get(0).([]*models.AuditLog), args.Get(1).(int64), args.Error(2)
+}
+
+func (m *MockAuditLogRepository) GetAuditLogByID(ctx context.Context, id string) (*models.AuditLog, error) {
+	args := m.Called(ctx, id)
+	return args.Get(0).(*models.AuditLog), args.Error(1)
+}
+
+func (m *MockAuditLogRepository) DeleteAuditLog(ctx context.Context, log *models.AuditLog) error {
+	args := m.Called(ctx, log)
+	return args.Error(0)
+}
+
+// MockTotpSecretRepository struct
+type MockTotpSecretRepository struct {
+	mock.Mock
+}
+
+func (m *MockTotpSecretRepository) GetTOTPSecretByUserID(ctx context.Context, userID string) (*models.TotpSecret, error) {
+	args := m.Called(ctx, userID)
+	return args.Get(0).(*models.TotpSecret), args.Error(1)
+}
+
+func (m *MockTotpSecretRepository) CreateTOTPSecret(ctx context.Context, secret *models.TotpSecret) error {
+	args := m.Called(ctx, secret)
+	return args.Error(0)
+}
+
+func (m *MockTotpSecretRepository) UpdateTOTPSecret(ctx context.Context, secret *models.TotpSecret) error {
+	args := m.Called(ctx, secret)
+	return args.Error(0)
+}
+
+func (m *MockTotpSecretRepository) DeleteTOTPSecret(ctx context.Context, secret *models.TotpSecret) error {
+	args := m.Called(ctx, secret)
+	return args.Error(0)
+}
+
+// MockOauthAccountRepository struct
+type MockOauthAccountRepository struct {
+	mock.Mock
+}
+
+func (m *MockOauthAccountRepository) GetOauthAccountByUserID(ctx context.Context, userID string) (*models.OauthAccount, error) {
+	args := m.Called(ctx, userID)
+	return args.Get(0).(*models.OauthAccount), args.Error(1)
+}
+
+func (m *MockOauthAccountRepository) CreateOauthAccount(ctx context.Context, account *models.OauthAccount) error {
+	args := m.Called(ctx, account)
+	return args.Error(0)
+}
+
+func (m *MockOauthAccountRepository) UpdateOauthAccount(ctx context.Context, account *models.OauthAccount) error {
+	args := m.Called(ctx, account)
+	return args.Error(0)
+}
+
+func (m *MockOauthAccountRepository) DeleteOauthAccount(ctx context.Context, account *models.OauthAccount) error {
+	args := m.Called(ctx, account)
+	return args.Error(0)
+}
+
+// MockBackupCodeRepository struct
+type MockBackupCodeRepository struct {
+	mock.Mock
+}
+
+func (m *MockBackupCodeRepository) GetBackupCodeByUserID(ctx context.Context, userID string) (*models.BackupCode, error) {
+	args := m.Called(ctx, userID)
+	return args.Get(0).(*models.BackupCode), args.Error(1)
+}
+
+func (m *MockBackupCodeRepository) CreateBackupCodes(ctx context.Context, codes []*models.BackupCode) error {
+	args := m.Called(ctx, codes)
+	return args.Error(0)
+}
+
+func (m *MockBackupCodeRepository) UpdateBackupCode(ctx context.Context, code *models.BackupCode) error {
+	args := m.Called(ctx, code)
+	return args.Error(0)
+}
+
+func (m *MockBackupCodeRepository) DeleteBackupCode(ctx context.Context, code *models.BackupCode) error {
+	args := m.Called(ctx, code)
+	return args.Error(0)
 }
 
 // Helper function to create test config
@@ -412,15 +542,23 @@ func CreateTestConfig() config.Config {
 }
 
 // Helper function to create test auth handler
-func CreateTestAuthHandler(conf config.Config) *handlers.AuthRoutes {
+func CreateTestAuthHandler(conf config.Config) *handlers.AuthHandler {
 	mockUserRepo := &MockUserRepository{}
 	mockTokenRepo := &MockTokenRepository{}
+	mockAuditLogRepo := &MockAuditLogRepository{}
+	mockTotpSecretRepo := &MockTotpSecretRepository{}
+	mockOauthAccountRepo := &MockOauthAccountRepository{}
+	mockBackupCodeRepo := &MockBackupCodeRepository{}
 	mockRepoFactory := &MockRepositoryFactory{}
 	mockTokenManager := &MockTokenManager{}
 	mockCaptchaVerifier := &MockCaptchaVerifier{}
 
 	mockRepoFactory.On("GetUserRepository").Return(mockUserRepo)
 	mockRepoFactory.On("GetTokenRepository").Return(mockTokenRepo)
+	mockRepoFactory.On("GetAuditLogRepository").Return(mockAuditLogRepo)
+	mockRepoFactory.On("GetTotpSecretRepository").Return(mockTotpSecretRepo)
+	mockRepoFactory.On("GetOauthAccountRepository").Return(mockOauthAccountRepo)
+	mockRepoFactory.On("GetBackupCodeRepository").Return(mockBackupCodeRepo)
 
 	// Create auth structure using TestAuth
 	auth := &config.Auth{
@@ -435,7 +573,7 @@ func CreateTestAuthHandler(conf config.Config) *handlers.AuthRoutes {
 	conf.Email.Sender.CustomSender = nil
 	conf.SMS.CustomSender = nil
 
-	return &handlers.AuthRoutes{Auth: auth}
+	return &handlers.AuthHandler{Auth: auth}
 }
 
 // Helper function to create a test user

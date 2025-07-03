@@ -42,22 +42,49 @@ type ActionConfirmationVerificationRequest struct {
 // TwoFactorSetupResponse represents two-factor setup response
 type TwoFactorSetupResponse struct {
 	Message     string   `json:"message"`
+	Method      string   `json:"method"`
 	QRCode      string   `json:"qr_code,omitempty"`
 	Secret      string   `json:"secret,omitempty"`
 	BackupCodes []string `json:"backup_codes,omitempty"`
+	ExpiresAt   string   `json:"expires_at,omitempty"`
 }
 
 // EnableTwoFactorRequest represents two-factor enable request
 type EnableTwoFactorRequest struct {
-	Method string `json:"method" validate:"required"`
+	Method string `json:"method" validate:"required,oneof=email sms totp"`
 }
 
 // TwoFactorVerificationRequest represents two-factor verification request
 type TwoFactorVerificationRequest struct {
-	Code string `json:"code" validate:"required"`
+	Code   string `json:"code" validate:"required"`
+	Method string `json:"method,omitempty" validate:"omitempty,oneof=email sms totp backup"`
 }
 
 // DisableTwoFactorRequest represents two-factor disable request
 type DisableTwoFactorRequest struct {
 	Password string `json:"password" validate:"required"`
+}
+
+// TwoFactorStatusResponse represents two-factor status response
+type TwoFactorStatusResponse struct {
+	Enabled bool     `json:"enabled"`
+	Methods []string `json:"methods,omitempty"`
+}
+
+// ResendTwoFactorCodeRequest represents resend two-factor code request
+type ResendTwoFactorCodeRequest struct {
+	Method string `json:"method" validate:"required,oneof=email sms"`
+}
+
+// VerifyTwoFactorSetupRequest represents two-factor setup verification request
+type VerifyTwoFactorSetupRequest struct {
+	Code string `json:"code" validate:"required"`
+}
+
+// TwoFactorLoginRequest represents two-factor login request
+type TwoFactorLoginRequest struct {
+	Email    string `json:"email" validate:"required,email"`
+	Password string `json:"password" validate:"required"`
+	Code     string `json:"code" validate:"required"`
+	Method   string `json:"method,omitempty" validate:"omitempty,oneof=email sms totp backup"`
 }

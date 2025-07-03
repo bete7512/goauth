@@ -11,8 +11,6 @@ import (
 	"github.com/bete7512/goauth/pkg/models"
 )
 
-
-
 // authenticateRequest extracts and validates the token from a request
 func (h *AuthHandler) authenticateRequest(r *http.Request, cookieName, jwtSecret string) (string, error) {
 	token := h.extractToken(r, cookieName)

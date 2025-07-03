@@ -6,7 +6,6 @@ import (
 	"fmt"
 )
 
-
 // ValidateToken validates a CSRF token for a user
 func (s *AuthService) ValidateToken(ctx context.Context, userID string, token string) error {
 	if s.Auth.CSRFManager == nil {
@@ -23,7 +22,6 @@ func (s *AuthService) ValidateToken(ctx context.Context, userID string, token st
 
 	return nil
 }
-
 
 func (s *AuthService) GetCSRFToken(ctx context.Context /*params*/) error {
 	// TODO: Implement

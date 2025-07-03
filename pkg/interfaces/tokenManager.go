@@ -18,4 +18,6 @@ type TokenManagerInterface interface {
 	HashToken(token string) (string, error)
 	ValidateHashedToken(hashedToken, token string) error
 	GenerateBase64Token(length int) (string, error)
+	Encrypt(data string) (string, error)
+	Decrypt(data string) (string, error)
 }

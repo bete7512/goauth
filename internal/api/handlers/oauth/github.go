@@ -1,16 +1,16 @@
 package oauthRoutes
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"time"
 
+	"github.com/bete7512/goauth/internal/services"
 	"github.com/bete7512/goauth/internal/utils"
 	"github.com/bete7512/goauth/pkg/config"
-	"github.com/bete7512/goauth/pkg/models"
+	"github.com/bete7512/goauth/pkg/dto"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"
 )
@@ -52,10 +52,11 @@ func (g *GitHubOauth) getGitHubOAuthConfig() *oauth2.Config {
 
 // SignIn initiates the GitHub OAuth flow
 func (g *GitHubOauth) SignIn(w http.ResponseWriter, r *http.Request) {
-	config := g.getGitHubOAuthConfig()
+	// Create service instance
+	service := services.NewAuthService(g.Auth)
 
-	// Generate a random state for CSRF protection
-	state, err := g.Auth.TokenManager.GenerateRandomToken(32)
+	// Generate OAuth state using service
+	stateResponse, err := service.GenerateOAuthState(r.Context(), dto.GitHub)
 	if err != nil {
 		utils.RespondWithError(
 			w,
@@ -66,10 +67,22 @@ func (g *GitHubOauth) SignIn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get OAuth sign-in URL using service
+	url, err := service.GetOAuthSignInURL(r.Context(), dto.GitHub, stateResponse.State)
+	if err != nil {
+		utils.RespondWithError(
+			w,
+			http.StatusInternalServerError,
+			"Failed to generate sign-in URL",
+			err,
+		)
+		return
+	}
+
 	// Store state in a cookie
 	stateCookie := &http.Cookie{
 		Name:     "oauth_state",
-		Value:    state,
+		Value:    stateResponse.State,
 		Path:     "/",
 		HttpOnly: true,
 		Secure:   r.TLS != nil,
@@ -79,7 +92,6 @@ func (g *GitHubOauth) SignIn(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, stateCookie)
 
 	// Redirect user to GitHub's consent page
-	url := config.AuthCodeURL(state, oauth2.AccessTypeOffline)
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
@@ -107,188 +119,153 @@ func (g *GitHubOauth) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Exchange the authorization code for a token
-	code := r.FormValue("code")
-	config := g.getGitHubOAuthConfig()
+	// Create service instance
+	service := services.NewAuthService(g.Auth)
 
-	token, err := config.Exchange(context.Background(), code)
+	// Prepare callback request
+	req := &dto.OAuthCallbackRequest{
+		Provider: dto.GitHub,
+		Code:     r.FormValue("code"),
+		State:    r.FormValue("state"),
+	}
+
+	// Handle OAuth callback using service
+	response, err := service.HandleOAuthCallback(r.Context(), req)
 	if err != nil {
 		utils.RespondWithError(
 			w,
 			http.StatusInternalServerError,
-			"Failed to exchange token: "+err.Error(),
+			"OAuth callback failed: "+err.Error(),
 			err,
 		)
 		return
 	}
 
-	// Get user info from GitHub
-	userInfo, err := g.getUserInfo(token.AccessToken)
-	if err != nil {
-		utils.RespondWithError(
-			w,
-			http.StatusInternalServerError,
-			"Failed to get user info: "+err.Error(),
-			err,
-		)
-		return
-	}
-
-	// If email is private, fetch email separately
-	if userInfo.Email == "" {
-		email, err := g.getPrimaryEmail(token.AccessToken)
-		if err != nil {
-			utils.RespondWithError(
-				w,
-				http.StatusInternalServerError,
-				"Failed to get user email: "+err.Error(),
-				err,
-			)
-			return
+	// Set authentication cookies if tokens are provided
+	if response.Tokens != nil {
+		// Set access token cookie
+		accessTokenCookie := &http.Cookie{
+			Name:     g.Auth.Config.AuthConfig.Cookie.Name,
+			Value:    response.Tokens.AccessToken,
+			Path:     g.Auth.Config.AuthConfig.Cookie.Path,
+			HttpOnly: true,
+			Secure:   r.TLS != nil,
+			SameSite: http.SameSiteLaxMode,
+			MaxAge:   int(g.Auth.Config.AuthConfig.JWT.AccessTokenTTL.Seconds()),
 		}
-		userInfo.Email = email
+		http.SetCookie(w, accessTokenCookie)
+
+		// Set refresh token cookie
+		refreshTokenCookie := &http.Cookie{
+			Name:     "refresh_token",
+			Value:    response.Tokens.RefreshToken,
+			Path:     g.Auth.Config.AuthConfig.Cookie.Path,
+			HttpOnly: true,
+			Secure:   r.TLS != nil,
+			SameSite: http.SameSiteLaxMode,
+			MaxAge:   int(g.Auth.Config.AuthConfig.JWT.RefreshTokenTTL.Seconds()),
+		}
+		http.SetCookie(w, refreshTokenCookie)
 	}
 
-	// Create or update user in your system
-	providerId := fmt.Sprintf("%d", userInfo.ID)
-	user := models.User{
-		Email: userInfo.Email,
-		FirstName: func() string {
-			if userInfo.Name != "" {
-				// Try to split name into first and last
-				return userInfo.Name
-			}
-			return userInfo.Login
-		}(),
-		LastName:    "", // GitHub doesn't provide separated name fields
-		SignedUpVia: "github",
-		ProviderId:  &providerId,
-		Avatar:      &userInfo.AvatarURL,
-	}
-
-	err = g.Auth.Repository.GetUserRepository().UpsertUserByEmail(r.Context(), &user)
-	if err != nil {
-		utils.RespondWithError(
-			w,
-			http.StatusInternalServerError,
-			"Failed to create/update user: "+err.Error(),
-			err,
-		)
-		return
-	}
-
-	// Generate tokens
-	accessToken, refreshToken, err := g.Auth.TokenManager.GenerateTokens(&user)
-	if err != nil {
-		utils.RespondWithError(
-			w,
-			http.StatusInternalServerError,
-			"Failed to generate authentication tokens",
-			err,
-		)
-		return
-	}
-
-	// Save refresh token
-	err = g.Auth.Repository.GetTokenRepository().SaveToken(r.Context(), user.ID, refreshToken, models.RefreshToken, g.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
-	if err != nil {
-		utils.RespondWithError(
-			w,
-			http.StatusInternalServerError,
-			"Failed to save refresh token",
-			err,
-		)
-		return
-	}
-
-	// Set the token in a cookie or return it in the response
-	tokenCookie := &http.Cookie{
-		Name:     g.Auth.Config.AuthConfig.Cookie.Name,
-		Value:    accessToken,
-		Path:     g.Auth.Config.AuthConfig.Cookie.Path,
+	// Clear the OAuth state cookie
+	stateCookie = &http.Cookie{
+		Name:     "oauth_state",
+		Value:    "",
+		Path:     "/",
 		HttpOnly: true,
 		Secure:   r.TLS != nil,
 		SameSite: http.SameSiteLaxMode,
-		MaxAge:   int(g.Auth.Config.AuthConfig.JWT.AccessTokenTTL.Seconds()),
+		MaxAge:   -1,
 	}
-	http.SetCookie(w, tokenCookie)
+	http.SetCookie(w, stateCookie)
 
 	// Redirect to the frontend
 	http.Redirect(w, r, g.Auth.Config.App.FrontendURL, http.StatusTemporaryRedirect)
 }
 
-// getUserInfo fetches the user information from GitHub API
+// getUserInfo gets user information from GitHub
 func (g *GitHubOauth) getUserInfo(accessToken string) (*GitHubUserInfo, error) {
-	req, err := http.NewRequest("GET", "https://api.github.com/user", nil)
+	url := "https://api.github.com/user"
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	req.Header.Set("Authorization", "token "+accessToken)
+	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("failed to get user info: %s", body)
+		return nil, fmt.Errorf("failed to get user info: %s", string(body))
 	}
 
 	var userInfo GitHubUserInfo
-	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
+	err = json.Unmarshal(body, &userInfo)
+	if err != nil {
 		return nil, err
 	}
 
 	return &userInfo, nil
 }
 
-// getPrimaryEmail fetches the primary email from GitHub API
-// GitHub may not return the email if it's set to private, so we need to fetch it separately
+// getPrimaryEmail gets the primary email from GitHub
 func (g *GitHubOauth) getPrimaryEmail(accessToken string) (string, error) {
-	type EmailResponse struct {
-		Email    string `json:"email"`
-		Primary  bool   `json:"primary"`
-		Verified bool   `json:"verified"`
-	}
-
-	req, err := http.NewRequest("GET", "https://api.github.com/user/emails", nil)
+	url := "https://api.github.com/user/emails"
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return "", err
 	}
 
-	req.Header.Set("Authorization", "token "+accessToken)
+	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("failed to get user emails: %s", body)
-	}
-
-	var emails []EmailResponse
-	if err := json.NewDecoder(resp.Body).Decode(&emails); err != nil {
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
 		return "", err
 	}
 
-	// Find the primary email
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("failed to get emails: %s", string(body))
+	}
+
+	var emails []struct {
+		Email    string `json:"email"`
+		Primary  bool   `json:"primary"`
+		Verified bool   `json:"verified"`
+	}
+
+	err = json.Unmarshal(body, &emails)
+	if err != nil {
+		return "", err
+	}
+
+	// Find primary email
 	for _, email := range emails {
 		if email.Primary && email.Verified {
 			return email.Email, nil
 		}
 	}
 
-	// If no primary email is found, use the first verified one
+	// If no primary verified email, return the first verified email
 	for _, email := range emails {
 		if email.Verified {
 			return email.Email, nil

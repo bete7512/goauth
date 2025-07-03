@@ -150,3 +150,14 @@ func (t *TokenManager) HashToken(token string) (string, error) {
 func (t *TokenManager) ValidateHashedToken(hashedToken, token string) error {
 	return bcrypt.CompareHashAndPassword([]byte(hashedToken), []byte(token))
 }
+
+func (t *TokenManager) Encrypt(data string) (string, error) {
+	// do some research on how to encrypt and encrypt data in better way
+	//TODO: encryptedData, err := t.Config.AuthConfig.Tokens.EncryptionKey.Encrypt([]byte(data))
+	return data, nil
+}
+
+func (t *TokenManager) Decrypt(data string) (string, error) {
+	//TODO: decryptedData, err := t.Config.AuthConfig.Tokens.EncryptionKey.Decrypt([]byte(data))
+	return data, nil
+}

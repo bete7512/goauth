@@ -52,7 +52,32 @@ type AuditLogRepository interface {
 	DeleteAuditLog(ctx context.Context, log *models.AuditLog) error
 }
 
+type TotpSecretRepository interface {
+	GetTOTPSecretByUserID(ctx context.Context, userID string) (*models.TotpSecret, error)
+	CreateTOTPSecret(ctx context.Context, secret *models.TotpSecret) error
+	UpdateTOTPSecret(ctx context.Context, secret *models.TotpSecret) error
+	DeleteTOTPSecret(ctx context.Context, secret *models.TotpSecret) error
+}
+
+type OauthAccountRepository interface {
+	GetOauthAccountByUserID(ctx context.Context, userID string) (*models.OauthAccount, error)
+	CreateOauthAccount(ctx context.Context, account *models.OauthAccount) error
+	UpdateOauthAccount(ctx context.Context, account *models.OauthAccount) error
+	DeleteOauthAccount(ctx context.Context, account *models.OauthAccount) error
+}
+
+type BackupCodeRepository interface {
+	GetBackupCodeByUserID(ctx context.Context, userID string) (*models.BackupCode, error)
+	CreateBackupCodes(ctx context.Context, codes []*models.BackupCode) error
+	UpdateBackupCode(ctx context.Context, code *models.BackupCode) error
+	DeleteBackupCode(ctx context.Context, code *models.BackupCode) error
+}
+
 type RepositoryFactory interface {
 	GetUserRepository() UserRepository
 	GetTokenRepository() TokenRepository
+	GetAuditLogRepository() AuditLogRepository
+	GetTotpSecretRepository() TotpSecretRepository
+	GetOauthAccountRepository() OauthAccountRepository
+	GetBackupCodeRepository() BackupCodeRepository
 }

@@ -16,7 +16,7 @@ var validate = validator.New()
 
 // AuthHandler handles HTTP requests for authentication
 type AuthHandler struct {
-	Auth *config.Auth
+	Auth        *config.Auth
 	authService interfaces.Service
 }
 
@@ -25,7 +25,7 @@ func NewAuthHandler(auth *config.Auth) *AuthHandler {
 	service := services.NewAuthService(auth)
 	return &AuthHandler{
 		authService: service,
-		Auth: auth,
+		Auth:        auth,
 	}
 }
 
@@ -340,4 +340,3 @@ func clearAuthCookies(w http.ResponseWriter) {
 		MaxAge:   -1,
 	})
 }
-

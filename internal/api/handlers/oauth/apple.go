@@ -1,7 +1,6 @@
 package oauthRoutes
 
 import (
-	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -9,9 +8,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bete7512/goauth/internal/services"
 	"github.com/bete7512/goauth/internal/utils"
 	"github.com/bete7512/goauth/pkg/config"
-	"github.com/bete7512/goauth/pkg/models"
+	"github.com/bete7512/goauth/pkg/dto"
 	"golang.org/x/oauth2"
 )
 
@@ -56,10 +56,11 @@ func (a *AppleOauth) getAppleOAuthConfig() *oauth2.Config {
 
 // SignIn initiates the Apple OAuth flow
 func (a *AppleOauth) SignIn(w http.ResponseWriter, r *http.Request) {
-	config := a.getAppleOAuthConfig()
+	// Create service instance
+	service := services.NewAuthService(a.Auth)
 
-	// Generate a random state for CSRF protection
-	state, err := a.Auth.TokenManager.GenerateRandomToken(32)
+	// Generate OAuth state using service
+	stateResponse, err := service.GenerateOAuthState(r.Context(), dto.Apple)
 	if err != nil {
 		utils.RespondWithError(
 			w,
@@ -70,10 +71,22 @@ func (a *AppleOauth) SignIn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get OAuth sign-in URL using service
+	url, err := service.GetOAuthSignInURL(r.Context(), dto.Apple, stateResponse.State)
+	if err != nil {
+		utils.RespondWithError(
+			w,
+			http.StatusInternalServerError,
+			"Failed to generate sign-in URL",
+			err,
+		)
+		return
+	}
+
 	// Store state in a cookie
 	stateCookie := &http.Cookie{
 		Name:     "oauth_state",
-		Value:    state,
+		Value:    stateResponse.State,
 		Path:     "/",
 		HttpOnly: true,
 		Secure:   r.TLS != nil,
@@ -83,7 +96,7 @@ func (a *AppleOauth) SignIn(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, stateCookie)
 
 	// Apple OAuth uses a "response_mode" of "form_post"
-	url := config.AuthCodeURL(state, oauth2.AccessTypeOffline) + "&response_mode=form_post"
+	url = url + "&response_mode=form_post"
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
@@ -122,149 +135,88 @@ func (a *AppleOauth) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Exchange the authorization code for a token
-	code := r.FormValue("code")
-	config := a.getAppleOAuthConfig()
+	// Create service instance
+	service := services.NewAuthService(a.Auth)
 
-	token, err := config.Exchange(context.Background(), code)
+	// Prepare callback request
+	req := &dto.OAuthCallbackRequest{
+		Provider: dto.Apple,
+		Code:     r.FormValue("code"),
+		State:    r.FormValue("state"),
+	}
+
+	// Handle OAuth callback using service
+	response, err := service.HandleOAuthCallback(r.Context(), req)
 	if err != nil {
 		utils.RespondWithError(
 			w,
 			http.StatusInternalServerError,
-			"Failed to exchange token: "+err.Error(),
+			"OAuth callback failed: "+err.Error(),
 			err,
 		)
 		return
 	}
 
-	// For Apple, we need to get user info from the ID token
-	// The user info is in the form of a JWT token
-	var userInfo AppleUserInfo
-
-	// Extract user info from the ID token (JWT)
-	idToken := token.Extra("id_token").(string)
-	if idToken != "" {
-		// Extract user info from the ID token
-		// Note: In a real implementation, you would need to validate the JWT
-		// and decode it properly with a JWT library
-		userInfo, err = a.extractUserInfoFromJWT(idToken)
-		if err != nil {
-			utils.RespondWithError(
-				w,
-				http.StatusInternalServerError,
-				"Failed to decode user info: "+err.Error(),
-				err,
-			)
-			return
+	// Set authentication cookies if tokens are provided
+	if response.Tokens != nil {
+		// Set access token cookie
+		accessTokenCookie := &http.Cookie{
+			Name:     a.Auth.Config.AuthConfig.Cookie.Name,
+			Value:    response.Tokens.AccessToken,
+			Path:     a.Auth.Config.AuthConfig.Cookie.Path,
+			HttpOnly: true,
+			Secure:   r.TLS != nil,
+			SameSite: http.SameSiteLaxMode,
+			MaxAge:   int(a.Auth.Config.AuthConfig.JWT.AccessTokenTTL.Seconds()),
 		}
-	}
+		http.SetCookie(w, accessTokenCookie)
 
-	// Apple may also return user data in the initial request (only the first time)
-	// Check if user data was provided
-	userData := r.FormValue("user")
-	if userData != "" {
-		// Parse the user data JSON
-		var appleUser struct {
-			Name struct {
-				FirstName string `json:"firstName"`
-				LastName  string `json:"lastName"`
-			} `json:"name"`
+		// Set refresh token cookie
+		refreshTokenCookie := &http.Cookie{
+			Name:     "refresh_token",
+			Value:    response.Tokens.RefreshToken,
+			Path:     a.Auth.Config.AuthConfig.Cookie.Path,
+			HttpOnly: true,
+			Secure:   r.TLS != nil,
+			SameSite: http.SameSiteLaxMode,
+			MaxAge:   int(a.Auth.Config.AuthConfig.JWT.RefreshTokenTTL.Seconds()),
 		}
-
-		if err := json.Unmarshal([]byte(userData), &appleUser); err == nil {
-			userInfo.Name.FirstName = appleUser.Name.FirstName
-			userInfo.Name.LastName = appleUser.Name.LastName
-		}
+		http.SetCookie(w, refreshTokenCookie)
 	}
 
-	// Create or update user in your system
-	user := models.User{
-		Email: userInfo.Email,
-		FirstName: func() string {
-			if userInfo.Name.FirstName != "" {
-				return userInfo.Name.FirstName
-			}
-			return userInfo.Email // Fallback to email if no name provided
-		}(),
-		LastName:    userInfo.Name.LastName,
-		SignedUpVia: "apple",
-		ProviderId:  &userInfo.ID,
-		Avatar:      nil, // Apple doesn't provide avatar
-	}
-
-	err = a.Auth.Repository.GetUserRepository().UpsertUserByEmail(r.Context(), &user)
-	if err != nil {
-		utils.RespondWithError(
-			w,
-			http.StatusInternalServerError,
-			"Failed to create/update user: "+err.Error(),
-			err,
-		)
-		return
-	}
-
-	// Generate tokens
-	accessToken, refreshToken, err := a.Auth.TokenManager.GenerateTokens(&user)
-	if err != nil {
-		utils.RespondWithError(
-			w,
-			http.StatusInternalServerError,
-			"Failed to generate authentication tokens",
-			err,
-		)
-		return
-	}
-
-	// Save refresh token
-	err = a.Auth.Repository.GetTokenRepository().SaveToken(r.Context(), user.ID, refreshToken, models.RefreshToken, a.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
-	if err != nil {
-		utils.RespondWithError(
-			w,
-			http.StatusInternalServerError,
-			"Failed to save refresh token",
-			err,
-		)
-		return
-	}
-
-	// Set the token in a cookie
-	tokenCookie := &http.Cookie{
-		Name:     a.Auth.Config.AuthConfig.Cookie.Name,
-		Value:    accessToken,
-		Path:     a.Auth.Config.AuthConfig.Cookie.Path,
+	// Clear the OAuth state cookie
+	stateCookie = &http.Cookie{
+		Name:     "oauth_state",
+		Value:    "",
+		Path:     "/",
 		HttpOnly: true,
 		Secure:   r.TLS != nil,
 		SameSite: http.SameSiteLaxMode,
-		MaxAge:   int(a.Auth.Config.AuthConfig.JWT.AccessTokenTTL.Seconds()),
+		MaxAge:   -1,
 	}
-	http.SetCookie(w, tokenCookie)
+	http.SetCookie(w, stateCookie)
 
 	// Redirect to the frontend
 	http.Redirect(w, r, a.Auth.Config.App.FrontendURL, http.StatusTemporaryRedirect)
 }
 
-// extractUserInfoFromJWT extracts user info from Apple's ID token
+// extractUserInfoFromJWT extracts user information from Apple's ID token
 func (a *AppleOauth) extractUserInfoFromJWT(idToken string) (AppleUserInfo, error) {
-	// In a real implementation, you would need to validate the JWT
-	// and decode it properly with a JWT library
-	// This is a simplified implementation for demonstration purposes
-
-	// Split the token into parts
+	// Split the JWT token
 	parts := strings.Split(idToken, ".")
 	if len(parts) != 3 {
-		return AppleUserInfo{}, fmt.Errorf("invalid token format")
+		return AppleUserInfo{}, fmt.Errorf("invalid JWT token format")
 	}
 
-	// Decode the payload (middle part)
+	// Decode the payload (second part)
 	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
 	if err != nil {
-		return AppleUserInfo{}, fmt.Errorf("failed to decode token payload: %v", err)
+		return AppleUserInfo{}, fmt.Errorf("failed to decode JWT payload: %w", err)
 	}
 
-	// Parse the JSON payload
 	var userInfo AppleUserInfo
 	if err := json.Unmarshal(payload, &userInfo); err != nil {
-		return AppleUserInfo{}, fmt.Errorf("failed to parse token payload: %v", err)
+		return AppleUserInfo{}, fmt.Errorf("failed to parse user info: %w", err)
 	}
 
 	return userInfo, nil

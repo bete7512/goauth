@@ -175,11 +175,11 @@ func (a *AuthHandler) GetRoutes() []config.RouteInfo {
 		{Method: "POST", Path: basePath + "/verification/email/verify", Name: config.RouteVerifyEmail, Handler: a.handlers.HandleVerifyEmail},
 		{Method: "POST", Path: basePath + "/verification/phone/send", Name: config.RouteSendPhoneVerification, Handler: a.handlers.HandleSendPhoneVerification},
 		{Method: "POST", Path: basePath + "/verification/phone/verify", Name: config.RouteVerifyPhone, Handler: a.handlers.HandleVerifyPhone},
-		{Method: "POST", Path: basePath + "/action/confirm", Name: "action.confirm", Handler: a.middleware.AuthMiddleware(a.handlers.HandleSendActionConfirmation)},
-		{Method: "POST", Path: basePath + "/action/verify", Name: "action.verify", Handler: a.middleware.AuthMiddleware(a.handlers.HandleVerifyActionConfirmation)},
 		{Method: "POST", Path: basePath + "/register/invitation", Name: "register.invitation", Handler: a.handlers.HandleRegisterWithInvitation},
 
 		// Protected routes
+		{Method: "POST", Path: basePath + "/action/confirm", Name: "action.confirm", Handler: a.middleware.AuthMiddleware(a.handlers.HandleSendActionConfirmation)},
+		{Method: "POST", Path: basePath + "/action/verify", Name: "action.verify", Handler: a.middleware.AuthMiddleware(a.handlers.HandleVerifyActionConfirmation)},
 		{Method: "GET", Path: basePath + "/me", Name: config.RouteGetMe, Handler: a.middleware.AuthMiddleware(a.handlers.HandleGetUser)},
 		{Method: "POST", Path: basePath + "/update-profile", Name: config.RouteUpdateProfile, Handler: a.middleware.AuthMiddleware(a.handlers.HandleUpdateProfile)},
 		{Method: "POST", Path: basePath + "/logout", Name: config.RouteLogout, Handler: a.middleware.AuthMiddleware(a.handlers.HandleLogout)},

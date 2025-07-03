@@ -25,9 +25,11 @@ type APIClient struct {
 // NewAPIClient initializes a new API client
 func NewAPIClient(baseURL string, logger logger.Log) *APIClient {
 	return &APIClient{
-		httpClient: &http.Client{Timeout: 30 * time.Second},
-		baseURL:    baseURL,
-		logger:     logger,
+		httpClient: &http.Client{
+			Timeout: 30 * time.Second,
+		},
+		baseURL: baseURL,
+		logger:  logger,
 	}
 }
 
