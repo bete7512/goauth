@@ -14,49 +14,26 @@ import (
 
 // AuthService implements the AuthService interface
 type AuthService struct {
-	config           *config.Auth
-	userRepo         interfaces.UserRepository
-	tokenRepo        interfaces.TokenRepository
-	tokenManager     interfaces.TokenManagerInterface
-	notificationSvc  interfaces.NotificationService
-	rateLimiter      interfaces.RateLimiter
-	recaptchaManager interfaces.CaptchaVerifier
-	logger           interfaces.Logger
+	Auth *config.Auth
 }
 
 // NewAuthService creates a new auth service
-func NewAuthService(
-	config *config.Auth,
-	userRepo interfaces.UserRepository,
-	tokenRepo interfaces.TokenRepository,
-	tokenManager interfaces.TokenManagerInterface,
-	notificationSvc interfaces.NotificationService,
-	rateLimiter interfaces.RateLimiter,
-	recaptchaManager interfaces.CaptchaVerifier,
-	logger interfaces.Logger,
-) interfaces.AuthService {
+func NewAuthService(auth *config.Auth) interfaces.Service {
 	return &AuthService{
-		config:           config,
-		userRepo:         userRepo,
-		tokenRepo:        tokenRepo,
-		tokenManager:     tokenManager,
-		notificationSvc:  notificationSvc,
-		rateLimiter:      rateLimiter,
-		recaptchaManager: recaptchaManager,
-		logger:           logger,
+		Auth: auth,
 	}
 }
 
 // Register handles user registration
 func (s *AuthService) Register(ctx context.Context, req *dto.RegisterRequest) (*dto.RegisterResponse, error) {
 	// Check if user already exists
-	existingUser, err := s.userRepo.GetUserByEmail(ctx, req.Email)
+	existingUser, err := s.Auth.Repository.GetUserRepository().GetUserByEmail(ctx, req.Email)
 	if err == nil && existingUser != nil {
 		return nil, errors.New("user with this email already exists")
 	}
 
 	// Hash password
-	hashedPassword, err := s.tokenManager.HashPassword(req.Password)
+	hashedPassword, err := s.Auth.TokenManager.HashPassword(req.Password)
 	if err != nil {
 		return nil, fmt.Errorf("failed to hash password: %w", err)
 	}
@@ -84,34 +61,38 @@ func (s *AuthService) Register(ctx context.Context, req *dto.RegisterRequest) (*
 	}
 
 	// Save user
-	if err := s.userRepo.CreateUser(ctx, user); err != nil {
+	if err := s.Auth.Repository.GetUserRepository().CreateUser(ctx, user); err != nil {
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
 	// Generate tokens
-	tokens, err := s.generateTokens(ctx, user.ID)
+	accessToken, refreshToken, err := s.Auth.TokenManager.GenerateTokens(user)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate tokens: %w", err)
 	}
 
 	// Send welcome email
-	if s.notificationSvc != nil {
-		if err := s.notificationSvc.SendWelcomeEmail(ctx, user); err != nil {
-			s.logger.Errorf("Failed to send welcome email: %v", err)
+	if s.Auth.EmailSender != nil {
+		if err := s.Auth.EmailSender.SendWelcomeEmail(ctx, *user); err != nil {
+			s.Auth.Logger.Errorf("Failed to send welcome email: %v", err)
 		}
 	}
 
 	return &dto.RegisterResponse{
 		Message: "registration successful",
 		User:    s.mapUserToDTO(user),
-		Tokens:  *tokens,
+		Tokens: dto.TokenData{
+			AccessToken:  accessToken,
+			RefreshToken: refreshToken,
+			ExpiresAt:    time.Now().Add(s.Auth.Config.AuthConfig.JWT.AccessTokenTTL),
+		},
 	}, nil
 }
 
 // Login handles user authentication
 func (s *AuthService) Login(ctx context.Context, req *dto.LoginRequest) (*dto.LoginResponse, error) {
 	// Get user by email
-	user, err := s.userRepo.GetUserByEmail(ctx, req.Email)
+	user, err := s.Auth.Repository.GetUserRepository().GetUserByEmail(ctx, req.Email)
 	if err != nil || user == nil {
 		return nil, errors.New("invalid credentials")
 	}
@@ -122,12 +103,12 @@ func (s *AuthService) Login(ctx context.Context, req *dto.LoginRequest) (*dto.Lo
 	}
 
 	// Verify password
-	if err := s.tokenManager.ValidatePassword(user.Password, req.Password); err != nil {
+	if err := s.Auth.TokenManager.ValidatePassword(user.Password, req.Password); err != nil {
 		return nil, errors.New("invalid credentials")
 	}
 
 	// Generate tokens
-	tokens, err := s.generateTokens(ctx, user.ID)
+	accessToken, refreshToken, err := s.Auth.TokenManager.GenerateTokens(user)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate tokens: %w", err)
 	}
@@ -135,27 +116,32 @@ func (s *AuthService) Login(ctx context.Context, req *dto.LoginRequest) (*dto.Lo
 	// Update last login
 	now := time.Now()
 	user.LastLoginAt = &now
-	if err := s.userRepo.UpdateUser(ctx, user); err != nil {
-		s.logger.Errorf("Failed to update last login: %v", err)
+	if err := s.Auth.Repository.GetUserRepository().UpdateUser(ctx, user); err != nil {
+		s.Auth.Logger.Errorf("Failed to update last login: %v", err)
 	}
 
 	return &dto.LoginResponse{
 		Message: "login successful",
 		User:    s.mapUserToDTO(user),
-		Tokens:  *tokens,
+		Tokens: dto.TokenData{
+			AccessToken:  accessToken,
+			RefreshToken: refreshToken,
+			ExpiresAt:    time.Now().Add(s.Auth.Config.AuthConfig.JWT.AccessTokenTTL),
+		},
 	}, nil
 }
 
 // Logout handles user logout
 func (s *AuthService) Logout(ctx context.Context, userID string) error {
 	// Revoke all refresh tokens for the user
-	return s.tokenRepo.RevokeAllTokens(ctx, userID, models.RefreshToken)
+
+	return s.Auth.Repository.GetTokenRepository().RevokeAllTokens(ctx, userID, models.RefreshToken)
 }
 
 // RefreshToken handles token refresh
 func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (*dto.RefreshTokenResponse, error) {
 	// Validate refresh token
-	claims, err := s.tokenManager.ValidateJWTToken(refreshToken)
+	claims, err := s.Auth.TokenManager.ValidateJWTToken(refreshToken)
 	if err != nil {
 		return nil, errors.New("invalid refresh token")
 	}
@@ -166,7 +152,7 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (*d
 	}
 
 	// Get user
-	user, err := s.userRepo.GetUserByID(ctx, userID)
+	user, err := s.Auth.Repository.GetUserRepository().GetUserByID(ctx, userID)
 	if err != nil || user == nil {
 		return nil, errors.New("user not found")
 	}
@@ -177,52 +163,55 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (*d
 	}
 
 	// Generate new tokens
-	tokens, err := s.generateTokens(ctx, user.ID)
+	accessToken, refreshToken, err := s.Auth.TokenManager.GenerateTokens(user)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate tokens: %w", err)
 	}
 
 	// Revoke old refresh token
-	s.tokenRepo.RevokeAllTokens(ctx, userID, models.RefreshToken)
+	s.Auth.Repository.GetTokenRepository().RevokeAllTokens(ctx, userID, models.RefreshToken)
 
 	return &dto.RefreshTokenResponse{
 		Message: "token refreshed successfully",
-		Tokens:  *tokens,
+		Tokens: dto.TokenData{
+			AccessToken:  accessToken,
+			RefreshToken: refreshToken,
+			ExpiresAt:    time.Now().Add(s.Auth.Config.AuthConfig.JWT.AccessTokenTTL),
+		},
 	}, nil
 }
 
 // ForgotPassword handles password reset request
 func (s *AuthService) ForgotPassword(ctx context.Context, req *dto.ForgotPasswordRequest) error {
 	// Get user by email
-	user, err := s.userRepo.GetUserByEmail(ctx, req.Email)
+	user, err := s.Auth.Repository.GetUserRepository().GetUserByEmail(ctx, req.Email)
 	if err != nil || user == nil {
 		// Don't reveal if user exists or not
 		return nil
 	}
 
 	// Generate reset token
-	resetToken, err := s.tokenManager.GenerateRandomToken(32)
+	resetToken, err := s.Auth.TokenManager.GenerateRandomToken(32)
 	if err != nil {
 		return fmt.Errorf("failed to generate reset token: %w", err)
 	}
 
-	hashedToken, err := s.tokenManager.HashToken(resetToken)
+	hashedToken, err := s.Auth.TokenManager.HashToken(resetToken)
 	if err != nil {
 		return fmt.Errorf("failed to hash reset token: %w", err)
 	}
 
 	// Save reset token (1 hour expiry)
-	expiry := time.Hour
-	if err := s.tokenRepo.SaveToken(ctx, user.ID, hashedToken, models.PasswordResetToken, expiry); err != nil {
+	if err := s.Auth.Repository.GetTokenRepository().SaveToken(ctx, user.ID, hashedToken, models.PasswordResetToken, time.Hour); err != nil {
 		return fmt.Errorf("failed to save reset token: %w", err)
 	}
 
 	// Create reset URL
-	resetURL := fmt.Sprintf("%s/reset-password?token=%s", s.config.Config.App.FrontendURL, resetToken)
+	resetURL := fmt.Sprintf("%s/reset-password?token=%s", s.Auth.Config.App.FrontendURL, resetToken)
 
 	// Send reset email
-	if s.notificationSvc != nil {
-		if err := s.notificationSvc.SendPasswordResetEmail(ctx, user, resetURL); err != nil {
+	if s.Auth.EmailSender != nil {
+		if err := s.Auth.EmailSender.SendPasswordResetEmail(ctx, *user, resetURL); err != nil {
 			return fmt.Errorf("failed to send reset email: %w", err)
 		}
 	}
@@ -244,35 +233,35 @@ func (s *AuthService) ResetPassword(ctx context.Context, req *dto.ResetPasswordR
 // SendMagicLink handles magic link request
 func (s *AuthService) SendMagicLink(ctx context.Context, req *dto.MagicLinkRequest) error {
 	// Get user by email
-	user, err := s.userRepo.GetUserByEmail(ctx, req.Email)
+	user, err := s.Auth.Repository.GetUserRepository().GetUserByEmail(ctx, req.Email)
 	if err != nil || user == nil {
 		// Don't reveal if user exists or not
 		return nil
 	}
 
 	// Generate magic link token
-	magicToken, err := s.tokenManager.GenerateRandomToken(32)
+	magicToken, err := s.Auth.TokenManager.GenerateRandomToken(32)
 	if err != nil {
 		return fmt.Errorf("failed to generate magic link token: %w", err)
 	}
 
-	hashedToken, err := s.tokenManager.HashToken(magicToken)
+	hashedToken, err := s.Auth.TokenManager.HashToken(magicToken)
 	if err != nil {
 		return fmt.Errorf("failed to hash magic link token: %w", err)
 	}
 
 	// Save magic link token (15 minutes expiry)
 	expiry := 15 * time.Minute
-	if err := s.tokenRepo.SaveToken(ctx, user.ID, hashedToken, models.MakicLinkToken, expiry); err != nil {
+	if err := s.Auth.Repository.GetTokenRepository().SaveToken(ctx, user.ID, hashedToken, models.MakicLinkToken, expiry); err != nil {
 		return fmt.Errorf("failed to save magic link token: %w", err)
 	}
 
 	// Create magic link URL
-	magicURL := fmt.Sprintf("%s/verify-magic-link?token=%s", s.config.Config.App.FrontendURL, magicToken)
+	magicURL := fmt.Sprintf("%s/verify-magic-link?token=%s", s.Auth.Config.App.FrontendURL, magicToken)
 
 	// Send magic link email
-	if s.notificationSvc != nil {
-		if err := s.notificationSvc.SendMagicLinkEmail(ctx, user, magicURL); err != nil {
+	if s.Auth.EmailSender != nil {
+		if err := s.Auth.EmailSender.SendMagicLinkEmail(ctx, *user, magicURL); err != nil {
 			return fmt.Errorf("failed to send magic link email: %w", err)
 		}
 	}
@@ -294,7 +283,7 @@ func (s *AuthService) VerifyMagicLink(ctx context.Context, req *dto.MagicLinkVer
 // RegisterWithInvitation handles invitation-based registration
 func (s *AuthService) RegisterWithInvitation(ctx context.Context, req *dto.RegisterWithInvitationRequest) (*dto.RegisterResponse, error) {
 	// Check if user already exists
-	existingUser, err := s.userRepo.GetUserByEmail(ctx, req.Email)
+	existingUser, err := s.Auth.Repository.GetUserRepository().GetUserByEmail(ctx, req.Email)
 	if err == nil && existingUser != nil {
 		return nil, errors.New("user with this email already exists")
 	}
@@ -303,7 +292,7 @@ func (s *AuthService) RegisterWithInvitation(ctx context.Context, req *dto.Regis
 	// For now, we'll trust the invitation token from the frontend
 
 	// Hash password
-	hashedPassword, err := s.tokenManager.HashPassword(req.Password)
+	hashedPassword, err := s.Auth.TokenManager.HashPassword(req.Password)
 	if err != nil {
 		return nil, fmt.Errorf("failed to hash password: %w", err)
 	}
@@ -331,74 +320,33 @@ func (s *AuthService) RegisterWithInvitation(ctx context.Context, req *dto.Regis
 	}
 
 	// Save user
-	if err := s.userRepo.CreateUser(ctx, user); err != nil {
+	if err := s.Auth.Repository.GetUserRepository().CreateUser(ctx, user); err != nil {
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
 	// Revoke invitation token
-	s.tokenRepo.RevokeAllTokens(ctx, req.Email, models.InvitationToken)
+	s.Auth.Repository.GetTokenRepository().RevokeAllTokens(ctx, req.Email, models.InvitationToken)
 
 	// Generate tokens
-	tokens, err := s.generateTokens(ctx, user.ID)
+	accessToken, refreshToken, err := s.Auth.TokenManager.GenerateTokens(user)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate tokens: %w", err)
 	}
 
 	// Send welcome email
-	if s.notificationSvc != nil {
-		if err := s.notificationSvc.SendWelcomeEmail(ctx, user); err != nil {
-			s.logger.Errorf("Failed to send welcome email: %v", err)
+	if s.Auth.EmailSender != nil {
+		if err := s.Auth.EmailSender.SendWelcomeEmail(ctx, *user); err != nil {
+			s.Auth.Logger.Errorf("Failed to send welcome email: %v", err)
 		}
 	}
 
 	return &dto.RegisterResponse{
 		Message: "registration successful",
 		User:    s.mapUserToDTO(user),
-		Tokens:  *tokens,
+		Tokens: dto.TokenData{
+			AccessToken:  accessToken,
+			RefreshToken: refreshToken,
+			ExpiresAt:    time.Now().Add(s.Auth.Config.AuthConfig.JWT.AccessTokenTTL),
+		},
 	}, nil
-}
-
-// generateTokens generates access and refresh tokens for a user
-func (s *AuthService) generateTokens(ctx context.Context, userID string) (*dto.TokenData, error) {
-	// Generate access token using the token manager
-	user := &models.User{ID: userID}
-	accessToken, refreshToken, err := s.tokenManager.GenerateTokens(user)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate tokens: %w", err)
-	}
-
-	// Save refresh token
-	refreshExpiry := s.config.Config.AuthConfig.JWT.RefreshTokenTTL
-	hashedRefreshToken, err := s.tokenManager.HashToken(refreshToken)
-	if err != nil {
-		return nil, fmt.Errorf("failed to hash refresh token: %w", err)
-	}
-
-	if err := s.tokenRepo.SaveToken(ctx, userID, hashedRefreshToken, models.RefreshToken, refreshExpiry); err != nil {
-		return nil, fmt.Errorf("failed to save refresh token: %w", err)
-	}
-
-	return &dto.TokenData{
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
-		ExpiresAt:    time.Now().Add(s.config.Config.AuthConfig.JWT.AccessTokenTTL),
-	}, nil
-}
-
-// mapUserToDTO maps a user model to DTO
-func (s *AuthService) mapUserToDTO(user *models.User) dto.UserData {
-	return dto.UserData{
-		ID:               user.ID,
-		Email:            user.Email,
-		FirstName:        user.FirstName,
-		LastName:         user.LastName,
-		EmailVerified:    user.EmailVerified,
-		PhoneVerified:    user.PhoneVerified,
-		TwoFactorEnabled: user.TwoFactorEnabled,
-		Active:           user.Active,
-		IsAdmin:          user.IsAdmin,
-		CreatedAt:        user.CreatedAt,
-		UpdatedAt:        user.UpdatedAt,
-		LastLoginAt:      user.LastLoginAt,
-	}
 }

@@ -11,7 +11,7 @@ import (
 )
 
 // validatePasswordPolicy validates a password against the configured policy
-func (h *AuthRoutes) validatePasswordPolicy(password string, policy config.PasswordPolicy) error {
+func (h *AuthHandler) validatePasswordPolicy(password string, policy config.PasswordPolicy) error {
 	if len(password) < policy.MinLength {
 		return fmt.Errorf("password must be at least %d characters long", policy.MinLength)
 	}
@@ -46,7 +46,7 @@ func (h *AuthRoutes) validatePasswordPolicy(password string, policy config.Passw
 	return nil
 }
 
-func (h *AuthRoutes) ValidateEmail(email string) error {
+func (h *AuthHandler) ValidateEmail(email string) error {
 	// RFC 5322 compliant email regex
 	emailRegex := regexp.MustCompile(`^[a-zA-Z0-9.!#$%&'*+/=?^_{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$`)
 
@@ -70,7 +70,7 @@ func (h *AuthRoutes) ValidateEmail(email string) error {
 	return nil
 }
 
-func (h *AuthRoutes) ValidatePhoneNumber(phoneNumber *string) error {
+func (h *AuthHandler) ValidatePhoneNumber(phoneNumber *string) error {
 
 	//validate phone number
 	if h.Auth.Config.AuthConfig.Methods.PhoneVerification.PhoneRequired {
@@ -97,7 +97,7 @@ func (h *AuthRoutes) ValidatePhoneNumber(phoneNumber *string) error {
 }
 
 // validateEmailDomain validates email domain against allowed/blocked lists
-func (h *AuthRoutes) validateEmailDomain(email string) error {
+func (h *AuthHandler) validateEmailDomain(email string) error {
 	parts := strings.Split(email, "@")
 	if len(parts) != 2 {
 		return errors.New("invalid email format")

@@ -8,6 +8,15 @@ import (
 )
 
 // AuthService handles authentication business logic
+type Service interface {
+	AuthService
+	UserService
+	TwoFactorService
+	AdminService
+	CSRFService
+	NotificationService
+}
+
 type AuthService interface {
 	Register(ctx context.Context, req *dto.RegisterRequest) (*dto.RegisterResponse, error)
 	Login(ctx context.Context, req *dto.LoginRequest) (*dto.LoginResponse, error)
@@ -59,8 +68,8 @@ type AdminService interface {
 
 // CSRFService handles CSRF token business logic
 type CSRFService interface {
-	GenerateToken(ctx context.Context, userID string) (string, error)
 	ValidateToken(ctx context.Context, userID string, token string) error
+	GetCSRFToken(ctx context.Context /*params*/) error
 }
 
 // NotificationService handles email and SMS notifications
@@ -70,6 +79,6 @@ type NotificationService interface {
 	SendPasswordResetEmail(ctx context.Context, user *models.User, redirectURL string) error
 	SendTwoFactorEmail(ctx context.Context, user *models.User, code string) error
 	SendMagicLinkEmail(ctx context.Context, user *models.User, redirectURL string) error
-	SendInvitationEmail(ctx context.Context, email string, firstName string, invitationURL string, invitedBy string) error
-	SendVerificationSMS(ctx context.Context, phoneNumber string, code string) error
+	SendInvitationEmail(ctx context.Context, user *models.User, invitationURL string, invitedBy string) error
+	SendVerificationSMS(ctx context.Context, user *models.User, code string) error
 }

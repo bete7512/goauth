@@ -8,22 +8,13 @@ import (
 	"time"
 
 	"github.com/bete7512/goauth/internal/utils"
-	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/models"
 )
 
-type AuthRoutes struct {
-	*config.Auth
-}
 
-func NewAuthRoutes(auth *config.Auth) *AuthRoutes {
-	return &AuthRoutes{
-		Auth: auth,
-	}
-}
 
 // authenticateRequest extracts and validates the token from a request
-func (h *AuthRoutes) authenticateRequest(r *http.Request, cookieName, jwtSecret string) (string, error) {
+func (h *AuthHandler) authenticateRequest(r *http.Request, cookieName, jwtSecret string) (string, error) {
 	token := h.extractToken(r, cookieName)
 	if token == "" {
 		return "", errors.New("no authentication token provided")
@@ -42,7 +33,7 @@ func (h *AuthRoutes) authenticateRequest(r *http.Request, cookieName, jwtSecret 
 	return userID, nil
 }
 
-func (h *AuthRoutes) extractToken(r *http.Request, cookieName string) string {
+func (h *AuthHandler) extractToken(r *http.Request, cookieName string) string {
 	if cookieName != "" {
 		cookie, err := r.Cookie("___goauth_access_token_" + cookieName)
 		if err == nil && cookie.Value != "" {
@@ -59,7 +50,7 @@ func (h *AuthRoutes) extractToken(r *http.Request, cookieName string) string {
 }
 
 // setAccessTokenCookie sets a secure access token cookie
-func (h *AuthRoutes) setAccessTokenCookie(w http.ResponseWriter, accessToken string) {
+func (h *AuthHandler) setAccessTokenCookie(w http.ResponseWriter, accessToken string) {
 	cookie := &http.Cookie{
 		Name:     "___goauth_access_token_" + h.Auth.Config.AuthConfig.Cookie.Name,
 		Value:    accessToken,
@@ -75,7 +66,7 @@ func (h *AuthRoutes) setAccessTokenCookie(w http.ResponseWriter, accessToken str
 	http.SetCookie(w, cookie)
 }
 
-func (h *AuthRoutes) setRefreshTokenCookie(w http.ResponseWriter, refreshToken string) {
+func (h *AuthHandler) setRefreshTokenCookie(w http.ResponseWriter, refreshToken string) {
 	cookie := &http.Cookie{
 		Name:     "___goauth_refresh_token_" + h.Auth.Config.AuthConfig.Cookie.Name,
 		Value:    refreshToken,
@@ -89,7 +80,7 @@ func (h *AuthRoutes) setRefreshTokenCookie(w http.ResponseWriter, refreshToken s
 	}
 	http.SetCookie(w, cookie)
 }
-func (h *AuthRoutes) setCsrfTokenCookie(w http.ResponseWriter, csrfToken string) {
+func (h *AuthHandler) setCsrfTokenCookie(w http.ResponseWriter, csrfToken string) {
 	cookie := &http.Cookie{
 		Name:  "___goauth_csrf_token_" + h.Auth.Config.AuthConfig.Cookie.Name,
 		Value: csrfToken,
@@ -105,7 +96,7 @@ func (h *AuthRoutes) setCsrfTokenCookie(w http.ResponseWriter, csrfToken string)
 }
 
 // HandleRegisterWithInvitation handles user registration with invitation token
-func (h *AuthRoutes) HandleRegisterWithInvitation(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) HandleRegisterWithInvitation(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		utils.RespondWithError(w, http.StatusMethodNotAllowed, "method not allowed", nil)
 		return

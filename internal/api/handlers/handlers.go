@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/bete7512/goauth/internal/services"
 	"github.com/bete7512/goauth/internal/utils"
+	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/dto"
 	"github.com/bete7512/goauth/pkg/interfaces"
 	"github.com/go-playground/validator/v10"
@@ -12,20 +14,23 @@ import (
 
 var validate = validator.New()
 
-// CleanAuthHandler handles HTTP requests for authentication
-type CleanAuthHandler struct {
-	authService interfaces.AuthService
+// AuthHandler handles HTTP requests for authentication
+type AuthHandler struct {
+	Auth *config.Auth
+	authService interfaces.Service
 }
 
-// NewCleanAuthHandler creates a new clean auth handler
-func NewCleanAuthHandler(authService interfaces.AuthService) *CleanAuthHandler {
-	return &CleanAuthHandler{
-		authService: authService,
+// NewAuthHandler creates a new auth handler
+func NewAuthHandler(auth *config.Auth) *AuthHandler {
+	service := services.NewAuthService(auth)
+	return &AuthHandler{
+		authService: service,
+		Auth: auth,
 	}
 }
 
 // Register handles user registration
-func (h *CleanAuthHandler) Register(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		utils.RespondWithError(w, http.StatusMethodNotAllowed, "method not allowed", nil)
 		return
@@ -59,7 +64,7 @@ func (h *CleanAuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 }
 
 // Login handles user login
-func (h *CleanAuthHandler) Login(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		utils.RespondWithError(w, http.StatusMethodNotAllowed, "method not allowed", nil)
 		return
@@ -91,7 +96,7 @@ func (h *CleanAuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 // Logout handles user logout
-func (h *CleanAuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		utils.RespondWithError(w, http.StatusMethodNotAllowed, "method not allowed", nil)
 		return
@@ -113,7 +118,7 @@ func (h *CleanAuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 }
 
 // RefreshToken handles token refresh
-func (h *CleanAuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		utils.RespondWithError(w, http.StatusMethodNotAllowed, "method not allowed", nil)
 		return
@@ -142,7 +147,7 @@ func (h *CleanAuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) 
 }
 
 // ForgotPassword handles password reset request
-func (h *CleanAuthHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		utils.RespondWithError(w, http.StatusMethodNotAllowed, "method not allowed", nil)
 		return
@@ -170,7 +175,7 @@ func (h *CleanAuthHandler) ForgotPassword(w http.ResponseWriter, r *http.Request
 }
 
 // ResetPassword handles password reset
-func (h *CleanAuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		utils.RespondWithError(w, http.StatusMethodNotAllowed, "method not allowed", nil)
 		return
@@ -198,7 +203,7 @@ func (h *CleanAuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request)
 }
 
 // SendMagicLink handles magic link request
-func (h *CleanAuthHandler) SendMagicLink(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) SendMagicLink(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		utils.RespondWithError(w, http.StatusMethodNotAllowed, "method not allowed", nil)
 		return
@@ -226,7 +231,7 @@ func (h *CleanAuthHandler) SendMagicLink(w http.ResponseWriter, r *http.Request)
 }
 
 // VerifyMagicLink handles magic link verification
-func (h *CleanAuthHandler) VerifyMagicLink(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) VerifyMagicLink(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		utils.RespondWithError(w, http.StatusMethodNotAllowed, "method not allowed", nil)
 		return
@@ -258,7 +263,7 @@ func (h *CleanAuthHandler) VerifyMagicLink(w http.ResponseWriter, r *http.Reques
 }
 
 // RegisterWithInvitation handles invitation-based registration
-func (h *CleanAuthHandler) RegisterWithInvitation(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) RegisterWithInvitation(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		utils.RespondWithError(w, http.StatusMethodNotAllowed, "method not allowed", nil)
 		return
@@ -335,3 +340,4 @@ func clearAuthCookies(w http.ResponseWriter) {
 		MaxAge:   -1,
 	})
 }
+

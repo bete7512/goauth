@@ -16,13 +16,13 @@ import (
 // AuthHandler is the main authentication service
 type AuthHandler struct {
 	Auth       *config.Auth
-	handlers   *handlers.AuthRoutes
+	handlers   *handlers.AuthHandler
 	middleware *middlewares.Middleware
 }
 
 // NewAuthHandler creates a new authentication service
 func NewAuthHandler(auth *config.Auth) *AuthHandler {
-	routes := handlers.NewAuthRoutes(auth)
+	routes := handlers.NewAuthHandler(auth)
 	middleware := middlewares.NewMiddleware(auth)
 	service := &AuthHandler{
 		Auth:       auth,
@@ -170,7 +170,7 @@ func (a *AuthHandler) GetRoutes() []config.RouteInfo {
 		{Method: "POST", Path: basePath + "/forgot-password", Name: config.RouteForgotPassword, Handler: a.handlers.HandleForgotPassword},
 		{Method: "POST", Path: basePath + "/reset-password", Name: config.RouteResetPassword, Handler: a.handlers.HandleResetPassword},
 		{Method: "POST", Path: basePath + "/send-magic-link", Name: config.RouteSendMagicLink, Handler: a.handlers.SendMagicLink},
-		{Method: "POST", Path: basePath + "/verify-magic-link", Name: config.RouteVerifyMagicLink, Handler: a.handlers.HandleVerifyMagicLink},
+		// {Method: "POST", Path: basePath + "/verify-magic-link", Name: config.RouteVerifyMagicLink, Handler: a.handlers.HandleVerifyMagicLink},
 		{Method: "POST", Path: basePath + "/verification/email/send", Name: config.RouteSendEmailVerification, Handler: a.handlers.HandleSendEmailVerification},
 		{Method: "POST", Path: basePath + "/verification/email/verify", Name: config.RouteVerifyEmail, Handler: a.handlers.HandleVerifyEmail},
 		{Method: "POST", Path: basePath + "/verification/phone/send", Name: config.RouteSendPhoneVerification, Handler: a.handlers.HandleSendPhoneVerification},
@@ -197,9 +197,9 @@ func (a *AuthHandler) GetRoutes() []config.RouteInfo {
 		{Method: "DELETE", Path: basePath + "/admin/users/{id}", Name: "admin.users.delete", Handler: a.middleware.AdminMiddleware(a.handlers.HandleDeleteUser)},
 		{Method: "POST", Path: basePath + "/admin/users/{id}/activate", Name: "admin.users.activate", Handler: a.middleware.AdminMiddleware(a.handlers.HandleActivateUser)},
 		{Method: "POST", Path: basePath + "/admin/users/bulk", Name: "admin.users.bulk", Handler: a.middleware.AdminMiddleware(a.handlers.HandleBulkAction)},
-		{Method: "GET", Path: basePath + "/admin/stats", Name: "admin.stats", Handler: a.middleware.AdminMiddleware(a.handlers.HandleSystemStats)},
+		// {Method: "GET", Path: basePath + "/admin/stats", Name: "admin.stats", Handler: a.middleware.AdminMiddleware(a.handlers.HandleSystemStats)},
 		{Method: "GET", Path: basePath + "/admin/audit-logs", Name: "admin.audit-logs", Handler: a.middleware.AdminMiddleware(a.handlers.HandleGetAuditLogs)},
-		{Method: "GET", Path: basePath + "/admin/health", Name: "admin.health", Handler: a.middleware.AdminMiddleware(a.handlers.HandleSystemHealth)},
+		// {Method: "GET", Path: basePath + "/admin/health", Name: "admin.health", Handler: a.middleware.AdminMiddleware(a.handlers.HandleSystemHealth)},
 		{Method: "GET", Path: basePath + "/admin/users/export", Name: "admin.users.export", Handler: a.middleware.AdminMiddleware(a.handlers.HandleExportUsers)},
 		{Method: "POST", Path: basePath + "/admin/invitations", Name: "admin.invitations.create", Handler: a.middleware.AdminMiddleware(a.handlers.HandleInviteUser)},
 		{Method: "GET", Path: basePath + "/admin/invitations", Name: "admin.invitations.list", Handler: a.middleware.AdminMiddleware(a.handlers.HandleListInvitations)},
