@@ -37,10 +37,14 @@ const (
 )
 
 const (
-	PostgreSQL DatabaseType = "postgres"
-	MySQL      DatabaseType = "mysql"
-	MongoDB    DatabaseType = "mongodb"
-	SQLite     DatabaseType = "sqlite"
+	PostgreSQL  DatabaseType = "postgres"
+	MySQL       DatabaseType = "mysql"
+	MongoDB     DatabaseType = "mongodb"
+	SQLite      DatabaseType = "sqlite"
+	SQLServer   DatabaseType = "sqlserver"
+	MariaDB     DatabaseType = "mariadb"
+	ClickHouse  DatabaseType = "clickhouse"
+	CockroachDB DatabaseType = "cockroachdb"
 )
 
 const (
@@ -73,7 +77,6 @@ const (
 	RequestDataKey        contextKey = "request_data"
 	UserIDKey             contextKey = "user_id"
 	IsAdminKey            contextKey = "is_admin"
-	
 )
 
 const (

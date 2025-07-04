@@ -21,6 +21,10 @@ func NewDBClient(conf config.Config) (DBClient, error) {
 		return &MySQLClient{Config: &conf, URL: conf.Database.URL, AutoMigrate: conf.Database.AutoMigrate}, nil
 	case config.MongoDB:
 		return &MongoDBClient{Config: &conf, URL: conf.Database.URL, AutoMigrate: conf.Database.AutoMigrate}, nil
+	case config.SQLite:
+		return &SQLiteClient{Config: &conf, URL: conf.Database.URL, AutoMigrate: conf.Database.AutoMigrate}, nil
+	case config.MariaDB:
+		return &MariaDBClient{Config: &conf, URL: conf.Database.URL, AutoMigrate: conf.Database.AutoMigrate}, nil
 	default:
 		return nil, fmt.Errorf("unsupported database type: %s", conf.Database.Type)
 	}

@@ -34,8 +34,17 @@ func (c *MongoDBClient) Connect() error {
 
 	c.DB = client
 	if c.AutoMigrate {
-		// TODO: do some research on MongoDB migrations
-		// at least check if the collections exist and create them if they don't exist
+		// Create collections if they don't exist
+		database := client.Database("goauth")
+		collections := []string{"users", "tokens", "sessions", "audit_logs", "totp_secrets", "oauth_accounts", "backup_codes"}
+
+		for _, collectionName := range collections {
+			err := database.CreateCollection(context.TODO(), collectionName)
+			if err != nil {
+				// Collection might already exist, which is fine
+				// We could check for specific error types here if needed
+			}
+		}
 	}
 
 	return nil
