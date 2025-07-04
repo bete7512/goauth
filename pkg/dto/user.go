@@ -18,14 +18,20 @@ type DeactivateUserRequest struct {
 	Password string `json:"password" validate:"required"`
 }
 
+type SendEmailVerificationRequest struct {
+	Email string `json:"email" validate:"required,email"`
+}
+
 // EmailVerificationRequest represents email verification request
 type EmailVerificationRequest struct {
 	Token string `json:"token" validate:"required"`
+	Email string `json:"email" validate:"required,email"`
 }
 
 // PhoneVerificationRequest represents phone verification request
 type PhoneVerificationRequest struct {
-	Code string `json:"code" validate:"required"`
+	Code        string `json:"code" validate:"required"`
+	PhoneNumber string `json:"phone_number" validate:"required"`
 }
 
 // ActionConfirmationRequest represents action confirmation request

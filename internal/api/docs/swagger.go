@@ -100,7 +100,7 @@ func SwaggerDoc(info SwaggerInfo) map[string]interface{} {
 
 // Paths returns all available API paths
 func Paths(basePath string) map[string]interface{} {
-	return map[string]interface{}{
+	paths := map[string]interface{}{
 		// // Authentication endpoints
 		basePath + "/register":                  doc_api.RegisterPath(),
 		basePath + "/login":                     doc_api.LoginPath(),
@@ -109,8 +109,8 @@ func Paths(basePath string) map[string]interface{} {
 		basePath + "/forgot-password":           doc_api.ForgotPasswordPath(),
 		basePath + "/me":                        doc_api.GetMePath(),
 		basePath + "/reset-password":            doc_api.ResetPasswordPath(),
-		basePath + "/magic-link":                doc_api.MagicLinkPath(),
-		basePath + "/magic-link/callback":       doc_api.MagicLinkCallbackPath(),
+		basePath + "/send-magic-link":           doc_api.SendMagicLinkPath(),
+		basePath + "/verify-magic-link":         doc_api.VerifyMagicLinkPath(),
 		basePath + "/update-profile":            doc_api.UpdateProfilePath(),
 		basePath + "/deactivate-user":           doc_api.DeactivateUserPath(),
 		basePath + "/enable-two-factor":         doc_api.EnableTwoFactorPath(),
@@ -135,4 +135,11 @@ func Paths(basePath string) map[string]interface{} {
 		basePath + "/oauth/discord":            oauth.DiscordOAuthPath(),
 		basePath + "/oauth/discord/callback":   oauth.DiscordOAuthCallbackPath(),
 	}
+
+	// Add admin endpoints
+	for k, v := range doc_api.AdminPaths() {
+		paths[basePath+k] = v
+	}
+
+	return paths
 }

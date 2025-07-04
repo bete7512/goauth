@@ -38,7 +38,6 @@ func GetTestConfig() config.Config {
 				EnableTwoFactor:       false,
 				EnableMultiSession:    false,
 				EnableMagicLink:       false,
-				EnableSmsVerification: false,
 				TwoFactorMethod:       "email",
 				EmailVerification: config.EmailVerificationConfig{
 					EnableOnSignup:   false,
@@ -85,16 +84,16 @@ func GetTestConfig() config.Config {
 			},
 		},
 		Email: config.EmailConfig{
-			Sender: config.EmailSenderConfig{
-				Type:         config.SendGrid,
-				FromEmail:    "test@example.com",
-				FromName:     "Test App",
+			SenderType: config.SendGrid,
+			Branding: config.BrandingConfig{
+				CompanyName:  "Test Company",
 				SupportEmail: "support@example.com",
-				CustomSender: nil,
 			},
 		},
 		SMS: config.SMSConfig{
-			CompanyName:  "Test Company",
+			Branding: config.BrandingConfig{
+				CompanyName: "Test Company",
+			},
 			CustomSender: nil,
 		},
 		Providers: config.ProvidersConfig{

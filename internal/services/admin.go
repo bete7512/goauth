@@ -269,8 +269,8 @@ func (s *AuthService) InviteUser(ctx context.Context, adminUserID string, req *d
 	invitationURL := fmt.Sprintf("%s/register/invitation?token=%s", s.Auth.Config.App.FrontendURL, invitationToken)
 
 	// Send invitation email
-	if s.Auth.EmailSender != nil {
-		if err := s.Auth.EmailSender.SendInvitationEmail(ctx, *existingUser, invitationURL); err != nil {
+	if s.Auth.Config.Email.CustomSender != nil {
+		if err := s.Auth.Config.Email.CustomSender.SendInvitationEmail(ctx, *existingUser, invitationURL); err != nil {
 			return nil, fmt.Errorf("failed to send invitation email: %w", err)
 		}
 	}

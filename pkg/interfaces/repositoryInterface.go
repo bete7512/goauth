@@ -37,9 +37,7 @@ type UserRepository interface {
 
 type TokenRepository interface {
 	SaveToken(ctx context.Context, userID, token string, tokenType models.TokenType, expiry time.Duration) error
-	SaveTokenWithDeviceId(ctx context.Context, userID, token, deviceId string, tokenType models.TokenType, expiry time.Duration) error
 	GetActiveTokenByUserIdAndType(ctx context.Context, userID string, tokenType models.TokenType) (*models.Token, error)
-	GetActiveTokenByUserIdTypeAndDeviceId(ctx context.Context, userID string, tokenType models.TokenType, deviceId string) (*models.Token, error)
 	RevokeToken(ctx context.Context, tokenId string) error
 	RevokeAllTokens(ctx context.Context, userID string, tokenType models.TokenType) error
 	CleanExpiredTokens(ctx context.Context, tokenType models.TokenType) error
@@ -73,6 +71,15 @@ type BackupCodeRepository interface {
 	DeleteBackupCode(ctx context.Context, code *models.BackupCode) error
 }
 
+type SessionRepository interface {
+	GetSessionByUserID(ctx context.Context, userID string) ([]models.Session, error)
+	GetSessionBySessionID(ctx context.Context, sessionID string) (*models.Session, error)
+	CreateSession(ctx context.Context, session *models.Session) error
+	UpdateSession(ctx context.Context, session *models.Session) error
+	DeleteAllUserSessions(ctx context.Context, userID string) error
+	DeleteSession(ctx context.Context, session *models.Session) error
+}
+
 type RepositoryFactory interface {
 	GetUserRepository() UserRepository
 	GetTokenRepository() TokenRepository
@@ -80,4 +87,5 @@ type RepositoryFactory interface {
 	GetTotpSecretRepository() TotpSecretRepository
 	GetOauthAccountRepository() OauthAccountRepository
 	GetBackupCodeRepository() BackupCodeRepository
+	GetSessionRepository() SessionRepository
 }

@@ -25,13 +25,7 @@ func VerifyEmailPath() map[string]interface{} {
 					"type":        "string",
 					"example":     "user@example.com",
 				},
-				{
-					"in":          "query",
-					"name":        "recaptcha_token",
-					"description": "Recaptcha token",
-					"required":    false,
-					"type":        "string",
-				},
+	
 			},
 			"responses": map[string]interface{}{
 				"200": map[string]interface{}{

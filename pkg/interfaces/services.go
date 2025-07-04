@@ -21,7 +21,7 @@ type Service interface {
 type AuthService interface {
 	Register(ctx context.Context, req *dto.RegisterRequest) (*dto.RegisterResponse, error)
 	Login(ctx context.Context, req *dto.LoginRequest) (*dto.LoginResponse, error)
-	Logout(ctx context.Context, userID string) error
+	Logout(ctx context.Context, userID string, sessionID string) error
 	RefreshToken(ctx context.Context, refreshToken string) (*dto.RefreshTokenResponse, error)
 	ForgotPassword(ctx context.Context, req *dto.ForgotPasswordRequest) error
 	ResetPassword(ctx context.Context, req *dto.ResetPasswordRequest) error
@@ -35,9 +35,9 @@ type UserService interface {
 	GetUserByID(ctx context.Context, userID string) (*dto.UserResponse, error)
 	UpdateProfile(ctx context.Context, userID string, req *dto.UpdateProfileRequest) (*dto.UserResponse, error)
 	DeactivateUser(ctx context.Context, userID string, req *dto.DeactivateUserRequest) error
-	SendEmailVerification(ctx context.Context, userID string) error
+	SendEmailVerification(ctx context.Context, email string) error
 	VerifyEmail(ctx context.Context, req *dto.EmailVerificationRequest) error
-	SendPhoneVerification(ctx context.Context, userID string) error
+	SendPhoneVerification(ctx context.Context, email string) error
 	VerifyPhone(ctx context.Context, req *dto.PhoneVerificationRequest) error
 	SendActionConfirmation(ctx context.Context, userID string, req *dto.ActionConfirmationRequest) error
 	VerifyActionConfirmation(ctx context.Context, userID string, req *dto.ActionConfirmationVerificationRequest) error
@@ -74,14 +74,14 @@ type AdminService interface {
 // CSRFService handles CSRF token business logic
 type CSRFService interface {
 	ValidateToken(ctx context.Context, userID string, token string) error
-	GetCSRFToken(ctx context.Context /*params*/) error
+	GetCSRFToken(context.Context, string) (string, error)
 }
 
 // NotificationService handles email and SMS notifications
 type NotificationService interface {
 	SendVerificationEmail(ctx context.Context, user *models.User, redirectURL string) error
 	SendWelcomeEmail(ctx context.Context, user *models.User) error
-	SendPasswordResetEmail(ctx context.Context, user *models.User, redirectURL string) error
+	SendForgetPasswordEmail(ctx context.Context, user *models.User, redirectURL string) error
 	SendTwoFactorEmail(ctx context.Context, user *models.User, code string) error
 	SendMagicLinkEmail(ctx context.Context, user *models.User, redirectURL string) error
 	SendInvitationEmail(ctx context.Context, user *models.User, invitationURL string, invitedBy string) error

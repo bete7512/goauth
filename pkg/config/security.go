@@ -31,7 +31,6 @@ type LimiterConfig struct {
 
 // CSRFConfig configuration for CSRF protection
 type CSRFConfig struct {
-	Enabled     bool
 	TokenLength int
 	TokenTTL    time.Duration
 	Type        CSRFStorageType

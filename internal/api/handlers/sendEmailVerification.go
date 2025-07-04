@@ -1,9 +1,11 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/bete7512/goauth/internal/utils"
+	"github.com/bete7512/goauth/pkg/dto"
 )
 
 // HandleSendEmailVerification handles sending email verification
@@ -12,12 +14,14 @@ func (h *AuthHandler) HandleSendEmailVerification(w http.ResponseWriter, r *http
 		utils.RespondWithError(w, http.StatusMethodNotAllowed, "method not allowed", nil)
 		return
 	}
-
-	// Get user ID from context (set by auth middleware)
-	userID := r.Context().Value("user_id").(string)
+	var req dto.SendEmailVerificationRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		utils.RespondWithError(w, http.StatusBadRequest, "invalid request body", err)
+		return
+	}
 
 	// Call service
-	if err := h.authService.SendEmailVerification(r.Context(), userID); err != nil {
+	if err := h.authService.SendEmailVerification(r.Context(), req.Email); err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "failed to send email verification", err)
 		return
 	}

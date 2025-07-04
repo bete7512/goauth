@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bete7512/goauth/internal/schemas"
+	"github.com/bete7512/goauth/pkg/dto"
 	models "github.com/bete7512/goauth/pkg/models"
 	"github.com/stretchr/testify/assert"
 )
@@ -40,7 +40,7 @@ func TestHandleLogin_Success(t *testing.T) {
 	mockTokenRepo.On("SaveToken", testUser.ID, "refresh_token", models.RefreshToken, time.Duration(86400)).Return(nil)
 
 	// Create request
-	reqBody := schemas.LoginRequest{
+	reqBody := dto.LoginRequest{
 		Email:    "test@example.com",
 		Password: "password123",
 	}
@@ -88,7 +88,7 @@ func TestHandleLogin_UserNotFound(t *testing.T) {
 	mockUserRepo.On("GetUserByEmail", "test@example.com").Return((*models.User)(nil), errors.New("user not found"))
 
 	// Create request
-	reqBody := schemas.LoginRequest{
+	reqBody := dto.LoginRequest{
 		Email:    "test@example.com",
 		Password: "password123",
 	}
@@ -131,7 +131,7 @@ func TestHandleLogin_InvalidPassword(t *testing.T) {
 	mockTokenManager.On("ValidatePassword", "hashed_password", "wrongpassword").Return(errors.New("invalid password"))
 
 	// Create request
-	reqBody := schemas.LoginRequest{
+	reqBody := dto.LoginRequest{
 		Email:    "test@example.com",
 		Password: "wrongpassword",
 	}
@@ -172,7 +172,7 @@ func TestHandleLogin_UserInactive(t *testing.T) {
 	mockUserRepo.On("GetUserByEmail", "test@example.com").Return(testUser, nil)
 
 	// Create request
-	reqBody := schemas.LoginRequest{
+	reqBody := dto.LoginRequest{
 		Email:    "test@example.com",
 		Password: "password123",
 	}
@@ -224,7 +224,7 @@ func TestHandleLogin_EmailNotVerified(t *testing.T) {
 	mockTokenRepo.On("SaveToken", testUser.ID, "refresh_token", models.RefreshToken, time.Duration(86400)).Return(nil)
 
 	// Create request
-	reqBody := schemas.LoginRequest{
+	reqBody := dto.LoginRequest{
 		Email:    "test@example.com",
 		Password: "password123",
 	}
@@ -298,7 +298,7 @@ func TestHandleLogin_DatabaseError(t *testing.T) {
 	mockUserRepo.On("GetUserByEmail", "test@example.com").Return((*models.User)(nil), errors.New("database connection failed"))
 
 	// Create request
-	reqBody := schemas.LoginRequest{
+	reqBody := dto.LoginRequest{
 		Email:    "test@example.com",
 		Password: "password123",
 	}

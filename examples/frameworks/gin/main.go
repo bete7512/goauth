@@ -80,7 +80,6 @@ func createConfig() config.Config {
 				EnableTwoFactor:       true,
 				EnableMultiSession:    false,
 				EnableMagicLink:       false,
-				EnableSmsVerification: false,
 				TwoFactorMethod:       "email",
 				EmailVerification: config.EmailVerificationConfig{
 					EnableOnSignup:   true,
@@ -127,17 +126,16 @@ func createConfig() config.Config {
 			},
 		},
 		Email: config.EmailConfig{
-			Sender: config.EmailSenderConfig{
-				Type:         "sendgrid",
-				FromEmail:    "noreply@example.com",
-				FromName:     "My App",
+			SenderType: config.SendGrid,
+			Branding: config.BrandingConfig{
+				CompanyName:  "My App",
 				SupportEmail: "support@example.com",
-				CustomSender: nil,
 			},
 		},
 		SMS: config.SMSConfig{
-			CompanyName:  "My App",
-			CustomSender: nil,
+			Branding: config.BrandingConfig{
+				CompanyName: "My App",
+			},
 		},
 		Providers: config.ProvidersConfig{
 			Enabled: []config.AuthProvider{},

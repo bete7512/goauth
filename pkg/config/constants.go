@@ -68,10 +68,12 @@ const (
 )
 
 const (
-	ResponseDataKey contextKey = "response_data"
-	RequestDataKey  contextKey = "request_data"
-	UserIDKey       contextKey = "user_id"
-	IsAdminKey      contextKey = "is_admin"
+	ResponseDataKey       contextKey = "response_data"
+	ResponseStatusCodeKey contextKey = "response_status_code"
+	RequestDataKey        contextKey = "request_data"
+	UserIDKey             contextKey = "user_id"
+	IsAdminKey            contextKey = "is_admin"
+	
 )
 
 const (
@@ -81,6 +83,7 @@ const (
 )
 
 const (
-	SES      SenderType = "SES"
-	SendGrid SenderType = "SendGrid"
+	SES               EmailSenderType = "ses"
+	SendGrid          EmailSenderType = "sendgrid"
+	CustomEmailSender EmailSenderType = "custom"
 )

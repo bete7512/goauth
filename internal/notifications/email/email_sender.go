@@ -52,7 +52,7 @@ func NewEmailSender(conf config.Config) *EmailSender {
 		log.Println("Error parsing templates:", err)
 	}
 	var sesClient *ses.Client
-	if conf.Email.Sender.Type == config.SES {
+	if conf.Email.SenderType == config.SES {
 		if conf.Email.SES.AccessKeyID == "" || conf.Email.SES.SecretAccessKey == "" {
 			log.Println("AWS SES credentials are not configured, SES client will not be initialized")
 		} else {
@@ -91,7 +91,7 @@ func (e *EmailSender) SendVerificationEmail(ctx context.Context, user models.Use
 		UserName:     user.FirstName,
 		UserEmail:    user.Email,
 		ActionURL:    redirectURL,
-		SupportEmail: e.config.Sender.SupportEmail,
+		SupportEmail: e.config.Branding.SupportEmail,
 		Year:         time.Now().Year(),
 	}
 
@@ -105,14 +105,14 @@ func (e *EmailSender) SendWelcomeEmail(ctx context.Context, user models.User) er
 		PrimaryColor: e.config.Branding.PrimaryColor,
 		UserName:     user.FirstName,
 		UserEmail:    user.Email,
-		SupportEmail: e.config.Sender.SupportEmail,
+		SupportEmail: e.config.Branding.SupportEmail,
 		Year:         time.Now().Year(),
 	}
 
 	return e.sendEmail(ctx, user.Email, "Welcome to "+e.config.Branding.CompanyName, "welcome", data)
 }
 
-func (e *EmailSender) SendPasswordResetEmail(ctx context.Context, user models.User, redirectURL string) error {
+func (e *EmailSender) SendForgetPasswordEmail(ctx context.Context, user models.User, redirectURL string) error {
 	data := EmailTemplateData{
 		LogoURL:      e.config.Branding.LogoURL,
 		CompanyName:  e.config.Branding.CompanyName,
@@ -120,7 +120,7 @@ func (e *EmailSender) SendPasswordResetEmail(ctx context.Context, user models.Us
 		UserName:     user.FirstName,
 		UserEmail:    user.Email,
 		ActionURL:    redirectURL,
-		SupportEmail: e.config.Sender.SupportEmail,
+		SupportEmail: e.config.Branding.SupportEmail,
 		Year:         time.Now().Year(),
 	}
 
@@ -135,7 +135,7 @@ func (e *EmailSender) SendTwoFactorCodeEmail(ctx context.Context, user models.Us
 		UserName:     user.FirstName,
 		UserEmail:    user.Email,
 		Token:        code,
-		SupportEmail: e.config.Sender.SupportEmail,
+		SupportEmail: e.config.Branding.SupportEmail,
 		Year:         time.Now().Year(),
 	}
 
@@ -154,7 +154,7 @@ func (e *EmailSender) SendMagicLinkEmail(ctx context.Context, user models.User, 
 		UserName:     user.FirstName,
 		UserEmail:    user.Email,
 		ActionURL:    redirectURL,
-		SupportEmail: e.config.Sender.SupportEmail,
+		SupportEmail: e.config.Branding.SupportEmail,
 		Year:         time.Now().Year(),
 	}
 
@@ -170,7 +170,7 @@ func (e *EmailSender) SendInvitationEmail(ctx context.Context, user models.User,
 		UserEmail:    user.Email,
 		ActionURL:    invitationURL,
 		Token:        user.ID, // Using Token field to pass invitedBy info
-		SupportEmail: e.config.Sender.SupportEmail,
+		SupportEmail: e.config.Branding.SupportEmail,
 		Year:         time.Now().Year(),
 	}
 
@@ -179,13 +179,13 @@ func (e *EmailSender) SendInvitationEmail(ctx context.Context, user models.User,
 
 func (e *EmailSender) sendEmail(ctx context.Context, to, subject, templateName string, data EmailTemplateData) error {
 	// Use Amazon SES if configured, otherwise use SendGrid as default
-	if e.config.Sender.Type == config.SES {
+	if e.config.SenderType == config.SES {
 		if e.sesClient != nil {
 			return e.sendViaSES(ctx, to, subject, templateName, data)
 		} else {
 			log.Println("SES client not available, falling back to SendGrid")
 		}
-	} else if e.config.Sender.Type == config.SendGrid && e.config.SendGrid.APIKey != "" {
+	} else if e.config.SenderType == config.SendGrid && e.config.SendGrid.APIKey != "" {
 		return e.sendViaSendGrid(ctx, to, subject, templateName, data)
 	} else {
 		return fmt.Errorf("neither SES nor SendGrid is properly configured")
@@ -211,8 +211,8 @@ func (e *EmailSender) sendViaSendGrid(ctx context.Context, to, subject, template
 			},
 		},
 		"from": map[string]string{
-			"email": e.config.Sender.FromEmail,
-			"name":  e.config.Sender.FromName,
+			"email": e.config.Branding.SupportEmail,
+			"name":  e.config.Branding.CompanyName,
 		},
 		"subject": subject,
 		"content": []map[string]string{
@@ -262,7 +262,7 @@ func (e *EmailSender) sendViaSES(ctx context.Context, to, subject, templateName 
 
 	// Create SES input
 	input := &ses.SendEmailInput{
-		Source: aws.String(e.config.Sender.FromEmail),
+		Source: aws.String(e.config.SES.FromEmail),
 		Destination: &types.Destination{
 			ToAddresses: []string{to},
 		},

@@ -207,10 +207,6 @@ func SendPhoneVerificationRequestDefinition() map[string]interface{} {
 				"type":    "string",
 				"example": "+1234567890",
 			},
-			"recaptcha_token": map[string]interface{}{
-				"type":    "string",
-				"example": "03AFcWeA...",
-			},
 		},
 		"required": []string{"phone_number"},
 	}
@@ -227,10 +223,6 @@ func VerifyPhoneRequestDefinition() map[string]interface{} {
 			"phone_number": map[string]interface{}{
 				"type":    "string",
 				"example": "+1234567890",
-			},
-			"recaptcha_token": map[string]interface{}{
-				"type":    "string",
-				"example": "03AFcWeA...",
 			},
 		},
 		"required": []string{"code", "phone_number"},

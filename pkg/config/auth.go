@@ -46,12 +46,11 @@ type TokenConfig struct {
 }
 
 type AuthMethodsConfig struct {
-	Type                  AuthenticationType
-	EnableTwoFactor       bool
-	EnableMultiSession    bool
-	EnableMagicLink       bool
-	EnableSmsVerification bool
-	TwoFactorMethod       string
+	Type               AuthenticationType
+	EnableTwoFactor    bool
+	EnableMultiSession bool
+	EnableMagicLink    bool
+	TwoFactorMethod    string
 
 	// Verification settings
 	EmailVerification EmailVerificationConfig

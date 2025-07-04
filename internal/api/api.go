@@ -1,8 +1,9 @@
-// Package core - Clean HTTP-only authentication library
 package api
 
 import (
-	"errors"
+	"bytes"
+	"context"
+	"io"
 	"net/http"
 	"strings"
 
@@ -70,7 +71,7 @@ func (a *AuthHandler) GetRecaptchaMiddleware(routeName string) func(http.Handler
 
 // GetCSRFMiddleware returns CSRF middleware
 func (a *AuthHandler) GetCSRFMiddleware(routeName string) func(http.Handler) http.Handler {
-	if !a.Auth.Config.Security.CSRF.Enabled {
+	if !a.Auth.Config.Features.EnableCSRF || a.Auth.Config.AuthConfig.Methods.Type != config.AuthenticationTypeCookie {
 		return func(next http.Handler) http.Handler { return next }
 	}
 	if _, needsCSRF := a.Auth.Config.Security.CSRF.Routes[routeName]; !needsCSRF {
@@ -103,18 +104,79 @@ func (a *AuthHandler) GetRateLimitMiddleware(routeName string) func(http.Handler
 	}
 }
 
-// GetHookMiddleware returns middleware that executes hooks
+// responseCaptureWriter captures the response data for after hooks
+type responseCaptureWriter struct {
+	http.ResponseWriter
+	statusCode int
+	body       []byte
+	captured   bool
+}
+
+func (w *responseCaptureWriter) WriteHeader(statusCode int) {
+	w.statusCode = statusCode
+	w.ResponseWriter.WriteHeader(statusCode)
+}
+
+func (w *responseCaptureWriter) Write(data []byte) (int, error) {
+	if !w.captured {
+		w.body = make([]byte, len(data))
+		copy(w.body, data)
+		w.captured = true
+	}
+	return w.ResponseWriter.Write(data)
+}
+
 func (a *AuthHandler) GetHookMiddleware(routeName string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Execute before hooks
-			if len(a.Auth.HookManager.GetHooks()) > 0 && a.Auth.HookManager.GetHooks()[routeName] != nil {
-				a.Auth.HookManager.ExecuteBeforeHooks(routeName, w, r)
+			hasBeforeHook := a.Auth.HookManager.GetBeforeHook(routeName) != nil
+			hasAfterHook := a.Auth.HookManager.GetAfterHook(routeName) != nil
+
+			// If no hooks, execute normally
+			if !hasBeforeHook && !hasAfterHook {
+				next.ServeHTTP(w, r)
+				return
 			}
 
-			// Execute main handler
-			next.ServeHTTP(w, r)
+			// Always preserve request body if we have any hooks
+			var requestBody []byte
+			if r.Body != nil {
+				requestBody, _ = io.ReadAll(r.Body)
+				r.Body = io.NopCloser(bytes.NewBuffer(requestBody))
+			}
 
+			// Add request data to context
+			ctx := r.Context()
+			if len(requestBody) > 0 {
+				ctx = context.WithValue(ctx, config.RequestDataKey, requestBody)
+				r = r.WithContext(ctx)
+			}
+
+			// Execute before hooks
+			if hasBeforeHook {
+				proceed := a.Auth.HookManager.ExecuteBeforeHooks(routeName, w, r)
+				if !proceed {
+					return
+				}
+			}
+
+			// Handle after hooks
+			if hasAfterHook {
+				captureWriter := &responseCaptureWriter{ResponseWriter: w}
+				next.ServeHTTP(captureWriter, r)
+
+				// Update context with response data
+				if captureWriter.captured {
+					ctx = context.WithValue(ctx, config.ResponseDataKey, captureWriter.body)
+					ctx = context.WithValue(ctx, config.ResponseStatusCodeKey, captureWriter.statusCode)
+					r = r.WithContext(ctx)
+				}
+
+				// Execute after hooks - they should only read from context, not write to response
+				a.Auth.HookManager.ExecuteAfterHooks(routeName, captureWriter, r)
+			} else {
+				next.ServeHTTP(w, r)
+			}
 		})
 	}
 }
@@ -142,16 +204,10 @@ func (a *AuthHandler) buildMiddlewareChain(routeName string, handler http.Handle
 
 // Hook management methods
 func (a *AuthHandler) RegisterBeforeHook(route string, hook func(http.ResponseWriter, *http.Request) (bool, error)) error {
-	if len(a.Auth.HookManager.GetHooks()) == 0 {
-		return errors.New("hook manager is nil")
-	}
 	return a.Auth.HookManager.RegisterBeforeHook(route, hook)
 }
 
 func (a *AuthHandler) RegisterAfterHook(route string, hook func(http.ResponseWriter, *http.Request) (bool, error)) error {
-	if len(a.Auth.HookManager.GetHooks()) == 0 {
-		return errors.New("hook manager is nil")
-	}
 	return a.Auth.HookManager.RegisterAfterHook(route, hook)
 }
 
@@ -170,11 +226,14 @@ func (a *AuthHandler) GetRoutes() []config.RouteInfo {
 		{Method: "POST", Path: basePath + "/forgot-password", Name: config.RouteForgotPassword, Handler: a.handlers.HandleForgotPassword},
 		{Method: "POST", Path: basePath + "/reset-password", Name: config.RouteResetPassword, Handler: a.handlers.HandleResetPassword},
 		{Method: "POST", Path: basePath + "/send-magic-link", Name: config.RouteSendMagicLink, Handler: a.handlers.SendMagicLink},
-		// {Method: "POST", Path: basePath + "/verify-magic-link", Name: config.RouteVerifyMagicLink, Handler: a.handlers.HandleVerifyMagicLink},
+		{Method: "POST", Path: basePath + "/verify-magic-link", Name: config.RouteVerifyMagicLink, Handler: a.handlers.VerifyMagicLink},
+		{Method: "GET", Path: basePath + "/verify-magic-link", Name: config.RouteVerifyMagicLink, Handler: a.handlers.VerifyMagicLink},
 		{Method: "POST", Path: basePath + "/verification/email/send", Name: config.RouteSendEmailVerification, Handler: a.handlers.HandleSendEmailVerification},
+		{Method: "GET", Path: basePath + "/verification/email/verify", Name: config.RouteVerifyEmail, Handler: a.handlers.HandleVerifyEmail},
 		{Method: "POST", Path: basePath + "/verification/email/verify", Name: config.RouteVerifyEmail, Handler: a.handlers.HandleVerifyEmail},
 		{Method: "POST", Path: basePath + "/verification/phone/send", Name: config.RouteSendPhoneVerification, Handler: a.handlers.HandleSendPhoneVerification},
 		{Method: "POST", Path: basePath + "/verification/phone/verify", Name: config.RouteVerifyPhone, Handler: a.handlers.HandleVerifyPhone},
+		{Method: "GET", Path: basePath + "/verification/phone/verify", Name: config.RouteVerifyPhone, Handler: a.handlers.HandleVerifyPhone},
 		{Method: "POST", Path: basePath + "/register/invitation", Name: "register.invitation", Handler: a.handlers.HandleRegisterWithInvitation},
 
 		// Protected routes

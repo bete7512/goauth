@@ -9,11 +9,11 @@ import (
 )
 
 func (s *AuthService) SendVerificationEmail(ctx context.Context, user *models.User, redirectURL string) error {
-	if s.Auth.EmailSender == nil {
+	if s.Auth.Config.Email.CustomSender == nil {
 		return errors.New("email sender not configured")
 	}
 
-	if err := s.Auth.EmailSender.SendVerificationEmail(ctx, *user, redirectURL); err != nil {
+	if err := s.Auth.Config.Email.CustomSender.SendVerificationEmail(ctx, *user, redirectURL); err != nil {
 		return fmt.Errorf("failed to send verification email: %w", err)
 	}
 
@@ -22,24 +22,24 @@ func (s *AuthService) SendVerificationEmail(ctx context.Context, user *models.Us
 
 // SendWelcomeEmail sends welcome email
 func (s *AuthService) SendWelcomeEmail(ctx context.Context, user *models.User) error {
-	if s.Auth.EmailSender == nil {
+	if s.Auth.Config.Email.CustomSender == nil {
 		return errors.New("email sender not configured")
 	}
 
-	if err := s.Auth.EmailSender.SendWelcomeEmail(ctx, *user); err != nil {
+	if err := s.Auth.Config.Email.CustomSender.SendWelcomeEmail(ctx, *user); err != nil {
 		return fmt.Errorf("failed to send welcome email: %w", err)
 	}
 
 	return nil
 }
 
-// SendPasswordResetEmail sends password reset email
-func (s *AuthService) SendPasswordResetEmail(ctx context.Context, user *models.User, redirectURL string) error {
-	if s.Auth.EmailSender == nil {
+// SendForgetPasswordEmail sends password reset email
+func (s *AuthService) SendForgetPasswordEmail(ctx context.Context, user *models.User, redirectURL string) error {
+	if s.Auth.Config.Email.CustomSender == nil {
 		return errors.New("email sender not configured")
 	}
 
-	if err := s.Auth.EmailSender.SendPasswordResetEmail(ctx, *user, redirectURL); err != nil {
+	if err := s.Auth.Config.Email.CustomSender.SendForgetPasswordEmail(ctx, *user, redirectURL); err != nil {
 		return fmt.Errorf("failed to send password reset email: %w", err)
 	}
 
@@ -48,11 +48,11 @@ func (s *AuthService) SendPasswordResetEmail(ctx context.Context, user *models.U
 
 // SendTwoFactorEmail sends two-factor authentication email
 func (s *AuthService) SendTwoFactorEmail(ctx context.Context, user *models.User, code string) error {
-	if s.Auth.EmailSender == nil {
+	if s.Auth.Config.Email.CustomSender == nil {
 		return errors.New("email sender not configured")
 	}
 
-	if err := s.Auth.EmailSender.SendTwoFactorEmail(ctx, *user, code); err != nil {
+	if err := s.Auth.Config.Email.CustomSender.SendTwoFactorEmail(ctx, *user, code); err != nil {
 		return fmt.Errorf("failed to send two-factor email: %w", err)
 	}
 
@@ -61,11 +61,11 @@ func (s *AuthService) SendTwoFactorEmail(ctx context.Context, user *models.User,
 
 // SendMagicLinkEmail sends magic link email
 func (s *AuthService) SendMagicLinkEmail(ctx context.Context, user *models.User, redirectURL string) error {
-	if s.Auth.EmailSender == nil {
+	if s.Auth.Config.Email.CustomSender == nil {
 		return errors.New("email sender not configured")
 	}
 
-	if err := s.Auth.EmailSender.SendMagicLinkEmail(ctx, *user, redirectURL); err != nil {
+	if err := s.Auth.Config.Email.CustomSender.SendMagicLinkEmail(ctx, *user, redirectURL); err != nil {
 		return fmt.Errorf("failed to send magic link email: %w", err)
 	}
 
@@ -74,11 +74,11 @@ func (s *AuthService) SendMagicLinkEmail(ctx context.Context, user *models.User,
 
 // SendInvitationEmail sends invitation email
 func (s *AuthService) SendInvitationEmail(ctx context.Context, user *models.User, invitationURL string, invitedBy string) error {
-	if s.Auth.EmailSender == nil {
+	if s.Auth.Config.Email.CustomSender == nil {
 		return errors.New("email sender not configured")
 	}
 
-	if err := s.Auth.EmailSender.SendInvitationEmail(ctx, *user, invitationURL); err != nil {
+	if err := s.Auth.Config.Email.CustomSender.SendInvitationEmail(ctx, *user, invitationURL); err != nil {
 		return fmt.Errorf("failed to send invitation email: %w", err)
 	}
 

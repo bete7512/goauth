@@ -4,17 +4,23 @@ import "time"
 
 // RegisterRequest represents user registration request
 type RegisterRequest struct {
-	Email     string `json:"email" validate:"required,email"`
-	Password  string `json:"password" validate:"required,min=8"`
-	FirstName string `json:"first_name" validate:"required"`
-	LastName  string `json:"last_name" validate:"required"`
+	Email       string `json:"email" validate:"required,email"`
+	Password    string `json:"password" validate:"required,min=8"`
+	FirstName   string `json:"first_name" validate:"required"`
+	LastName    string `json:"last_name" validate:"required"`
+	PhoneNumber string `json:"phone_number" `
 }
 
 // RegisterResponse represents user registration response
 type RegisterResponse struct {
-	Message string    `json:"message"`
-	User    UserData  `json:"user"`
-	Tokens  TokenData `json:"tokens,omitempty"`
+	Message string     `json:"message"`
+	Status  int        `json:"status"`
+	User    UserData   `json:"user"`
+	Tokens  *TokenData `json:"tokens,omitempty"`
+}
+
+type SendPhoneVerificationRequest struct {
+	PhoneNumber string `json:"phone_number" validate:"required"`
 }
 
 // LoginRequest represents user login request
@@ -25,15 +31,19 @@ type LoginRequest struct {
 
 // LoginResponse represents user login response
 type LoginResponse struct {
-	Message string    `json:"message"`
-	User    UserData  `json:"user"`
-	Tokens  TokenData `json:"tokens"`
+	SessionId string    `json:"session_id"`
+	Status    int       `json:"status"`
+	Message   string    `json:"message"`
+	User      UserData  `json:"user"`
+	Tokens    TokenData `json:"tokens"`
 }
 
 // RefreshTokenResponse represents token refresh response
 type RefreshTokenResponse struct {
-	Message string    `json:"message"`
-	Tokens  TokenData `json:"tokens"`
+	SessionId string    `json:"session_id"`
+	Status    int       `json:"status"`
+	Message   string    `json:"message"`
+	Tokens    TokenData `json:"tokens"`
 }
 
 // ForgotPasswordRequest represents forgot password request
@@ -54,7 +64,12 @@ type MagicLinkRequest struct {
 
 // MagicLinkVerificationRequest represents magic link verification request
 type MagicLinkVerificationRequest struct {
-	Token string `json:"token" validate:"required"`
+	Token     string `json:"token" validate:"required"`
+	Email     string `json:"email" validate:"required,email"`
+	Ip        string `json:"ip"`
+	UserAgent string `json:"user_agent"`
+	DeviceId  string `json:"device_id"`
+	Location  string `json:"location"`
 }
 
 // RegisterWithInvitationRequest represents invitation-based registration request

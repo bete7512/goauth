@@ -33,7 +33,7 @@ func NewBuilder() *Builder {
 
 // WithConfig sets the configuration for the AuthService.
 func (b *Builder) WithConfig(conf config.Config) *Builder {
-	b.Config = conf
+	b.Config = &conf
 	return b
 }
 
@@ -75,7 +75,7 @@ func (b *Builder) WithRateLimiter(rl interfaces.RateLimiter) *Builder {
 
 // WithEmailSender provides a custom email sender.
 func (b *Builder) WithEmailSender(sender interfaces.EmailSenderInterface) *Builder {
-	b.Config.Email.Sender.CustomSender = sender
+	b.Config.Email.CustomSender = sender
 	return b
 }
 
@@ -91,10 +91,10 @@ func (b *Builder) Build() (*AuthService, error) {
 	if b.RecaptchaManager == nil && b.Config.Features.EnableRecaptcha {
 		b.RecaptchaManager = recaptcha.NewRecaptchaVerifier(b.Config.Security.Recaptcha)
 	}
-	if b.Config.Email.Sender.CustomSender == nil && b.Config.AuthConfig.Methods.EmailVerification.EnableOnSignup && b.Config.Email.Sender.Type == config.SendGrid {
-		b.Config.Email.Sender.CustomSender = email.NewEmailSender(b.Config)
+	if b.Config.Email.CustomSender == nil && b.Config.AuthConfig.Methods.EmailVerification.EnableOnSignup && b.Config.Email.SenderType == config.SendGrid {
+		b.Config.Email.CustomSender = email.NewEmailSender(*b.Config)
 	}
-	if b.Config.SMS.CustomSender == nil && b.Config.AuthConfig.Methods.EnableSmsVerification && b.Config.SMS.Twilio.AccountSID != "" {
+	if b.Config.SMS.CustomSender == nil && b.Config.AuthConfig.Methods.PhoneVerification.EnableOnSignup && b.Config.SMS.Twilio.AccountSID != "" {
 		b.Config.SMS.CustomSender = sms.NewSMSSender(b.Config.SMS)
 	}
 
@@ -138,8 +138,12 @@ func (b *Builder) Build() (*AuthService, error) {
 	if err := b.initializeHookManager(); err != nil {
 		return nil, fmt.Errorf("failed to initialize hook manager: %w", err)
 	}
+	if b.HookManager.Hooks == nil {
+		b.HookManager = hooks.NewHookManager()
+	}
 
 	// Create the auth handler
+
 	authHandler := api.NewAuthHandler(&config.Auth{
 		Config:           b.Config,
 		Repository:       b.Repository,
@@ -191,7 +195,7 @@ func (b *Builder) initializeWorkerPool() error {
 
 // initializeRepositoryFactory sets up the repository factory if not provided
 func (b *Builder) initializeRepositoryFactory() error {
-	if b.Repository != nil {
+	if b.Repository != nil || b.Config == nil {
 		return nil
 	}
 
@@ -199,7 +203,7 @@ func (b *Builder) initializeRepositoryFactory() error {
 		return errors.New("custom storage is enabled but no repository factory was provided")
 	}
 
-	dbClient, err := database.NewDBClient(b.Config)
+	dbClient, err := database.NewDBClient(*b.Config)
 	if err != nil {
 		return fmt.Errorf("failed to create database client: %w", err)
 	}
@@ -237,16 +241,19 @@ func (b *Builder) initializeCaptchaVerifier() error {
 
 // initializeNotificationSenders sets up email and SMS senders if needed
 func (b *Builder) initializeNotificationSenders() error {
+	if b.Config == nil {
+		return nil
+	}
 	// Initialize email sender
-	if b.Config.Email.Sender.CustomSender == nil &&
+	if b.Config.Email.CustomSender == nil &&
 		b.Config.AuthConfig.Methods.EmailVerification.EnableOnSignup &&
 		b.Config.Email.SendGrid.APIKey != "" {
-		b.Config.Email.Sender.CustomSender = email.NewEmailSender(b.Config)
+		b.Config.Email.CustomSender = email.NewEmailSender(*b.Config)
 	}
 
 	// Initialize SMS sender
 	if b.Config.SMS.CustomSender == nil &&
-		b.Config.AuthConfig.Methods.EnableSmsVerification &&
+		b.Config.AuthConfig.Methods.PhoneVerification.EnableOnSignup &&
 		b.Config.SMS.Twilio.AccountSID != "" {
 		b.Config.SMS.CustomSender = sms.NewSMSSender(b.Config.SMS)
 	}
@@ -266,7 +273,7 @@ func (b *Builder) initializeRateLimiter() error {
 		return nil
 	}
 
-	rateLimiter, err := ratelimiter.New(b.Config)
+	rateLimiter, err := ratelimiter.New(*b.Config)
 	if err != nil {
 		return fmt.Errorf("failed to create rate limiter: %w", err)
 	}
@@ -280,7 +287,7 @@ func (b *Builder) initializeTokenManager() error {
 		return nil
 	}
 
-	b.TokenManager = tokenManager.NewTokenManager(b.Config)
+	b.TokenManager = tokenManager.NewTokenManager(*b.Config)
 	if b.TokenManager == nil {
 		return errors.New("failed to create token manager")
 	}
@@ -293,7 +300,6 @@ func (b *Builder) initializeHookManager() error {
 		return nil
 	}
 
-	b.HookManager = hooks.NewHookManager()
 	return nil
 }
 
@@ -410,25 +416,25 @@ func (b *Builder) validateTwoFactor() error {
 
 // validateEmailVerification validates email verification configuration
 func (b *Builder) validateEmailVerification() error {
-	if b.Config.Email.Sender.CustomSender == nil {
+	if b.Config.Email.CustomSender == nil {
 		if b.Config.AuthConfig.Methods.EmailVerification.EnableOnSignup {
 			if b.Config.AuthConfig.Methods.EmailVerification.VerificationURL == "" {
 				return errors.New("email verification URL is required when email verification is enabled")
 			}
 		}
-		if b.Config.Email.Sender.Type == config.SendGrid {
+		if b.Config.Email.SenderType == config.SendGrid {
 			if b.Config.Email.SendGrid.APIKey == "" {
 				return errors.New("sendgrid API key is required when email verification is enabled")
 			}
-		} else if b.Config.Email.Sender.Type == config.SES {
+		} else if b.Config.Email.SenderType == config.SES {
 			if b.Config.Email.SES.AccessKeyID == "" || b.Config.Email.SES.SecretAccessKey == "" {
 				return errors.New("ses access key id and secret access key are required when email verification is enabled")
 			}
 		} else {
 			return errors.New("either sendgrid or ses is required when email verification is enabled and custom sender is not provided")
 		}
-		if b.Config.Email.Sender.CustomSender == nil {
-			b.Config.Email.Sender.CustomSender = email.NewEmailSender(b.Config)
+		if b.Config.Email.CustomSender == nil {
+			b.Config.Email.CustomSender = email.NewEmailSender(*b.Config)
 		}
 	}
 	return nil
@@ -437,7 +443,7 @@ func (b *Builder) validateEmailVerification() error {
 // validateSMSVerification validates SMS verification configuration
 func (b *Builder) validateSMSVerification() error {
 	if b.Config.SMS.CustomSender == nil {
-		if b.Config.AuthConfig.Methods.EnableSmsVerification {
+		if b.Config.AuthConfig.Methods.PhoneVerification.EnableOnSignup {
 			if b.Config.SMS.Twilio.AccountSID == "" || b.Config.SMS.Twilio.AuthToken == "" || b.Config.SMS.Twilio.FromNumber == "" {
 				return errors.New("twilio account sid, auth token and from number are required when SMS verification is enabled")
 			} else {

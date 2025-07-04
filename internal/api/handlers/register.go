@@ -8,7 +8,7 @@ import (
 	"github.com/bete7512/goauth/pkg/dto"
 )
 
-// HandleRegister handles user registration
+// Register handles user registration
 func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		utils.RespondWithError(w, http.StatusMethodNotAllowed, "method not allowed", nil)
@@ -33,10 +33,8 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		utils.RespondWithError(w, http.StatusInternalServerError, err.Error(), err)
 		return
 	}
-
-	// Set cookies if tokens are provided
-	if response.Tokens.AccessToken != "" {
-		setAuthCookies(w, response.Tokens)
+	if h.Auth.Config.AuthConfig.Methods.EmailVerification.EnableOnSignup {
+		response.Tokens = nil
 	}
 
 	utils.RespondWithJSON(w, http.StatusCreated, response)

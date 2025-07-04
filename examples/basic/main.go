@@ -37,12 +37,11 @@ func main() {
 				MagicLinkTTL:         10 * time.Minute,
 			},
 			Methods: config.AuthMethodsConfig{
-				Type:                  config.AuthenticationTypeCookie,
-				EnableTwoFactor:       true,
-				EnableMultiSession:    false,
-				EnableMagicLink:       false,
-				EnableSmsVerification: false,
-				TwoFactorMethod:       "email",
+				Type:               config.AuthenticationTypeCookie,
+				EnableTwoFactor:    true,
+				EnableMultiSession: false,
+				EnableMagicLink:    false,
+				TwoFactorMethod:    "email",
 				EmailVerification: config.EmailVerificationConfig{
 					EnableOnSignup:   true,
 					VerificationURL:  "http://localhost:3000/verify",
@@ -88,17 +87,17 @@ func main() {
 			},
 		},
 		Email: config.EmailConfig{
-			Sender: config.EmailSenderConfig{
-				Type:         "sendgrid",
-				FromEmail:    "noreply@example.com",
-				FromName:     "My App",
+			SenderType: config.SendGrid,
+			Branding: config.BrandingConfig{
+				CompanyName:  "My App",
 				SupportEmail: "support@example.com",
-				CustomSender: nil,
 			},
+			// CustomSender: email.NewEmailSender(config),
 		},
 		SMS: config.SMSConfig{
-			CompanyName:  "My App",
-			CustomSender: nil,
+			Branding: config.BrandingConfig{
+				CompanyName: "My App",
+			},
 		},
 		Providers: config.ProvidersConfig{
 			Enabled: []config.AuthProvider{},

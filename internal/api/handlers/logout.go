@@ -15,9 +15,10 @@ func (h *AuthHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
 
 	// Get user ID from context (set by auth middleware)
 	userID := r.Context().Value("user_id").(string)
+	sessionID := r.Context().Value("session_id").(string)
 
 	// Call service
-	if err := h.authService.Logout(r.Context(), userID); err != nil {
+	if err := h.authService.Logout(r.Context(), userID, sessionID); err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "logout failed", err)
 		return
 	}

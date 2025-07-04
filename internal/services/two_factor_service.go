@@ -136,8 +136,8 @@ func (s *AuthService) enableEmail2FA(ctx context.Context, user *models.User) (*d
 	}
 
 	// Send verification email
-	if s.Auth.EmailSender != nil {
-		if err := s.Auth.EmailSender.SendTwoFactorEmail(ctx, *user, code); err != nil {
+	if s.Auth.Config.Email.CustomSender != nil {
+		if err := s.Auth.Config.Email.CustomSender.SendTwoFactorEmail(ctx, *user, code); err != nil {
 			return nil, fmt.Errorf("failed to send verification email: %w", err)
 		}
 	}
@@ -180,8 +180,8 @@ func (s *AuthService) enableSMS2FA(ctx context.Context, user *models.User) (*dto
 	}
 
 	// Send verification SMS
-	if s.Auth.EmailSender != nil { // Assuming SMS sender is available through email sender interface
-		if err := s.Auth.EmailSender.SendTwoFactorEmail(ctx, *user, code); err != nil {
+	if s.Auth.Config.Email.CustomSender != nil { // Assuming SMS sender is available through email sender interface
+		if err := s.Auth.Config.Email.CustomSender.SendTwoFactorEmail(ctx, *user, code); err != nil {
 			return nil, fmt.Errorf("failed to send verification SMS: %w", err)
 		}
 	}
@@ -420,8 +420,8 @@ func (s *AuthService) sendEmail2FACode(ctx context.Context, user *models.User) e
 	}
 
 	// Send verification email
-	if s.Auth.EmailSender != nil {
-		if err := s.Auth.EmailSender.SendTwoFactorEmail(ctx, *user, code); err != nil {
+	if s.Auth.Config.Email.CustomSender != nil {
+		if err := s.Auth.Config.Email.CustomSender.SendTwoFactorEmail(ctx, *user, code); err != nil {
 			return fmt.Errorf("failed to send verification email: %w", err)
 		}
 	}
@@ -449,8 +449,8 @@ func (s *AuthService) sendSMS2FACode(ctx context.Context, user *models.User) err
 	}
 
 	// Send verification SMS (assuming SMS sender is available)
-	if s.Auth.EmailSender != nil {
-		if err := s.Auth.EmailSender.SendTwoFactorEmail(ctx, *user, code); err != nil {
+	if s.Auth.Config.Email.CustomSender != nil {
+		if err := s.Auth.Config.Email.CustomSender.SendTwoFactorEmail(ctx, *user, code); err != nil {
 			return fmt.Errorf("failed to send verification SMS: %w", err)
 		}
 	}

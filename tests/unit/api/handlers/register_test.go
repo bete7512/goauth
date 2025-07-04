@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bete7512/goauth/internal/schemas"
+	"github.com/bete7512/goauth/pkg/dto"
 	models "github.com/bete7512/goauth/pkg/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -41,7 +41,7 @@ func TestHandleRegister_Success(t *testing.T) {
 	mockTokenRepo.On("SaveToken", mock.AnythingOfType("string"), "refresh_token", models.RefreshToken, time.Duration(86400)).Return(nil)
 
 	// Create request
-	reqBody := schemas.RegisterRequest{
+	reqBody := dto.RegisterRequest{
 		FirstName: "John",
 		LastName:  "Doe",
 		Email:     "test@example.com",
@@ -84,7 +84,7 @@ func TestHandleRegister_EmailAlreadyExists(t *testing.T) {
 	mockUserRepo.On("GetUserByEmail", "test@example.com").Return(existingUser, nil)
 
 	// Create request
-	reqBody := schemas.RegisterRequest{
+	reqBody := dto.RegisterRequest{
 		FirstName: "John",
 		LastName:  "Doe",
 		Email:     "test@example.com",
@@ -121,7 +121,7 @@ func TestHandleRegister_DatabaseError(t *testing.T) {
 	mockUserRepo.On("GetUserByEmail", "test@example.com").Return((*models.User)(nil), errors.New("database connection failed"))
 
 	// Create request
-	reqBody := schemas.RegisterRequest{
+	reqBody := dto.RegisterRequest{
 		FirstName: "John",
 		LastName:  "Doe",
 		Email:     "test@example.com",
@@ -162,7 +162,7 @@ func TestHandleRegister_PasswordHashingError(t *testing.T) {
 	mockTokenManager.On("HashPassword", "password123").Return("", errors.New("hashing failed"))
 
 	// Create request
-	reqBody := schemas.RegisterRequest{
+	reqBody := dto.RegisterRequest{
 		FirstName: "John",
 		LastName:  "Doe",
 		Email:     "test@example.com",

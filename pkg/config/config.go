@@ -52,17 +52,18 @@ type FeaturesConfig struct {
 	EnableRecaptcha     bool
 	EnableCustomJWT     bool
 	EnableCustomStorage bool
+	EnableCSRF          bool
 }
 
 type Auth struct {
-	Config           Config
+	Config           *Config
 	Repository       interfaces.RepositoryFactory
 	HookManager      hooks.HookManager
 	TokenManager     interfaces.TokenManagerInterface
 	RateLimiter      interfaces.RateLimiter
 	RecaptchaManager interfaces.CaptchaVerifier
 	CSRFManager      interfaces.CSRFManager
-	EmailSender      interfaces.EmailSenderInterface
+	// EmailSender      interfaces.EmailSenderInterface
 	WorkerPool       pond.Pool
 	Logger           logger.Log
 }

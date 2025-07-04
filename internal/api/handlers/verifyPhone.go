@@ -10,15 +10,24 @@ import (
 
 // HandleVerifyPhone handles phone verification
 func (h *AuthHandler) HandleVerifyPhone(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		utils.RespondWithError(w, http.StatusMethodNotAllowed, "method not allowed", nil)
-		return
-	}
-
 	var req dto.PhoneVerificationRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondWithError(w, http.StatusBadRequest, "invalid request body", err)
-		return
+	if r.Method == http.MethodGet {
+		// get token and phone number
+		code := r.URL.Query().Get("code")
+		phoneNumber := r.URL.Query().Get("phone_number")
+		if code == "" || phoneNumber == "" {
+			utils.RespondWithError(w, http.StatusBadRequest, "code and phone number are required", nil)
+			return
+		}
+		req = dto.PhoneVerificationRequest{
+			Code:        code,
+			PhoneNumber: phoneNumber,
+		}
+	} else {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			utils.RespondWithError(w, http.StatusBadRequest, "invalid request body", err)
+			return
+		}
 	}
 
 	// Validate request

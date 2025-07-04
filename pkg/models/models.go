@@ -80,13 +80,27 @@ type OauthAccount struct {
 	UpdatedAt    time.Time      `gorm:"autoUpdateTime"`
 	DeletedAt    gorm.DeletedAt `json:"-" gorm:"index"`
 }
+
+type Session struct {
+	ID           string         `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	UserID       string         `gorm:"not null"`
+	RefreshToken string         `gorm:"not null"`
+	ExpiresAt    time.Time      `gorm:"not null"`
+	IP           string         `gorm:""`
+	Location     string         `gorm:""`
+	UserAgent    string         `gorm:""`
+	DeviceId     *string        `gorm:""`
+	IsActive     *bool          `gorm:"default:true;not null"`
+	CreatedAt    time.Time      `gorm:"autoCreateTime"`
+	UpdatedAt    time.Time      `gorm:"autoUpdateTime"`
+	DeletedAt    gorm.DeletedAt `json:"-" gorm:"index"`
+}
 type Token struct {
 	ID         string         `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
 	UserID     string         `gorm:"not null"`
 	TokenType  TokenType      `gorm:"not null"`
 	TokenValue string         `gorm:"not null"`
 	ActionType string         `gorm:"not null;default:''"` // e.g. "change_email", "disable_2fa"
-	DeviceId   string         `gorm:"default:null"`
 	ExpiresAt  time.Time      `gorm:"not null"`
 	Used       *bool          `gorm:"default:false;not null"`
 	CreatedAt  time.Time      `gorm:"autoCreateTime"`
@@ -118,10 +132,6 @@ type AuditLog struct {
 	UpdatedAt time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
 	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
 }
-
-// TOTPSecret
-// OauthAccount
-// BackupCode
 
 type TotpSecret struct {
 	ID        string         `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`

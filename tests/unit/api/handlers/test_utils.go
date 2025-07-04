@@ -144,6 +144,11 @@ func (m *MockRepositoryFactory) GetBackupCodeRepository() interfaces.BackupCodeR
 	return args.Get(0).(interfaces.BackupCodeRepository)
 }
 
+func (m *MockRepositoryFactory) GetSessionRepository() interfaces.SessionRepository {
+	args := m.Called()
+	return args.Get(0).(interfaces.SessionRepository)
+}
+
 // MockTokenManager struct
 type MockTokenManager struct {
 	mock.Mock
@@ -249,7 +254,7 @@ func (m *MockEmailSender) SendMagicLinkEmail(ctx context.Context, user models.Us
 	return args.Error(0)
 }
 
-func (m *MockEmailSender) SendPasswordResetEmail(ctx context.Context, user models.User, redirectUrl string) error {
+func (m *MockEmailSender) SendForgetPasswordEmail(ctx context.Context, user models.User, redirectUrl string) error {
 	args := m.Called(ctx, user, redirectUrl)
 	return args.Error(0)
 }
@@ -399,6 +404,11 @@ func (m *MockBackupCodeRepository) DeleteBackupCode(ctx context.Context, code *m
 	return args.Error(0)
 }
 
+// MockSessionRepository struct
+type MockSessionRepository struct {
+	mock.Mock
+}
+
 // Helper function to create test config
 func CreateTestConfig() config.Config {
 	return config.Config{
@@ -458,12 +468,11 @@ func CreateTestConfig() config.Config {
 				MagicLinkTTL:         10 * time.Minute,
 			},
 			Methods: config.AuthMethodsConfig{
-				Type:                  "email",
-				EnableTwoFactor:       false,
-				EnableMultiSession:    false,
-				EnableMagicLink:       false,
-				EnableSmsVerification: false,
-				TwoFactorMethod:       "",
+				Type:               "email",
+				EnableTwoFactor:    false,
+				EnableMultiSession: false,
+				EnableMagicLink:    false,
+				TwoFactorMethod:    "",
 				EmailVerification: config.EmailVerificationConfig{
 					EnableOnSignup:   false,
 					VerificationURL:  "http://localhost:3000/verify",
@@ -495,14 +504,8 @@ func CreateTestConfig() config.Config {
 			},
 		},
 		Email: config.EmailConfig{
-			Sender: config.EmailSenderConfig{
-				Type:         "sendgrid",
-				FromEmail:    "test@example.com",
-				FromName:     "Test App",
-				SupportEmail: "support@example.com",
-				CustomSender: nil,
-			},
-			Branding: config.EmailBrandingConfig{
+			SenderType: config.SendGrid,
+			Branding: config.BrandingConfig{
 				LogoURL:      "",
 				CompanyName:  "Test Company",
 				PrimaryColor: "#007bff",
@@ -522,7 +525,9 @@ func CreateTestConfig() config.Config {
 				AuthToken:  "",
 				FromNumber: "",
 			},
-			CompanyName:  "Test Company",
+			Branding: config.BrandingConfig{
+				CompanyName: "Test Company",
+			},
 			CustomSender: nil,
 		},
 		Providers: config.ProvidersConfig{
@@ -552,6 +557,7 @@ func CreateTestAuthHandler(conf config.Config) *handlers.AuthHandler {
 	mockRepoFactory := &MockRepositoryFactory{}
 	mockTokenManager := &MockTokenManager{}
 	mockCaptchaVerifier := &MockCaptchaVerifier{}
+	mockSessionRepo := &MockSessionRepository{}
 
 	mockRepoFactory.On("GetUserRepository").Return(mockUserRepo)
 	mockRepoFactory.On("GetTokenRepository").Return(mockTokenRepo)
@@ -559,10 +565,11 @@ func CreateTestAuthHandler(conf config.Config) *handlers.AuthHandler {
 	mockRepoFactory.On("GetTotpSecretRepository").Return(mockTotpSecretRepo)
 	mockRepoFactory.On("GetOauthAccountRepository").Return(mockOauthAccountRepo)
 	mockRepoFactory.On("GetBackupCodeRepository").Return(mockBackupCodeRepo)
+	mockRepoFactory.On("GetSessionRepository").Return(mockSessionRepo)
 
 	// Create auth structure using TestAuth
 	auth := &config.Auth{
-		Config:           conf,
+		Config:           &conf,
 		Repository:       mockRepoFactory,
 		TokenManager:     mockTokenManager,
 		HookManager:      hooks.NewHookManager(),
@@ -570,7 +577,7 @@ func CreateTestAuthHandler(conf config.Config) *handlers.AuthHandler {
 	}
 
 	// Set email and SMS senders in config
-	conf.Email.Sender.CustomSender = nil
+	conf.Email.CustomSender = nil
 	conf.SMS.CustomSender = nil
 
 	return &handlers.AuthHandler{Auth: auth}

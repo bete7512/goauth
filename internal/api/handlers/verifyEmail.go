@@ -10,15 +10,25 @@ import (
 
 // HandleVerifyEmail handles email verification
 func (h *AuthHandler) HandleVerifyEmail(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		utils.RespondWithError(w, http.StatusMethodNotAllowed, "method not allowed", nil)
-		return
-	}
 
 	var req dto.EmailVerificationRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondWithError(w, http.StatusBadRequest, "invalid request body", err)
-		return
+	if r.Method == http.MethodGet {
+		// get token and email
+		token := r.URL.Query().Get("token")
+		email := r.URL.Query().Get("email")
+		if token == "" || email == "" {
+			utils.RespondWithError(w, http.StatusBadRequest, "token and email are required", nil)
+			return
+		}
+		req = dto.EmailVerificationRequest{
+			Token: token,
+			Email: email,
+		}
+	} else {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			utils.RespondWithError(w, http.StatusBadRequest, "invalid request body", err)
+			return
+		}
 	}
 
 	// Validate request

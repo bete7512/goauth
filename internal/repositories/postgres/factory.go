@@ -36,3 +36,7 @@ func (f *RepositoryFactory) GetOauthAccountRepository() interfaces.OauthAccountR
 func (f *RepositoryFactory) GetBackupCodeRepository() interfaces.BackupCodeRepository {
 	return NewBackupCodeRepository(f.db)
 }
+
+func (f *RepositoryFactory) GetSessionRepository() interfaces.SessionRepository {
+	return NewSessionRepository(f.db)
+}

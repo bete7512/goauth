@@ -188,8 +188,8 @@ func (h *AuthHandler) HandleRegisterWithInvitation(w http.ResponseWriter, r *htt
 	})
 
 	// Send welcome email
-	if h.Auth.EmailSender != nil {
-		if err := h.Auth.EmailSender.SendWelcomeEmail(r.Context(), *user); err != nil {
+	if h.Auth.Config.Email.CustomSender != nil {
+		if err := h.Auth.Config.Email.CustomSender.SendWelcomeEmail(r.Context(), *user); err != nil {
 			// Log the error but don't fail the request
 			h.Auth.Logger.Errorf("Failed to send welcome email: %v", err)
 		}
