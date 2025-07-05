@@ -439,7 +439,6 @@ func CreateTestConfig() config.Config {
 		Security: config.SecurityConfig{
 			RateLimiter: config.RateLimiterConfig{
 				Enabled: false,
-				Type:    "memory",
 				Routes:  make(map[string]config.LimiterConfig),
 			},
 			Recaptcha: config.RecaptchaConfig{

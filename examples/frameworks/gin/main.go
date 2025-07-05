@@ -40,7 +40,6 @@ func main() {
 		Security: config.SecurityConfig{
 			RateLimiter: config.RateLimiterConfig{
 				Enabled: true,
-				Type:    "memory",
 				Routes: map[string]config.LimiterConfig{
 					"login": {
 						WindowSize:    60 * time.Second,

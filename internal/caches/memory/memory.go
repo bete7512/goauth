@@ -33,15 +33,15 @@ func NewCacheFactory(defaultTTL time.Duration) interfaces.CacheFactory {
 	}
 }
 
-// NewNoOpCacheFactory creates a no-op cache factory for when caching is disabled
-func NewNoOpCacheFactory() interfaces.CacheFactory {
-	return &MemoryCacheFactory{
-		cache: &MemoryCache{
-			data: make(map[string]cacheItem),
-			ttl:  0, // No TTL for no-op cache
-		},
-	}
-}
+// // NewNoOpCacheFactory creates a no-op cache factory for when caching is disabled
+// func NewNoOpCacheFactory() interfaces.CacheFactory {
+// 	return &MemoryCacheFactory{
+// 		cache: &MemoryCache{
+// 			data: make(map[string]cacheItem),
+// 			ttl:  0, // No TTL for no-op cache
+// 		},
+// 	}
+// }
 
 func (f *MemoryCacheFactory) GetCache() interfaces.Cache {
 	return f.cache

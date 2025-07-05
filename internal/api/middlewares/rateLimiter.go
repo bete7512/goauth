@@ -46,7 +46,7 @@ func (m *Middleware) RateLimiterMiddleware(limiter interfaces.RateLimiter, confi
 		}
 
 		routeConfig := config.Routes[route]
-		if !limiter.Allow(key, routeConfig.WindowSize, routeConfig.MaxRequests, routeConfig.BlockDuration) {
+		if !limiter.Allow(r.Context(), key, routeConfig.WindowSize, routeConfig.MaxRequests, routeConfig.BlockDuration) {
 			w.Header().Set("Content-Type", "application/json")
 			w.Header().Set("Retry-After", routeConfig.BlockDuration.String())
 			w.WriteHeader(http.StatusTooManyRequests)
@@ -87,7 +87,7 @@ func (m *Middleware) GlobalRateLimiterMiddleware(limiter interfaces.RateLimiter,
 		}
 
 		routeConfig := config.Routes["global"]
-		if !limiter.Allow(key, routeConfig.WindowSize, routeConfig.MaxRequests, routeConfig.BlockDuration) {
+		if !limiter.Allow(r.Context(), key, routeConfig.WindowSize, routeConfig.MaxRequests, routeConfig.BlockDuration) {
 			w.Header().Set("Content-Type", "application/json")
 			w.Header().Set("Retry-After", routeConfig.BlockDuration.String())
 			w.WriteHeader(http.StatusTooManyRequests)

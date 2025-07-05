@@ -12,8 +12,10 @@ type CustomJWTClaimsProvider interface {
 }
 
 type RateLimiter interface {
-	Allow(key string, windowSize time.Duration, maxRequests int, blockDuration time.Duration) bool
-	AllowN(key string, windowSize time.Duration, maxRequests int, blockDuration time.Duration, n int) bool
+	Allow(ctx context.Context, key string, windowSize time.Duration, maxRequests int, blockDuration time.Duration) bool
+	AllowN(ctx context.Context, key string, windowSize time.Duration, maxRequests int, blockDuration time.Duration, n int) bool
+	GetStats(ctx context.Context, key string, windowSize time.Duration) (currentRequests int64, isBlocked bool, blockedUntil time.Time)
+	Reset(ctx context.Context, key string) error
 	Close() error
 }
 

@@ -273,7 +273,7 @@ func (b *Builder) initializeRateLimiter() error {
 		return nil
 	}
 
-	rateLimiter, err := ratelimiter.New(*b.Config)
+	rateLimiter, err := ratelimiter.New(b.Auth)
 	if err != nil {
 		return fmt.Errorf("failed to create rate limiter: %w", err)
 	}

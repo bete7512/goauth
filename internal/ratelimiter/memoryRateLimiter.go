@@ -21,10 +21,10 @@ type MemoryRateLimiter struct {
 	config   config.RateLimiterConfig
 }
 
-func NewMemoryRateLimiter(conf config.Config) (*MemoryRateLimiter, error) {
+func NewMemoryRateLimiter(auth config.Auth) (*MemoryRateLimiter, error) {
 	limiter := &MemoryRateLimiter{
 		limiters: make(map[string]*LimiterEntry),
-		config:   conf.Security.RateLimiter,
+		config:   auth.Config.Security.RateLimiter,
 	}
 
 	go limiter.cleanupRoutine()
@@ -33,12 +33,12 @@ func NewMemoryRateLimiter(conf config.Config) (*MemoryRateLimiter, error) {
 }
 
 // Allow checks if a request is allowed based on rate limiting rules
-func (m *MemoryRateLimiter) Allow(key string, windowSize time.Duration, maxRequests int, blockDuration time.Duration) bool {
-	return m.AllowN(key, windowSize, maxRequests, blockDuration, 1)
+func (m *MemoryRateLimiter) Allow(ctx context.Context, key string, windowSize time.Duration, maxRequests int, blockDuration time.Duration) bool {
+	return m.AllowN(ctx, key, windowSize, maxRequests, blockDuration, 1)
 }
 
 // AllowN checks if N requests are allowed
-func (m *MemoryRateLimiter) AllowN(key string, windowSize time.Duration, maxRequests int, blockDuration time.Duration, n int) bool {
+func (m *MemoryRateLimiter) AllowN(ctx context.Context, key string, windowSize time.Duration, maxRequests int, blockDuration time.Duration, n int) bool {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
@@ -78,7 +78,7 @@ func (m *MemoryRateLimiter) AllowN(key string, windowSize time.Duration, maxRequ
 }
 
 // Reserve reserves tokens for future use
-func (m *MemoryRateLimiter) Reserve(key string, windowSize time.Duration, maxRequests int, blockDuration time.Duration) *rate.Reservation {
+func (m *MemoryRateLimiter) Reserve(ctx context.Context, key string, windowSize time.Duration, maxRequests int, blockDuration time.Duration) *rate.Reservation {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
@@ -148,6 +148,31 @@ func (m *MemoryRateLimiter) GetLimiterStats(key string) (tokens float64, isBlock
 	}
 
 	return
+}
+
+// GetStats returns current statistics for a key (implements RateLimiter interface)
+func (m *MemoryRateLimiter) GetStats(ctx context.Context, key string, windowSize time.Duration) (currentRequests int64, isBlocked bool, blockedUntil time.Time) {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	if entry, exists := m.limiters[key]; exists {
+		// Convert tokens to current requests (approximate)
+		tokens := entry.limiter.Tokens()
+		currentRequests = int64(float64(entry.limiter.Burst()) - tokens)
+		isBlocked = !entry.blocked.IsZero() && time.Now().Before(entry.blocked)
+		blockedUntil = entry.blocked
+	}
+
+	return
+}
+
+// Reset clears all rate limit data for a key
+func (m *MemoryRateLimiter) Reset(ctx context.Context, key string) error {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	delete(m.limiters, key)
+	return nil
 }
 
 // Close implemented for the RateLimiter interface

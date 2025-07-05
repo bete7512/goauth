@@ -60,16 +60,12 @@ const (
 	Slack     AuthProvider = "slack"
 	Custom    AuthProvider = "custom"
 )
-const (
-	RedisRateLimiter    RateLimiterStorageType = "redis"
-	MemoryRateLimiter   RateLimiterStorageType = "memory"
-	DatabaseRateLimiter RateLimiterStorageType = "database"
-)
 
-const (
-	RedisCSRF  CSRFStorageType = "redis"
-	MemoryCSRF CSRFStorageType = "memory"
-)
+// const (
+// 	RedisRateLimiter    RateLimiterStorageType = "redis"
+// 	MemoryRateLimiter   RateLimiterStorageType = "memory"
+// 	DatabaseRateLimiter RateLimiterStorageType = "database"
+// )
 
 const (
 	RedisCache  CacheType = "redis"

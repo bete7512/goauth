@@ -10,7 +10,6 @@ type SecurityConfig struct {
 
 type RateLimiterConfig struct {
 	Enabled bool
-	Type    RateLimiterStorageType
 	Routes  map[string]LimiterConfig
 }
 
@@ -33,7 +32,6 @@ type LimiterConfig struct {
 type CSRFConfig struct {
 	TokenLength   int
 	TokenTTL      time.Duration
-	Type          CSRFStorageType
 	Routes        map[string]bool
 	CookieEnabled bool
 	CookieConfig  CookieConfig
