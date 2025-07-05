@@ -72,6 +72,14 @@ const (
 )
 
 const (
+	RedisCache  CacheType = "redis"
+	MemoryCache CacheType = "memory"
+	ValkeyCache CacheType = "valkey"
+	CustomCache CacheType = "custom"
+	NoCache     CacheType = "none"
+)
+
+const (
 	ResponseDataKey       contextKey = "response_data"
 	ResponseStatusCodeKey contextKey = "response_status_code"
 	RequestDataKey        contextKey = "request_data"

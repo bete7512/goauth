@@ -15,12 +15,39 @@ func (h *AuthHandler) HandleGetCSRFToken(w http.ResponseWriter, r *http.Request)
 	}
 
 	userID := r.Context().Value(config.UserIDKey).(string)
-	// Call service
+
+	// Use cache service if available
+	if h.Auth.Cache != nil {
+		// Try to get existing token from cache
+		cacheKey := "csrf:" + userID
+
+		// Check if we have a cached token
+		if cachedValue, err := h.Auth.Cache.Get(r.Context(), cacheKey); err == nil {
+			// Found cached token, return it
+			if cachedToken, ok := cachedValue.(string); ok {
+				if h.Auth.Config.Security.CSRF.CookieEnabled {
+					h.setCsrfTokenCookie(w, cachedToken)
+				}
+				utils.RespondWithJSON(w, http.StatusOK, map[string]string{"message": "CSRF token retrieved from cache", "token": cachedToken})
+				return
+			}
+		}
+	}
+
+	// Call service to generate new token
 	token, err := h.authService.GetCSRFToken(r.Context(), userID)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, err.Error(), nil)
 		return
 	}
+
+	// Cache the new token if cache is available
+	if h.Auth.Cache != nil {
+		cacheKey := "csrf:" + userID
+		// Cache token for the duration of CSRF token TTL
+		h.Auth.Cache.Set(r.Context(), cacheKey, token, h.Auth.Config.Security.CSRF.TokenTTL)
+	}
+
 	if h.Auth.Config.Security.CSRF.CookieEnabled {
 		h.setCsrfTokenCookie(w, token)
 	}

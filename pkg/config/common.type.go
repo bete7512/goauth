@@ -23,3 +23,6 @@ type RateLimiterStorageType string
 
 // type CSRFStorageType string like redis, memory, etc.
 type CSRFStorageType string
+
+// type CacheType string like redis, memory, valkey, custom, none, etc.
+type CacheType string

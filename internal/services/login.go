@@ -44,6 +44,12 @@ func (s *AuthService) Login(ctx context.Context, req *dto.LoginRequest) (*dto.Lo
 		s.Auth.Logger.Errorf("Failed to update last login: %v", err)
 		return nil, errors.New("failed to update last login")
 	}
+ 
+	// Cache user
+	if err := s.Auth.Cache.Set(ctx, "user:"+user.ID, user, s.Auth.Config.AuthConfig.JWT.AccessTokenTTL); err != nil {
+		s.Auth.Logger.Errorf("Failed to cache user: %v", err)
+		return nil, errors.New("failed to cache user")
+	}
 
 	return &dto.LoginResponse{
 		Message: "login successful",

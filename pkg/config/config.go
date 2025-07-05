@@ -18,6 +18,7 @@ type Config struct {
 	// External services
 	Database  DatabaseConfig
 	Redis     RedisConfig
+	Cache     CacheConfig
 	Providers ProvidersConfig
 
 	// Communications
@@ -63,7 +64,8 @@ type Auth struct {
 	RateLimiter      interfaces.RateLimiter
 	RecaptchaManager interfaces.CaptchaVerifier
 	CSRFManager      interfaces.CSRFManager
+	Cache            interfaces.Cache
 	// EmailSender      interfaces.EmailSenderInterface
-	WorkerPool       pond.Pool
-	Logger           logger.Log
+	WorkerPool pond.Pool
+	Logger     logger.Log
 }
