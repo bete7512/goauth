@@ -21,6 +21,9 @@ func (h *AuthHandler) HandleGetCSRFToken(w http.ResponseWriter, r *http.Request)
 		utils.RespondWithError(w, http.StatusInternalServerError, err.Error(), nil)
 		return
 	}
+	if h.Auth.Config.Security.CSRF.CookieEnabled {
+		h.setCsrfTokenCookie(w, token)
+	}
 
 	utils.RespondWithJSON(w, http.StatusOK, map[string]string{"message": "CSRF token generated", "token": token})
 }

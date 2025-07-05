@@ -8,14 +8,14 @@ import (
 	"github.com/bete7512/goauth/pkg/dto"
 )
 
-// HandleResetPassword handles password reset
-func (h *AuthHandler) HandleResetPassword(w http.ResponseWriter, r *http.Request) {
+// HandleSendActionConfirmation handles sending action confirmation
+func (h *AuthHandler) HandleSendActionConfirmation(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		utils.RespondWithError(w, http.StatusMethodNotAllowed, "method not allowed", nil)
 		return
 	}
 
-	var req dto.ResetPasswordRequest
+	var req dto.ActionConfirmationRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		utils.RespondWithError(w, http.StatusBadRequest, "invalid request body", err)
 		return
@@ -27,23 +27,26 @@ func (h *AuthHandler) HandleResetPassword(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	// Get user ID from context (set by auth middleware)
+	userID := r.Context().Value("user_id").(string)
+
 	// Call service
-	if err := h.authService.ResetPassword(r.Context(), &req); err != nil {
-		utils.RespondWithError(w, http.StatusBadRequest, err.Error(), err)
+	if err := h.authService.SendActionConfirmation(r.Context(), userID, &req); err != nil {
+		utils.RespondWithError(w, http.StatusInternalServerError, err.Error(), err)
 		return
 	}
 
-	utils.RespondWithJSON(w, http.StatusOK, map[string]string{"message": "password reset successful"})
+	utils.RespondWithJSON(w, http.StatusOK, map[string]string{"message": "action confirmation sent"})
 }
 
-// ResetPassword handles password reset
-func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
+// HandleVerifyActionConfirmation handles action confirmation verification
+func (h *AuthHandler) HandleVerifyActionConfirmation(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		utils.RespondWithError(w, http.StatusMethodNotAllowed, "method not allowed", nil)
 		return
 	}
 
-	var req dto.ResetPasswordRequest
+	var req dto.ActionConfirmationVerificationRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		utils.RespondWithError(w, http.StatusBadRequest, "invalid request body", err)
 		return
@@ -55,11 +58,14 @@ func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get user ID from context (set by auth middleware)
+	userID := r.Context().Value("user_id").(string)
+
 	// Call service
-	if err := h.authService.ResetPassword(r.Context(), &req); err != nil {
+	if err := h.authService.VerifyActionConfirmation(r.Context(), userID, &req); err != nil {
 		utils.RespondWithError(w, http.StatusBadRequest, err.Error(), err)
 		return
 	}
 
-	utils.RespondWithJSON(w, http.StatusOK, map[string]string{"message": "password reset successful"})
+	utils.RespondWithJSON(w, http.StatusOK, map[string]string{"message": "action confirmed successfully"})
 }

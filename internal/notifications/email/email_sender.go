@@ -177,6 +177,8 @@ func (e *EmailSender) SendInvitationEmail(ctx context.Context, user models.User,
 	return e.sendEmail(ctx, user.Email, "You've Been Invited to Join "+e.config.Branding.CompanyName, "invitation", data)
 }
 
+
+
 func (e *EmailSender) sendEmail(ctx context.Context, to, subject, templateName string, data EmailTemplateData) error {
 	// Use Amazon SES if configured, otherwise use SendGrid as default
 	if e.config.SenderType == config.SES {

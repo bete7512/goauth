@@ -79,16 +79,16 @@ func (s *AuthService) HandleOAuthCallback(ctx context.Context, req *dto.OAuthCal
 		return nil, fmt.Errorf("failed to generate tokens: %w", err)
 	}
 
-	// Save refresh token
-	hashedRefreshToken, err := s.Auth.TokenManager.HashToken(refreshToken)
-	if err != nil {
-		return nil, fmt.Errorf("failed to hash refresh token: %w", err)
-	}
+	// // Save refresh token
+	// hashedRefreshToken, err := s.Auth.TokenManager.HashToken(refreshToken)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to hash refresh token: %w", err)
+	// }
 
-	err = s.Auth.Repository.GetTokenRepository().SaveToken(ctx, user.ID, hashedRefreshToken, models.RefreshToken, s.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to save refresh token: %w", err)
-	}
+	// err = s.Auth.Repository.GetTokenRepository().SaveToken(ctx, user.ID, hashedRefreshToken, models.RefreshToken, s.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to save refresh token: %w", err)
+	// }
 
 	// Prepare response
 	userData := &dto.UserData{

@@ -41,7 +41,7 @@ func (m *Middleware) getUserIdFromRequest(r *http.Request, cookieName string) (s
 func (m *Middleware) extractToken(r *http.Request, cookieName string) string {
 	switch m.Auth.Config.AuthConfig.Methods.Type {
 	case config.AuthenticationTypeCookie:
-		cookie, err := r.Cookie("___goauth_access_token_" + cookieName)
+		cookie, err := r.Cookie("__goauth_access_token_" + cookieName)
 		if err == nil && cookie.Value != "" {
 			return cookie.Value
 		}

@@ -59,6 +59,21 @@ func (s *SMSSender) SendVerificationSMS(ctx context.Context, user models.User, c
 	return s.SendVerificationCodeSMS(ctx, user, code)
 }
 
+func (s *SMSSender) SendMagicLoginOTPSMS(ctx context.Context, user models.User, code string) error {
+	if user.PhoneNumber == nil {
+		return fmt.Errorf("user phone number is nil")
+	}
+	message := fmt.Sprintf("Your %s magic link: %s", s.config.Branding.CompanyName, code)
+	return s.sendSMS(ctx, *user.PhoneNumber, message)
+}
+
+func (s *SMSSender) SendForgetPasswordSMS(ctx context.Context, user models.User, code string) error {
+	if user.PhoneNumber == nil {
+		return fmt.Errorf("user phone number is nil")
+	}
+	message := fmt.Sprintf("Your %s forget password code is: %s. Valid for 10 minutes.", s.config.Branding.CompanyName, code)
+	return s.sendSMS(ctx, *user.PhoneNumber, message)
+}
 func (s *SMSSender) SendWelcomeSMS(ctx context.Context, user models.User) error {
 	if user.PhoneNumber == nil {
 		return fmt.Errorf("user phone number is nil")

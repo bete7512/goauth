@@ -225,3 +225,12 @@ benchmark-report: ## Generate benchmark report
 	@mkdir -p $(COVERAGE_DIR)
 	$(GOTEST) -bench=. -benchmem -benchtime=1s ./... > $(COVERAGE_DIR)/benchmark.txt
 	@echo "Benchmark report saved to $(COVERAGE_DIR)/benchmark.txt" 
+
+.PHONY: security-scan
+security-scan: ## Run security scan
+	@echo "Running security scan..."
+	gosec ./...
+
+.PHONY: security-scan-report
+security-scan-report: ## Generate security scan report
+	 go run golang.org/x/vuln/cmd/govulncheck ./... -show verbose

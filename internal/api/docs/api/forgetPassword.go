@@ -19,9 +19,21 @@ func ForgotPasswordPath() map[string]interface{} {
 						"required": []string{"email"},
 						"properties": map[string]interface{}{
 							"email": map[string]interface{}{
-								"type":    "string",
-								"format":  "email",
-								"example": "user@example.com",
+								"type":     "string",
+								"format":   "email",
+								"example":  "user@example.com",
+								"required": false,
+							},
+							"phone": map[string]interface{}{
+								"type":     "string",
+								"example":  "+1234567890",
+								"required": false,
+							},
+							"method": map[string]interface{}{
+								"type":     "string",
+								"example":  "email",
+								"enum":     []string{"email", "phone"},
+								"required": true,
 							},
 						},
 					},

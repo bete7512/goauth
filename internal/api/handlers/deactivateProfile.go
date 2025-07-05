@@ -36,8 +36,7 @@ func (h *AuthHandler) HandleDeactivateUser(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Clear cookies after deactivation
-	clearAuthCookies(w)
+	// clearAuthCookies(w)
 
 	utils.RespondWithJSON(w, http.StatusOK, map[string]string{"message": "account deactivated successfully"})
 }

@@ -41,8 +41,6 @@ func (s *AuthService) sendEmailVerification(ctx context.Context, user *models.Us
 		}
 	}
 
-	s.Auth.Logger.Infof("=====================> Saving verification token for user %s: %s", user.ID, verificationToken)
-
 	// Save verification token
 	if err := s.Auth.Repository.GetTokenRepository().SaveToken(ctx, user.ID, hashedVerificationToken, models.EmailVerificationToken, s.Auth.Config.AuthConfig.Tokens.EmailVerificationTTL); err != nil {
 		s.Auth.Logger.Error("Failed to save verification token")
@@ -82,9 +80,6 @@ func (s *AuthService) sendPhoneVerification(ctx context.Context, user *models.Us
 		s.Auth.Logger.Error("Failed to generate OTP")
 		return err
 	}
-
-
-	s.Auth.Logger.Infof("=====================> Sending verification SMS to user %s: %s", *user.PhoneNumber, otp)
 
 	hashedOTP, err := s.Auth.TokenManager.HashToken(otp)
 	if err != nil {

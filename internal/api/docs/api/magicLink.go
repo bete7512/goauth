@@ -21,6 +21,17 @@ func SendMagicLinkPath() map[string]interface{} {
 							"email": map[string]interface{}{
 								"type":    "string",
 								"example": "user@example.com",
+								"required": false,
+							},
+							"phone": map[string]interface{}{
+								"type":    "string",
+								"example": "+1234567890",
+								"required": false,
+							},
+							"method": map[string]interface{}{
+								"type":    "string",
+								"example": "email",
+								"enum":    []string{"email", "phone"},
 							},
 						},
 					},
@@ -131,10 +142,21 @@ func VerifyMagicLinkPath() map[string]interface{} {
 							"email": map[string]interface{}{
 								"type":    "string",
 								"example": "user@example.com",
+								"required": false,
 							},
 							"token": map[string]interface{}{
 								"type":    "string",
 								"example": "123456",
+							},
+							"phone": map[string]interface{}{
+								"type":    "string",
+								"example": "+1234567890",
+								"required": false,
+							},
+							"method": map[string]interface{}{
+								"type":    "string",
+								"example": "email",
+								"enum":    []string{"email", "phone"},
 							},
 						},
 					},

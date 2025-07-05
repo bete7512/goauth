@@ -19,10 +19,11 @@ const (
 	TwoFactorMethodPush  TwoFactorMethod = "push"
 )
 const (
-	RefreshToken            TokenType = "refresh"
+	// RefreshToken            TokenType = "refresh"
 	EmailVerificationToken  TokenType = "email-verification"
 	PhoneVerificationToken  TokenType = "phone-verification"
 	PasswordResetToken      TokenType = "password-reset"
+	ForgotPasswordToken     TokenType = "forgot-password"
 	TwoFactorCode           TokenType = "two-factor"
 	MakicLinkToken          TokenType = "magic-link"
 	ActionConfirmationToken TokenType = "action-confirmation"

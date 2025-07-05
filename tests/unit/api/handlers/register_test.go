@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/bete7512/goauth/pkg/dto"
 	models "github.com/bete7512/goauth/pkg/models"
@@ -38,7 +37,7 @@ func TestHandleRegister_Success(t *testing.T) {
 	mockTokenManager.On("GenerateTokens", mock.AnythingOfType("*models.User")).Return("access_token", "refresh_token", nil)
 
 	// Mock token saving
-	mockTokenRepo.On("SaveToken", mock.AnythingOfType("string"), "refresh_token", models.RefreshToken, time.Duration(86400)).Return(nil)
+	// mockTokenRepo.On("SaveToken", mock.AnythingOfType("string"), "refresh_token", models.RefreshToken, time.Duration(86400)).Return(nil)
 
 	// Create request
 	reqBody := dto.RegisterRequest{

@@ -80,6 +80,22 @@ func ResetPasswordRequestDefinition() map[string]interface{} {
 	return map[string]interface{}{
 		"type": "object",
 		"properties": map[string]interface{}{
+			"method": map[string]interface{}{
+				"type":    "string",
+				"example": "email",
+				"enum":    []string{"email", "phone"},
+			},
+			"email": map[string]interface{}{
+				"type":    "string",
+				"format":  "email",
+				"example": "user@example.com",
+				"required": false,
+			},
+			"phone": map[string]interface{}{
+				"type":    "string",
+				"example": "+1234567890",
+				"required": false,
+			},
 			"token": map[string]interface{}{
 				"type":    "string",
 				"example": "your-reset-token-here",

@@ -81,7 +81,7 @@ func (h *AuthHandler) VerifyMagicLink(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Set cookies
-	setAuthCookies(w, response.Tokens)
+	// setAuthCookies(w, response.Tokens)
 
 	utils.RespondWithJSON(w, http.StatusOK, response)
 }

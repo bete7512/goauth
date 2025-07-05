@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/bete7512/goauth/pkg/dto"
 	models "github.com/bete7512/goauth/pkg/models"
@@ -37,7 +36,7 @@ func TestHandleLogin_Success(t *testing.T) {
 	mockTokenManager.On("GenerateTokens", testUser).Return("access_token", "refresh_token", nil)
 
 	// Mock token saving
-	mockTokenRepo.On("SaveToken", testUser.ID, "refresh_token", models.RefreshToken, time.Duration(86400)).Return(nil)
+	// mockTokenRepo.On("SaveToken", testUser.ID, "refresh_token", models.EmailVerificationToken, time.Duration(86400)).Return(nil)
 
 	// Create request
 	reqBody := dto.LoginRequest{
@@ -221,7 +220,7 @@ func TestHandleLogin_EmailNotVerified(t *testing.T) {
 	mockTokenManager.On("GenerateTokens", testUser).Return("access_token", "refresh_token", nil)
 
 	// Mock token saving
-	mockTokenRepo.On("SaveToken", testUser.ID, "refresh_token", models.RefreshToken, time.Duration(86400)).Return(nil)
+	// mockTokenRepo.On("SaveToken", testUser.ID, "refresh_token", models.RefreshToken, time.Duration(86400)).Return(nil)
 
 	// Create request
 	reqBody := dto.LoginRequest{

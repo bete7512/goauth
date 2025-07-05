@@ -180,7 +180,7 @@ func (h *AuthHandler) HandleTwoFactorLogin(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Set cookies
-	setAuthCookies(w, response.Tokens)
+	// setAuthCookies(w, response.Tokens)
 
 	utils.RespondWithJSON(w, http.StatusOK, response)
 }

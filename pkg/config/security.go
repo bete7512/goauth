@@ -31,8 +31,10 @@ type LimiterConfig struct {
 
 // CSRFConfig configuration for CSRF protection
 type CSRFConfig struct {
-	TokenLength int
-	TokenTTL    time.Duration
-	Type        CSRFStorageType
-	Routes      map[string]bool
+	TokenLength   int
+	TokenTTL      time.Duration
+	Type          CSRFStorageType
+	Routes        map[string]bool
+	CookieEnabled bool
+	CookieConfig  CookieConfig
 }

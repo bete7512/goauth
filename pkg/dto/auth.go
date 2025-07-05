@@ -48,24 +48,33 @@ type RefreshTokenResponse struct {
 
 // ForgotPasswordRequest represents forgot password request
 type ForgotPasswordRequest struct {
-	Email string `json:"email" validate:"required,email"`
+	Email  string `json:"email"`
+	Phone  string `json:"phone"`
+	Method string `json:"method" validate:"required,oneof=email phone"`
 }
 
 // ResetPasswordRequest represents password reset request
 type ResetPasswordRequest struct {
-	Token    string `json:"token" validate:"required"`
-	Password string `json:"password" validate:"required,min=8"`
+	Method      string `json:"method" validate:"required,oneof=email phone"`
+	Email       string `json:"email"`
+	Phone       string `json:"phone"`
+	Token       string `json:"token" validate:"required"`
+	NewPassword string `json:"new_password" validate:"required,min=8"`
 }
 
 // MagicLinkRequest represents magic link request
 type MagicLinkRequest struct {
-	Email string `json:"email" validate:"required,email"`
+	Email  string `json:"email"`
+	Phone  string `json:"phone"`
+	Method string `json:"method" validate:"required,oneof=email phone"`
 }
 
 // MagicLinkVerificationRequest represents magic link verification request
 type MagicLinkVerificationRequest struct {
 	Token     string `json:"token" validate:"required"`
-	Email     string `json:"email" validate:"required,email"`
+	Email     string `json:"email"`
+	Phone     string `json:"phone"`
+	Method    string `json:"method" validate:"required,oneof=email phone"`
 	Ip        string `json:"ip"`
 	UserAgent string `json:"user_agent"`
 	DeviceId  string `json:"device_id"`

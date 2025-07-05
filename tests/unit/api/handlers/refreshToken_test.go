@@ -5,9 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
-	models "github.com/bete7512/goauth/pkg/models"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -24,7 +22,7 @@ func TestHandleRefreshToken_Success(t *testing.T) {
 	testUser := CreateTestUser()
 
 	// Mock token validation
-	mockTokenRepo.On("ValidateToken", "valid_refresh_token", models.RefreshToken).Return(true, &testUser.ID, nil)
+	// mockTokenRepo.On("ValidateToken", "valid_refresh_token", models.RefreshToken).Return(true, &testUser.ID, nil)
 
 	// Mock user retrieval
 	mockUserRepo.On("GetUserByID", testUser.ID).Return(testUser, nil)
@@ -33,10 +31,10 @@ func TestHandleRefreshToken_Success(t *testing.T) {
 	mockTokenManager.On("GenerateTokens", testUser).Return("new_access_token", "new_refresh_token", nil)
 
 	// Mock new token saving
-	mockTokenRepo.On("SaveToken", testUser.ID, "new_refresh_token", models.RefreshToken, time.Duration(86400)).Return(nil)
+	// mockTokenRepo.On("SaveToken", testUser.ID, "new_refresh_token", models.RefreshToken, time.Duration(86400)).Return(nil)
 
 	// Mock old token invalidation
-	mockTokenRepo.On("InvalidateToken", testUser.ID, "valid_refresh_token", models.RefreshToken).Return(nil)
+	// mockTokenRepo.On("InvalidateToken", testUser.ID, "valid_refresh_token", models.RefreshToken).Return(nil)
 
 	// Create request with valid refresh token
 	req := httptest.NewRequest(http.MethodPost, "/refresh-token", nil)
@@ -91,7 +89,7 @@ func TestHandleRefreshToken_InvalidToken(t *testing.T) {
 	mockTokenRepo := handler.Auth.Repository.GetTokenRepository().(*MockTokenRepository)
 
 	// Mock token validation failure
-	mockTokenRepo.On("ValidateToken", "invalid_refresh_token", models.RefreshToken).Return(false, nil, assert.AnError)
+	// mockTokenRepo.On("ValidateToken", "invalid_refresh_token", models.RefreshToken).Return(false, nil, assert.AnError)
 
 	// Create request with invalid refresh token
 	req := httptest.NewRequest(http.MethodPost, "/refresh-token", nil)
@@ -127,7 +125,7 @@ func TestHandleRefreshToken_UserNotFound(t *testing.T) {
 	testUser := CreateTestUser()
 
 	// Mock token validation
-	mockTokenRepo.On("ValidateToken", "valid_refresh_token", models.RefreshToken).Return(true, &testUser.ID, nil)
+	// mockTokenRepo.On("ValidateToken", "valid_refresh_token", models.RefreshToken).Return(true, &testUser.ID, nil)
 
 	// Mock user not found
 	mockUserRepo.On("GetUserByID", testUser.ID).Return(nil, assert.AnError)
@@ -168,7 +166,7 @@ func TestHandleRefreshToken_TokenGenerationError(t *testing.T) {
 	testUser := CreateTestUser()
 
 	// Mock token validation
-	mockTokenRepo.On("ValidateToken", "valid_refresh_token", models.RefreshToken).Return(true, &testUser.ID, nil)
+	// mockTokenRepo.On("ValidateToken", "valid_refresh_token", models.RefreshToken).Return(true, &testUser.ID, nil)
 
 	// Mock user retrieval
 	mockUserRepo.On("GetUserByID", testUser.ID).Return(testUser, nil)
@@ -213,7 +211,7 @@ func TestHandleRefreshToken_TokenSavingError(t *testing.T) {
 	testUser := CreateTestUser()
 
 	// Mock token validation
-	mockTokenRepo.On("ValidateToken", "valid_refresh_token", models.RefreshToken).Return(true, &testUser.ID, nil)
+	// mockTokenRepo.On("ValidateToken", "valid_refresh_token", models.RefreshToken).Return(true, &testUser.ID, nil)
 
 	// Mock user retrieval
 	mockUserRepo.On("GetUserByID", testUser.ID).Return(testUser, nil)
@@ -222,7 +220,7 @@ func TestHandleRefreshToken_TokenSavingError(t *testing.T) {
 	mockTokenManager.On("GenerateTokens", testUser).Return("new_access_token", "new_refresh_token", nil)
 
 	// Mock new token saving error
-	mockTokenRepo.On("SaveToken", testUser.ID, "new_refresh_token", models.RefreshToken, time.Duration(86400)).Return(assert.AnError)
+	// mockTokenRepo.On("SaveToken", testUser.ID, "new_refresh_token", models.RefreshToken, time.Duration(86400)).Return(assert.AnError)
 
 	// Create request with valid refresh token
 	req := httptest.NewRequest(http.MethodPost, "/refresh-token", nil)
@@ -278,7 +276,7 @@ func TestHandleRefreshToken_WithBearerToken(t *testing.T) {
 	testUser := CreateTestUser()
 
 	// Mock token validation
-	mockTokenRepo.On("ValidateToken", "bearer_refresh_token", models.RefreshToken).Return(true, &testUser.ID, nil)
+	// mockTokenRepo.On("ValidateToken", "bearer_refresh_token", models.RefreshToken).Return(true, &testUser.ID, nil)
 
 	// Mock user retrieval
 	mockUserRepo.On("GetUserByID", testUser.ID).Return(testUser, nil)
@@ -287,10 +285,10 @@ func TestHandleRefreshToken_WithBearerToken(t *testing.T) {
 	mockTokenManager.On("GenerateTokens", testUser).Return("new_access_token", "new_refresh_token", nil)
 
 	// Mock new token saving
-	mockTokenRepo.On("SaveToken", testUser.ID, "new_refresh_token", models.RefreshToken, time.Duration(86400)).Return(nil)
+	// mockTokenRepo.On("SaveToken", testUser.ID, "new_refresh_token", models.RefreshToken, time.Duration(86400)).Return(nil)
 
 	// Mock old token invalidation
-	mockTokenRepo.On("InvalidateToken", testUser.ID, "bearer_refresh_token", models.RefreshToken).Return(nil)
+	// mockTokenRepo.On("InvalidateToken", testUser.ID, "bearer_refresh_token", models.RefreshToken).Return(nil)
 
 	// Create request with bearer refresh token
 	req := httptest.NewRequest(http.MethodPost, "/refresh-token", nil)
