@@ -15,6 +15,7 @@ import type { SidebarsConfig } from "@docusaurus/plugin-content-docs";
 const sidebars: SidebarsConfig = {
   // By default, Docusaurus generates a sidebar from the docs folder structure
   tutorialSidebar: [
+    "index",
     "intro",
     "installation",
     "quickstart",
@@ -60,6 +61,11 @@ const sidebars: SidebarsConfig = {
       items: ["examples/basic-auth"],
     },
   ],
+
+  // API Documentation Sidebar
+  apiSidebar: ["api/endpoints"],
+
+
 };
 
 export default sidebars;

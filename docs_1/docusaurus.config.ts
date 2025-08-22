@@ -46,8 +46,13 @@ const config: Config = {
           // Please change this to your repo.
           // Remove this to remove the "edit this page" links.
           editUrl: "https://github.com/your-org/goauth/tree/main/docs/",
+          routeBasePath: "docs",
+          path: "docs",
         },
-        blog: false, // Disable blog since we don't have one
+        blog: {
+          showReadingTime: true,
+          editUrl: "https://github.com/your-org/goauth/tree/main/blog/",
+        },
         theme: {
           customCss: "./src/css/custom.css",
         },
@@ -58,6 +63,17 @@ const config: Config = {
   themeConfig: {
     // Replace with your project's social card
     image: "img/goauth-social-card.jpg",
+
+    // Announcement Banner
+    announcementBar: {
+      id: "goauth-version-banner",
+      content:
+        '🚀 GoAuth v1.0.0 - Now with enhanced security features! <a href="https://github.com/your-org/goauth/releases" target="_blank" rel="noopener noreferrer">View Release Notes →</a>',
+      backgroundColor: "#667eea",
+      textColor: "#ffffff",
+      isCloseable: true,
+    },
+
     navbar: {
       title: "GoAuth",
       logo: {
@@ -72,43 +88,53 @@ const config: Config = {
           label: "Docs",
         },
         {
-          type: "dropdown",
-          label: "Features",
+          to: "/docs/api/endpoints",
           position: "left",
-          items: [
-            {
-              label: "OAuth",
-              to: "/docs/features/oauth",
-            },
-            {
-              label: "JWT",
-              to: "/docs/features/jwt",
-            },
-            {
-              label: "Two-Factor Auth",
-              to: "/docs/features/two-factor",
-            },
-            {
-              label: "Security",
-              to: "/docs/features/security",
-            },
-          ],
+          label: "API",
+        },
+        {
+          to: "/docs/showcase",
+          position: "left",
+          label: "Showcase",
+        },
+        {
+          to: "/blog",
+          label: "Blog",
+          position: "left",
+        },
+        {
+          to: "/docs/community",
+          position: "left",
+          label: "Community",
         },
         {
           type: "dropdown",
-          label: "Frameworks",
-          position: "left",
-          items: [
-            {
-              label: "Gin",
-              to: "/docs/frameworks/gin",
-            },
-          ],
-        },
-        {
-          href: "https://github.com/your-org/goauth",
-          label: "GitHub",
+          label: "v1.0.0",
           position: "right",
+          className: "version-dropdown",
+          items: [
+            {
+              label: "v1.0.0 (Latest)",
+              href: "https://github.com/your-org/goauth/releases/tag/v1.0.0",
+            },
+            {
+              label: "v0.9.0",
+              href: "https://github.com/your-org/goauth/releases/tag/v0.9.0",
+            },
+            {
+              label: "View all releases",
+              href: "https://github.com/your-org/goauth/releases",
+            },
+          ],
+        },
+        {
+          type: "localeDropdown",
+          position: "right",
+        },
+        {
+          href: "https://github.com/bete7512/goauth",
+          position: "right",
+          className: "github-link",
         },
       ],
     },
