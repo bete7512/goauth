@@ -1,16 +1,16 @@
 package oauthRoutes
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"time"
 
+	"github.com/bete7512/goauth/internal/services"
 	"github.com/bete7512/goauth/internal/utils"
 	"github.com/bete7512/goauth/pkg/config"
-	"github.com/bete7512/goauth/pkg/models"
+	"github.com/bete7512/goauth/pkg/dto"
 	"golang.org/x/oauth2"
 )
 
@@ -27,10 +27,13 @@ func NewTwitterOauth(auth *config.Auth) *TwitterOauth {
 // TwitterUserInfo represents the user information returned by Twitter
 type TwitterUserInfo struct {
 	ID              string `json:"id"`
-	Name            string `json:"name"`
 	Username        string `json:"username"`
+	Name            string `json:"name"`
+	Email           string `json:"email"`
 	ProfileImageURL string `json:"profile_image_url"`
-	Email           string `json:"email,omitempty"` // Only available if email scope is granted
+	Verified        bool   `json:"verified"`
+	Protected       bool   `json:"protected"`
+	CreatedAt       string `json:"created_at"`
 }
 
 // getTwitterOAuthConfig creates the OAuth2 config for Twitter
@@ -40,9 +43,9 @@ func (t *TwitterOauth) getTwitterOAuthConfig() *oauth2.Config {
 		ClientSecret: t.Auth.Config.Providers.Twitter.ClientSecret,
 		RedirectURL:  t.Auth.Config.Providers.Twitter.RedirectURL,
 		Scopes: []string{
-			"users.read",
 			"tweet.read",
-			"email", // To get user's email
+			"users.read",
+			"offline.access",
 		},
 		Endpoint: oauth2.Endpoint{
 			AuthURL:  "https://twitter.com/i/oauth2/authorize",
@@ -53,10 +56,11 @@ func (t *TwitterOauth) getTwitterOAuthConfig() *oauth2.Config {
 
 // SignIn initiates the Twitter OAuth flow
 func (t *TwitterOauth) SignIn(w http.ResponseWriter, r *http.Request) {
-	config := t.getTwitterOAuthConfig()
+	// Create service instance
+	service := services.NewAuthService(t.Auth)
 
-	// Generate a random state for CSRF protection
-	state, err := t.Auth.TokenManager.GenerateRandomToken(32)
+	// Generate OAuth state using service
+	stateResponse, err := service.GenerateOAuthState(r.Context(), dto.Twitter)
 	if err != nil {
 		utils.RespondWithError(
 			w,
@@ -67,10 +71,22 @@ func (t *TwitterOauth) SignIn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get OAuth sign-in URL using service
+	url, err := service.GetOAuthSignInURL(r.Context(), dto.Twitter, stateResponse.State)
+	if err != nil {
+		utils.RespondWithError(
+			w,
+			http.StatusInternalServerError,
+			"Failed to generate sign-in URL",
+			err,
+		)
+		return
+	}
+
 	// Store state in a cookie
 	stateCookie := &http.Cookie{
 		Name:     "oauth_state",
-		Value:    state,
+		Value:    stateResponse.State,
 		Path:     "/",
 		HttpOnly: true,
 		Secure:   r.TLS != nil,
@@ -79,48 +95,7 @@ func (t *TwitterOauth) SignIn(w http.ResponseWriter, r *http.Request) {
 	}
 	http.SetCookie(w, stateCookie)
 
-	// Generate PKCE code challenge (Twitter OAuth 2.0 requires PKCE)
-	codeVerifier, err := t.Auth.TokenManager.GenerateRandomToken(64)
-	if err != nil {
-		utils.RespondWithError(
-			w,
-			http.StatusInternalServerError,
-			"Failed to generate code verifier",
-			err,
-		)
-		return
-	}
-
-	// Store code verifier in a cookie
-	codeVerifierCookie := &http.Cookie{
-		Name:     "code_verifier",
-		Value:    codeVerifier,
-		Path:     "/",
-		HttpOnly: true,
-		Secure:   r.TLS != nil,
-		SameSite: http.SameSiteLaxMode,
-		MaxAge:   int(time.Hour.Seconds()),
-	}
-	http.SetCookie(w, codeVerifierCookie)
-
-	// Create code challenge for PKCE
-	codeChallenge, err := utils.GeneratePKCECodeChallenge(codeVerifier)
-	if err != nil {
-		utils.RespondWithError(
-			w,
-			http.StatusInternalServerError,
-			"Failed to generate code challenge",
-			err,
-		)
-		return
-	}
-
-	// Redirect user to Twitter's consent page with PKCE
-	opts := []oauth2.AuthCodeOption{
-		oauth2.SetAuthURLParam("code_challenge", codeChallenge),
-		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
-	}
-	url := config.AuthCodeURL(state, opts...)
+	// Redirect user to Twitter's consent page
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
@@ -143,132 +118,79 @@ func (t *TwitterOauth) Callback(w http.ResponseWriter, r *http.Request) {
 			w,
 			http.StatusBadRequest,
 			"Invalid state parameter",
-			nil,
-		)
-		return
-	}
-
-	// Get code verifier from cookie for PKCE
-	codeVerifierCookie, err := r.Cookie("code_verifier")
-	if err != nil {
-		utils.RespondWithError(
-			w,
-			http.StatusBadRequest,
-			"Code verifier cookie not found",
 			err,
 		)
 		return
 	}
 
-	// Exchange the authorization code for a token with PKCE
-	code := r.FormValue("code")
-	config := t.getTwitterOAuthConfig()
+	// Create service instance
+	service := services.NewAuthService(t.Auth)
 
-	opts := []oauth2.AuthCodeOption{
-		oauth2.SetAuthURLParam("code_verifier", codeVerifierCookie.Value),
+	// Prepare callback request
+	req := &dto.OAuthCallbackRequest{
+		Provider: dto.Twitter,
+		Code:     r.FormValue("code"),
+		State:    r.FormValue("state"),
 	}
-	token, err := config.Exchange(context.Background(), code, opts...)
+
+	// Handle OAuth callback using service
+	response, err := service.HandleOAuthCallback(r.Context(), req)
 	if err != nil {
 		utils.RespondWithError(
 			w,
 			http.StatusInternalServerError,
-			"Failed to exchange token: "+err.Error(),
+			"OAuth callback failed: "+err.Error(),
 			err,
 		)
 		return
 	}
 
-	// Get user info from Twitter
-	userInfo, err := t.getUserInfo(token.AccessToken)
-	if err != nil {
-		utils.RespondWithError(
-			w,
-			http.StatusInternalServerError,
-			"Failed to get user info: "+err.Error(),
-			err,
-		)
-		return
+	// Set authentication cookies if tokens are provided
+	if response.Tokens != nil {
+		// Set access token cookie
+		accessTokenCookie := &http.Cookie{
+			Name:     t.Auth.Config.AuthConfig.Cookie.Name,
+			Value:    response.Tokens.AccessToken,
+			Path:     t.Auth.Config.AuthConfig.Cookie.Path,
+			HttpOnly: true,
+			Secure:   r.TLS != nil,
+			SameSite: http.SameSiteLaxMode,
+			MaxAge:   int(t.Auth.Config.AuthConfig.JWT.AccessTokenTTL.Seconds()),
+		}
+		http.SetCookie(w, accessTokenCookie)
+
+		// Set refresh token cookie
+		refreshTokenCookie := &http.Cookie{
+			Name:     "refresh_token",
+			Value:    response.Tokens.RefreshToken,
+			Path:     t.Auth.Config.AuthConfig.Cookie.Path,
+			HttpOnly: true,
+			Secure:   r.TLS != nil,
+			SameSite: http.SameSiteLaxMode,
+			MaxAge:   int(t.Auth.Config.AuthConfig.JWT.RefreshTokenTTL.Seconds()),
+		}
+		http.SetCookie(w, refreshTokenCookie)
 	}
 
-	// Create or update user in your system
-	// Note: Twitter might not always provide an email
-	user := models.User{
-		Email:       userInfo.Email, // This might be empty
-		FirstName:   userInfo.Name,
-		LastName:    "", // Twitter doesn't provide separate first/last name
-		SignedUpVia: "twitter",
-		ProviderId:  &userInfo.ID,
-		Avatar:      &userInfo.ProfileImageURL,
-	}
-
-	// Handle the case where email is not provided
-	if userInfo.Email == "" {
-		// Option 1: Generate a placeholder email using the Twitter username
-		user.Email = fmt.Sprintf("%s@twitter.placeholder", userInfo.Username)
-
-		// Option 2: You could redirect to a page asking for the email
-		// This would need additional handling on the frontend
-	}
-
-	err = t.Auth.Repository.GetUserRepository().UpsertUserByEmail(r.Context(), &user)
-	if err != nil {
-		utils.RespondWithError(
-			w,
-			http.StatusInternalServerError,
-			"Failed to create/update user: "+err.Error(),
-			err,
-		)
-		return
-	}
-
-	// Generate tokens
-	accessToken, refreshToken, err := t.Auth.TokenManager.GenerateTokens(&user)
-	if err != nil {
-		utils.RespondWithError(
-			w,
-			http.StatusInternalServerError,
-			"Failed to generate authentication tokens",
-			err,
-		)
-		return
-	}
-
-	// Save refresh token
-	err = t.Auth.Repository.GetTokenRepository().SaveToken(r.Context(), user.ID, refreshToken, models.RefreshToken, t.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
-	if err != nil {
-		utils.RespondWithError(
-			w,
-			http.StatusInternalServerError,
-			"Failed to save refresh token",
-			err,
-		)
-		return
-	}
-
-	// Set the token in a cookie or return it in the response
-	tokenCookie := &http.Cookie{
-		Name:     t.Auth.Config.AuthConfig.Cookie.Name,
-		Value:    accessToken,
-		Path:     t.Auth.Config.AuthConfig.Cookie.Path,
+	// Clear the OAuth state cookie
+	stateCookie = &http.Cookie{
+		Name:     "oauth_state",
+		Value:    "",
+		Path:     "/",
 		HttpOnly: true,
 		Secure:   r.TLS != nil,
 		SameSite: http.SameSiteLaxMode,
-		MaxAge:   int(t.Auth.Config.AuthConfig.JWT.AccessTokenTTL.Seconds()),
+		MaxAge:   -1,
 	}
-	http.SetCookie(w, tokenCookie)
+	http.SetCookie(w, stateCookie)
 
 	// Redirect to the frontend
 	http.Redirect(w, r, t.Auth.Config.App.FrontendURL, http.StatusTemporaryRedirect)
 }
 
-// getUserInfo fetches the user information from Twitter API
+// getUserInfo gets user information from Twitter
 func (t *TwitterOauth) getUserInfo(accessToken string) (*TwitterUserInfo, error) {
-	// Twitter v2 API endpoint for user info
-	url := "https://api.twitter.com/2/users/me?user.fields=id,name,username,profile_image_url"
-
-	// Include email field if available
-	url += ",email"
-
+	url := "https://api.twitter.com/2/users/me?user.fields=id,username,name,email,profile_image_url,verified,protected,created_at"
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
@@ -276,24 +198,29 @@ func (t *TwitterOauth) getUserInfo(accessToken string) (*TwitterUserInfo, error)
 
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("failed to get user info: %s", body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
 	}
 
-	// Twitter API wraps the user data in a "data" field
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to get user info: %s", string(body))
+	}
+
+	// Twitter API v2 returns data in a wrapper object
 	var response struct {
 		Data TwitterUserInfo `json:"data"`
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+	err = json.Unmarshal(body, &response)
+	if err != nil {
 		return nil, err
 	}
 

@@ -3,48 +3,45 @@ package config
 import "github.com/bete7512/goauth/pkg/interfaces"
 
 type SendGridConfig struct {
-	APIKey string
+	FromEmail string
+	FromName  string
+	APIKey    string
 }
 
 type SESConfig struct {
+	FromEmail       string
+	FromName        string
 	Region          string
 	AccessKeyID     string
 	SecretAccessKey string
 }
 
 type EmailConfig struct {
-	// Sender configuration
-	Sender EmailSenderConfig
-
-	// Email content/branding
-	Branding EmailBrandingConfig
-
-	// Provider-specific configs
+	SenderType EmailSenderType
+	// Branding
+	Branding BrandingConfig
+	// Sendgrid config
 	SendGrid SendGridConfig
-	SES      SESConfig
-}
-
-type EmailSenderConfig struct {
-	Type         SenderType
-	FromEmail    string
-	FromName     string
-	SupportEmail string
+	// Ses config
+	SES SESConfig
+	// Custom sender
 	CustomSender interfaces.EmailSenderInterface
 }
 
-type EmailBrandingConfig struct {
+type BrandingConfig struct {
 	LogoURL      string
 	CompanyName  string
 	PrimaryColor string
+	SupportEmail string
 }
 
 // config/sms.go
 type SMSConfig struct {
+	// Branding
+	Branding BrandingConfig
 	// Twilio config
 	Twilio TwilioConfig
-
-	// Branding
-	CompanyName  string
+	// Custom sender
 	CustomSender interfaces.SMSSenderInterface
 }
 

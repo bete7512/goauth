@@ -208,7 +208,7 @@ func TestHandleGetUser_WithCookieToken(t *testing.T) {
 	// Create request with cookie token
 	req := httptest.NewRequest(http.MethodGet, "/me", nil)
 	req.AddCookie(&http.Cookie{
-		Name:  "___goauth_access_token_auth_token",
+		Name:  "__goauth_access_token_auth_token",
 		Value: "cookie_token",
 	})
 	w := httptest.NewRecorder()

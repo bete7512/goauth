@@ -1,16 +1,16 @@
 package oauthRoutes
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"time"
 
+	"github.com/bete7512/goauth/internal/services"
 	"github.com/bete7512/goauth/internal/utils"
 	"github.com/bete7512/goauth/pkg/config"
-	"github.com/bete7512/goauth/pkg/models"
+	"github.com/bete7512/goauth/pkg/dto"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/facebook"
 )
@@ -29,12 +29,10 @@ func NewFacebookOauth(auth *config.Auth) *FacebookOauth {
 
 // FacebookUserInfo represents the user information returned by Facebook
 type FacebookUserInfo struct {
-	ID        string `json:"id"`
-	Email     string `json:"email"`
-	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
-	Name      string `json:"name"`
-	Picture   struct {
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Email   string `json:"email"`
+	Picture struct {
 		Data struct {
 			URL string `json:"url"`
 		} `json:"data"`
@@ -57,10 +55,11 @@ func (f *FacebookOauth) getFacebookOAuthConfig() *oauth2.Config {
 
 // SignIn initiates the Facebook OAuth flow
 func (f *FacebookOauth) SignIn(w http.ResponseWriter, r *http.Request) {
-	config := f.getFacebookOAuthConfig()
+	// Create service instance
+	service := services.NewAuthService(f.Auth)
 
-	// Generate a random state for CSRF protection
-	state, err := f.Auth.TokenManager.GenerateRandomToken(32)
+	// Generate OAuth state using service
+	stateResponse, err := service.GenerateOAuthState(r.Context(), dto.Facebook)
 	if err != nil {
 		utils.RespondWithError(
 			w,
@@ -71,10 +70,22 @@ func (f *FacebookOauth) SignIn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get OAuth sign-in URL using service
+	url, err := service.GetOAuthSignInURL(r.Context(), dto.Facebook, stateResponse.State)
+	if err != nil {
+		utils.RespondWithError(
+			w,
+			http.StatusInternalServerError,
+			"Failed to generate sign-in URL",
+			err,
+		)
+		return
+	}
+
 	// Store state in a cookie
 	stateCookie := &http.Cookie{
 		Name:     "oauth_state",
-		Value:    state,
+		Value:    stateResponse.State,
 		Path:     "/",
 		HttpOnly: true,
 		Secure:   r.TLS != nil,
@@ -84,7 +95,6 @@ func (f *FacebookOauth) SignIn(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, stateCookie)
 
 	// Redirect user to Facebook's consent page
-	url := config.AuthCodeURL(state, oauth2.AccessTypeOffline)
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
@@ -112,111 +122,98 @@ func (f *FacebookOauth) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Exchange the authorization code for a token
-	code := r.FormValue("code")
-	config := f.getFacebookOAuthConfig()
+	// Create service instance
+	service := services.NewAuthService(f.Auth)
 
-	token, err := config.Exchange(context.Background(), code)
+	// Prepare callback request
+	req := &dto.OAuthCallbackRequest{
+		Provider: dto.Facebook,
+		Code:     r.FormValue("code"),
+		State:    r.FormValue("state"),
+	}
+
+	// Handle OAuth callback using service
+	response, err := service.HandleOAuthCallback(r.Context(), req)
 	if err != nil {
 		utils.RespondWithError(
 			w,
 			http.StatusInternalServerError,
-			"Failed to exchange token: "+err.Error(),
+			"OAuth callback failed: "+err.Error(),
 			err,
 		)
 		return
 	}
 
-	// Get user info from Facebook
-	userInfo, err := f.getUserInfo(token.AccessToken)
-	if err != nil {
-		utils.RespondWithError(
-			w,
-			http.StatusInternalServerError,
-			"Failed to get user info: "+err.Error(),
-			err,
-		)
-		return
+	// Set authentication cookies if tokens are provided
+	if response.Tokens != nil {
+		// Set access token cookie
+		accessTokenCookie := &http.Cookie{
+			Name:     f.Auth.Config.AuthConfig.Cookie.Name,
+			Value:    response.Tokens.AccessToken,
+			Path:     f.Auth.Config.AuthConfig.Cookie.Path,
+			HttpOnly: true,
+			Secure:   r.TLS != nil,
+			SameSite: http.SameSiteLaxMode,
+			MaxAge:   int(f.Auth.Config.AuthConfig.JWT.AccessTokenTTL.Seconds()),
+		}
+		http.SetCookie(w, accessTokenCookie)
+
+		// Set refresh token cookie
+		refreshTokenCookie := &http.Cookie{
+			Name:     "refresh_token",
+			Value:    response.Tokens.RefreshToken,
+			Path:     f.Auth.Config.AuthConfig.Cookie.Path,
+			HttpOnly: true,
+			Secure:   r.TLS != nil,
+			SameSite: http.SameSiteLaxMode,
+			MaxAge:   int(f.Auth.Config.AuthConfig.JWT.RefreshTokenTTL.Seconds()),
+		}
+		http.SetCookie(w, refreshTokenCookie)
 	}
 
-	// Create or update user in your system
-	avatarURL := userInfo.Picture.Data.URL
-	user := models.User{
-		Email:       userInfo.Email,
-		FirstName:   userInfo.FirstName,
-		LastName:    userInfo.LastName,
-		SignedUpVia: "facebook",
-		ProviderId:  &userInfo.ID,
-		Avatar:      &avatarURL,
-	}
-
-	err = f.Auth.Repository.GetUserRepository().UpsertUserByEmail(r.Context(), &user)
-	if err != nil {
-		utils.RespondWithError(
-			w,
-			http.StatusInternalServerError,
-			"Failed to create/update user: "+err.Error(),
-			err,
-		)
-		return
-	}
-
-	// Generate tokens
-	accessToken, refreshToken, err := f.Auth.TokenManager.GenerateTokens(&user)
-	if err != nil {
-		utils.RespondWithError(
-			w,
-			http.StatusInternalServerError,
-			"Failed to generate authentication tokens",
-			err,
-		)
-		return
-	}
-
-	// Save refresh token
-	err = f.Auth.Repository.GetTokenRepository().SaveToken(r.Context(), user.ID, refreshToken, models.RefreshToken, f.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
-	if err != nil {
-		utils.RespondWithError(
-			w,
-			http.StatusInternalServerError,
-			"Failed to save refresh token",
-			err,
-		)
-		return
-	}
-
-	// Set the token in a cookie
-	tokenCookie := &http.Cookie{
-		Name:     f.Auth.Config.AuthConfig.Cookie.Name,
-		Value:    accessToken,
-		Path:     f.Auth.Config.AuthConfig.Cookie.Path,
+	// Clear the OAuth state cookie
+	stateCookie = &http.Cookie{
+		Name:     "oauth_state",
+		Value:    "",
+		Path:     "/",
 		HttpOnly: true,
 		Secure:   r.TLS != nil,
 		SameSite: http.SameSiteLaxMode,
-		MaxAge:   int(f.Auth.Config.AuthConfig.JWT.AccessTokenTTL.Seconds()),
+		MaxAge:   -1,
 	}
-	http.SetCookie(w, tokenCookie)
+	http.SetCookie(w, stateCookie)
 
 	// Redirect to the frontend
 	http.Redirect(w, r, f.Auth.Config.App.FrontendURL, http.StatusTemporaryRedirect)
 }
 
-// getUserInfo fetches the user information from Facebook API
+// getUserInfo gets user information from Facebook
 func (f *FacebookOauth) getUserInfo(accessToken string) (*FacebookUserInfo, error) {
-	url := "https://graph.facebook.com/me?fields=id,name,email,first_name,last_name,picture&access_token=" + accessToken
-	resp, err := http.Get(url)
+	url := "https://graph.facebook.com/me?fields=id,name,email,picture&access_token=" + accessToken
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("failed to get user info: %s", body)
+		return nil, fmt.Errorf("failed to get user info: %s", string(body))
 	}
 
 	var userInfo FacebookUserInfo
-	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
+	err = json.Unmarshal(body, &userInfo)
+	if err != nil {
 		return nil, err
 	}
 

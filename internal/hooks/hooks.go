@@ -3,7 +3,6 @@ package hooks
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 )
 
@@ -47,7 +46,6 @@ func (h *HookManager) RegisterBeforeHook(route string, hook RouteHook) error {
 
 // RegisterAfterHook adds a hook to be executed after a route
 func (h *HookManager) RegisterAfterHook(route string, hook RouteHook) error {
-
 	_, exists := h.Hooks[route]
 	if !exists {
 		h.Hooks[route] = &RouteHooks{
@@ -115,7 +113,6 @@ func (h *HookManager) GetAfterHook(route string) *RouteHook {
 		return nil
 	}
 
-	log.Println("h.Hooks", h.Hooks)
 	if hooks, exists := h.Hooks[route]; exists && hooks.After != nil {
 		return &hooks.After
 	}

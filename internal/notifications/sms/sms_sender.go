@@ -22,7 +22,7 @@ func (s *SMSSender) SendMagicLink(ctx context.Context, user models.User, redirec
 	if user.PhoneNumber == nil {
 		return fmt.Errorf("user phone number is nil")
 	}
-	message := fmt.Sprintf("Your %s magic link: %s", s.config.CompanyName, redirectURL)
+	message := fmt.Sprintf("Your %s magic link: %s", s.config.Branding.CompanyName, redirectURL)
 	return s.sendSMS(ctx, *user.PhoneNumber, message)
 }
 
@@ -39,7 +39,7 @@ func (s *SMSSender) SendTwoFactorCodeSMS(ctx context.Context, user models.User, 
 	if user.PhoneNumber == nil {
 		return fmt.Errorf("user phone number is nil")
 	}
-	message := fmt.Sprintf("Your %s verification code is: %s. Valid for 10 minutes.", s.config.CompanyName, code)
+	message := fmt.Sprintf("Your %s verification code is: %s. Valid for 10 minutes.", s.config.Branding.CompanyName, code)
 	return s.sendSMS(ctx, *user.PhoneNumber, message)
 }
 
@@ -51,7 +51,7 @@ func (s *SMSSender) SendVerificationCodeSMS(ctx context.Context, user models.Use
 	if user.PhoneNumber == nil {
 		return fmt.Errorf("user phone number is nil")
 	}
-	message := fmt.Sprintf("Your %s verification code is: %s. Valid for 10 minutes.", s.config.CompanyName, code)
+	message := fmt.Sprintf("Your %s verification code is: %s. Valid for 10 minutes.", s.config.Branding.CompanyName, code)
 	return s.sendSMS(ctx, *user.PhoneNumber, message)
 }
 
@@ -59,11 +59,26 @@ func (s *SMSSender) SendVerificationSMS(ctx context.Context, user models.User, c
 	return s.SendVerificationCodeSMS(ctx, user, code)
 }
 
+func (s *SMSSender) SendMagicLoginOTPSMS(ctx context.Context, user models.User, code string) error {
+	if user.PhoneNumber == nil {
+		return fmt.Errorf("user phone number is nil")
+	}
+	message := fmt.Sprintf("Your %s magic link: %s", s.config.Branding.CompanyName, code)
+	return s.sendSMS(ctx, *user.PhoneNumber, message)
+}
+
+func (s *SMSSender) SendForgetPasswordSMS(ctx context.Context, user models.User, code string) error {
+	if user.PhoneNumber == nil {
+		return fmt.Errorf("user phone number is nil")
+	}
+	message := fmt.Sprintf("Your %s forget password code is: %s. Valid for 10 minutes.", s.config.Branding.CompanyName, code)
+	return s.sendSMS(ctx, *user.PhoneNumber, message)
+}
 func (s *SMSSender) SendWelcomeSMS(ctx context.Context, user models.User) error {
 	if user.PhoneNumber == nil {
 		return fmt.Errorf("user phone number is nil")
 	}
-	message := fmt.Sprintf("Welcome to %s! Your account has been successfully created.", s.config.CompanyName)
+	message := fmt.Sprintf("Welcome to %s! Your account has been successfully created.", s.config.Branding.CompanyName)
 	return s.sendSMS(ctx, *user.PhoneNumber, message)
 }
 

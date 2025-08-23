@@ -1,115 +1,160 @@
 package handlers
 
 import (
-	"context"
-	"errors"
-	"fmt"
-
-	responseErrors "github.com/bete7512/goauth/internal/api/handlers/errors"
-	"github.com/bete7512/goauth/pkg/models"
-
-	"gorm.io/gorm"
+	"net/http"
+	"time"
 )
 
-// setupEmailVerification sets up email verification for a user
-func (h *AuthRoutes) setupEmailVerification(ctx context.Context, user *models.User) error {
-	if h.Auth.Config.Email.Sender.CustomSender == nil {
-		return errors.New("email sender not configured")
+// setAccessTokenCookie sets a secure access token cookie
+func (h *AuthHandler) setAccessTokenCookie(w http.ResponseWriter, accessToken string) {
+	cookie := &http.Cookie{
+		Name:     "__goauth_access_token_" + h.Auth.Config.AuthConfig.Cookie.Name,
+		Value:    accessToken,
+		Expires:  time.Now().Add(h.Auth.Config.AuthConfig.JWT.AccessTokenTTL),
+		Domain:   h.Auth.Config.AuthConfig.Cookie.Domain,
+		Path:     h.Auth.Config.AuthConfig.Cookie.Path,
+		Secure:   h.Auth.Config.AuthConfig.Cookie.Secure,
+		HttpOnly: h.Auth.Config.AuthConfig.Cookie.HttpOnly,
+		SameSite: h.Auth.Config.AuthConfig.Cookie.SameSite,
+		MaxAge:   int(h.Auth.Config.AuthConfig.JWT.AccessTokenTTL.Seconds()),
 	}
 
-	// Generate verification token
-	verificationToken, err := h.Auth.TokenManager.GenerateRandomToken(32)
-	if err != nil {
-		return fmt.Errorf("failed to generate verification token: %w", err)
+	http.SetCookie(w, cookie)
+}
+
+func (h *AuthHandler) setRefreshTokenCookie(w http.ResponseWriter, refreshToken string) {
+	cookie := &http.Cookie{
+		Name:     "___goauth_refresh_token_" + h.Auth.Config.AuthConfig.Cookie.Name,
+		Value:    refreshToken,
+		Expires:  time.Now().Add(h.Auth.Config.AuthConfig.JWT.RefreshTokenTTL),
+		Domain:   h.Auth.Config.AuthConfig.Cookie.Domain,
+		Path:     h.Auth.Config.AuthConfig.Cookie.Path,
+		Secure:   h.Auth.Config.AuthConfig.Cookie.Secure,
+		HttpOnly: h.Auth.Config.AuthConfig.Cookie.HttpOnly,
+		SameSite: h.Auth.Config.AuthConfig.Cookie.SameSite,
+		MaxAge:   int(h.Auth.Config.AuthConfig.JWT.RefreshTokenTTL.Seconds()),
 	}
-
-	hashedVerificationToken, err := h.Auth.TokenManager.HashToken(verificationToken)
-	if err != nil {
-		return fmt.Errorf("failed to hash verification token: %w", err)
+	http.SetCookie(w, cookie)
+}
+func (h *AuthHandler) setCsrfTokenCookie(w http.ResponseWriter, csrfToken string) {
+	cookie := &http.Cookie{
+		Name:     "__goauth_csrf_token_" + h.Auth.Config.Security.CSRF.CookieConfig.Name,
+		Value:    csrfToken,
+		Expires:  time.Now().Add(h.Auth.Config.Security.CSRF.TokenTTL),
+		Domain:   h.Auth.Config.Security.CSRF.CookieConfig.Domain,
+		Path:     h.Auth.Config.Security.CSRF.CookieConfig.Path,
+		Secure:   h.Auth.Config.Security.CSRF.CookieConfig.Secure,
+		HttpOnly: h.Auth.Config.Security.CSRF.CookieConfig.HttpOnly,
+		SameSite: h.Auth.Config.Security.CSRF.CookieConfig.SameSite,
+		MaxAge:   int(h.Auth.Config.Security.CSRF.TokenTTL.Seconds()),
 	}
+	http.SetCookie(w, cookie)
+}
 
-	// Save verification token
-	if err := h.Auth.Repository.GetTokenRepository().SaveToken(ctx, user.ID, hashedVerificationToken, models.EmailVerificationToken, h.Auth.Config.AuthConfig.Tokens.EmailVerificationTTL); err != nil {
-		return fmt.Errorf("failed to save verification token: %w", err)
-	}
-
-	// Send verification email asynchronously
-	verificationURL := fmt.Sprintf("%s?token=%s&email=%s",
-		h.Auth.Config.AuthConfig.Methods.EmailVerification.VerificationURL,
-		verificationToken,
-		user.Email)
-
-	h.Auth.Logger.Infof("Sending verification email to user %d: %s", user.ID, verificationToken)
-	h.Auth.WorkerPool.Submit(func() {
-		if err := h.Auth.Config.Email.Sender.CustomSender.SendVerificationEmail(context.Background(), *user, verificationURL); err != nil {
-			h.Auth.Logger.Errorf("Failed to send verification email to user %d: %v", user.ID, err)
-		}
+func (h *AuthHandler) clearAuthCookies(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     "__goauth_access_token_" + h.Auth.Config.AuthConfig.Cookie.Name,
+		Value:    "",
+		Expires:  time.Now().Add(-time.Hour * 24),
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   h.Auth.Config.AuthConfig.Cookie.Secure,
+		SameSite: h.Auth.Config.AuthConfig.Cookie.SameSite,
+		MaxAge:   0,
+	})
+	http.SetCookie(w, &http.Cookie{
+		Name:     "__goauth_refresh_token_" + h.Auth.Config.AuthConfig.Cookie.Name,
+		Value:    "",
+		Expires:  time.Now().Add(-time.Hour * 24),
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   h.Auth.Config.AuthConfig.Cookie.Secure,
+		SameSite: h.Auth.Config.AuthConfig.Cookie.SameSite,
+		MaxAge:   0,
 	})
 
-	return nil
 }
 
-// setupPhoneVerification sets up phone verification for a user
-func (h *AuthRoutes) setupPhoneVerification(ctx context.Context, user *models.User) error {
-	if h.Auth.Config.SMS.CustomSender == nil {
-		return errors.New("SMS sender not configured")
-	}
+// // Helper functions for cookie management
+// func setAuthCookies(w http.ResponseWriter, tokens dto.TokenData) {
+// 	// Set access token cookie
+// 	http.SetCookie(w, &http.Cookie{
+// 		Name:     "access_token",
+// 		Value:    tokens.AccessToken,
+// 		Path:     "/",
+// 		HttpOnly: true,
+// 		Secure:   true,
+// 		SameSite: http.SameSiteStrictMode,
+// 		MaxAge:   int(tokens.ExpiresAt.Unix()),
+// 	})
 
-	// Generate OTP
-	otp, err := h.Auth.TokenManager.GenerateNumericOTP(6)
-	if err != nil {
-		return fmt.Errorf("failed to generate verification OTP: %w", err)
-	}
+// 	// Set refresh token cookie
+// 	http.SetCookie(w, &http.Cookie{
+// 		Name:     "refresh_token",
+// 		Value:    tokens.RefreshToken,
+// 		Path:     "/",
+// 		HttpOnly: true,
+// 		Secure:   true,
+// 		SameSite: http.SameSiteStrictMode,
+// 		MaxAge:   30 * 24 * 60 * 60, // 30 days
+// 	})
+// }
 
-	hashedOTP, err := h.Auth.TokenManager.HashToken(otp)
-	if err != nil {
-		return fmt.Errorf("failed to hash verification OTP: %w", err)
-	}
+// func clearAuthCookies(w http.ResponseWriter) {
+// 	http.SetCookie(w, &http.Cookie{
+// 		Name:     "access_token",
+// 		Value:    "",
+// 		Path:     "/",
+// 		HttpOnly: true,
+// 		Secure:   true,
+// 		SameSite: http.SameSiteStrictMode,
+// 		MaxAge:   -1,
+// 	})
 
-	// Save verification token
-	if err := h.Auth.Repository.GetTokenRepository().SaveToken(ctx, user.ID, hashedOTP, models.PhoneVerificationToken, h.Auth.Config.AuthConfig.Tokens.PhoneVerificationTTL); err != nil {
-		return fmt.Errorf("failed to save verification OTP: %w", err)
-	}
+// 	http.SetCookie(w, &http.Cookie{
+// 		Name:     "refresh_token",
+// 		Value:    "",
+// 		Path:     "/",
+// 		HttpOnly: true,
+// 		Secure:   true,
+// 		SameSite: http.SameSiteStrictMode,
+// 		MaxAge:   -1,
+// 	})
+// }
 
-	h.Auth.Logger.Infof("Sending verification SMS to user %d: %s", user.ID, otp)
-	// Send verification SMS asynchronously (fixed: removed duplicate sending)
-	h.Auth.WorkerPool.Submit(func() {
-		if err := h.Auth.Config.SMS.CustomSender.SendTwoFactorSMS(context.Background(), *user, otp); err != nil {
-			h.Auth.Logger.Errorf("Failed to send verification SMS to user %d: %v", user.ID, err)
-		}
-	})
+// =============================================================================
+// authenticateRequest extracts and validates the token from a request
+// func (h *AuthHandler) authenticateRequest(r *http.Request, cookieName, jwtSecret string) (string, error) {
+// 	token := h.extractToken(r, cookieName)
+// 	if token == "" {
+// 		return "", errors.New("no authentication token provided")
+// 	}
 
-	return nil
-}
+// 	claims, err := h.Auth.TokenManager.ValidateJWTToken(token)
+// 	if err != nil {
+// 		return "", err
+// 	}
 
-// getUserByEmail retrieves user by email with proper error handling
-func (h *AuthRoutes) getUserByEmail(ctx context.Context, email string) (*models.User, error) {
-	user, err := h.Auth.Repository.GetUserRepository().GetUserByEmail(ctx, email)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New(responseErrors.ErrUserNotFound)
-		}
-		return nil, errors.New(responseErrors.ErrInternalError)
-	}
+// 	userID, ok := claims["user_id"].(string)
+// 	if !ok {
+// 		return "", errors.New("invalid token claims")
+// 	}
 
-	if user == nil {
-		return nil, errors.New(responseErrors.ErrUserNotFound)
-	}
+// 	return userID, nil
+// }
 
-	return user, nil
-}
+// func (h *AuthHandler) extractToken(r *http.Request, cookieName string) string {
+// 	if cookieName != "" {
+// 		cookie, err := r.Cookie("__goauth_access_token_" + cookieName)
+// 		if err == nil && cookie.Value != "" {
+// 			return cookie.Value
+// 		}
+// 	}
+// 	// Check for bearer token (assuming it's enabled by default for testing)
+// 	bearerToken := r.Header.Get("Authorization")
+// 	if len(bearerToken) > 7 && strings.ToUpper(bearerToken[0:7]) == "BEARER " {
+// 		return bearerToken[7:]
+// 	}
 
-// getUserByPhoneNumber retrieves user by phone number with proper error handling
-func (h *AuthRoutes) getUserByPhoneNumber(ctx context.Context, phoneNumber string) (*models.User, error) {
-	// Try to get authenticated user first
-	user, err := h.Auth.Repository.GetUserRepository().GetUserByPhoneNumber(ctx, phoneNumber)
-	if err != nil {
-		return nil, errors.New(responseErrors.ErrUserNotFound)
-	}
-
-	if user == nil {
-		return nil, errors.New(responseErrors.ErrUserNotFound)
-	}
-
-	return user, nil
-}
+// 	return ""
+// }

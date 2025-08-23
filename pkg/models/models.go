@@ -19,13 +19,15 @@ const (
 	TwoFactorMethodPush  TwoFactorMethod = "push"
 )
 const (
-	RefreshToken            TokenType = "refresh"
+	// RefreshToken            TokenType = "refresh"
 	EmailVerificationToken  TokenType = "email-verification"
 	PhoneVerificationToken  TokenType = "phone-verification"
 	PasswordResetToken      TokenType = "password-reset"
+	ForgotPasswordToken     TokenType = "forgot-password"
 	TwoFactorCode           TokenType = "two-factor"
 	MakicLinkToken          TokenType = "magic-link"
 	ActionConfirmationToken TokenType = "action-confirmation"
+	InvitationToken         TokenType = "invitation"
 )
 const (
 	ActionTypeChangePhone       ActionType = "change-phone"
@@ -65,13 +67,41 @@ type User struct {
 	IsDeleted   *bool          `json:"is_deleted" gorm:"default:false;not null"`
 	DeletedAt   gorm.DeletedAt `json:"-" gorm:"index"`
 }
+
+type OauthAccount struct {
+	ID           string         `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	UserID       string         `json:"user_id" gorm:"index;not null"`
+	Provider     string         `gorm:"index;not null"`
+	AccountID    string         `gorm:"not null"`
+	AccessToken  string         `gorm:"not null"`
+	RefreshToken string         `gorm:"not null"`
+	ExpiresAt    time.Time      `gorm:"not null"`
+	Scopes       *string        `gorm:"type:text"`
+	CreatedAt    time.Time      `gorm:"autoCreateTime"`
+	UpdatedAt    time.Time      `gorm:"autoUpdateTime"`
+	DeletedAt    gorm.DeletedAt `json:"-" gorm:"index"`
+}
+
+type Session struct {
+	ID           string         `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	UserID       string         `gorm:"not null"`
+	RefreshToken string         `gorm:"not null"`
+	ExpiresAt    time.Time      `gorm:"not null"`
+	IP           string         `gorm:""`
+	Location     string         `gorm:""`
+	UserAgent    string         `gorm:""`
+	DeviceId     *string        `gorm:""`
+	IsActive     *bool          `gorm:"default:true;not null"`
+	CreatedAt    time.Time      `gorm:"autoCreateTime"`
+	UpdatedAt    time.Time      `gorm:"autoUpdateTime"`
+	DeletedAt    gorm.DeletedAt `json:"-" gorm:"index"`
+}
 type Token struct {
 	ID         string         `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
 	UserID     string         `gorm:"not null"`
 	TokenType  TokenType      `gorm:"not null"`
 	TokenValue string         `gorm:"not null"`
 	ActionType string         `gorm:"not null;default:''"` // e.g. "change_email", "disable_2fa"
-	DeviceId   string         `gorm:"default:null"`
 	ExpiresAt  time.Time      `gorm:"not null"`
 	Used       *bool          `gorm:"default:false;not null"`
 	CreatedAt  time.Time      `gorm:"autoCreateTime"`

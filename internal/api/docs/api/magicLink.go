@@ -1,7 +1,7 @@
 package doc_api
 
 // MagicLinkPath returns the documentation for the magic link authentication endpoint
-func MagicLinkPath() map[string]interface{} {
+func SendMagicLinkPath() map[string]interface{} {
 	return map[string]interface{}{
 		"post": map[string]interface{}{
 			"summary":     "Send magic link",
@@ -21,6 +21,17 @@ func MagicLinkPath() map[string]interface{} {
 							"email": map[string]interface{}{
 								"type":    "string",
 								"example": "user@example.com",
+								"required": false,
+							},
+							"phone": map[string]interface{}{
+								"type":    "string",
+								"example": "+1234567890",
+								"required": false,
+							},
+							"method": map[string]interface{}{
+								"type":    "string",
+								"example": "email",
+								"enum":    []string{"email", "phone"},
 							},
 						},
 					},
@@ -57,7 +68,7 @@ func MagicLinkPath() map[string]interface{} {
 }
 
 // MagicLinkCallbackPath returns the documentation for the magic link callback endpoint
-func MagicLinkCallbackPath() map[string]interface{} {
+func VerifyMagicLinkPath() map[string]interface{} {
 	return map[string]interface{}{
 		"get": map[string]interface{}{
 			"summary":     "Verify magic link",
@@ -72,6 +83,14 @@ func MagicLinkCallbackPath() map[string]interface{} {
 					"required":    true,
 					"type":        "string",
 					"example":     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+				},
+				{
+					"in":          "query",
+					"name":        "email",
+					"description": "Email address",
+					"required":    true,
+					"type":        "string",
+					"example":     "user@example.com",
 				},
 			},
 			"responses": map[string]interface{}{
@@ -102,6 +121,52 @@ func MagicLinkCallbackPath() map[string]interface{} {
 					"description": "Invalid or expired token",
 					"schema": map[string]interface{}{
 						"$ref": "#/definitions/Error",
+					},
+				},
+			},
+		},
+		"post": map[string]interface{}{
+			"summary":     "Verify magic link",
+			"description": "Verifies a magic link token and authenticates the user",
+			"tags":        []string{"Authentication"},
+			"produces":    []string{"application/json"},
+			"parameters": []map[string]interface{}{
+				{
+					"in":          "body",
+					"name":        "body",
+					"description": "Email address for magic link",
+					"required":    true,
+					"schema": map[string]interface{}{
+						"type": "object",
+						"properties": map[string]interface{}{
+							"email": map[string]interface{}{
+								"type":    "string",
+								"example": "user@example.com",
+								"required": false,
+							},
+							"token": map[string]interface{}{
+								"type":    "string",
+								"example": "123456",
+							},
+							"phone": map[string]interface{}{
+								"type":    "string",
+								"example": "+1234567890",
+								"required": false,
+							},
+							"method": map[string]interface{}{
+								"type":    "string",
+								"example": "email",
+								"enum":    []string{"email", "phone"},
+							},
+						},
+					},
+				},
+			},
+			"responses": map[string]interface{}{
+				"200": map[string]interface{}{
+					"description": "Authentication successful",
+					"schema": map[string]interface{}{
+						"$ref": "#/definitions/User",
 					},
 				},
 			},

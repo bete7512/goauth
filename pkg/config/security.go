@@ -5,11 +5,11 @@ import "time"
 type SecurityConfig struct {
 	RateLimiter RateLimiterConfig
 	Recaptcha   RecaptchaConfig
+	CSRF        CSRFConfig
 }
 
 type RateLimiterConfig struct {
 	Enabled bool
-	Type    RateLimiterStorageType
 	Routes  map[string]LimiterConfig
 }
 
@@ -28,10 +28,11 @@ type LimiterConfig struct {
 	BlockDuration time.Duration
 }
 
-// add csrf config
+// CSRFConfig configuration for CSRF protection
 type CSRFConfig struct {
-	Enabled bool
-	TokenLength int
-	TokenTTL time.Duration
+	TokenLength   int
+	TokenTTL      time.Duration
+	Routes        map[string]bool
+	CookieEnabled bool
+	CookieConfig  CookieConfig
 }
-

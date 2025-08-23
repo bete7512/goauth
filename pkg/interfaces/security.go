@@ -12,10 +12,20 @@ type CustomJWTClaimsProvider interface {
 }
 
 type RateLimiter interface {
-	Allow(key string, windowSize time.Duration, maxRequests int, blockDuration time.Duration) bool
-	AllowN(key string, windowSize time.Duration, maxRequests int, blockDuration time.Duration, n int) bool
+	Allow(ctx context.Context, key string, windowSize time.Duration, maxRequests int, blockDuration time.Duration) bool
+	AllowN(ctx context.Context, key string, windowSize time.Duration, maxRequests int, blockDuration time.Duration, n int) bool
+	GetStats(ctx context.Context, key string, windowSize time.Duration) (currentRequests int64, isBlocked bool, blockedUntil time.Time)
+	Reset(ctx context.Context, key string) error
 	Close() error
 }
+
 type CaptchaVerifier interface {
 	Verify(ctx context.Context, token string, remoteIP string) (bool, error)
+}
+
+type CSRFManager interface {
+	GenerateToken(ctx context.Context, userID string) (string, error)
+	ValidateToken(ctx context.Context, token string, userID string) (bool, error)
+	RevokeToken(ctx context.Context, token string) error
+	Close() error
 }

@@ -1,18 +1,17 @@
 package oauthRoutes
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"time"
 
+	"github.com/bete7512/goauth/internal/services"
 	"github.com/bete7512/goauth/internal/utils"
 	"github.com/bete7512/goauth/pkg/config"
-	"github.com/bete7512/goauth/pkg/models"
+	"github.com/bete7512/goauth/pkg/dto"
 	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/linkedin"
 )
 
 type LinkedInOauth struct {
@@ -27,10 +26,17 @@ func NewLinkedInOauth(auth *config.Auth) *LinkedInOauth {
 
 // LinkedInUserInfo represents the user information returned by LinkedIn
 type LinkedInUserInfo struct {
-	ID             string `json:"id"`
-	Email          string `json:"email"`
-	FirstName      string `json:"localizedFirstName"`
-	LastName       string `json:"localizedLastName"`
+	ID        string `json:"id"`
+	FirstName struct {
+		Localized struct {
+			EnUS string `json:"en_US"`
+		} `json:"localized"`
+	} `json:"firstName"`
+	LastName struct {
+		Localized struct {
+			EnUS string `json:"en_US"`
+		} `json:"localized"`
+	} `json:"lastName"`
 	ProfilePicture struct {
 		DisplayImage struct {
 			Elements []struct {
@@ -38,8 +44,9 @@ type LinkedInUserInfo struct {
 					Identifier string `json:"identifier"`
 				} `json:"identifiers"`
 			} `json:"elements"`
-		} `json:"displayImage~"`
+		} `json:"displayImage"`
 	} `json:"profilePicture"`
+	EmailAddress string `json:"emailAddress"`
 }
 
 // getLinkedInOAuthConfig creates the OAuth2 config for LinkedIn
@@ -52,16 +59,20 @@ func (l *LinkedInOauth) getLinkedInOAuthConfig() *oauth2.Config {
 			"r_liteprofile",
 			"r_emailaddress",
 		},
-		Endpoint: linkedin.Endpoint,
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  "https://www.linkedin.com/oauth/v2/authorization",
+			TokenURL: "https://www.linkedin.com/oauth/v2/accessToken",
+		},
 	}
 }
 
 // SignIn initiates the LinkedIn OAuth flow
 func (l *LinkedInOauth) SignIn(w http.ResponseWriter, r *http.Request) {
-	config := l.getLinkedInOAuthConfig()
+	// Create service instance
+	service := services.NewAuthService(l.Auth)
 
-	// Generate a random state for CSRF protection
-	state, err := l.Auth.TokenManager.GenerateRandomToken(32)
+	// Generate OAuth state using service
+	stateResponse, err := service.GenerateOAuthState(r.Context(), dto.LinkedIn)
 	if err != nil {
 		utils.RespondWithError(
 			w,
@@ -72,10 +83,22 @@ func (l *LinkedInOauth) SignIn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get OAuth sign-in URL using service
+	url, err := service.GetOAuthSignInURL(r.Context(), dto.LinkedIn, stateResponse.State)
+	if err != nil {
+		utils.RespondWithError(
+			w,
+			http.StatusInternalServerError,
+			"Failed to generate sign-in URL",
+			err,
+		)
+		return
+	}
+
 	// Store state in a cookie
 	stateCookie := &http.Cookie{
 		Name:     "oauth_state",
-		Value:    state,
+		Value:    stateResponse.State,
 		Path:     "/",
 		HttpOnly: true,
 		Secure:   r.TLS != nil,
@@ -85,7 +108,6 @@ func (l *LinkedInOauth) SignIn(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, stateCookie)
 
 	// Redirect user to LinkedIn's consent page
-	url := config.AuthCodeURL(state, oauth2.AccessTypeOffline)
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
@@ -113,122 +135,74 @@ func (l *LinkedInOauth) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Exchange the authorization code for a token
-	code := r.FormValue("code")
+	// Create service instance
+	service := services.NewAuthService(l.Auth)
 
-	if code == "" {
-		code = r.URL.Query().Get("code")
-
+	// Prepare callback request
+	req := &dto.OAuthCallbackRequest{
+		Provider: dto.LinkedIn,
+		Code:     r.FormValue("code"),
+		State:    r.FormValue("state"),
 	}
-	config := l.getLinkedInOAuthConfig()
 
-	token, err := config.Exchange(context.Background(), code)
+	// Handle OAuth callback using service
+	response, err := service.HandleOAuthCallback(r.Context(), req)
 	if err != nil {
 		utils.RespondWithError(
 			w,
 			http.StatusInternalServerError,
-			"Failed to exchange token: "+err.Error(),
+			"OAuth callback failed: "+err.Error(),
 			err,
 		)
 		return
 	}
 
-	// Get user info from LinkedIn
-	userInfo, err := l.getUserInfo(token.AccessToken)
-	if err != nil {
-		utils.RespondWithError(
-			w,
-			http.StatusInternalServerError,
-			"Failed to get user info: "+err.Error(),
-			err,
-		)
-		return
+	// Set authentication cookies if tokens are provided
+	if response.Tokens != nil {
+		// Set access token cookie
+		accessTokenCookie := &http.Cookie{
+			Name:     l.Auth.Config.AuthConfig.Cookie.Name,
+			Value:    response.Tokens.AccessToken,
+			Path:     l.Auth.Config.AuthConfig.Cookie.Path,
+			HttpOnly: true,
+			Secure:   r.TLS != nil,
+			SameSite: http.SameSiteLaxMode,
+			MaxAge:   int(l.Auth.Config.AuthConfig.JWT.AccessTokenTTL.Seconds()),
+		}
+		http.SetCookie(w, accessTokenCookie)
+
+		// Set refresh token cookie
+		refreshTokenCookie := &http.Cookie{
+			Name:     "refresh_token",
+			Value:    response.Tokens.RefreshToken,
+			Path:     l.Auth.Config.AuthConfig.Cookie.Path,
+			HttpOnly: true,
+			Secure:   r.TLS != nil,
+			SameSite: http.SameSiteLaxMode,
+			MaxAge:   int(l.Auth.Config.AuthConfig.JWT.RefreshTokenTTL.Seconds()),
+		}
+		http.SetCookie(w, refreshTokenCookie)
 	}
 
-	// Get email separately (LinkedIn requires a separate API call)
-	email, err := l.getUserEmail(token.AccessToken)
-	if err != nil {
-		utils.RespondWithError(
-			w,
-			http.StatusInternalServerError,
-			"Failed to get user email: "+err.Error(),
-			err,
-		)
-		return
-	}
-
-	// Get profile picture URL
-	var avatarURL string
-	if len(userInfo.ProfilePicture.DisplayImage.Elements) > 0 &&
-		len(userInfo.ProfilePicture.DisplayImage.Elements[0].Identifiers) > 0 {
-		avatarURL = userInfo.ProfilePicture.DisplayImage.Elements[0].Identifiers[0].Identifier
-	}
-
-	// Create or update user in your system
-	user := models.User{
-		Email:       email,
-		FirstName:   userInfo.FirstName,
-		LastName:    userInfo.LastName,
-		SignedUpVia: "linkedin",
-		ProviderId:  &userInfo.ID,
-		Avatar:      &avatarURL,
-	}
-
-	err = l.Auth.Repository.GetUserRepository().UpsertUserByEmail(r.Context(), &user)
-	if err != nil {
-		utils.RespondWithError(
-			w,
-			http.StatusInternalServerError,
-			"Failed to create/update user: "+err.Error(),
-			err,
-		)
-		return
-	}
-
-	// Generate tokens
-	accessToken, refreshToken, err := l.Auth.TokenManager.GenerateTokens(&user)
-	if err != nil {
-		utils.RespondWithError(
-			w,
-			http.StatusInternalServerError,
-			"Failed to generate authentication tokens",
-			err,
-		)
-		return
-	}
-
-	// Save refresh token
-	err = l.Auth.Repository.GetTokenRepository().SaveToken(r.Context(), user.ID, refreshToken, models.RefreshToken, l.Auth.Config.AuthConfig.JWT.RefreshTokenTTL)
-	if err != nil {
-		utils.RespondWithError(
-			w,
-			http.StatusInternalServerError,
-			"Failed to save refresh token",
-			err,
-		)
-		return
-	}
-
-	// Set the token in a cookie
-	tokenCookie := &http.Cookie{
-		Name:     l.Auth.Config.AuthConfig.Cookie.Name,
-		Value:    accessToken,
-		Path:     l.Auth.Config.AuthConfig.Cookie.Path,
+	// Clear the OAuth state cookie
+	stateCookie = &http.Cookie{
+		Name:     "oauth_state",
+		Value:    "",
+		Path:     "/",
 		HttpOnly: true,
 		Secure:   r.TLS != nil,
 		SameSite: http.SameSiteLaxMode,
-		MaxAge:   int(l.Auth.Config.AuthConfig.JWT.AccessTokenTTL.Seconds()),
+		MaxAge:   -1,
 	}
-	http.SetCookie(w, tokenCookie)
+	http.SetCookie(w, stateCookie)
 
 	// Redirect to the frontend
 	http.Redirect(w, r, l.Auth.Config.App.FrontendURL, http.StatusTemporaryRedirect)
 }
 
-// getUserInfo fetches the user profile information from LinkedIn API
+// getUserInfo gets user information from LinkedIn
 func (l *LinkedInOauth) getUserInfo(accessToken string) (*LinkedInUserInfo, error) {
-	// LinkedIn requires a specific format for user profile requests
-	url := "https://api.linkedin.com/v2/me?projection=(id,localizedFirstName,localizedLastName,profilePicture(displayImage~:playableStreams))"
+	url := "https://api.linkedin.com/v2/me?projection=(id,firstName,lastName,profilePicture(displayImage~:playableStreams),emailAddress)"
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
@@ -236,64 +210,27 @@ func (l *LinkedInOauth) getUserInfo(accessToken string) (*LinkedInUserInfo, erro
 
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("failed to get user info: %s", body)
+		return nil, fmt.Errorf("failed to get user info: %s", string(body))
 	}
 
 	var userInfo LinkedInUserInfo
-	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
+	err = json.Unmarshal(body, &userInfo)
+	if err != nil {
 		return nil, err
 	}
 
 	return &userInfo, nil
-}
-
-// getUserEmail fetches the user's email from LinkedIn API
-func (l *LinkedInOauth) getUserEmail(accessToken string) (string, error) {
-	url := "https://api.linkedin.com/v2/emailAddress?q=members&projection=(elements*(handle~))"
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return "", err
-	}
-
-	req.Header.Set("Authorization", "Bearer "+accessToken)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("failed to get user email: %s", body)
-	}
-
-	// Parse LinkedIn's email response structure
-	var result struct {
-		Elements []struct {
-			Handle struct {
-				EmailAddress string `json:"emailAddress"`
-			} `json:"handle~"`
-		} `json:"elements"`
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", err
-	}
-
-	if len(result.Elements) == 0 {
-		return "", fmt.Errorf("no email found")
-	}
-
-	return result.Elements[0].Handle.EmailAddress, nil
 }

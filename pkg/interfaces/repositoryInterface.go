@@ -37,9 +37,7 @@ type UserRepository interface {
 
 type TokenRepository interface {
 	SaveToken(ctx context.Context, userID, token string, tokenType models.TokenType, expiry time.Duration) error
-	SaveTokenWithDeviceId(ctx context.Context, userID, token, deviceId string, tokenType models.TokenType, expiry time.Duration) error
 	GetActiveTokenByUserIdAndType(ctx context.Context, userID string, tokenType models.TokenType) (*models.Token, error)
-	GetActiveTokenByUserIdTypeAndDeviceId(ctx context.Context, userID string, tokenType models.TokenType, deviceId string) (*models.Token, error)
 	RevokeToken(ctx context.Context, tokenId string) error
 	RevokeAllTokens(ctx context.Context, userID string, tokenType models.TokenType) error
 	CleanExpiredTokens(ctx context.Context, tokenType models.TokenType) error
@@ -52,7 +50,42 @@ type AuditLogRepository interface {
 	DeleteAuditLog(ctx context.Context, log *models.AuditLog) error
 }
 
+type TotpSecretRepository interface {
+	GetTOTPSecretByUserID(ctx context.Context, userID string) (*models.TotpSecret, error)
+	CreateTOTPSecret(ctx context.Context, secret *models.TotpSecret) error
+	UpdateTOTPSecret(ctx context.Context, secret *models.TotpSecret) error
+	DeleteTOTPSecret(ctx context.Context, secret *models.TotpSecret) error
+}
+
+type OauthAccountRepository interface {
+	GetOauthAccountByUserID(ctx context.Context, userID string) (*models.OauthAccount, error)
+	CreateOauthAccount(ctx context.Context, account *models.OauthAccount) error
+	UpdateOauthAccount(ctx context.Context, account *models.OauthAccount) error
+	DeleteOauthAccount(ctx context.Context, account *models.OauthAccount) error
+}
+
+type BackupCodeRepository interface {
+	GetBackupCodeByUserID(ctx context.Context, userID string) (*models.BackupCode, error)
+	CreateBackupCodes(ctx context.Context, codes []*models.BackupCode) error
+	UpdateBackupCode(ctx context.Context, code *models.BackupCode) error
+	DeleteBackupCode(ctx context.Context, code *models.BackupCode) error
+}
+
+type SessionRepository interface {
+	GetSessionByUserID(ctx context.Context, userID string) ([]models.Session, error)
+	GetSessionBySessionID(ctx context.Context, sessionID string) (*models.Session, error)
+	CreateSession(ctx context.Context, session *models.Session) error
+	UpdateSession(ctx context.Context, session *models.Session) error
+	DeleteAllUserSessions(ctx context.Context, userID string) error
+	DeleteSession(ctx context.Context, session *models.Session) error
+}
+
 type RepositoryFactory interface {
 	GetUserRepository() UserRepository
 	GetTokenRepository() TokenRepository
+	GetAuditLogRepository() AuditLogRepository
+	GetTotpSecretRepository() TotpSecretRepository
+	GetOauthAccountRepository() OauthAccountRepository
+	GetBackupCodeRepository() BackupCodeRepository
+	GetSessionRepository() SessionRepository
 }

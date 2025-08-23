@@ -10,7 +10,6 @@ const (
 	RecaptchaCloudflare RecaptchaProvider = "cloudflare"
 )
 
-
 const (
 	RouteRegister                 = "register"
 	RouteLogin                    = "login"
@@ -32,13 +31,20 @@ const (
 	RouteVerifyPhone              = "verify-phone"
 	RouteSendActionConfirmation   = "send-action-confirmation"
 	RouteVerifyActionConfirmation = "verify-action-confirmation"
+	RouteInviteUser               = "admin.invitations.create"
+	RouteListInvitations          = "admin.invitations.list"
+	RouteCancelInvitation         = "admin.invitations.cancel"
 )
 
 const (
-	PostgreSQL DatabaseType = "postgres"
-	MySQL      DatabaseType = "mysql"
-	MongoDB    DatabaseType = "mongodb"
-	SQLite     DatabaseType = "sqlite"
+	PostgreSQL  DatabaseType = "postgres"
+	MySQL       DatabaseType = "mysql"
+	MongoDB     DatabaseType = "mongodb"
+	SQLite      DatabaseType = "sqlite"
+	SQLServer   DatabaseType = "sqlserver"
+	MariaDB     DatabaseType = "mariadb"
+	ClickHouse  DatabaseType = "clickhouse"
+	CockroachDB DatabaseType = "cockroachdb"
 )
 
 const (
@@ -54,17 +60,27 @@ const (
 	Slack     AuthProvider = "slack"
 	Custom    AuthProvider = "custom"
 )
+
+// const (
+// 	RedisRateLimiter    RateLimiterStorageType = "redis"
+// 	MemoryRateLimiter   RateLimiterStorageType = "memory"
+// 	DatabaseRateLimiter RateLimiterStorageType = "database"
+// )
+
 const (
-	RedisRateLimiter    RateLimiterStorageType = "redis"
-	MemoryRateLimiter   RateLimiterStorageType = "memory"
-	DatabaseRateLimiter RateLimiterStorageType = "database"
+	RedisCache  CacheType = "redis"
+	MemoryCache CacheType = "memory"
+	ValkeyCache CacheType = "valkey"
+	CustomCache CacheType = "custom"
+	NoCache     CacheType = "none"
 )
 
 const (
-	ResponseDataKey contextKey = "response_data"
-	RequestDataKey  contextKey = "request_data"
-	UserIDKey       contextKey = "user_id"
-	IsAdminKey      contextKey = "is_admin"
+	ResponseDataKey       contextKey = "response_data"
+	ResponseStatusCodeKey contextKey = "response_status_code"
+	RequestDataKey        contextKey = "request_data"
+	UserIDKey             contextKey = "user_id"
+	IsAdminKey            contextKey = "is_admin"
 )
 
 const (
@@ -74,6 +90,7 @@ const (
 )
 
 const (
-	SES      SenderType = "SES"
-	SendGrid SenderType = "SendGrid"
+	SES               EmailSenderType = "ses"
+	SendGrid          EmailSenderType = "sendgrid"
+	CustomEmailSender EmailSenderType = "custom"
 )

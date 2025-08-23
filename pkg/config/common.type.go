@@ -16,7 +16,13 @@ type AuthenticationType string
 type contextKey string
 
 // type SenderType string like SES, SendGrid, etc.
-type SenderType string
+type EmailSenderType string
 
 // type RateLimiterStorageType string like redis, memory, database, etc.
 type RateLimiterStorageType string
+
+// type CSRFStorageType string like redis, memory, etc.
+type CSRFStorageType string
+
+// type CacheType string like redis, memory, valkey, custom, none, etc.
+type CacheType string

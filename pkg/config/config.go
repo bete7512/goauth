@@ -18,6 +18,7 @@ type Config struct {
 	// External services
 	Database  DatabaseConfig
 	Redis     RedisConfig
+	Cache     CacheConfig
 	Providers ProvidersConfig
 
 	// Communications
@@ -52,15 +53,19 @@ type FeaturesConfig struct {
 	EnableRecaptcha     bool
 	EnableCustomJWT     bool
 	EnableCustomStorage bool
+	EnableCSRF          bool
 }
 
 type Auth struct {
-	Config           Config
+	Config           *Config
 	Repository       interfaces.RepositoryFactory
 	HookManager      hooks.HookManager
 	TokenManager     interfaces.TokenManagerInterface
 	RateLimiter      interfaces.RateLimiter
 	RecaptchaManager interfaces.CaptchaVerifier
-	WorkerPool       pond.Pool
-	Logger           logger.Log
+	CSRFManager      interfaces.CSRFManager
+	Cache            interfaces.Cache
+	// EmailSender      interfaces.EmailSenderInterface
+	WorkerPool pond.Pool
+	Logger     logger.Log
 }
