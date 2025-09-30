@@ -27,6 +27,11 @@ func NewGoogleVerifier(secret string, url string) interfaces.CaptchaVerifier {
 }
 
 func (g *googleVerifier) Verify(ctx context.Context, token string, remoteIP string) (bool, error) {
+	select {
+	case <-ctx.Done():
+		return false, ctx.Err()
+	default:
+	}
 	data := map[string]string{
 		"secret":   g.Secret,
 		"response": token,
@@ -35,7 +40,7 @@ func (g *googleVerifier) Verify(ctx context.Context, token string, remoteIP stri
 
 	client := external.NewAPIClient(utils.GetBaseURL(g.Url), nil)
 	var resp interface{}
-	err := client.Post(context.Background(), utils.GetEndpoint(g.Url), data, &resp)
+	err := client.Post(ctx, utils.GetEndpoint(g.Url), data, &resp)
 	if err != nil {
 		logger.Errorf("Failed to verify recaptcha: %v", err)
 		return false, err

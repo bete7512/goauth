@@ -2,38 +2,53 @@ package utils
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
+	"time"
 
-	"github.com/bete7512/goauth/pkg/models"
+	"github.com/bete7512/goauth/pkg/dto"
 )
 
-func RespondWithJSON(w http.ResponseWriter, status int, data interface{}) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	return json.NewEncoder(w).Encode(data)
+// Success response
+func RespondSuccess[T any](w http.ResponseWriter, data T, message string) {
+	response := dto.APIResponse[T]{
+		Success:   true,
+		Data:      data,
+		Message:   message,
+		Timestamp: time.Now(),
+	}
+	writeJSON(w, http.StatusOK, response)
 }
 
-func RespondWithError(w http.ResponseWriter, status int, message string, err error) {
-	response := models.ErrorResponse{
-		Status:  status,
-		Message: message,
+// Error response
+func RespondError(w http.ResponseWriter, statusCode int, code, message string) {
+	response := dto.APIResponse[interface{}]{
+		Success: false,
+		Error: &dto.GoAuthError{
+			Code:    code,
+			Message: message,
+		},
+		Timestamp: time.Now(),
 	}
-	// TODO:only show error in dev mode
-	// if err != nil && !isProd() {
-	// 	response.Error = err.Error()
-	// }
-	if err != nil {
-		// TODO: trace back and log error here
-		// I want  file path and line where error occured
-		log.Println()
-		log.Printf("error: %v)", err)
-		response.Error = err.Error()
-	}
+	writeJSON(w, statusCode, response)
+}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+// Paginated response
+func RespondPaginated[T any](w http.ResponseWriter, data []T, pagination dto.PaginationMeta, message string) {
+	response := dto.APIResponse[dto.PaginatedResponse[T]]{
+		Success: true,
+		Data: dto.PaginatedResponse[T]{
+			Data:       data,
+			Pagination: pagination,
+		},
+		Message:   message,
+		Timestamp: time.Now(),
 	}
+	writeJSON(w, http.StatusOK, response)
+}
+
+// Write JSON response
+func writeJSON(w http.ResponseWriter, statusCode int, data interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	json.NewEncoder(w).Encode(data)
 }

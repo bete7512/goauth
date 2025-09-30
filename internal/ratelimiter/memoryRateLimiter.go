@@ -39,6 +39,11 @@ func (m *MemoryRateLimiter) Allow(ctx context.Context, key string, windowSize ti
 
 // AllowN checks if N requests are allowed
 func (m *MemoryRateLimiter) AllowN(ctx context.Context, key string, windowSize time.Duration, maxRequests int, blockDuration time.Duration, n int) bool {
+	select {
+	case <-ctx.Done():
+		return false
+	default:
+	}
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
@@ -79,6 +84,11 @@ func (m *MemoryRateLimiter) AllowN(ctx context.Context, key string, windowSize t
 
 // Reserve reserves tokens for future use
 func (m *MemoryRateLimiter) Reserve(ctx context.Context, key string, windowSize time.Duration, maxRequests int, blockDuration time.Duration) *rate.Reservation {
+	select {
+	case <-ctx.Done():
+		return nil
+	default:
+	}
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
@@ -101,6 +111,11 @@ func (m *MemoryRateLimiter) Reserve(ctx context.Context, key string, windowSize 
 
 // Wait waits until the request can be processed
 func (m *MemoryRateLimiter) Wait(ctx context.Context, key string, windowSize time.Duration, maxRequests int, blockDuration time.Duration) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
 	m.mutex.Lock()
 
 	now := time.Now()
@@ -152,6 +167,11 @@ func (m *MemoryRateLimiter) GetLimiterStats(key string) (tokens float64, isBlock
 
 // GetStats returns current statistics for a key (implements RateLimiter interface)
 func (m *MemoryRateLimiter) GetStats(ctx context.Context, key string, windowSize time.Duration) (currentRequests int64, isBlocked bool, blockedUntil time.Time) {
+	select {
+	case <-ctx.Done():
+		return 0, false, time.Time{}
+	default:
+	}
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
@@ -168,6 +188,11 @@ func (m *MemoryRateLimiter) GetStats(ctx context.Context, key string, windowSize
 
 // Reset clears all rate limit data for a key
 func (m *MemoryRateLimiter) Reset(ctx context.Context, key string) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 

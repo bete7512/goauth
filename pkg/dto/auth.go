@@ -3,19 +3,19 @@ package dto
 import "time"
 
 // RegisterRequest represents user registration request
-type RegisterRequest struct {
-	Email       string `json:"email" validate:"required,email"`
-	Password    string `json:"password" validate:"required,min=8"`
-	FirstName   string `json:"first_name" validate:"required"`
-	LastName    string `json:"last_name" validate:"required"`
-	PhoneNumber string `json:"phone_number" `
-}
+// type RegisterRequest struct {
+// 	Email       string `json:"email" validate:"required,email"`
+// 	Password    string `json:"password" validate:"required,min=8"`
+// 	FirstName   string `json:"first_name" validate:"required"`
+// 	LastName    string `json:"last_name" validate:"required"`
+// 	PhoneNumber string `json:"phone_number" `
+// }
 
 // RegisterResponse represents user registration response
 type RegisterResponse struct {
 	Message string     `json:"message"`
 	Status  int        `json:"status"`
-	User    UserData   `json:"user"`
+	User    UserResponseData   `json:"user"`
 	Tokens  *TokenData `json:"tokens,omitempty"`
 }
 
@@ -23,19 +23,24 @@ type SendPhoneVerificationRequest struct {
 	PhoneNumber string `json:"phone_number" validate:"required"`
 }
 
-// LoginRequest represents user login request
-type LoginRequest struct {
-	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required"`
-}
+// // LoginRequest represents user login request
+// type LoginRequest struct {
+// 	Email    string `json:"email" validate:"required,email"`
+// 	Password string `json:"password" validate:"required"`
+// }
 
 // LoginResponse represents user login response
-type LoginResponse struct {
-	SessionId string    `json:"session_id"`
-	Status    int       `json:"status"`
-	Message   string    `json:"message"`
-	User      UserData  `json:"user"`
-	Tokens    TokenData `json:"tokens"`
+// type LoginResponse struct {
+// 	SessionId string    `json:"session_id"`
+// 	Status    int       `json:"status"`
+// 	Message   string    `json:"message"`
+// 	User      UserResponseData  `json:"user"`
+// 	Tokens    TokenData `json:"tokens"`
+// }
+
+// RefreshTokenRequest represents token refresh request
+type RefreshTokenRequest struct {
+	RefreshToken string `json:"refresh_token" validate:"required"`
 }
 
 // RefreshTokenResponse represents token refresh response
@@ -98,7 +103,7 @@ type TokenData struct {
 }
 
 // UserData represents user information in responses
-type UserData struct {
+type UserResponseData struct {
 	ID               string     `json:"id"`
 	Email            string     `json:"email"`
 	FirstName        string     `json:"first_name"`

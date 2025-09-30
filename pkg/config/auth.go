@@ -8,6 +8,9 @@ import (
 )
 
 type AuthConfig struct {
+	// App settings
+	App AppConfig
+
 	// JWT settings
 	JWT JWTConfig
 

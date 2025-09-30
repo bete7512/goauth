@@ -42,9 +42,9 @@ type OAuthCallbackRequest struct {
 
 // OAuthCallbackResponse represents OAuth callback response
 type OAuthCallbackResponse struct {
-	Message string     `json:"message"`
-	User    *UserData  `json:"user,omitempty"`
-	Tokens  *TokenData `json:"tokens,omitempty"`
+	Message string            `json:"message"`
+	User    *UserResponseData `json:"user,omitempty"`
+	Tokens  *TokenData        `json:"tokens,omitempty"`
 }
 
 // OAuthStateRequest represents OAuth state generation request

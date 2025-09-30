@@ -92,5 +92,6 @@ const (
 const (
 	SES               EmailSenderType = "ses"
 	SendGrid          EmailSenderType = "sendgrid"
+	Resend            EmailSenderType = "resend"
 	CustomEmailSender EmailSenderType = "custom"
 )

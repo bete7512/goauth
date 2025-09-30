@@ -112,7 +112,7 @@ type Token struct {
 type AccountToken struct {
 	ID           string         `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
 	UserID       string         `json:"user_id" gorm:"index;not null"` // Reference to local user
-	Provider     string         ` gorm:"index;not null"`               // e.g., google, github
+	Provider     string         `gorm:"index;not null"`               // e.g., google, github
 	AccessToken  string         `gorm:"not null"`                      // The token from the provider
 	RefreshToken *string        `gorm:""`                              // Optional, if provided
 	ExpiresAt    *time.Time     `gorm:"index"`                         // Token expiry (nullable if no expiry)

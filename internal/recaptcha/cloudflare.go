@@ -28,6 +28,11 @@ func NewCloudflareVerifier(secret string, url string) interfaces.CaptchaVerifier
 }
 
 func (c *cloudflareVerifier) Verify(ctx context.Context, token string, remoteIP string) (bool, error) {
+	select {
+	case <-ctx.Done():
+		return false, ctx.Err()
+	default:
+	}
 	data := map[string]string{
 		"secret":   c.Secret,
 		"response": token,

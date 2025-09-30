@@ -21,6 +21,11 @@ func NewCacheRateLimiter(auth config.Auth) (interfaces.RateLimiter, error) {
 
 // Allow checks if a request is allowed using cache operations
 func (r *CacheRateLimiter) Allow(ctx context.Context, key string, windowSize time.Duration, maxRequests int, blockDuration time.Duration) bool {
+	select {
+	case <-ctx.Done():
+		return false
+	default:
+	}
 	return r.AllowN(ctx, key, windowSize, maxRequests, blockDuration, 1)
 }
 

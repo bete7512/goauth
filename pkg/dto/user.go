@@ -7,11 +7,11 @@ type UpdateProfileRequest struct {
 	PhoneNumber string `json:"phone_number,omitempty"`
 }
 
-// UserResponse represents user information response
-type UserResponse struct {
-	Message string   `json:"message"`
-	User    UserData `json:"user"`
-}
+// // UserResponse represents user information response
+// type UserResponse struct {
+// 	Message string   `json:"message"`
+// 	User    UserData `json:"user"`
+// }
 
 // DeactivateUserRequest represents user deactivation request
 type DeactivateUserRequest struct {

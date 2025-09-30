@@ -31,12 +31,20 @@ type Config struct {
 	Features FeaturesConfig
 }
 
+type FeatureFlags struct {
+	EnableRateLimiting bool `yaml:"enable_rate_limiting" default:"true"`
+	EnableCSRF         bool `yaml:"enable_csrf" default:"true"`
+	Enable2FA          bool `yaml:"enable_2fa" default:"true"`
+	EnableOAuth        bool `yaml:"enable_oauth" default:"true"`
+}
+
 // config/app.go
 type AppConfig struct {
-	BasePath    string
-	Domain      string
-	FrontendURL string
-	Swagger     SwaggerConfig
+	BasePath                  string
+	Domain                    string
+	FrontendURL               string
+	ResetPasswordFrontendPath string
+	Swagger                   SwaggerConfig
 }
 
 type SwaggerConfig struct {
@@ -57,7 +65,7 @@ type FeaturesConfig struct {
 }
 
 type Auth struct {
-	Config           *Config
+	*Config
 	Repository       interfaces.RepositoryFactory
 	HookManager      hooks.HookManager
 	TokenManager     interfaces.TokenManagerInterface

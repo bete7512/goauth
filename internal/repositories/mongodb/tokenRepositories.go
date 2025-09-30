@@ -133,7 +133,7 @@ func (t *TokenRepository) RevokeAllTokens(ctx context.Context, userID string, to
 	return err
 }
 
-// CleanExpiredTokens implements interfaces.TokenRepository.
+// CleanExpiredTokens implements interfacesz.TokenRepository.
 func (t *TokenRepository) CleanExpiredTokens(ctx context.Context, tokenType models.TokenType) error {
 	collection := t.client.Database("goauth").Collection("tokens")
 

@@ -2,12 +2,12 @@ package middlewares
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 
 	"github.com/bete7512/goauth/internal/utils"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/interfaces"
+	"github.com/bete7512/goauth/pkg/types"
 )
 
 // RateLimiterMiddleware applies rate limiting to HTTP requests
@@ -67,7 +67,7 @@ func (m *Middleware) GlobalRateLimiterMiddleware(limiter interfaces.RateLimiter,
 	return func(w http.ResponseWriter, r *http.Request) {
 		clientIP := utils.GetIpFromRequest(r)
 		if clientIP == "unknown" {
-			utils.RespondWithError(w, http.StatusBadRequest, "failed to get client ip", errors.New("failed to get client ip"))
+			utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidRequestIP), "failed to get client ip")
 			return
 		}
 

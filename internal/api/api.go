@@ -9,9 +9,10 @@ import (
 
 	"github.com/bete7512/goauth/internal/api/docs"
 	"github.com/bete7512/goauth/internal/api/handlers"
-	oauthRoutes "github.com/bete7512/goauth/internal/api/handlers/oauth"
 	"github.com/bete7512/goauth/internal/api/middlewares"
+	"github.com/bete7512/goauth/internal/services"
 	"github.com/bete7512/goauth/pkg/config"
+	"github.com/bete7512/goauth/pkg/dto"
 )
 
 // AuthHandler is the main authentication service
@@ -23,7 +24,8 @@ type AuthHandler struct {
 
 // NewAuthHandler creates a new authentication service
 func NewAuthHandler(auth *config.Auth) *AuthHandler {
-	routes := handlers.NewAuthHandler(auth)
+	services := services.NewServiceContainer(auth)
+	routes := handlers.NewAuthHandler(services, auth)
 	middleware := middlewares.NewMiddleware(auth)
 	service := &AuthHandler{
 		Auth:       auth,
@@ -220,72 +222,55 @@ func (a *AuthHandler) GetRoutes() []config.RouteInfo {
 
 	routes := []config.RouteInfo{
 		// Public routes
-		{Method: "POST", Path: basePath + "/register", Name: config.RouteRegister, Handler: a.handlers.HandleRegister},
-		{Method: "POST", Path: basePath + "/login", Name: config.RouteLogin, Handler: a.handlers.HandleLogin},
-		{Method: "POST", Path: basePath + "/refresh-token", Name: config.RouteRefreshToken, Handler: a.handlers.HandleRefreshToken},
-		{Method: "POST", Path: basePath + "/forgot-password", Name: config.RouteForgotPassword, Handler: a.handlers.HandleForgotPassword},
-		{Method: "POST", Path: basePath + "/reset-password", Name: config.RouteResetPassword, Handler: a.handlers.HandleResetPassword},
-		{Method: "POST", Path: basePath + "/send-magic-link", Name: config.RouteSendMagicLink, Handler: a.handlers.SendMagicLink},
-		{Method: "POST", Path: basePath + "/verify-magic-link", Name: config.RouteVerifyMagicLink, Handler: a.handlers.VerifyMagicLink},
-		{Method: "GET", Path: basePath + "/verify-magic-link", Name: config.RouteVerifyMagicLink, Handler: a.handlers.VerifyMagicLink},
-		{Method: "POST", Path: basePath + "/verification/email/send", Name: config.RouteSendEmailVerification, Handler: a.handlers.HandleSendEmailVerification},
-		{Method: "GET", Path: basePath + "/verification/email/verify", Name: config.RouteVerifyEmail, Handler: a.handlers.HandleVerifyEmail},
-		{Method: "POST", Path: basePath + "/verification/email/verify", Name: config.RouteVerifyEmail, Handler: a.handlers.HandleVerifyEmail},
-		{Method: "POST", Path: basePath + "/verification/phone/send", Name: config.RouteSendPhoneVerification, Handler: a.handlers.HandleSendPhoneVerification},
-		{Method: "POST", Path: basePath + "/verification/phone/verify", Name: config.RouteVerifyPhone, Handler: a.handlers.HandleVerifyPhone},
-		{Method: "GET", Path: basePath + "/verification/phone/verify", Name: config.RouteVerifyPhone, Handler: a.handlers.HandleVerifyPhone},
-		{Method: "POST", Path: basePath + "/register/invitation", Name: "register.invitation", Handler: a.handlers.HandleRegisterWithInvitation},
+		{Method: "POST", Path: basePath + "/register", Name: config.RouteRegister, Handler: a.handlers.Auth.HandleRegister},
+		{Method: "POST", Path: basePath + "/login", Name: config.RouteLogin, Handler: a.handlers.Auth.HandleLogin},
+		{Method: "POST", Path: basePath + "/refresh-token", Name: config.RouteRefreshToken, Handler: a.handlers.Auth.HandleRefreshToken},
+		{Method: "POST", Path: basePath + "/forgot-password", Name: config.RouteForgotPassword, Handler: a.handlers.Auth.HandleForgotPassword},
+		{Method: "POST", Path: basePath + "/reset-password", Name: config.RouteResetPassword, Handler: a.handlers.Auth.HandleResetPassword},
+		{Method: "POST", Path: basePath + "/send-magic-link", Name: config.RouteSendMagicLink, Handler: a.handlers.Auth.SendMagicLink},
+		{Method: "POST", Path: basePath + "/verify-magic-link", Name: config.RouteVerifyMagicLink, Handler: a.handlers.Auth.VerifyMagicLink},
+		{Method: "GET", Path: basePath + "/verify-magic-link", Name: config.RouteVerifyMagicLink, Handler: a.handlers.Auth.VerifyMagicLink},
+		{Method: "POST", Path: basePath + "/verification/email/send", Name: config.RouteSendEmailVerification, Handler: a.handlers.User.HandleSendEmailVerification},
+		{Method: "GET", Path: basePath + "/verification/email/verify", Name: config.RouteVerifyEmail, Handler: a.handlers.User.HandleVerifyEmail},
+		{Method: "POST", Path: basePath + "/verification/email/verify", Name: config.RouteVerifyEmail, Handler: a.handlers.User.HandleVerifyEmail},
+		{Method: "POST", Path: basePath + "/verification/phone/send", Name: config.RouteSendPhoneVerification, Handler: a.handlers.User.HandleSendPhoneVerification},
+		{Method: "POST", Path: basePath + "/verification/phone/verify", Name: config.RouteVerifyPhone, Handler: a.handlers.User.HandleVerifyPhone},
+		{Method: "GET", Path: basePath + "/verification/phone/verify", Name: config.RouteVerifyPhone, Handler: a.handlers.User.HandleVerifyPhone},
+		{Method: "POST", Path: basePath + "/register/invitation", Name: "register.invitation", Handler: a.handlers.Auth.HandleRegisterWithInvitation},
 
 		// Protected routes
-		{Method: "POST", Path: basePath + "/action/confirm", Name: "action.confirm", Handler: a.middleware.AuthMiddleware(a.handlers.HandleSendActionConfirmation)},
-		{Method: "POST", Path: basePath + "/action/verify", Name: "action.verify", Handler: a.middleware.AuthMiddleware(a.handlers.HandleVerifyActionConfirmation)},
-		{Method: "GET", Path: basePath + "/me", Name: config.RouteGetMe, Handler: a.middleware.AuthMiddleware(a.handlers.HandleGetUser)},
-		{Method: "POST", Path: basePath + "/update-profile", Name: config.RouteUpdateProfile, Handler: a.middleware.AuthMiddleware(a.handlers.HandleUpdateProfile)},
-		{Method: "POST", Path: basePath + "/logout", Name: config.RouteLogout, Handler: a.middleware.AuthMiddleware(a.handlers.HandleLogout)},
-		{Method: "POST", Path: basePath + "/deactivate-user", Name: config.RouteDeactivateUser, Handler: a.middleware.AuthMiddleware(a.handlers.HandleDeactivateUser)},
-		{Method: "POST", Path: basePath + "/enable-two-factor", Name: config.RouteEnableTwoFactor, Handler: a.middleware.AuthMiddleware(a.handlers.HandleEnableTwoFactor)},
-		{Method: "POST", Path: basePath + "/verify-two-factor", Name: config.RouteVerifyTwoFactor, Handler: a.middleware.AuthMiddleware(a.handlers.HandleVerifyTwoFactor)},
-		{Method: "POST", Path: basePath + "/disable-two-factor", Name: config.RouteDisableTwoFactor, Handler: a.middleware.AuthMiddleware(a.handlers.HandleDisableTwoFactor)},
-		{Method: "GET", Path: basePath + "/csrf/token", Name: "csrf.token", Handler: a.middleware.AuthMiddleware(a.handlers.HandleGetCSRFToken)},
+		{Method: "POST", Path: basePath + "/action/confirm", Name: "action.confirm", Handler: a.middleware.AuthMiddleware(a.handlers.User.HandleSendActionConfirmation)},
+		{Method: "POST", Path: basePath + "/action/verify", Name: "action.verify", Handler: a.middleware.AuthMiddleware(a.handlers.User.HandleVerifyActionConfirmation)},
+		{Method: "GET", Path: basePath + "/me", Name: config.RouteGetMe, Handler: a.middleware.AuthMiddleware(a.handlers.User.HandleGetMe)},
+		{Method: "POST", Path: basePath + "/update-profile", Name: config.RouteUpdateProfile, Handler: a.middleware.AuthMiddleware(a.handlers.User.HandleUpdateProfile)},
+		{Method: "POST", Path: basePath + "/enable-two-factor", Name: config.RouteEnableTwoFactor, Handler: a.middleware.AuthMiddleware(a.handlers.TwoFactor.HandleEnableTwoFactor)},
+		{Method: "POST", Path: basePath + "/verify-two-factor", Name: config.RouteVerifyTwoFactor, Handler: a.middleware.AuthMiddleware(a.handlers.TwoFactor.HandleVerifyTwoFactor)},
+		{Method: "POST", Path: basePath + "/disable-two-factor", Name: config.RouteDisableTwoFactor, Handler: a.middleware.AuthMiddleware(a.handlers.TwoFactor.HandleDisableTwoFactor)},
+		{Method: "GET", Path: basePath + "/csrf/token", Name: "csrf.token", Handler: a.middleware.AuthMiddleware(a.handlers.Auth.HandleGetCSRFToken)},
 
 		// Admin routes
-		{Method: "GET", Path: basePath + "/admin/users", Name: "admin.users.list", Handler: a.middleware.AdminMiddleware(a.handlers.HandleListUsers)},
-		{Method: "GET", Path: basePath + "/admin/users/{id}", Name: "admin.users.get", Handler: a.middleware.AdminMiddleware(a.handlers.HandleGetUser)},
-		{Method: "PUT", Path: basePath + "/admin/users/{id}", Name: "admin.users.update", Handler: a.middleware.AdminMiddleware(a.handlers.HandleUpdateUser)},
-		{Method: "PATCH", Path: basePath + "/admin/users/{id}", Name: "admin.users.patch", Handler: a.middleware.AdminMiddleware(a.handlers.HandleUpdateUser)},
-		{Method: "DELETE", Path: basePath + "/admin/users/{id}", Name: "admin.users.delete", Handler: a.middleware.AdminMiddleware(a.handlers.HandleDeleteUser)},
-		{Method: "POST", Path: basePath + "/admin/users/{id}/activate", Name: "admin.users.activate", Handler: a.middleware.AdminMiddleware(a.handlers.HandleActivateUser)},
-		{Method: "POST", Path: basePath + "/admin/users/bulk", Name: "admin.users.bulk", Handler: a.middleware.AdminMiddleware(a.handlers.HandleBulkAction)},
+		{Method: "GET", Path: basePath + "/admin/users", Name: "admin.users.list", Handler: a.middleware.AdminMiddleware(a.handlers.Admin.HandleListUsers)},
+		{Method: "GET", Path: basePath + "/admin/users/{id}", Name: "admin.users.get", Handler: a.middleware.AdminMiddleware(a.handlers.Admin.HandleGetUser)},
+		{Method: "PUT", Path: basePath + "/admin/users/{id}", Name: "admin.users.update", Handler: a.middleware.AdminMiddleware(a.handlers.Admin.HandleUpdateUser)},
+		{Method: "PATCH", Path: basePath + "/admin/users/{id}", Name: "admin.users.patch", Handler: a.middleware.AdminMiddleware(a.handlers.Admin.HandleUpdateUser)},
+		{Method: "DELETE", Path: basePath + "/admin/users/{id}", Name: "admin.users.delete", Handler: a.middleware.AdminMiddleware(a.handlers.Admin.HandleDeleteUser)},
+		{Method: "POST", Path: basePath + "/admin/users/{id}/activate", Name: "admin.users.activate", Handler: a.middleware.AdminMiddleware(a.handlers.Admin.HandleActivateUser)},
+		{Method: "POST", Path: basePath + "/admin/users/bulk", Name: "admin.users.bulk", Handler: a.middleware.AdminMiddleware(a.handlers.Admin.HandleBulkAction)},
 		// {Method: "GET", Path: basePath + "/admin/stats", Name: "admin.stats", Handler: a.middleware.AdminMiddleware(a.handlers.HandleSystemStats)},
-		{Method: "GET", Path: basePath + "/admin/audit-logs", Name: "admin.audit-logs", Handler: a.middleware.AdminMiddleware(a.handlers.HandleGetAuditLogs)},
+		{Method: "GET", Path: basePath + "/admin/audit-logs", Name: "admin.audit-logs", Handler: a.middleware.AdminMiddleware(a.handlers.Admin.HandleGetAuditLogs)},
 		// {Method: "GET", Path: basePath + "/admin/health", Name: "admin.health", Handler: a.middleware.AdminMiddleware(a.handlers.HandleSystemHealth)},
-		{Method: "GET", Path: basePath + "/admin/users/export", Name: "admin.users.export", Handler: a.middleware.AdminMiddleware(a.handlers.HandleExportUsers)},
-		{Method: "POST", Path: basePath + "/admin/invitations", Name: "admin.invitations.create", Handler: a.middleware.AdminMiddleware(a.handlers.HandleInviteUser)},
-		{Method: "GET", Path: basePath + "/admin/invitations", Name: "admin.invitations.list", Handler: a.middleware.AdminMiddleware(a.handlers.HandleListInvitations)},
-		{Method: "DELETE", Path: basePath + "/admin/invitations/{id}", Name: "admin.invitations.cancel", Handler: a.middleware.AdminMiddleware(a.handlers.HandleCancelInvitation)},
+		{Method: "GET", Path: basePath + "/admin/users/export", Name: "admin.users.export", Handler: a.middleware.AdminMiddleware(a.handlers.Admin.HandleExportUsers)},
+		{Method: "POST", Path: basePath + "/admin/invitations", Name: "admin.invitations.create", Handler: a.middleware.AdminMiddleware(a.handlers.Admin.HandleInviteUser)},
+		{Method: "GET", Path: basePath + "/admin/invitations", Name: "admin.invitations.list", Handler: a.middleware.AdminMiddleware(a.handlers.Admin.HandleListInvitations)},
+		{Method: "DELETE", Path: basePath + "/admin/invitations/{id}", Name: "admin.invitations.cancel", Handler: a.middleware.AdminMiddleware(a.handlers.Admin.HandleCancelInvitation)},
 	}
 
 	// Add OAuth routes
 	for _, providerName := range a.Auth.Config.Providers.Enabled {
 		providerPath := basePath + "/oauth/" + string(providerName)
-
-		var provider interface {
-			SignIn(w http.ResponseWriter, r *http.Request)
-			Callback(w http.ResponseWriter, r *http.Request)
-		}
-
-		switch providerName {
-		case config.Google:
-			provider = oauthRoutes.NewGoogleOauth(a.Auth)
-		case config.GitHub:
-			provider = oauthRoutes.NewGitHubOauth(a.Auth)
-		default:
-			continue
-		}
-
 		routes = append(routes,
-			config.RouteInfo{Method: "GET", Path: providerPath, Name: "oauth." + string(providerName) + ".signin", Handler: provider.SignIn},
-			config.RouteInfo{Method: "GET", Path: providerPath + "/callback", Name: "oauth." + string(providerName) + ".callback", Handler: provider.Callback},
+			config.RouteInfo{Method: "GET", Path: providerPath, Name: "oauth." + string(providerName) + ".signin", Handler: a.handlers.Oauth.SignIn(dto.OAuthProvider(providerName))},
+			config.RouteInfo{Method: "GET", Path: providerPath + "/callback", Name: "oauth." + string(providerName) + ".callback", Handler: a.handlers.Oauth.Callback(dto.OAuthProvider(providerName))},
 		)
 	}
 

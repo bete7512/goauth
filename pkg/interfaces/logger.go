@@ -1,6 +1,6 @@
 package interfaces
 
-// Logger interface for consistent logging
+// // Logger interface for consistent logging
 type Logger interface {
 	Debugf(format string, args ...interface{})
 	Infof(format string, args ...interface{})

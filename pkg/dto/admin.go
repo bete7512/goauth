@@ -13,11 +13,11 @@ type ListUsersRequest struct {
 	IsAdmin  *bool  `json:"is_admin,omitempty"`
 }
 
-// ListUsersResponse represents user listing response
-type ListUsersResponse struct {
-	Users      []AdminUserData `json:"users"`
-	Pagination Pagination      `json:"pagination"`
-}
+// // ListUsersResponse represents user listing response
+// type ListUsersResponse struct {
+// 	Users      []AdminUserData `json:"users"`
+// 	Pagination PaginationMeta      `json:"pagination"`
+// }
 
 // AdminUserData represents admin user information
 type AdminUserData struct {

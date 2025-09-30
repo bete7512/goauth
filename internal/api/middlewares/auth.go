@@ -2,36 +2,36 @@ package middlewares
 
 import (
 	"context"
-	"errors"
 	"log"
 	"net/http"
 
 	"github.com/bete7512/goauth/internal/utils"
 	"github.com/bete7512/goauth/pkg/config"
+	"github.com/bete7512/goauth/pkg/types"
 )
 
 func (m *Middleware) AdminMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, err := m.getUserIdFromRequest(r, m.Auth.Config.AuthConfig.Cookie.Name)
 		if err != nil {
-			utils.RespondWithError(w, http.StatusUnauthorized, "unauthorized", err)
+			utils.RespondError(w, http.StatusUnauthorized, string(types.ErrUnauthorized), err.Error())
 			return
 		}
 		if userID == "" {
-			utils.RespondWithError(w, http.StatusUnauthorized, "unauthorized", errors.New("user id not found in request"))
+			utils.RespondError(w, http.StatusUnauthorized, string(types.ErrUnauthorized), "user id not found in request")
 			return
 		}
 		user, err := m.Auth.Repository.GetUserRepository().GetUserByID(r.Context(), userID)
 		if err != nil {
-			utils.RespondWithError(w, http.StatusUnauthorized, "unauthorized", err)
+			utils.RespondError(w, http.StatusUnauthorized, string(types.ErrUnauthorized), err.Error())
 			return
 		}
 		if user == nil {
-			utils.RespondWithError(w, http.StatusUnauthorized, "unauthorized", errors.New("user not found"))
+			utils.RespondError(w, http.StatusUnauthorized, string(types.ErrUnauthorized), "user not found")
 			return
 		}
 		if user.IsAdmin == nil || !*user.IsAdmin {
-			utils.RespondWithError(w, http.StatusForbidden, "forbidden", errors.New("user is not an admin"))
+			utils.RespondError(w, http.StatusForbidden, string(types.ErrForbidden), "user is not an admin")
 			return
 		}
 		ctx := context.WithValue(r.Context(), config.UserIDKey, userID)
@@ -46,11 +46,11 @@ func (m *Middleware) AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		log.Println("AuthMiddleware")
 		userID, err := m.getUserIdFromRequest(r, m.Auth.Config.AuthConfig.Cookie.Name)
 		if err != nil {
-			utils.RespondWithError(w, http.StatusUnauthorized, "unauthorized", err)
+			utils.RespondError(w, http.StatusUnauthorized, string(types.ErrUnauthorized), err.Error())
 			return
 		}
 		if userID == "" {
-			utils.RespondWithError(w, http.StatusUnauthorized, "unauthorized", errors.New("user id not found in request"))
+			utils.RespondError(w, http.StatusUnauthorized, string(types.ErrUnauthorized), "user id not found in request")
 			return
 		}
 
