@@ -2,7 +2,6 @@ package magiclink
 
 import (
 	"context"
-	"net/http"
 
 	"github.com/bete7512/goauth/pkg/config"
 )
@@ -26,8 +25,8 @@ func (m *MagicLinkModule) Routes() []config.RouteInfo {
 	return nil
 }
 
-func (m *MagicLinkModule) Middlewares() []func(http.Handler) http.Handler {
-	middlewareList := []func(http.Handler) http.Handler{
+func (m *MagicLinkModule) Middlewares() []config.MiddlewareConfig {
+	middlewareList := []config.MiddlewareConfig{
 		// Add any module-specific middlewares here
 	}
 	return middlewareList
@@ -40,8 +39,8 @@ func (m *MagicLinkModule) Models() []interface{} {
 	return models
 }
 
-func (m *MagicLinkModule) Hooks() config.Hooks {
-	return config.Hooks{}
+func (m *MagicLinkModule) RegisterHooks(events config.EventBus) error {
+	return nil
 }
 
 func (m *MagicLinkModule) Dependencies() []string {

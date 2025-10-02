@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"net/http"
 
 	"github.com/bete7512/goauth/modules/core/handlers"
 	"github.com/bete7512/goauth/modules/core/middlewares"
@@ -37,11 +36,16 @@ func (m *CoreModule) Routes() []config.RouteInfo {
 	return m.handlers.GetRoutes()
 }
 
-func (m *CoreModule) Middlewares() []func(http.Handler) http.Handler {
-	middlewareList := []func(http.Handler) http.Handler{
-		middlewares.AuthMiddleware,
+func (m *CoreModule) Middlewares() []config.MiddlewareConfig {
+	return []config.MiddlewareConfig{
+		{
+			Name:       "core.auth",
+			Middleware: middlewares.AuthMiddleware,
+			Priority:   50,
+			ApplyTo:    []string{"core.me", "core.profile", "core.logout"},
+			Global:     false,
+		},
 	}
-	return middlewareList
 }
 
 func (m *CoreModule) Models() []interface{} {
@@ -52,8 +56,10 @@ func (m *CoreModule) Models() []interface{} {
 	return models
 }
 
-func (m *CoreModule) Hooks() config.Hooks {
-	return config.Hooks{}
+func (m *CoreModule) RegisterHooks(events config.EventBus) error {
+	// Register event handlers for core module
+	// Example: events.Subscribe("before:signup", m.onBeforeSignup)
+	return nil
 }
 
 func (m *CoreModule) Dependencies() []string {
