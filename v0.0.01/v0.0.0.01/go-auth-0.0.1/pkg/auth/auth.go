@@ -5,23 +5,25 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/bete7512/goauth/modules/core"
 	"github.com/bete7512/goauth/pkg/config"
-	"github.com/bete7512/goauth/pkg/events"
-	"github.com/bete7512/goauth/pkg/middleware"
+	"github.com/bete7512/goauth/internal/events"
+	"github.com/bete7512/goauth/internal/middleware"
 )
 
+/*
+TODO: in future events can be
+*/
 // Auth is the main library instance
 type Auth struct {
-	config             *config.Config
-	storage            config.Storage
-	modules            map[string]config.Module
-	routes             []config.RouteInfo
-	moduleDependencies config.ModuleDependencies
-	eventBus           *events.EventBus
-	middlewareManager  *middleware.Manager
-	logger             events.Logger
-	initialized        bool
+	config                   *config.Config
+	storage                  config.Storage
+	modules                  map[string]config.Module
+	routes                   []config.RouteInfo
+	commonModuleDependencies config.ModuleDependencies
+	eventBus                 *events.EventBus
+	middlewareManager        *middleware.Manager
+	logger                   events.Logger
+	initialized              bool
 }
 
 // New creates a new Auth instance
@@ -31,12 +33,7 @@ func New(cfg *config.Config) (*Auth, error) {
 	}
 
 	// Initialize logger
-	var logger events.Logger
-	if cfg.Logger != nil {
-		logger = &loggerAdapter{logger: cfg.Logger}
-	} else {
-		logger = &events.DefaultLogger{}
-	}
+	logger := &events.DefaultLogger{}
 
 	// Initialize event bus
 	eventBus := events.NewEventBus(logger)
@@ -71,20 +68,20 @@ func New(cfg *config.Config) (*Auth, error) {
 		logger:            logger,
 	}
 
-	// Setup module dependencies with simplified event bus adapter
-	// Convert events.Logger to config.Logger if needed
+	// Setup module dependencies
 	var configLogger config.Logger
 	if cfg.Logger != nil {
 		configLogger = cfg.Logger
 	} else {
-		configLogger = &simpleLoggerAdapter{logger: logger}
+		configLogger = logger
 	}
 
-	auth.moduleDependencies = config.ModuleDependencies{
+	eventBusAdapter := events.NewEventBusAdapter(eventBus)
+	auth.commonModuleDependencies = config.ModuleDependencies{
 		Storage:           cfg.Storage,
 		Config:            cfg,
 		Logger:            configLogger,
-		Events:            &simpleEventBusAdapter{bus: eventBus},
+		Events:            eventBusAdapter,
 		MiddlewareManager: middlewareManager,
 	}
 
@@ -174,12 +171,12 @@ func (a *Auth) Initialize(ctx context.Context) error {
 	// Initialize all modules
 	for name, module := range a.modules {
 		a.logger.Info("Initializing module", "name", name)
-		if err := module.Init(ctx, a.moduleDependencies); err != nil {
+		if err := module.Init(ctx, a.commonModuleDependencies); err != nil {
 			return fmt.Errorf("failed to initialize module %s: %w", name, err)
 		}
 
 		// Register module hooks
-		if err := module.RegisterHooks(a.moduleDependencies.Events); err != nil {
+		if err := module.RegisterHooks(a.commonModuleDependencies.Events); err != nil {
 			return fmt.Errorf("failed to register hooks for module %s: %w", name, err)
 		}
 
@@ -233,14 +230,3 @@ func (a *Auth) GetModule(name string) (config.Module, error) {
 	}
 	return module, nil
 }
-
-// // GenerateMigrationSQL generates SQL migration file
-// func (a *Auth) GenerateMigrationSQL() ([]byte, error) {
-// 	var buf bytes.Buffer
-// 	for _, module := range a.modules {
-// 		if err := module.GenerateMigrationSQL(&buf); err != nil {
-// 			return nil, err
-// 		}
-// 	}
-// 	return buf.Bytes(), nil
-// }

@@ -13,6 +13,12 @@ type RouteInfo struct {
 	Handler http.HandlerFunc
 }
 
+type Migration struct {
+	ID   string
+	Up   string
+	Down string
+}
+
 type Module interface {
 	// Name returns the module identifier
 	Name() string
@@ -42,6 +48,7 @@ type ModuleDependencies struct {
 	Logger            Logger
 	Events            EventBus
 	MiddlewareManager MiddlewareManager
+	Options           *interface{}
 }
 
 // MiddlewareConfig for modules to define middleware application
@@ -106,6 +113,7 @@ type Logger interface {
 	Errorf(format string, args ...interface{})
 	Debugf(format string, args ...interface{})
 	Warnf(format string, args ...interface{})
+	Fatalf(format string, args ...interface{})
 }
 
 type Config struct {

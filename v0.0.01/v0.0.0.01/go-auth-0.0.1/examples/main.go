@@ -4,8 +4,10 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/bete7512/goauth/modules/csrf"
 	"github.com/bete7512/goauth/modules/magiclink"
 	"github.com/bete7512/goauth/modules/ratelimiter"
+	"github.com/bete7512/goauth/modules/twofactor"
 	"github.com/bete7512/goauth/pkg/auth"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/gin-gonic/gin"
@@ -29,7 +31,37 @@ func main() {
 		// Handle error
 	}
 	auth.Use(magiclink.New())
-	auth.Use(ratelimiter.New())
+	auth.Use(ratelimiter.New(
+		&ratelimiter.RateLimiterConfig{
+			RequestsPerMinute: 60,
+			RequestsPerHour:   1000,
+			BurstSize:         10,
+		},
+	))
+	auth.Use(csrf.New(
+		&csrf.CSRFConfig{
+			TokenLength:      32,
+			TokenExpiry:      3600,
+			CookieName:       "csrf_token",
+			HeaderName:       "X-CSRF-Token",
+			FormFieldName:    "csrf_token",
+			Secure:           true,
+			HTTPOnly:         true,
+			SameSite:         http.SameSiteStrictMode,
+			OnlyToPaths:      []string{"/auth/login", "/auth/signup", "/auth/forgot-password"},
+			ProtectedMethods: []string{"POST", "PUT", "DELETE"},
+		},
+	))
+	auth.Use(twofactor.New(
+		&twofactor.TwoFactorConfig{
+			Issuer:           "GoAuth",
+			Required:         true,
+			BackupCodesCount: 10,
+			CodeLength:       8,
+			Options:          &twofactor.TwoFactorOptions{
+		},
+	))
+	// auth.Use(oauth.New())
 	server := "http"
 	switch server {
 	case "http":
