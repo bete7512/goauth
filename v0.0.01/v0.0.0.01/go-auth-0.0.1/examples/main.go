@@ -4,10 +4,10 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/bete7512/goauth/internal/modules/core"
 	"github.com/bete7512/goauth/modules/csrf"
 	"github.com/bete7512/goauth/modules/magiclink"
 	"github.com/bete7512/goauth/modules/ratelimiter"
-	"github.com/bete7512/goauth/modules/twofactor"
 	"github.com/bete7512/goauth/pkg/auth"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/gin-gonic/gin"
@@ -30,6 +30,7 @@ func main() {
 	if err := auth.Initialize(context.Background()); err != nil {
 		// Handle error
 	}
+	auth.Use(core.New(&core.Config{}))
 	auth.Use(magiclink.New())
 	auth.Use(ratelimiter.New(
 		&ratelimiter.RateLimiterConfig{
@@ -50,15 +51,6 @@ func main() {
 			SameSite:         http.SameSiteStrictMode,
 			OnlyToPaths:      []string{"/auth/login", "/auth/signup", "/auth/forgot-password"},
 			ProtectedMethods: []string{"POST", "PUT", "DELETE"},
-		},
-	))
-	auth.Use(twofactor.New(
-		&twofactor.TwoFactorConfig{
-			Issuer:           "GoAuth",
-			Required:         true,
-			BackupCodesCount: 10,
-			CodeLength:       8,
-			Options:          &twofactor.TwoFactorOptions{
 		},
 	))
 	// auth.Use(oauth.New())

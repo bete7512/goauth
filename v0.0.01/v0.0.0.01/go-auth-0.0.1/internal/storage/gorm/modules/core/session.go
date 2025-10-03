@@ -8,11 +8,13 @@ import (
 	"gorm.io/gorm"
 )
 
-var _ models.SessionRepository = (*SessionRepository)(nil)
-
+// SessionRepository implements the core module's SessionRepository interface
 type SessionRepository struct {
 	db *gorm.DB
 }
+
+// Ensure it implements the interface
+var _ models.SessionRepository = (*SessionRepository)(nil)
 
 func NewSessionRepository(db *gorm.DB) *SessionRepository {
 	return &SessionRepository{db: db}
@@ -23,14 +25,20 @@ func (r *SessionRepository) Create(ctx context.Context, session *models.Session)
 }
 
 func (r *SessionRepository) FindByToken(ctx context.Context, token string) (*models.Session, error) {
-	var session *models.Session
+	var session models.Session
 	err := r.db.WithContext(ctx).Where("token = ?", token).First(&session).Error
-	return session, err
+	if err != nil {
+		return nil, err
+	}
+	return &session, nil
 }
 
 func (r *SessionRepository) FindByUserID(ctx context.Context, userID string) ([]*models.Session, error) {
 	var sessions []*models.Session
-	err := r.db.WithContext(ctx).Where("user_id = ?", userID).Find(&sessions).Error
+	err := r.db.WithContext(ctx).
+		Where("user_id = ?", userID).
+		Where("expires_at > ?", time.Now()).
+		Find(&sessions).Error
 	return sessions, err
 }
 

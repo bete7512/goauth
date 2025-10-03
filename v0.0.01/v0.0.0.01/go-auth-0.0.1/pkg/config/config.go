@@ -48,6 +48,7 @@ type ModuleDependencies struct {
 	Logger            Logger
 	Events            EventBus
 	MiddlewareManager MiddlewareManager
+	Repositories      map[string]interface{}
 	Options           *interface{}
 }
 
@@ -59,34 +60,6 @@ type MiddlewareConfig struct {
 	ApplyTo     []string // Route names or patterns
 	ExcludeFrom []string // Route names or patterns to exclude
 	Global      bool     // Apply to all routes
-}
-
-// Storage interface placeholder (will be implemented separately)
-type Storage interface {
-	Initialize(ctx context.Context) error
-	Close() error
-	Migrate(ctx context.Context, models []interface{}) error
-	BeginTx(ctx context.Context) (Transaction, error)
-	DB() interface{}
-	Repository(model interface{}) Repository
-}
-
-// Transaction interface for database transactions
-type Transaction interface {
-	Commit() error
-	Rollback() error
-	Repository(model interface{}) Repository
-}
-
-// Repository provides generic CRUD operations
-type Repository interface {
-	Create(ctx context.Context, entity interface{}) error
-	FindByID(ctx context.Context, id interface{}, dest interface{}) error
-	FindOne(ctx context.Context, query interface{}, dest interface{}) error
-	FindAll(ctx context.Context, query interface{}, dest interface{}) error
-	Update(ctx context.Context, entity interface{}) error
-	Delete(ctx context.Context, entity interface{}) error
-	Count(ctx context.Context, query interface{}) (int64, error)
 }
 
 // EventBus interface for event handling

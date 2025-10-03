@@ -3,17 +3,20 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/bete7512/goauth/modules/core/middlewares"
+	"github.com/bete7512/goauth/internal/modules/core/middlewares"
+	core_services "github.com/bete7512/goauth/internal/modules/core/services"
 	"github.com/bete7512/goauth/pkg/config"
 )
 
 type CoreHandler struct {
-	deps config.ModuleDependencies
+	deps        config.ModuleDependencies
+	CoreService *core_services.CoreService
 }
 
-func NewCoreHandler(deps config.ModuleDependencies) *CoreHandler {
+func NewCoreHandler(deps config.ModuleDependencies, coreService *core_services.CoreService) *CoreHandler {
 	return &CoreHandler{
-		deps: deps,
+		deps:        deps,
+		CoreService: coreService,
 	}
 }
 

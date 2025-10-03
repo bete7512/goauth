@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/internal/events"
 	"github.com/bete7512/goauth/internal/middleware"
+	"github.com/bete7512/goauth/internal/modules/core"
+	"github.com/bete7512/goauth/pkg/config"
 )
 
 /*
@@ -53,7 +54,7 @@ func New(cfg *config.Config) (*Auth, error) {
 
 	// Add request ID middleware
 	middlewareManager.Register(middleware.MiddlewareConfig{
-		Name:       "request-id",
+		Name:       "auth.add-request-id",
 		Middleware: middleware.RequestID(),
 		Priority:   90,
 		Global:     true,
@@ -84,10 +85,11 @@ func New(cfg *config.Config) (*Auth, error) {
 		Events:            eventBusAdapter,
 		MiddlewareManager: middlewareManager,
 	}
-
-	// Register core module (always enabled)
-	coreModule := core.New()
-	auth.modules[coreModule.Name()] = coreModule
+	if auth.config.ModuleConfigs["core"] == nil {
+		// Register core module (always enabled) unless user wants to 
+		coreModule := core.New(&core.Config{})
+		auth.modules[coreModule.Name()] = coreModule
+	}
 
 	return auth, nil
 }
