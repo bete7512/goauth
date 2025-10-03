@@ -3,8 +3,8 @@ package ratelimiter
 import (
 	"context"
 
-	"github.com/bete7512/goauth/modules/ratelimiter/middlewares"
-	"github.com/bete7512/goauth/modules/ratelimiter/services"
+	"github.com/bete7512/goauth/internal/modules/ratelimiter/middlewares"
+	"github.com/bete7512/goauth/internal/modules/ratelimiter/services"
 	"github.com/bete7512/goauth/pkg/config"
 )
 
@@ -19,7 +19,6 @@ type RateLimiterConfig struct {
 	RequestsPerMinute int
 	RequestsPerHour   int
 	BurstSize         int
-	
 }
 
 var _ config.Module = (*RateLimiterModule)(nil)
@@ -33,7 +32,6 @@ func New(cfg ...*RateLimiterConfig) *RateLimiterModule {
 			RequestsPerMinute: 60,
 			RequestsPerHour:   1000,
 			BurstSize:         10,
-			
 		}
 	}
 
@@ -80,7 +78,7 @@ func (m *RateLimiterModule) Models() []interface{} {
 
 func (m *RateLimiterModule) RegisterHooks(events config.EventBus) error {
 	events.Subscribe("before:login", func(ctx context.Context, event interface{}) error {
-		data, ok := event.(map[string]interface{})
+		_, ok := event.(map[string]interface{})
 		if !ok {
 			return nil
 		}
@@ -91,7 +89,7 @@ func (m *RateLimiterModule) RegisterHooks(events config.EventBus) error {
 		return nil
 	})
 	events.Subscribe("before:signup", func(ctx context.Context, event interface{}) error {
-		data, ok := event.(map[string]interface{})
+		_, ok := event.(map[string]interface{})
 		if !ok {
 			return nil
 		}
@@ -102,14 +100,15 @@ func (m *RateLimiterModule) RegisterHooks(events config.EventBus) error {
 		return nil
 	})
 	events.Subscribe("before:logout", func(ctx context.Context, event interface{}) error {
-		data, ok := event.(map[string]interface{})
+		_, ok := event.(map[string]interface{})
 		if !ok {
 			return nil
 		}
+
 		return nil
 	})
 	events.Subscribe("before:forgot-password", func(ctx context.Context, event interface{}) error {
-		data, ok := event.(map[string]interface{})
+		_, ok := event.(map[string]interface{})
 		if !ok {
 			return nil
 		}

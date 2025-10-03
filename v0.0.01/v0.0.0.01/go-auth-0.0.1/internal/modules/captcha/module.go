@@ -3,8 +3,8 @@ package captcha
 import (
 	"context"
 
-	"github.com/bete7512/goauth/modules/captcha/middlewares"
-	"github.com/bete7512/goauth/modules/captcha/services"
+	"github.com/bete7512/goauth/internal/modules/captcha/middlewares"
+	"github.com/bete7512/goauth/internal/modules/captcha/services"
 	"github.com/bete7512/goauth/pkg/config"
 )
 

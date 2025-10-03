@@ -18,8 +18,10 @@ type CoreModule struct {
 	config   *Config
 }
 type Config struct {
-	UserRepository    models.UserRepository
-	SessionRepository models.SessionRepository
+	UserRepository              models.UserRepository
+	SessionRepository           models.SessionRepository
+	TokenRepository             models.TokenRepository
+	VerificationTokenRepository models.VerificationTokenRepository
 }
 
 var _ config.Module = (*CoreModule)(nil)
@@ -32,32 +34,37 @@ func New(config *Config) *CoreModule {
 		}
 	}
 	coreModule.config = config
-	coreModule.handlers = handlers.NewCoreHandler(coreModule.deps, core_services.NewCoreService(coreModule.deps, config.UserRepository, config.SessionRepository))
+	coreModule.handlers = handlers.NewCoreHandler(coreModule.deps, core_services.NewCoreService(coreModule.deps, config.UserRepository, config.SessionRepository, config.TokenRepository))
 	return coreModule
 }
 
 func (m *CoreModule) Init(ctx context.Context, deps config.ModuleDependencies) error {
 	m.deps = deps
 	if m.config.UserRepository == nil || m.config.SessionRepository == nil {
-		deps.Repositories[config.CoreUserRepository] = m.config.UserRepository
-		deps.Repositories[config.CoreSessionRepository] = m.config.SessionRepository
-		m.handlers = handlers.NewCoreHandler(deps, core_services.NewCoreService(deps, m.deps.Repositories[config.CoreUserRepository].(models.UserRepository), m.deps.Repositories[config.CoreSessionRepository].(models.SessionRepository)))
+		deps.Repositories[string(config.CoreUserRepository)] = m.config.UserRepository
+		deps.Repositories[string(config.CoreSessionRepository)] = m.config.SessionRepository
+		deps.Repositories[string(config.CoreTokenRepository)] = m.config.TokenRepository
+
+		m.handlers = handlers.NewCoreHandler(deps, core_services.NewCoreService(deps, m.deps.Repositories[string(config.CoreUserRepository)].(models.UserRepository), m.deps.Repositories[string(config.CoreSessionRepository)].(models.SessionRepository), m.deps.Repositories[string(config.CoreTokenRepository)].(models.TokenRepository)))
 	}
 	return nil
 }
 func (m *CoreModule) ValidateRepositories() error {
-	if _, ok := m.deps.Repositories[config.CoreUserRepository]; !ok {
+	if _, ok := m.deps.Repositories[string(config.CoreUserRepository)]; !ok {
 		return fmt.Errorf("core.user repository is required")
 	}
-	if _, ok := m.deps.Repositories[config.CoreSessionRepository]; !ok {
+	if _, ok := m.deps.Repositories[string(config.CoreSessionRepository)]; !ok {
 		return fmt.Errorf("core.session repository is required")
 	}
 	// check also if it is of type UserRepository and SessionRepository
-	if _, ok := m.deps.Repositories[config.CoreUserRepository].(models.UserRepository); !ok {
+	if _, ok := m.deps.Repositories[string(config.CoreUserRepository)].(models.UserRepository); !ok {
 		return fmt.Errorf("core.user repository is not of type UserRepository")
 	}
-	if _, ok := m.deps.Repositories[config.CoreSessionRepository].(models.SessionRepository); !ok {
+	if _, ok := m.deps.Repositories[string(config.CoreSessionRepository)].(models.SessionRepository); !ok {
 		return fmt.Errorf("core.session repository is not of type SessionRepository")
+	}
+	if _, ok := m.deps.Repositories[string(config.CoreTokenRepository)].(models.TokenRepository); !ok {
+		return fmt.Errorf("core.token repository is not of type TokenRepository")
 	}
 
 	return nil
@@ -90,13 +97,33 @@ func (m *CoreModule) Models() []interface{} {
 	models := []interface{}{
 		&models.User{},
 		&models.Session{},
+		&models.VerificationToken{},
 	}
 	return models
 }
 
 func (m *CoreModule) RegisterHooks(events config.EventBus) error {
-	// Register event handlers for core module
-	// Example: events.Subscribe("before:signup", m.onBeforeSignup)
+	events.Subscribe("before:signup", func(ctx context.Context, event interface{}) error {
+		_, ok := event.(map[string]interface{})
+		if !ok {
+			return nil
+		}
+		return nil
+	})
+	events.Subscribe("before:login", func(ctx context.Context, event interface{}) error {
+		_, ok := event.(map[string]interface{})
+		if !ok {
+			return nil
+		}
+		return nil
+	})
+	events.Subscribe("before:logout", func(ctx context.Context, event interface{}) error {
+		_, ok := event.(map[string]interface{})
+		if !ok {
+			return nil
+		}
+		return nil
+	})
 	return nil
 }
 

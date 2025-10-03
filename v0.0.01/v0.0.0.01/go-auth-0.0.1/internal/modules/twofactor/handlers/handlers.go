@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/bete7512/goauth/modules/twofactor/services"
+	"github.com/bete7512/goauth/internal/modules/twofactor/services"
 	"github.com/bete7512/goauth/pkg/config"
 )
 

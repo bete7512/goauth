@@ -222,14 +222,38 @@ func (l *DefaultLogger) Info(msg string, args ...interface{}) {
 	fmt.Printf("[INFO] %s %v\n", msg, args)
 }
 
+func (l *DefaultLogger) Infof(format string, args ...interface{}) {
+	fmt.Printf("[INFO] "+format+"\n", args...)
+}
+
 func (l *DefaultLogger) Error(msg string, args ...interface{}) {
 	fmt.Printf("[ERROR] %s %v\n", msg, args)
+}
+
+func (l *DefaultLogger) Errorf(format string, args ...interface{}) {
+	fmt.Printf("[ERROR] "+format+"\n", args...)
 }
 
 func (l *DefaultLogger) Debug(msg string, args ...interface{}) {
 	fmt.Printf("[DEBUG] %s %v\n", msg, args)
 }
 
+func (l *DefaultLogger) Debugf(format string, args ...interface{}) {
+	fmt.Printf("[DEBUG] "+format+"\n", args...)
+}
+
 func (l *DefaultLogger) Warn(msg string, args ...interface{}) {
 	fmt.Printf("[WARN] %s %v\n", msg, args)
+}
+
+func (l *DefaultLogger) Warnf(format string, args ...interface{}) {
+	fmt.Printf("[WARN] "+format+"\n", args...)
+}
+
+func (l *DefaultLogger) Trace(msg string, args ...interface{}) {
+	fmt.Printf("[TRACE] %s %v\n", msg, args)
+}
+
+func (l *DefaultLogger) Fatalf(format string, args ...interface{}) {
+	fmt.Printf("[FATAL] "+format+"\n", args...)
 }

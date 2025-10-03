@@ -4,9 +4,9 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/bete7512/goauth/modules/twofactor/handlers"
-	"github.com/bete7512/goauth/modules/twofactor/models"
-	"github.com/bete7512/goauth/modules/twofactor/services"
+	"github.com/bete7512/goauth/internal/modules/twofactor/handlers"
+	"github.com/bete7512/goauth/internal/modules/twofactor/models"
+	"github.com/bete7512/goauth/internal/modules/twofactor/services"
 	"github.com/bete7512/goauth/pkg/config"
 )
 

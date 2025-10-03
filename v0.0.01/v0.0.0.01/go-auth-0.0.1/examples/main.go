@@ -2,12 +2,17 @@ package main
 
 import (
 	"context"
+	"log"
 	"net/http"
 
 	"github.com/bete7512/goauth/internal/modules/core"
-	"github.com/bete7512/goauth/modules/csrf"
-	"github.com/bete7512/goauth/modules/magiclink"
-	"github.com/bete7512/goauth/modules/ratelimiter"
+	"github.com/bete7512/goauth/internal/modules/csrf"
+	"github.com/bete7512/goauth/internal/modules/magiclink"
+	"github.com/bete7512/goauth/internal/modules/notification"
+	"github.com/bete7512/goauth/internal/modules/notification/services"
+	"github.com/bete7512/goauth/internal/modules/notification/services/senders"
+	"github.com/bete7512/goauth/internal/modules/ratelimiter"
+	"github.com/bete7512/goauth/internal/storage"
 	"github.com/bete7512/goauth/pkg/auth"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/gin-gonic/gin"
@@ -17,57 +22,93 @@ import (
 )
 
 func main() {
-	// Application code here
-	auth, err := auth.New(
-		&config.Config{
-			// Configuration fields here
-		},
-	)
+	// Create storage instance using factory
+	// Option 1: Use built-in GORM storage
+	store, err := storage.NewStorage(config.StorageConfig{
+		Driver:       "gorm",
+		Dialect:      "sqlite",
+		DSN:          "./auth.db",
+		AutoMigrate:  true,
+		LogLevel:     "warn",
+		MaxOpenConns: 25,
+		MaxIdleConns: 5,
+	})
 	if err != nil {
-		// Handle error
+		log.Fatalf("Failed to create storage: %v", err)
+	}
+	defer store.Close()
+
+	// Create auth instance
+	authInstance, err := auth.New(&config.Config{
+		Storage:     store,
+		SecretKey:   "your-secret-key-change-in-production",
+		AutoMigrate: true,
+	})
+	if err != nil {
+		log.Fatalf("Failed to create auth: %v", err)
 	}
 
-	if err := auth.Initialize(context.Background()); err != nil {
-		// Handle error
+	// Register modules before Initialize
+	authInstance.Use(core.New(&core.Config{}))
+	authInstance.Use(magiclink.New())
+	authInstance.Use(notification.New(&notification.Config{
+		EmailSender: senders.NewSendGridEmailSender(&senders.SendGridConfig{
+			APIKey:          "your-sendgrid-api-key",
+			DefaultFrom:     "noreply@yourapp.com",
+			DefaultFromName: "Your App",
+		}),
+		ServiceConfig: &services.NotificationConfig{
+			AppName:           "Your App",
+			SupportEmail:      "support@yourapp.com",
+			SupportLink:       "https://yourapp.com/support",
+			EnableEmailAlerts: true,
+		},
+		EnableWelcomeEmail:        true,
+		EnablePasswordResetEmail:  true,
+		EnablePasswordResetSMS:    false,
+		EnableLoginAlerts:         false,
+		EnablePasswordChangeAlert: true,
+		Enable2FANotifications:    true,
+	}))
+	authInstance.Use(ratelimiter.New(&ratelimiter.RateLimiterConfig{
+		RequestsPerMinute: 60,
+		RequestsPerHour:   1000,
+		BurstSize:         10,
+	}))
+	authInstance.Use(csrf.New(&csrf.CSRFConfig{
+		TokenLength:      32,
+		TokenExpiry:      3600,
+		CookieName:       "csrf_token",
+		HeaderName:       "X-CSRF-Token",
+		FormFieldName:    "csrf_token",
+		Secure:           true,
+		HTTPOnly:         true,
+		SameSite:         http.SameSiteStrictMode,
+		OnlyToPaths:      []string{"/auth/login", "/auth/signup", "/auth/forgot-password"},
+		ProtectedMethods: []string{"POST", "PUT", "DELETE"},
+	}))
+
+	// Initialize after all modules are registered
+	if err := authInstance.Initialize(context.Background()); err != nil {
+		log.Fatalf("Failed to initialize auth: %v", err)
 	}
-	auth.Use(core.New(&core.Config{}))
-	auth.Use(magiclink.New())
-	auth.Use(ratelimiter.New(
-		&ratelimiter.RateLimiterConfig{
-			RequestsPerMinute: 60,
-			RequestsPerHour:   1000,
-			BurstSize:         10,
-		},
-	))
-	auth.Use(csrf.New(
-		&csrf.CSRFConfig{
-			TokenLength:      32,
-			TokenExpiry:      3600,
-			CookieName:       "csrf_token",
-			HeaderName:       "X-CSRF-Token",
-			FormFieldName:    "csrf_token",
-			Secure:           true,
-			HTTPOnly:         true,
-			SameSite:         http.SameSiteStrictMode,
-			OnlyToPaths:      []string{"/auth/login", "/auth/signup", "/auth/forgot-password"},
-			ProtectedMethods: []string{"POST", "PUT", "DELETE"},
-		},
-	))
-	// auth.Use(oauth.New())
-	server := "http"
+
+	// Choose your server
+	server := "gin"
 	switch server {
 	case "http":
 		mux := http.NewServeMux()
-		for _, route := range auth.Routes() {
+		for _, route := range authInstance.Routes() {
 			mux.Handle(route.Path, route.Handler)
 		}
+		log.Println("Server running on :8080")
 		http.ListenAndServe(":8080", mux)
 	case "fiber":
-		fiberHandler(auth)
+		fiberHandler(authInstance)
 	case "chi":
-		chiHandler(auth)
+		chiHandler(authInstance)
 	case "gin":
-		ginHandler(auth)
+		ginHandler(authInstance)
 	}
 }
 
@@ -94,32 +135,30 @@ func fiberHandler(auth *auth.Auth) *fiber.App {
 	return fiber
 }
 
-func chiHandler(auth *auth.Auth) chi.Mux {
-	chi := chi.NewRouter()
+func chiHandler(auth *auth.Auth) *chi.Mux {
+	router := chi.NewRouter()
 	for _, route := range auth.Routes() {
 		switch route.Method {
 		case http.MethodGet:
-			chi.Get(route.Path, route.Handler)
+			router.Get(route.Path, route.Handler)
 		case http.MethodPost:
-			chi.Post(route.Path, route.Handler)
+			router.Post(route.Path, route.Handler)
 		case http.MethodPut:
-			chi.Put(route.Path, route.Handler)
+			router.Put(route.Path, route.Handler)
 		case http.MethodDelete:
-			chi.Delete(route.Path, route.Handler)
+			router.Delete(route.Path, route.Handler)
 		case http.MethodPatch:
-			chi.Patch(route.Path, route.Handler)
+			router.Patch(route.Path, route.Handler)
 		case http.MethodOptions:
-			chi.Options(route.Path, route.Handler)
+			router.Options(route.Path, route.Handler)
 		}
 	}
-	chi.Use(auth.RequireAuth)
-	chi.Get("/", func(w http.ResponseWriter, r *http.Request) {
+	router.Use(auth.RequireAuth)
+	router.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("Hello, World!"))
 	})
-	mux := http.NewServeMux()
-	mux.Handle("/", chi)
-	return chi
+	return router
 }
 
 func ginHandler(auth *auth.Auth) *gin.Engine {
@@ -140,5 +179,6 @@ func ginHandler(auth *auth.Auth) *gin.Engine {
 			r.OPTIONS(route.Path, gin.WrapF(route.Handler))
 		}
 	}
+	r.Run(":8080")
 	return r
 }

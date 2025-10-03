@@ -6,23 +6,31 @@ import (
 )
 
 type User struct {
-	ID        string    `json:"id" gorm:"primaryKey"`
-	Email     string    `json:"email" gorm:"uniqueIndex;not null"`
-	Password  string    `json:"-" gorm:"not null"`
-	Name      string    `json:"name"`
-	Avatar    string    `json:"avatar"`
-	Active    bool      `json:"active" gorm:"default:true"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID            string    `json:"id" gorm:"primaryKey"`
+	Email         string    `json:"email" gorm:"uniqueIndex;not null"`
+	Username      string    `json:"username" gorm:"uniqueIndex"`
+	Password      string    `json:"-" gorm:"not null"`
+	Name          string    `json:"name"`
+	Avatar        string    `json:"avatar"`
+	Phone         string    `json:"phone" gorm:"index"`
+	Active        bool      `json:"active" gorm:"default:true"`
+	EmailVerified bool      `json:"email_verified" gorm:"default:false"`
+	PhoneVerified bool      `json:"phone_verified" gorm:"default:false"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 type UserRepository interface {
 	Create(ctx context.Context, user *User) error
 	FindByEmail(ctx context.Context, email string) (*User, error)
+	FindByUsername(ctx context.Context, username string) (*User, error)
+	FindByPhone(ctx context.Context, phone string) (*User, error)
+	FindByEmailOrUsername(ctx context.Context, emailOrUsername string) (*User, error)
 	List(ctx context.Context, limit, offset int) ([]*User, error)
 	FindByID(ctx context.Context, id string) (*User, error)
 	Update(ctx context.Context, user *User) error
 	Delete(ctx context.Context, id string) error
+	CheckAvailability(ctx context.Context, field, value string) (bool, error)
 }
 
 func (User) TableName() string {

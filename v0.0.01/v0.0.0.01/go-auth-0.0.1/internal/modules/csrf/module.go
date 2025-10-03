@@ -4,8 +4,8 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/bete7512/goauth/modules/csrf/middlewares"
-	"github.com/bete7512/goauth/modules/csrf/services"
+	"github.com/bete7512/goauth/internal/modules/csrf/middlewares"
+	"github.com/bete7512/goauth/internal/modules/csrf/services"
 	"github.com/bete7512/goauth/pkg/config"
 )
 

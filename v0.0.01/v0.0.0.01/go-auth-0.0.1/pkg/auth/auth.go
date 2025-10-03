@@ -8,6 +8,7 @@ import (
 	"github.com/bete7512/goauth/internal/events"
 	"github.com/bete7512/goauth/internal/middleware"
 	"github.com/bete7512/goauth/internal/modules/core"
+	"github.com/bete7512/goauth/internal/modules/core/models"
 	"github.com/bete7512/goauth/pkg/config"
 )
 
@@ -84,10 +85,21 @@ func New(cfg *config.Config) (*Auth, error) {
 		Logger:            configLogger,
 		Events:            eventBusAdapter,
 		MiddlewareManager: middlewareManager,
+		Repositories:      make(map[string]interface{}), // Initialize empty, will be populated from storage
 	}
-	if auth.config.ModuleConfigs["core"] == nil {
-		// Register core module (always enabled) unless user wants to 
-		coreModule := core.New(&core.Config{})
+	if auth.config.ModuleConfigs[string(config.CoreModule)] == nil {
+		coreConfig := &core.Config{}
+		if auth.storage != nil {
+			if auth.storage.GetRepository(string(config.CoreUserRepository)) == nil {
+				return nil, fmt.Errorf("core.user repository is not found storage is not connected correctly")
+			}
+			if auth.storage.GetRepository(string(config.CoreSessionRepository)) == nil {
+				return nil, fmt.Errorf("core.session repository is not found storage is not connected correctly")
+			}
+			coreConfig.UserRepository = auth.storage.GetRepository(string(config.CoreUserRepository)).(models.UserRepository)
+			coreConfig.SessionRepository = auth.storage.GetRepository(string(config.CoreSessionRepository)).(models.SessionRepository)
+		}
+		coreModule := core.New(coreConfig)
 		auth.modules[coreModule.Name()] = coreModule
 	}
 
@@ -101,7 +113,7 @@ func (a *Auth) Use(module config.Module) error {
 	}
 
 	if _, exists := a.modules[module.Name()]; exists {
-		return config.NewConfigErr("module already registered: " + module.Name())
+		return fmt.Errorf("module already registered: %s", module.Name())
 	}
 
 	// Check dependencies
@@ -150,9 +162,17 @@ func (a *Auth) Initialize(ctx context.Context) error {
 		return fmt.Errorf("auth already initialized")
 	}
 
-	// Initialize storage
-	if err := a.storage.Initialize(ctx); err != nil {
-		return fmt.Errorf("failed to initialize storage: %w", err)
+	// Populate repositories from storage to dependencies
+	// Modules can access repositories via deps.Repositories or deps.Storage.GetRepository()
+	for _, repoName := range []string{
+		string(config.CoreUserRepository),
+		string(config.CoreSessionRepository),
+		string(config.AdminAuditLogRepository),
+		// Add more repository constants as needed
+	} {
+		if repo := a.storage.GetRepository(repoName); repo != nil {
+			a.commonModuleDependencies.Repositories[repoName] = repo
+		}
 	}
 
 	// Collect all models from modules
@@ -228,7 +248,7 @@ func (a *Auth) RequireAuth(next http.Handler) http.Handler {
 func (a *Auth) GetModule(name string) (config.Module, error) {
 	module, exists := a.modules[name]
 	if !exists {
-		return nil, config.NewConfigErr("module not found")
+		return nil, config.ErrConfig("module not found")
 	}
 	return module, nil
 }

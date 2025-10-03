@@ -72,30 +72,31 @@ func NewFromConfig(config config.StorageConfig) (config.Storage, error) {
 		sqlDB.SetConnMaxLifetime(time.Duration(config.ConnMaxLifetime) * time.Second)
 	}
 
-	return NewGormStorage(db, config.CustomRepositories), nil
+	return NewGormStorage(db), nil
 }
 
 // NewGormStorage creates a new GormStorage instance
-func NewGormStorage(db *gorm.DB, customRepos map[string]interface{}) *GormStorage {
+func NewGormStorage(db *gorm.DB) *GormStorage {
 	s := &GormStorage{
 		db:           db,
 		repositories: make(map[string]interface{}),
 	}
 
 	// Register all supported repositories
-	s.registerRepositories(customRepos)
+	s.registerRepositories()
 
 	return s
 }
 
 // registerRepositories registers all module repositories
-func (s *GormStorage) registerRepositories(customRepos map[string]interface{}) {
+func (s *GormStorage) registerRepositories() {
 	// Core module repositories
-	s.repositories[config.CoreUserRepository] = core.NewUserRepository(s.db)
-	s.repositories[config.CoreSessionRepository] = core.NewSessionRepository(s.db)
+	s.repositories[string(config.CoreUserRepository)] = core.NewUserRepository(s.db)
+	s.repositories[string(config.CoreSessionRepository)] = core.NewSessionRepository(s.db)
+	s.repositories[string(config.CoreVerificationTokenRepository)] = core.NewVerificationTokenRepository(s.db)
 
 	// Admin module repositories
-	s.repositories[config.AdminAuditLogRepository] = admin.NewAuditLogRepository(s.db)
+	s.repositories[string(config.AdminAuditLogRepository)] = admin.NewAuditLogRepository(s.db)
 
 	// TODO: Add other module repositories as they are implemented
 	// s.repositories[storage.MagicLinkRepository] = magiclink.NewTokenRepository(s.db)
@@ -103,10 +104,6 @@ func (s *GormStorage) registerRepositories(customRepos map[string]interface{}) {
 	// s.repositories[storage.OAuthProviderRepository] = oauth.NewProviderRepository(s.db)
 	// s.repositories[storage.OAuthTokenRepository] = oauth.NewTokenRepository(s.db)
 
-	// Override with custom repositories if provided
-	for name, repo := range customRepos {
-		s.repositories[name] = repo
-	}
 }
 
 func (s *GormStorage) Initialize(ctx context.Context) error {
@@ -159,11 +156,12 @@ func (s *GormStorage) createTransactionRepositories(tx *gorm.DB) map[string]inte
 	repos := make(map[string]interface{})
 
 	// Core module repositories
-	repos[config.CoreUserRepository] = core.NewUserRepository(tx)
-	repos[config.CoreSessionRepository] = core.NewSessionRepository(tx)
+	repos[string(config.CoreUserRepository)] = core.NewUserRepository(tx)
+	repos[string(config.CoreSessionRepository)] = core.NewSessionRepository(tx)
+	repos[string(config.CoreVerificationTokenRepository)] = core.NewVerificationTokenRepository(tx)
 
 	// Admin module repositories
-	repos[config.AdminAuditLogRepository] = admin.NewAuditLogRepository(tx)
+	repos[string(config.AdminAuditLogRepository)] = admin.NewAuditLogRepository(tx)
 
 	// TODO: Add other module repositories
 

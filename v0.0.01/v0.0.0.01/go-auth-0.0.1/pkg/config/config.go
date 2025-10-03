@@ -125,10 +125,10 @@ type CORSConfig struct {
 // Validate validates the configuration
 func (c *Config) Validate() error {
 	if c.Storage == nil {
-		return NewConfigErr("storage backend is required")
+		return ErrConfig("storage backend is required")
 	}
 	if c.SecretKey == "" {
-		return NewConfigErr("secret key is required")
+		return ErrConfig("secret key is required")
 	}
 	if c.SessionDuration <= 0 {
 		c.SessionDuration = 24 * time.Hour // Default to 24 hours

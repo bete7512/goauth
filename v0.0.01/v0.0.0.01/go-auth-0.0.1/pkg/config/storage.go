@@ -4,26 +4,6 @@ import (
 	"context"
 )
 
-// Repository name constants for type-safe access
-const (
-	// Core module repositories
-	CoreUserRepository    = "core.user"
-	CoreSessionRepository = "core.session"
-
-	// Admin module repositories
-	AdminAuditLogRepository = "admin.auditlog"
-
-	// MagicLink module repositories
-	MagicLinkRepository = "magiclink.token"
-
-	// TwoFactor module repositories
-	TwoFactorRepository = "twofactor.secret"
-
-	// OAuth module repositories
-	OAuthProviderRepository = "oauth.provider"
-	OAuthTokenRepository    = "oauth.token"
-)
-
 // Storage defines the main storage interface that all storage backends must implement
 // This is storage-agnostic and doesn't know about any module-specific repositories
 type Storage interface {
@@ -81,23 +61,38 @@ type StorageConfig struct {
 
 	// LogLevel for database operations
 	LogLevel string
-
-	// CustomStorage allows users to provide their own storage implementation
-	CustomStorage Storage
-
-	// CustomRepositories allows users to provide custom repository implementations
-	// Key format: "module.repository" (e.g., "core.user", "admin.auditlog")
-	CustomRepositories map[string]interface{}
 }
 
-// RepositoryFactory creates repository instances for a given storage backend
-// Each storage implementation (gorm, mongo, etc.) should implement this
-type RepositoryFactory interface {
-	// CreateRepositories creates all supported repository instances
-	// Returns a map of repository name to repository instance
-	// Example: {"core.user": userRepo, "core.session": sessionRepo}
-	CreateRepositories(db interface{}) map[string]interface{}
+// Helper functions for type-safe repository access
 
-	// CreateTransactionRepositories creates repository instances for transaction context
-	CreateTransactionRepositories(tx interface{}) map[string]interface{}
+// GetTypedRepository safely casts repositories to their expected type
+func GetTypedRepository[T any](storage Storage, name string) (T, error) {
+	var zero T
+	repo := storage.GetRepository(name)
+	if repo == nil {
+		return zero, ErrRepositoryNotFound(name)
+	}
+
+	typed, ok := repo.(T)
+	if !ok {
+		return zero, ErrRepositoryTypeMismatch(name)
+	}
+
+	return typed, nil
+}
+
+// GetTypedRepositoryFromTx is similar but for transactions
+func GetTypedRepositoryFromTx[T any](tx Transaction, name string) (T, error) {
+	var zero T
+	repo := tx.GetRepository(name)
+	if repo == nil {
+		return zero, ErrRepositoryNotFound(name)
+	}
+
+	typed, ok := repo.(T)
+	if !ok {
+		return zero, ErrRepositoryTypeMismatch(name)
+	}
+
+	return typed, nil
 }

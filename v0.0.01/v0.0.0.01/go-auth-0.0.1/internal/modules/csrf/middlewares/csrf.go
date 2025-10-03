@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/bete7512/goauth/modules/csrf/services"
+	"github.com/bete7512/goauth/internal/modules/csrf/services"
 )
 
 type CSRFConfig struct {

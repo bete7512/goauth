@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/bete7512/goauth/modules/ratelimiter/services"
+	"github.com/bete7512/goauth/internal/modules/ratelimiter/services"
 )
 
 // NewRateLimitMiddleware creates a rate limiting middleware

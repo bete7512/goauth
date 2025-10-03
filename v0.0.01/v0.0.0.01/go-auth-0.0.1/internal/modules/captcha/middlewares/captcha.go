@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/bete7512/goauth/modules/captcha/services"
+	"github.com/bete7512/goauth/internal/modules/captcha/services"
 )
 
 // NewCaptchaMiddleware creates a captcha verification middleware

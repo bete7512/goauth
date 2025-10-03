@@ -9,16 +9,18 @@ type CoreService struct {
 	deps config.ModuleDependencies
 	UserRepository models.UserRepository
 	SessionRepository models.SessionRepository
+	TokenRepository models.TokenRepository
 	// Logger logger.Log
 	// inject storages
 	// Storage storage.Storage
 }
 
-func NewCoreService(deps config.ModuleDependencies, userRepository models.UserRepository, sessionRepository models.SessionRepository) *CoreService {
+func NewCoreService(deps config.ModuleDependencies, userRepository models.UserRepository, sessionRepository models.SessionRepository, tokenRepository models.TokenRepository) *CoreService {
 	return &CoreService{
 		deps:              deps,
 		UserRepository:    userRepository,
 		SessionRepository: sessionRepository,
+		TokenRepository:   tokenRepository,
 	}
 }
 

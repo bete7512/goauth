@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bete7512/goauth/modules/twofactor/models"
+	"github.com/bete7512/goauth/internal/modules/twofactor/models"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
@@ -78,10 +78,10 @@ func (s *TwoFactorService) EnableTwoFactor(ctx context.Context, userID, secret s
 	}
 	defer tx.Rollback()
 
-	// Create 2FA record
-	if err := tx.Repository(twoFA).Create(ctx, twoFA); err != nil {
-		return err
-	}
+	// // Create 2FA record
+	// if err := tx.Repository(twoFA).Create(ctx, twoFA); err != nil {
+	// 	return err
+	// }
 
 	// Generate backup codes
 	backupCodes, err := s.generateBackupCodes(ctx, tx, userID)
@@ -91,21 +91,21 @@ func (s *TwoFactorService) EnableTwoFactor(ctx context.Context, userID, secret s
 
 	// Store backup codes
 	for _, code := range backupCodes {
-		hashedCode, err := bcrypt.GenerateFromPassword([]byte(code), bcrypt.DefaultCost)
-		if err != nil {
-			return err
-		}
+		// hashedCode, err := bcrypt.GenerateFromPassword([]byte(code), bcrypt.DefaultCost)
+		// if err != nil {
+		// 	return err
+		// }
 
-		backupCode := &models.BackupCode{
-			ID:     uuid.New().String(),
-			UserID: userID,
-			Code:   string(hashedCode),
-			Used:   false,
-		}
+		// backupCode := &models.BackupCode{
+		// 	ID:     uuid.New().String(),
+		// 	UserID: userID,
+		// 	Code:   string(hashedCode),
+		// 	Used:   false,
+		// }
 
-		if err := tx.Repository(backupCode).Create(ctx, backupCode); err != nil {
-			return err
-		}
+		// if err := tx.Repository(backupCode).Create(ctx, backupCode); err != nil {
+		// 	return err
+		// }
 	}
 
 	return tx.Commit()
