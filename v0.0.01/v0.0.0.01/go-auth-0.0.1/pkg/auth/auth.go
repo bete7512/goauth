@@ -37,8 +37,16 @@ func New(cfg *config.Config) (*Auth, error) {
 	// Initialize logger
 	logger := &events.DefaultLogger{}
 
-	// Initialize event bus
-	eventBus := events.NewEventBus(logger)
+	// Initialize event bus with custom async backend if provided
+	var eventBus *events.EventBus
+	if cfg.AsyncBackend != nil {
+		// Wrap config.AsyncBackend to match events.AsyncBackend interface
+		asyncBackend := &asyncBackendAdapter{backend: cfg.AsyncBackend}
+		eventBus = events.NewEventBusWithBackend(logger, asyncBackend)
+	} else {
+		// Use default worker pool
+		eventBus = events.NewEventBus(logger)
+	}
 
 	// Initialize middleware manager
 	middlewareManager := middleware.NewManager()
@@ -253,4 +261,41 @@ func (a *Auth) GetModule(name string) (config.Module, error) {
 		return nil, config.ErrConfig("module not found")
 	}
 	return module, nil
+}
+
+// Close gracefully shuts down the auth system
+// Closes event bus, async backend, and storage connections
+func (a *Auth) Close() error {
+	// Close event bus (which closes async backend)
+	if a.eventBus != nil {
+		if err := a.eventBus.Close(); err != nil {
+			return fmt.Errorf("failed to close event bus: %w", err)
+		}
+	}
+
+	// Close storage
+	if a.storage != nil {
+		if err := a.storage.Close(); err != nil {
+			return fmt.Errorf("failed to close storage: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// asyncBackendAdapter adapts config.AsyncBackend to events.AsyncBackend
+type asyncBackendAdapter struct {
+	backend config.AsyncBackend
+}
+
+func (a *asyncBackendAdapter) Publish(ctx context.Context, eventType events.EventType, event *events.Event) error {
+	return a.backend.Publish(ctx, string(eventType), event)
+}
+
+func (a *asyncBackendAdapter) Close() error {
+	return a.backend.Close()
+}
+
+func (a *asyncBackendAdapter) Name() string {
+	return a.backend.Name()
 }

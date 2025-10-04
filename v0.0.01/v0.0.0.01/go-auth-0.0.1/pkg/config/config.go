@@ -76,6 +76,19 @@ type EventBus interface {
 // EventHandler handles events
 type EventHandler func(ctx context.Context, event interface{}) error
 
+// AsyncBackend defines the interface for async event processing
+// Users can provide custom implementations (Redis, RabbitMQ, Kafka, etc.)
+type AsyncBackend interface {
+	// Publish sends an event to the async backend
+	Publish(ctx context.Context, eventType string, event interface{}) error
+
+	// Close gracefully shuts down the backend
+	Close() error
+
+	// Name returns the backend name for logging
+	Name() string
+}
+
 // MiddlewareManager manages middleware application
 type MiddlewareManager interface {
 	Apply(routeName string, handler http.Handler) http.Handler
@@ -115,6 +128,11 @@ type Config struct {
 
 	// CORS Configuration
 	CORS *CORSConfig
+
+	// AsyncBackend for async event processing
+	// If nil, uses default worker pool (10 workers, 1000 queue size)
+	// Users can provide Redis, RabbitMQ, Kafka, or custom implementations
+	AsyncBackend AsyncBackend
 }
 
 // CORSConfig holds CORS configuration

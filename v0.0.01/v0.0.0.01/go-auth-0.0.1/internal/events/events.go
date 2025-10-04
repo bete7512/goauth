@@ -60,9 +60,10 @@ type handlerWithPriority struct {
 
 // EventBus manages event handlers and dispatches events
 type EventBus struct {
-	handlers map[EventType][]handlerWithPriority
-	mu       sync.RWMutex
-	logger   Logger
+	handlers     map[EventType][]handlerWithPriority
+	mu           sync.RWMutex
+	logger       Logger
+	asyncBackend AsyncBackend // Pluggable async backend
 }
 
 // Logger interface for event bus logging
@@ -73,12 +74,36 @@ type Logger interface {
 	Warn(msg string, args ...interface{})
 }
 
-// NewEventBus creates a new event bus
+// NewEventBus creates a new event bus with default worker pool backend
 func NewEventBus(logger Logger) *EventBus {
-	return &EventBus{
-		handlers: make(map[EventType][]handlerWithPriority),
-		logger:   logger,
+	return NewEventBusWithBackend(logger, nil)
+}
+
+// NewEventBusWithBackend creates an event bus with custom async backend
+// If backend is nil, uses default worker pool (workers=10, queueSize=1000)
+func NewEventBusWithBackend(logger Logger, backend AsyncBackend) *EventBus {
+	if backend == nil {
+		// Use default worker pool backend
+		backend = NewDefaultAsyncBackend(10, 1000, logger)
 	}
+
+	if logger != nil {
+		logger.Info("EventBus initialized with async backend", "backend", backend.Name())
+	}
+
+	return &EventBus{
+		handlers:     make(map[EventType][]handlerWithPriority),
+		logger:       logger,
+		asyncBackend: backend,
+	}
+}
+
+// Close gracefully shuts down the event bus
+func (eb *EventBus) Close() error {
+	if eb.asyncBackend != nil {
+		return eb.asyncBackend.Close()
+	}
+	return nil
 }
 
 // Subscribe registers a handler for an event type
@@ -105,6 +130,7 @@ func (eb *EventBus) Subscribe(eventType EventType, handler Handler, opts ...Subs
 }
 
 // Emit dispatches an event to all registered handlers
+// Sync handlers execute immediately, async handlers use the backend
 func (eb *EventBus) Emit(ctx context.Context, eventType EventType, data interface{}) error {
 	eb.mu.RLock()
 	handlers := eb.handlers[eventType]
@@ -120,38 +146,35 @@ func (eb *EventBus) Emit(ctx context.Context, eventType EventType, data interfac
 		Context: ctx,
 	}
 
-	var wg sync.WaitGroup
-	errChan := make(chan error, len(handlers))
-
+	// Execute sync handlers first
 	for _, h := range handlers {
-		if h.async {
-			wg.Add(1)
-			go func(handler Handler) {
-				defer wg.Done()
-				if err := handler(ctx, event); err != nil {
-					errChan <- fmt.Errorf("async handler error for %s: %w", eventType, err)
-					if eb.logger != nil {
-						eb.logger.Error("async handler error", "event", eventType, "error", err)
-					}
-				}
-			}(h.handler)
-		} else {
+		if !h.async {
 			if err := h.handler(ctx, event); err != nil {
 				return fmt.Errorf("handler error for %s: %w", eventType, err)
 			}
 		}
 	}
 
-	// Wait for async handlers to complete
-	go func() {
-		wg.Wait()
-		close(errChan)
-	}()
-
-	// Collect async errors
-	for err := range errChan {
-		if eb.logger != nil {
-			eb.logger.Error("async handler error", "error", err)
+	// Submit async handlers to backend
+	for _, h := range handlers {
+		if h.async {
+			// Use custom backend if it's not the default
+			if defaultBackend, ok := eb.asyncBackend.(*DefaultAsyncBackend); ok {
+				// Use worker pool
+				if err := defaultBackend.SubmitJob(ctx, h.handler, event); err != nil {
+					if eb.logger != nil {
+						eb.logger.Error("Failed to submit async job", "event", eventType, "error", err)
+					}
+				}
+			} else {
+				// Use external queue (Redis, RabbitMQ, etc.)
+				// The handler will be executed by external consumers
+				if err := eb.asyncBackend.Publish(ctx, eventType, event); err != nil {
+					if eb.logger != nil {
+						eb.logger.Error("Failed to publish to async backend", "event", eventType, "error", err)
+					}
+				}
+			}
 		}
 	}
 
