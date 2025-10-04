@@ -120,3 +120,8 @@ func (m *AdminModule) Dependencies() []string {
 	// Admin module depends on core module
 	return []string{string(config.CoreModule)}
 }
+
+
+func (m *AdminModule) SwaggerSpec() []byte {
+	return nil
+}

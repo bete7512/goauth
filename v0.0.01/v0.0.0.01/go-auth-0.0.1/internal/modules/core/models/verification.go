@@ -5,6 +5,13 @@ import (
 	"time"
 )
 
+// Token types
+const (
+	TokenTypeEmailVerification = "email_verification"
+	TokenTypePhoneVerification = "phone_verification"
+	TokenTypePasswordReset     = "password_reset"
+)
+
 // VerificationToken represents a token for email/phone verification or password reset
 type VerificationToken struct {
 	ID        string     `json:"id" gorm:"primaryKey"`
@@ -35,10 +42,3 @@ type VerificationTokenRepository interface {
 func (VerificationToken) TableName() string {
 	return "verification_tokens"
 }
-
-// Token types
-const (
-	TokenTypeEmailVerification = "email_verification"
-	TokenTypePhoneVerification = "phone_verification"
-	TokenTypePasswordReset     = "password_reset"
-)

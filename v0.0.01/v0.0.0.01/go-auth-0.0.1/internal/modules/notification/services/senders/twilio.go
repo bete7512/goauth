@@ -80,7 +80,7 @@ func (t *TwilioSMSSender) SendSMS(ctx context.Context, message *models.SMSMessag
 }
 
 // VerifyConnection verifies the Twilio API connection
-func (t *TwilioSMSSender) VerifyConnection(ctx context.Context) error {
+func (t *TwilioSMSSender) VerifyConfig(ctx context.Context) error {
 	if t.accountSID == "" {
 		return fmt.Errorf("twilio: account SID is required")
 	}

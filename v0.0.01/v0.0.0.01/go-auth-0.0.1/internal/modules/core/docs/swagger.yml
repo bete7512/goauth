@@ -1,0 +1,815 @@
+paths:
+  # Authentication Routes
+  /signup:
+    post:
+      summary: Register a new user
+      description: Create a new user account with email/password
+      # tags: [Authentication]
+      tags: [Core Authentication Module Docs ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignupRequest'
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: User already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /login:
+    post:
+      summary: Login with credentials
+      description: Authenticate user with email/username and password
+      # tags: [Authentication]
+      tags: [Core Authentication Module Docs]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                description: Session cookie
+                example: session_token=abc123; HttpOnly; Secure; SameSite=Strict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /logout:
+    post:
+      summary: Logout user
+      description: End user session
+      # tags: [Authentication]
+      tags: [Core Authentication Module Docs]
+      security:
+        - sessionAuth: []
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /me:
+    get:
+      summary: Get current user
+      description: Retrieve current authenticated user information
+      # tags: [User]
+      tags: [Core Authentication Module Docs]
+      security:
+        - sessionAuth: []
+      responses:
+        '200':
+          description: User information retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDTO'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # Email Verification Routes
+  /send-verification-email:
+    post:
+      summary: Send email verification
+      description: Send verification email to user's email address
+      # tags: [Verification]
+      tags: [Core Authentication Module Docs]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendVerificationEmailRequest'
+      responses:
+        '200':
+          description: Verification email sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /verify-email:
+    post:
+      summary: Verify email address
+      description: Verify email address using verification token
+      # tags: [Verification]
+      tags: [Core Authentication Module Docs]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyEmailRequest'
+      responses:
+        '200':
+          description: Email verified successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Validation error or invalid token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /resend-verification-email:
+    post:
+      summary: Resend email verification
+      description: Resend verification email to user's email address
+      # tags: [Verification]
+      tags: [Core Authentication Module Docs]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendVerificationEmailRequest'
+      responses:
+        '200':
+          description: Verification email resent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # Phone Verification Routes
+  /send-verification-phone:
+    post:
+      summary: Send phone verification
+      description: Send verification SMS to user's phone number
+      # tags: [Verification]
+      tags: [Core Authentication Module Docs]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendVerificationPhoneRequest'
+      responses:
+        '200':
+          description: Verification SMS sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /verify-phone:
+    post:
+      summary: Verify phone number
+      description: Verify phone number using SMS verification code
+      # tags: [Verification]
+      tags: [Core Authentication Module Docs]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyPhoneRequest'
+      responses:
+        '200':
+          description: Phone verified successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Validation error or invalid code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /resend-verification-phone:
+    post:
+      summary: Resend phone verification
+      description: Resend verification SMS to user's phone number
+      # tags: [Verification]
+      tags: [Core Authentication Module Docs]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendVerificationPhoneRequest'
+      responses:
+        '200':
+          description: Verification SMS resent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # Password Recovery Routes
+  /forgot-password:
+    post:
+      summary: Request password reset
+      description: Send password reset link/code via email or SMS
+      # tags: [Password Recovery]
+      tags: [Core Authentication Module Docs]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForgotPasswordRequest'
+      responses:
+        '200':
+          description: Password reset instructions sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /reset-password:
+    post:
+      summary: Reset password
+      description: Reset password using token/code from email/SMS
+      # tags: [Password Recovery]
+      tags: [Core Authentication Module Docs]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+      responses:
+        '200':
+          description: Password reset successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Validation error or invalid token/code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # Profile Management Routes
+  /profile:
+    get:
+      summary: Get user profile
+      description: Retrieve user profile information
+      # tags: [Profile]
+      tags: [Core Authentication Module Docs]
+      security:
+        - sessionAuth: []
+      responses:
+        '200':
+          description: Profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDTO'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      summary: Update user profile
+      description: Update user profile information
+      # tags: [Profile]
+      tags: [Core Authentication Module Docs]        
+      security:
+        - sessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDTO'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /change-password:
+    put:
+      summary: Change password
+      description: Change user password (requires old password)
+      # tags: [Profile]
+      tags: [Core Authentication Module Docs]
+      security:
+        - sessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '200':
+          description: Password changed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Validation error or invalid old password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # Utility Routes
+  /check-availability:
+    post:
+      summary: Check field availability
+      description: Check if email, username, or phone is available
+      # tags: [Utility]
+      tags: [Core Authentication Module Docs]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckAvailabilityRequest'
+      responses:
+        '200':
+          description: Availability check completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckAvailabilityResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    sessionAuth:
+      type: apiKey
+      in: cookie
+      name: session_token
+      description: Session token cookie
+
+  schemas:
+    # Request Schemas
+    SignupRequest:
+      type: object
+      required: [password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+          description: User email address
+        username:
+          type: string
+          minLength: 3
+          maxLength: 30
+          pattern: '^[a-zA-Z0-9_-]+$'
+          example: john_doe
+          description: Username (3-30 chars, letters, numbers, underscore, hyphen)
+        password:
+          type: string
+          minLength: 8
+          example: securePassword123
+          description: Password (minimum 8 characters)
+        name:
+          type: string
+          example: John Doe
+          description: Full name
+        phone:
+          type: string
+          pattern: '^\+[1-9]\d{1,14}$'
+          example: +1234567890
+          description: Phone number in E.164 format
+
+    LoginRequest:
+      type: object
+      required: [password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+          description: Email address
+        username:
+          type: string
+          example: john_doe
+          description: Username
+        password:
+          type: string
+          example: securePassword123
+          description: Password
+
+    SendVerificationEmailRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+          description: Email address to verify
+
+    VerifyEmailRequest:
+      type: object
+      required: [token, email]
+      properties:
+        token:
+          type: string
+          example: abc123def456
+          description: Verification token from email
+        email:
+          type: string
+          format: email
+          example: user@example.com
+          description: Email address being verified
+
+    SendVerificationPhoneRequest:
+      type: object
+      required: [phone]
+      properties:
+        phone:
+          type: string
+          pattern: '^\+[1-9]\d{1,14}$'
+          example: +1234567890
+          description: Phone number in E.164 format
+
+    VerifyPhoneRequest:
+      type: object
+      required: [phone, code]
+      properties:
+        phone:
+          type: string
+          pattern: '^\+[1-9]\d{1,14}$'
+          example: +1234567890
+          description: Phone number
+        code:
+          type: string
+          pattern: '^\d{6}$'
+          example: "123456"
+          description: 6-digit verification code
+
+    ForgotPasswordRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+          description: Email address
+        phone:
+          type: string
+          pattern: '^\+[1-9]\d{1,14}$'
+          example: +1234567890
+          description: Phone number in E.164 format
+
+    ResetPasswordRequest:
+      type: object
+      required: [new_password]
+      properties:
+        token:
+          type: string
+          example: abc123def456
+          description: Reset token from email
+        code:
+          type: string
+          example: "123456"
+          description: Reset code from SMS
+        email:
+          type: string
+          format: email
+          example: user@example.com
+          description: Email address
+        phone:
+          type: string
+          pattern: '^\+[1-9]\d{1,14}$'
+          example: +1234567890
+          description: Phone number
+        new_password:
+          type: string
+          minLength: 8
+          example: newSecurePassword123
+          description: New password (minimum 8 characters)
+
+    UpdateProfileRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          example: John Doe
+          description: Full name
+        phone:
+          type: string
+          pattern: '^\+[1-9]\d{1,14}$'
+          example: +1234567890
+          description: Phone number in E.164 format
+        avatar:
+          type: string
+          format: uri
+          example: https://example.com/avatar.jpg
+          description: Avatar image URL
+
+    ChangePasswordRequest:
+      type: object
+      required: [old_password, new_password]
+      properties:
+        old_password:
+          type: string
+          example: oldPassword123
+          description: Current password
+        new_password:
+          type: string
+          minLength: 8
+          example: newSecurePassword123
+          description: New password (minimum 8 characters)
+
+    CheckAvailabilityRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+          description: Email to check
+        username:
+          type: string
+          example: john_doe
+          description: Username to check
+        phone:
+          type: string
+          pattern: '^\+[1-9]\d{1,14}$'
+          example: +1234567890
+          description: Phone number to check
+
+    # Response Schemas
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+          description: JWT access token
+        refresh_token:
+          type: string
+          example: def456ghi789
+          description: Refresh token
+        user:
+          $ref: '#/components/schemas/UserDTO'
+        expires_in:
+          type: integer
+          example: 3600
+          description: Token expiration time in seconds
+        message:
+          type: string
+          example: Login successful
+          description: Success message
+
+    UserDTO:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+          description: User unique identifier
+        email:
+          type: string
+          format: email
+          example: user@example.com
+          description: Email address
+        username:
+          type: string
+          example: john_doe
+          description: Username
+        name:
+          type: string
+          example: John Doe
+          description: Full name
+        avatar:
+          type: string
+          format: uri
+          example: https://example.com/avatar.jpg
+          description: Avatar image URL
+        phone:
+          type: string
+          example: +1234567890
+          description: Phone number
+        active:
+          type: boolean
+          example: true
+          description: Account active status
+        email_verified:
+          type: boolean
+          example: true
+          description: Email verification status
+        phone_verified:
+          type: boolean
+          example: false
+          description: Phone verification status
+        created_at:
+          type: string
+          format: date-time
+          example: "2023-01-01T00:00:00Z"
+          description: Account creation timestamp
+        updated_at:
+          type: string
+          format: date-time
+          example: "2023-01-01T00:00:00Z"
+          description: Last update timestamp
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Operation completed successfully
+          description: Response message
+        success:
+          type: boolean
+          example: true
+          description: Operation success status
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: Validation failed
+          description: Error message
+        message:
+          type: string
+          example: Additional error details
+          description: Additional error information
+        code:
+          type: integer
+          example: 400
+          description: HTTP status code
+
+    CheckAvailabilityResponse:
+      type: object
+      properties:
+        available:
+          type: boolean
+          example: true
+          description: Whether the field is available
+        field:
+          type: string
+          example: email
+          description: Field that was checked
+        message:
+          type: string
+          example: Email is available
+          description: Availability message
+
+tags:
+  - name: Core Authentication Module Docs
+    description: Core Authentication Module Docs

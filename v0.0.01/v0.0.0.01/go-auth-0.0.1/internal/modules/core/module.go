@@ -3,7 +3,8 @@ package core
 import (
 	"context"
 	"fmt"
-	"log"
+
+	_ "embed"
 
 	"github.com/bete7512/goauth/internal/modules/core/handlers"
 	"github.com/bete7512/goauth/internal/modules/core/middlewares"
@@ -24,50 +25,69 @@ type Config struct {
 	VerificationTokenRepository models.VerificationTokenRepository
 }
 
+//go:embed docs/swagger.yml
+var swaggerSpec []byte
+
 var _ config.Module = (*CoreModule)(nil)
 
 func New(config *Config) *CoreModule {
-	coreModule := &CoreModule{}
-	if config.UserRepository != nil || config.SessionRepository != nil {
-		if err := coreModule.ValidateRepositories(); err != nil {
-			log.Println("core module repositories are not valid: %v", err.Error())
-		}
+	if config == nil {
+		config = &Config{}
 	}
-	coreModule.config = config
-	coreModule.handlers = handlers.NewCoreHandler(coreModule.deps, core_services.NewCoreService(coreModule.deps, config.UserRepository, config.SessionRepository, config.TokenRepository))
-	return coreModule
+	return &CoreModule{
+		config: config,
+	}
 }
 
 func (m *CoreModule) Init(ctx context.Context, deps config.ModuleDependencies) error {
 	m.deps = deps
-	if m.config.UserRepository == nil || m.config.SessionRepository == nil {
-		deps.Repositories[string(config.CoreUserRepository)] = m.config.UserRepository
-		deps.Repositories[string(config.CoreSessionRepository)] = m.config.SessionRepository
-		deps.Repositories[string(config.CoreTokenRepository)] = m.config.TokenRepository
 
-		m.handlers = handlers.NewCoreHandler(deps, core_services.NewCoreService(deps, m.deps.Repositories[string(config.CoreUserRepository)].(models.UserRepository), m.deps.Repositories[string(config.CoreSessionRepository)].(models.SessionRepository), m.deps.Repositories[string(config.CoreTokenRepository)].(models.TokenRepository)))
+	// Helper to resolve repositories
+	resolveRepo := func(cfgRepo interface{}, key string, target interface{}) (interface{}, error) {
+		if cfgRepo != nil {
+			return cfgRepo, nil
+		}
+		repo := deps.Storage.GetRepository(string(key))
+		if repo == nil {
+			return nil, fmt.Errorf("%s repository is not found in storage", key)
+		}
+		return repo, nil
 	}
+
+	// Resolve repositories
+	userRepo, err := resolveRepo(m.config.UserRepository, string(config.CoreUserRepository), (*models.UserRepository)(nil))
+	if err != nil {
+		return err
+	}
+	sessionRepo, err := resolveRepo(m.config.SessionRepository, string(config.CoreSessionRepository), (*models.SessionRepository)(nil))
+	if err != nil {
+		return err
+	}
+	tokenRepo, err := resolveRepo(m.config.TokenRepository, string(config.CoreTokenRepository), (*models.TokenRepository)(nil))
+	if err != nil {
+		return err
+	}
+	verificationTokenRepo, err := resolveRepo(m.config.VerificationTokenRepository, string(config.CoreVerificationTokenRepository), (*models.VerificationTokenRepository)(nil))
+	if err != nil {
+		return err
+	}
+
+	m.handlers = handlers.NewCoreHandler(
+		deps,
+		core_services.NewCoreService(
+			deps,
+			userRepo.(models.UserRepository),
+			sessionRepo.(models.SessionRepository),
+			tokenRepo.(models.TokenRepository),
+			verificationTokenRepo.(models.VerificationTokenRepository),
+		),
+	)
+
 	return nil
 }
-func (m *CoreModule) ValidateRepositories() error {
-	if _, ok := m.deps.Repositories[string(config.CoreUserRepository)]; !ok {
-		return fmt.Errorf("core.user repository is required")
-	}
-	if _, ok := m.deps.Repositories[string(config.CoreSessionRepository)]; !ok {
-		return fmt.Errorf("core.session repository is required")
-	}
-	// check also if it is of type UserRepository and SessionRepository
-	if _, ok := m.deps.Repositories[string(config.CoreUserRepository)].(models.UserRepository); !ok {
-		return fmt.Errorf("core.user repository is not of type UserRepository")
-	}
-	if _, ok := m.deps.Repositories[string(config.CoreSessionRepository)].(models.SessionRepository); !ok {
-		return fmt.Errorf("core.session repository is not of type SessionRepository")
-	}
-	if _, ok := m.deps.Repositories[string(config.CoreTokenRepository)].(models.TokenRepository); !ok {
-		return fmt.Errorf("core.token repository is not of type TokenRepository")
-	}
 
-	return nil
+func (m *CoreModule) SwaggerSpec() []byte {
+	return swaggerSpec
 }
 
 func (m *CoreModule) Name() string {
@@ -98,6 +118,7 @@ func (m *CoreModule) Models() []interface{} {
 		&models.User{},
 		&models.Session{},
 		&models.VerificationToken{},
+		&models.Token{},
 	}
 	return models
 }

@@ -94,6 +94,7 @@ func (s *GormStorage) registerRepositories() {
 	s.repositories[string(config.CoreUserRepository)] = core.NewUserRepository(s.db)
 	s.repositories[string(config.CoreSessionRepository)] = core.NewSessionRepository(s.db)
 	s.repositories[string(config.CoreVerificationTokenRepository)] = core.NewVerificationTokenRepository(s.db)
+	s.repositories[string(config.CoreTokenRepository)] = core.NewTokenRepository(s.db)
 
 	// Admin module repositories
 	s.repositories[string(config.AdminAuditLogRepository)] = admin.NewAuditLogRepository(s.db)
@@ -149,6 +150,32 @@ func (s *GormStorage) GetRepository(name string) interface{} {
 
 func (s *GormStorage) RegisterRepository(name string, repo interface{}) {
 	s.repositories[name] = repo
+}
+
+// Generic CRUD operations
+
+func (s *GormStorage) Create(ctx context.Context, model interface{}) error {
+	return s.db.WithContext(ctx).Create(model).Error
+}
+
+func (s *GormStorage) FindOne(ctx context.Context, dest interface{}, query interface{}, args ...interface{}) error {
+	return s.db.WithContext(ctx).Where(query, args...).First(dest).Error
+}
+
+func (s *GormStorage) FindAll(ctx context.Context, dest interface{}, query interface{}, args ...interface{}) error {
+	return s.db.WithContext(ctx).Where(query, args...).Find(dest).Error
+}
+
+func (s *GormStorage) Update(ctx context.Context, model interface{}) error {
+	return s.db.WithContext(ctx).Save(model).Error
+}
+
+func (s *GormStorage) Delete(ctx context.Context, model interface{}) error {
+	return s.db.WithContext(ctx).Delete(model).Error
+}
+
+func (s *GormStorage) DeleteWhere(ctx context.Context, model interface{}, query interface{}, args ...interface{}) error {
+	return s.db.WithContext(ctx).Where(query, args...).Delete(model).Error
 }
 
 // createTransactionRepositories creates repository instances with transaction context

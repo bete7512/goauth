@@ -95,7 +95,7 @@ func (s *SendGridEmailSender) SendEmail(ctx context.Context, message *models.Ema
 }
 
 // VerifyConnection verifies the SendGrid API connection
-func (s *SendGridEmailSender) VerifyConnection(ctx context.Context) error {
+func (s *SendGridEmailSender) VerifyConfig(ctx context.Context) error {
 	if s.apiKey == "" {
 		return fmt.Errorf("sendgrid: API key is required")
 	}

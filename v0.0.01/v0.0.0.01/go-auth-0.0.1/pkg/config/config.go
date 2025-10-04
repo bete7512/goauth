@@ -40,6 +40,10 @@ type Module interface {
 
 	// Dependencies returns required module names
 	Dependencies() []string
+
+	// SwaggerSpec returns module's swagger spec (YAML or JSON)
+	SwaggerSpec() []byte // Returns module's swagger spec (YAML or JSON)
+
 }
 
 type ModuleDependencies struct {
@@ -48,8 +52,8 @@ type ModuleDependencies struct {
 	Logger            Logger
 	Events            EventBus
 	MiddlewareManager MiddlewareManager
-	Repositories      map[string]interface{}
-	Options           *interface{}
+	// Repositories      map[string]interface{}
+	Options *interface{}
 }
 
 // MiddlewareConfig for modules to define middleware application

@@ -70,14 +70,14 @@ func (m *NotificationModule) Init(ctx context.Context, deps config.ModuleDepende
 
 	// Verify connections
 	if m.config.EmailSender != nil {
-		if err := m.config.EmailSender.VerifyConnection(ctx); err != nil {
+		if err := m.config.EmailSender.VerifyConfig(ctx); err != nil {
 			return fmt.Errorf("notification: email sender verification failed: %w", err)
 		}
 		deps.Logger.Info("notification module: email sender connected successfully")
 	}
 
 	if m.config.SMSSender != nil {
-		if err := m.config.SMSSender.VerifyConnection(ctx); err != nil {
+		if err := m.config.SMSSender.VerifyConfig(ctx); err != nil {
 			return fmt.Errorf("notification: SMS sender verification failed: %w", err)
 		}
 		deps.Logger.Info("notification module: SMS sender connected successfully")
@@ -289,4 +289,8 @@ func (m *NotificationModule) Dependencies() []string {
 // GetService returns the notification service for direct access
 func (m *NotificationModule) GetService() *services.NotificationService {
 	return m.service
+}
+
+func (m *NotificationModule) SwaggerSpec() []byte {
+	return nil
 }

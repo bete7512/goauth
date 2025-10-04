@@ -144,3 +144,7 @@ func (m *CSRFModule) handleGetToken(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(`{"csrf_token":"` + token + `"}`))
 }
+
+func (m *CSRFModule) SwaggerSpec() []byte {
+	return nil
+}

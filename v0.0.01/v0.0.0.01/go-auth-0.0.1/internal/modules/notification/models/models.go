@@ -35,13 +35,13 @@ type Attachment struct {
 // EmailSender interface for sending emails
 type EmailSender interface {
 	SendEmail(ctx context.Context, message *EmailMessage) error
-	VerifyConnection(ctx context.Context) error
+	VerifyConfig(ctx context.Context) error
 }
 
 // SMSSender interface for sending SMS
 type SMSSender interface {
 	SendSMS(ctx context.Context, message *SMSMessage) error
-	VerifyConnection(ctx context.Context) error
+	VerifyConfig(ctx context.Context) error
 }
 
 // NotificationTemplate represents a notification template

@@ -11,7 +11,6 @@ import (
 	"github.com/bete7512/goauth/internal/modules/notification"
 	"github.com/bete7512/goauth/internal/modules/notification/services"
 	"github.com/bete7512/goauth/internal/modules/notification/services/senders"
-	"github.com/bete7512/goauth/internal/modules/ratelimiter"
 	"github.com/bete7512/goauth/internal/storage"
 	"github.com/bete7512/goauth/pkg/auth"
 	"github.com/bete7512/goauth/pkg/config"
@@ -70,11 +69,11 @@ func main() {
 		EnablePasswordChangeAlert: true,
 		Enable2FANotifications:    true,
 	}))
-	authInstance.Use(ratelimiter.New(&ratelimiter.RateLimiterConfig{
-		RequestsPerMinute: 60,
-		RequestsPerHour:   1000,
-		BurstSize:         10,
-	}))
+	// authInstance.Use(ratelimiter.New(&ratelimiter.RateLimiterConfig{
+	// 	RequestsPerMinute: 60,
+	// 	RequestsPerHour:   1000,
+	// 	BurstSize:         10,
+	// }))
 	authInstance.Use(csrf.New(&csrf.CSRFConfig{
 		TokenLength:      32,
 		TokenExpiry:      3600,
@@ -91,6 +90,11 @@ func main() {
 	// Initialize after all modules are registered
 	if err := authInstance.Initialize(context.Background()); err != nil {
 		log.Fatalf("Failed to initialize auth: %v", err)
+	}
+
+	// Enable swagger after initialization
+	if err := authInstance.EnableSwagger(); err != nil {
+		log.Fatalf("Failed to enable swagger: %v", err)
 	}
 
 	// Choose your server

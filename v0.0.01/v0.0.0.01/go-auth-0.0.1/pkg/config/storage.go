@@ -29,6 +29,14 @@ type Storage interface {
 	// RegisterRepository registers a module's repository
 	// This is called internally by storage implementations
 	RegisterRepository(name string, repo interface{})
+
+	// Generic CRUD operations
+	Create(ctx context.Context, model interface{}) error
+	FindOne(ctx context.Context, dest interface{}, query interface{}, args ...interface{}) error
+	FindAll(ctx context.Context, dest interface{}, query interface{}, args ...interface{}) error
+	Update(ctx context.Context, model interface{}) error
+	Delete(ctx context.Context, model interface{}) error
+	DeleteWhere(ctx context.Context, model interface{}, query interface{}, args ...interface{}) error
 }
 
 // Transaction defines transaction operations

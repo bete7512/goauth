@@ -6,21 +6,23 @@ import (
 )
 
 type CoreService struct {
-	deps config.ModuleDependencies
-	UserRepository models.UserRepository
-	SessionRepository models.SessionRepository
-	TokenRepository models.TokenRepository
+	deps                        config.ModuleDependencies
+	UserRepository              models.UserRepository
+	SessionRepository           models.SessionRepository
+	TokenRepository             models.TokenRepository
+	VerificationTokenRepository models.VerificationTokenRepository
 	// Logger logger.Log
 	// inject storages
 	// Storage storage.Storage
 }
 
-func NewCoreService(deps config.ModuleDependencies, userRepository models.UserRepository, sessionRepository models.SessionRepository, tokenRepository models.TokenRepository) *CoreService {
+func NewCoreService(deps config.ModuleDependencies, userRepository models.UserRepository, sessionRepository models.SessionRepository, tokenRepository models.TokenRepository, verificationTokenRepository models.VerificationTokenRepository) *CoreService {
 	return &CoreService{
-		deps:              deps,
-		UserRepository:    userRepository,
-		SessionRepository: sessionRepository,
-		TokenRepository:   tokenRepository,
+		deps:                        deps,
+		UserRepository:              userRepository,
+		SessionRepository:           sessionRepository,
+		TokenRepository:             tokenRepository,
+		VerificationTokenRepository: verificationTokenRepository,
 	}
 }
 

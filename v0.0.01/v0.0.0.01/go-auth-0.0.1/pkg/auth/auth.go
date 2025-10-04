@@ -85,7 +85,6 @@ func New(cfg *config.Config) (*Auth, error) {
 		Logger:            configLogger,
 		Events:            eventBusAdapter,
 		MiddlewareManager: middlewareManager,
-		Repositories:      make(map[string]interface{}), // Initialize empty, will be populated from storage
 	}
 	if auth.config.ModuleConfigs[string(config.CoreModule)] == nil {
 		coreConfig := &core.Config{}
@@ -96,8 +95,13 @@ func New(cfg *config.Config) (*Auth, error) {
 			if auth.storage.GetRepository(string(config.CoreSessionRepository)) == nil {
 				return nil, fmt.Errorf("core.session repository is not found storage is not connected correctly")
 			}
+			if auth.storage.GetRepository(string(config.CoreTokenRepository)) == nil {
+				return nil, fmt.Errorf("core.token repository is not found storage is not connected correctly")
+			}
 			coreConfig.UserRepository = auth.storage.GetRepository(string(config.CoreUserRepository)).(models.UserRepository)
 			coreConfig.SessionRepository = auth.storage.GetRepository(string(config.CoreSessionRepository)).(models.SessionRepository)
+			coreConfig.TokenRepository = auth.storage.GetRepository(string(config.CoreTokenRepository)).(models.TokenRepository)
+
 		}
 		coreModule := core.New(coreConfig)
 		auth.modules[coreModule.Name()] = coreModule
@@ -164,16 +168,14 @@ func (a *Auth) Initialize(ctx context.Context) error {
 
 	// Populate repositories from storage to dependencies
 	// Modules can access repositories via deps.Repositories or deps.Storage.GetRepository()
-	for _, repoName := range []string{
-		string(config.CoreUserRepository),
-		string(config.CoreSessionRepository),
-		string(config.AdminAuditLogRepository),
-		// Add more repository constants as needed
-	} {
-		if repo := a.storage.GetRepository(repoName); repo != nil {
-			a.commonModuleDependencies.Repositories[repoName] = repo
-		}
-	}
+	// for _, repoName := range []string{
+	// 	string(config.CoreUserRepository),
+	// 	string(config.CoreSessionRepository),
+	// 	string(config.AdminAuditLogRepository),
+	// 	// Add more repository constants as needed
+	// } {
+	// 	a.commonModuleDependencies.Repositories[repoName] = a.storage.GetRepository(repoName)
+	// }
 
 	// Collect all models from modules
 	var allModels []interface{}

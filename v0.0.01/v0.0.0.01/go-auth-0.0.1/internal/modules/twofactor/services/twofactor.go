@@ -225,3 +225,8 @@ func (s *TwoFactorService) GetTwoFactorStatus(ctx context.Context, userID string
 
 	return &twoFA, nil
 }
+
+
+func (s *TwoFactorService) SwaggerSpec() []byte {
+	return nil
+}

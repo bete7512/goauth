@@ -115,7 +115,7 @@ func (r *ResendEmailSender) SendEmail(ctx context.Context, message *models.Email
 }
 
 // VerifyConnection verifies the Resend API connection
-func (r *ResendEmailSender) VerifyConnection(ctx context.Context) error {
+func (r *ResendEmailSender) VerifyConfig(ctx context.Context) error {
 	if r.apiKey == "" {
 		return fmt.Errorf("resend: API key is required")
 	}

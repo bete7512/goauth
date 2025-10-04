@@ -46,3 +46,8 @@ func (m *MagicLinkModule) RegisterHooks(events config.EventBus) error {
 func (m *MagicLinkModule) Dependencies() []string {
 	return nil
 }
+
+
+func (m *MagicLinkModule) SwaggerSpec() []byte {
+	return nil
+}

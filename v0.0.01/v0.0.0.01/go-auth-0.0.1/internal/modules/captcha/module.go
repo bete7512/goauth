@@ -136,3 +136,8 @@ func (m *CaptchaModule) GetSiteKey() string {
 func (m *CaptchaModule) GetProvider() string {
 	return m.config.Provider
 }
+
+
+func (m *CaptchaModule) SwaggerSpec() []byte {
+	return nil
+}

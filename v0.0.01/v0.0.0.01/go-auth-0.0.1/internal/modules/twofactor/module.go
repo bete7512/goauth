@@ -158,3 +158,8 @@ func (m *TwoFactorModule) verify2FAMiddleware(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
+
+
+func (m *TwoFactorModule) SwaggerSpec() []byte {
+	return nil
+}

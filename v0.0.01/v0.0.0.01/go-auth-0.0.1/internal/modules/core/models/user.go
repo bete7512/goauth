@@ -6,18 +6,19 @@ import (
 )
 
 type User struct {
-	ID            string    `json:"id" gorm:"primaryKey"`
-	Email         string    `json:"email" gorm:"uniqueIndex;not null"`
-	Username      string    `json:"username" gorm:"uniqueIndex"`
-	Password      string    `json:"-" gorm:"not null"`
-	Name          string    `json:"name"`
-	Avatar        string    `json:"avatar"`
-	Phone         string    `json:"phone" gorm:"index"`
-	Active        bool      `json:"active" gorm:"default:true"`
-	EmailVerified bool      `json:"email_verified" gorm:"default:false"`
-	PhoneVerified bool      `json:"phone_verified" gorm:"default:false"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	ID            string     `json:"id" gorm:"primaryKey"`
+	Email         string     `json:"email" gorm:"uniqueIndex;not null"`
+	Username      string     `json:"username" gorm:"uniqueIndex"`
+	PasswordHash  string     `json:"-" gorm:"column:password;not null"`
+	Name          string     `json:"name"`
+	Avatar        string     `json:"avatar"`
+	Phone         string     `json:"phone" gorm:"index"`
+	Active        bool       `json:"active" gorm:"default:true"`
+	EmailVerified bool       `json:"email_verified" gorm:"default:false"`
+	PhoneVerified bool       `json:"phone_verified" gorm:"default:false"`
+	LastLoginAt   *time.Time `json:"last_login_at"`
+	CreatedAt     time.Time  `json:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at"`
 }
 
 type UserRepository interface {

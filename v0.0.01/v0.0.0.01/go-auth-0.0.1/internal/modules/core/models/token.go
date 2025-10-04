@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+
 type Token struct {
 	ID        string    `json:"id" gorm:"primaryKey"`
 	UserID    string    `json:"user_id" gorm:"not null;index"`
@@ -22,4 +23,8 @@ type TokenRepository interface {
 	Delete(ctx context.Context, token string) error
 	DeleteByUserID(ctx context.Context, userID string) error
 	DeleteExpired(ctx context.Context) error
+}
+
+func (Token) TableName() string {
+	return "tokens"
 }
