@@ -40,7 +40,7 @@ func (s *CoreService) SendVerificationEmail(ctx context.Context, req *dto.SendVe
 		CreatedAt: time.Now(),
 	}
 
-	if err := s.deps.Storage.Create(ctx, verification); err != nil {
+	if err := s.VerificationTokenRepository.Create(ctx, verification); err != nil {
 		return nil, fmt.Errorf("failed to create verification: %w", err)
 	}
 
@@ -64,8 +64,9 @@ func (s *CoreService) SendVerificationEmail(ctx context.Context, req *dto.SendVe
 // VerifyEmail verifies email with token
 func (s *CoreService) VerifyEmail(ctx context.Context, req *dto.VerifyEmailRequest) (*dto.MessageResponse, error) {
 	// Find verification token
-	var verification models.VerificationToken
-	if err := s.deps.Storage.FindOne(ctx, &verification, "token = ? AND email = ? AND type = ?", req.Token, req.Email, "email"); err != nil {
+	var verification *models.VerificationToken
+	var err error		
+	if verification, err = s.VerificationTokenRepository.FindByToken(ctx, req.Token); err != nil {
 		return nil, errors.New("invalid or expired verification token")
 	}
 
@@ -89,7 +90,7 @@ func (s *CoreService) VerifyEmail(ctx context.Context, req *dto.VerifyEmailReque
 	}
 
 	// Delete verification token
-	s.deps.Storage.Delete(ctx, &verification)
+	s.VerificationTokenRepository.Delete(ctx, verification.ID)
 
 	// Emit event
 	s.deps.Events.Emit(ctx, "email:verified", map[string]interface{}{
@@ -128,7 +129,7 @@ func (s *CoreService) SendVerificationPhone(ctx context.Context, req *dto.SendVe
 		CreatedAt: time.Now(),
 	}
 
-	if err := s.deps.Storage.Create(ctx, verification); err != nil {
+	if err := s.VerificationTokenRepository.Create(ctx, verification); err != nil {
 		return nil, fmt.Errorf("failed to create verification: %w", err)
 	}
 
@@ -148,8 +149,9 @@ func (s *CoreService) SendVerificationPhone(ctx context.Context, req *dto.SendVe
 // VerifyPhone verifies phone with code
 func (s *CoreService) VerifyPhone(ctx context.Context, req *dto.VerifyPhoneRequest) (*dto.MessageResponse, error) {
 	// Find verification code
-	var verification models.VerificationToken
-	if err := s.deps.Storage.FindOne(ctx, &verification, "code = ? AND phone = ? AND type = ?", req.Code, req.Phone, "phone"); err != nil {
+	var verification *models.VerificationToken
+	var err error
+	if verification, err = s.VerificationTokenRepository.FindByCode(ctx, req.Code, "phone"); err != nil {
 		return nil, errors.New("invalid or expired verification code")
 	}
 
@@ -173,7 +175,7 @@ func (s *CoreService) VerifyPhone(ctx context.Context, req *dto.VerifyPhoneReque
 	}
 
 	// Delete verification code
-	s.deps.Storage.Delete(ctx, &verification)
+	s.VerificationTokenRepository.Delete(ctx, verification.ID)
 
 	// Emit event
 	s.deps.Events.Emit(ctx, "phone:verified", map[string]interface{}{
@@ -190,7 +192,7 @@ func (s *CoreService) VerifyPhone(ctx context.Context, req *dto.VerifyPhoneReque
 // ResendVerificationEmail resends email verification
 func (s *CoreService) ResendVerificationEmail(ctx context.Context, req *dto.SendVerificationEmailRequest) (*dto.MessageResponse, error) {
 	// Delete old verification tokens for this email
-	s.deps.Storage.DeleteWhere(ctx, &models.VerificationToken{}, "email = ? AND type = ?", req.Email, "email")
+	s.VerificationTokenRepository.Delete(ctx, req.Email)
 
 	// Send new verification
 	return s.SendVerificationEmail(ctx, req)
@@ -199,7 +201,7 @@ func (s *CoreService) ResendVerificationEmail(ctx context.Context, req *dto.Send
 // ResendVerificationPhone resends phone verification
 func (s *CoreService) ResendVerificationPhone(ctx context.Context, req *dto.SendVerificationPhoneRequest) (*dto.MessageResponse, error) {
 	// Delete old verification codes for this phone
-	s.deps.Storage.DeleteWhere(ctx, &models.VerificationToken{}, "phone = ? AND type = ?", req.Phone, "phone")
+	s.VerificationTokenRepository.Delete(ctx, req.Phone)
 
 	// Send new verification
 	return s.SendVerificationPhone(ctx, req)

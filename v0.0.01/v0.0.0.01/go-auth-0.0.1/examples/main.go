@@ -74,7 +74,7 @@ func main() {
 	// 	RequestsPerHour:   1000,
 	// 	BurstSize:         10,
 	// }))
-	authInstance.Use(csrf.New(&csrf.CSRFConfig{
+	csrfModule := csrf.New(&csrf.CSRFConfig{
 		TokenLength:      32,
 		TokenExpiry:      3600,
 		CookieName:       "csrf_token",
@@ -85,7 +85,8 @@ func main() {
 		SameSite:         http.SameSiteStrictMode,
 		OnlyToPaths:      []string{"/auth/login", "/auth/signup", "/auth/forgot-password"},
 		ProtectedMethods: []string{"POST", "PUT", "DELETE"},
-	}))
+	})
+	authInstance.Use(csrfModule)
 
 	// Initialize after all modules are registered
 	if err := authInstance.Initialize(context.Background()); err != nil {

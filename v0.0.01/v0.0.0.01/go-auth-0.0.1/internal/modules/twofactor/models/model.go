@@ -3,7 +3,7 @@ package models
 import "time"
 
 // TwoFactorAuth stores 2FA configuration for a user
-type TwoFactorAuth struct {
+type TwoFactor struct {
 	ID        string    `json:"id" gorm:"primaryKey"`
 	UserID    string    `json:"user_id" gorm:"uniqueIndex;not null"`
 	Secret    string    `json:"-" gorm:"not null"` // TOTP secret (encrypted)
@@ -14,7 +14,7 @@ type TwoFactorAuth struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-func (TwoFactorAuth) TableName() string {
+func (TwoFactor) TableName() string {
 	return "two_factor_auth"
 }
 
@@ -30,4 +30,11 @@ type BackupCode struct {
 
 func (BackupCode) TableName() string {
 	return "backup_codes"
+}
+
+type TwoFactorRepository interface{
+
+}
+type BackupCodeRepository interface{
+	
 }

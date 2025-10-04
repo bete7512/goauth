@@ -87,7 +87,7 @@ func (m *TwoFactorModule) Middlewares() []config.MiddlewareConfig {
 
 func (m *TwoFactorModule) Models() []interface{} {
 	return []interface{}{
-		&models.TwoFactorAuth{},
+		&models.TwoFactor{},
 		&models.BackupCode{},
 	}
 }

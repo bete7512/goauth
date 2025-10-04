@@ -6,12 +6,9 @@ import (
 	"encoding/base32"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/bete7512/goauth/internal/modules/twofactor/models"
 	"github.com/bete7512/goauth/pkg/config"
-	"github.com/google/uuid"
-	"golang.org/x/crypto/bcrypt"
 )
 
 type TwoFactorService struct {
@@ -62,14 +59,14 @@ func (s *TwoFactorService) VerifyTOTP(secret, code string) bool {
 
 // EnableTwoFactor enables 2FA for a user
 func (s *TwoFactorService) EnableTwoFactor(ctx context.Context, userID, secret string) error {
-	twoFA := &models.TwoFactorAuth{
-		ID:       uuid.New().String(),
-		UserID:   userID,
-		Secret:   secret,
-		Enabled:  false,
-		Verified: false,
-		Method:   "totp",
-	}
+	// twoFA := &models.TwoFactor{
+	// 	ID:       uuid.New().String(),
+	// 	UserID:   userID,
+	// 	Secret:   secret,
+	// 	Enabled:  false,
+	// 	Verified: false,
+	// 	Method:   "totp",
+	// }
 
 	// Use transaction to ensure atomicity
 	tx, err := s.storage.BeginTx(ctx)
@@ -84,29 +81,29 @@ func (s *TwoFactorService) EnableTwoFactor(ctx context.Context, userID, secret s
 	// }
 
 	// Generate backup codes
-	backupCodes, err := s.generateBackupCodes(ctx, tx, userID)
-	if err != nil {
-		return err
-	}
+	// backupCodes, err := s.generateBackupCodes(ctx, tx, userID)
+	// if err != nil {
+	// return err
+	// }
 
 	// Store backup codes
-	for _, code := range backupCodes {
-		// hashedCode, err := bcrypt.GenerateFromPassword([]byte(code), bcrypt.DefaultCost)
-		// if err != nil {
-		// 	return err
-		// }
+	// for _, _ = range backupCodes {
+	// hashedCode, err := bcrypt.GenerateFromPassword([]byte(code), bcrypt.DefaultCost)
+	// if err != nil {
+	// 	return err
+	// }
 
-		// backupCode := &models.BackupCode{
-		// 	ID:     uuid.New().String(),
-		// 	UserID: userID,
-		// 	Code:   string(hashedCode),
-		// 	Used:   false,
-		// }
+	// backupCode := &models.BackupCode{
+	// 	ID:     uuid.New().String(),
+	// 	UserID: userID,
+	// 	Code:   string(hashedCode),
+	// 	Used:   false,
+	// }
 
-		// if err := tx.Repository(backupCode).Create(ctx, backupCode); err != nil {
-		// 	return err
-		// }
-	}
+	// if err := tx.Repository(backupCode).Create(ctx, backupCode); err != nil {
+	// 	return err
+	// }
+	// }
 
 	return tx.Commit()
 }
@@ -114,64 +111,65 @@ func (s *TwoFactorService) EnableTwoFactor(ctx context.Context, userID, secret s
 // VerifyAndEnable verifies the TOTP code and enables 2FA
 func (s *TwoFactorService) VerifyAndEnable(ctx context.Context, userID, code string) error {
 	// Get 2FA record
-	var twoFA models.TwoFactorAuth
-	repo := s.storage.Repository(&twoFA)
+	// var twoFA models.TwoFactor
+	// repo := s.storage.Repository(&twoFA)
 
-	if err := repo.FindOne(ctx, map[string]interface{}{"user_id": userID}, &twoFA); err != nil {
-		return fmt.Errorf("2FA not configured for user")
-	}
+	// if err := repo.FindOne(ctx, map[string]interface{}{"user_id": userID}, &twoFA); err != nil {
+	// 	return fmt.Errorf("2FA not configured for user")
+	// }
 
-	// Verify code
-	if !s.VerifyTOTP(twoFA.Secret, code) {
-		return fmt.Errorf("invalid verification code")
-	}
+	// // Verify code
+	// if !s.VerifyTOTP(twoFA.Secret, code) {
+	// 	return fmt.Errorf("invalid verification code")
+	// }
 
-	// Enable 2FA
-	twoFA.Enabled = true
-	twoFA.Verified = true
+	// // Enable 2FA
+	// twoFA.Enabled = true
+	// twoFA.Verified = true
 
-	return repo.Update(ctx, &twoFA)
+	// return repo.Update(ctx, &twoFA)
+	return nil
 }
 
 // DisableTwoFactor disables 2FA for a user
 func (s *TwoFactorService) DisableTwoFactor(ctx context.Context, userID string) error {
-	var twoFA models.TwoFactorAuth
-	repo := s.storage.Repository(&twoFA)
+	// var twoFA models.TwoFactor
+	// repo := s.storage.Repository(&twoFA)
 
-	if err := repo.FindOne(ctx, map[string]interface{}{"user_id": userID}, &twoFA); err != nil {
-		return err
-	}
+	// if err := repo.FindOne(ctx, map[string]interface{}{"user_id": userID}, &twoFA); err != nil {
+	// 	return err
+	// }
 
-	return repo.Delete(ctx, &twoFA)
+	return nil
 }
 
 // VerifyBackupCode verifies and uses a backup code
 func (s *TwoFactorService) VerifyBackupCode(ctx context.Context, userID, code string) (bool, error) {
-	var backupCodes []models.BackupCode
-	repo := s.storage.Repository(&models.BackupCode{})
+	// var backupCodes []models.BackupCode
+	// repo := s.storage.Repository(&models.BackupCode{})
 
-	if err := repo.FindAll(ctx, map[string]interface{}{
-		"user_id": userID,
-		"used":    false,
-	}, &backupCodes); err != nil {
-		return false, err
-	}
+	// if err := repo.FindOne(ctx, map[string]interface{}{
+	// 	"user_id": userID,
+	// 	"used":    false,
+	// }, &backupCodes); err != nil {
+	// 	return false, err
+	// }
 
-	// Check each backup code
-	for _, bc := range backupCodes {
-		if err := bcrypt.CompareHashAndPassword([]byte(bc.Code), []byte(code)); err == nil {
-			// Mark as used
-			now := time.Now()
-			bc.Used = true
-			bc.UsedAt = &now
+	// // Check each backup code
+	// for _, _ = range backupCodes {
+	// 	if err := bcrypt.CompareHashAndPassword([]byte(bc.Code), []byte(code)); err == nil {
+	// 		// Mark as used
+	// 		now := time.Now()
+	// 		bc.Used = true
+	// 		bc.UsedAt = &now
 
-			if err := repo.Update(ctx, &bc); err != nil {
-				return false, err
-			}
+	// 		if err := repo.Update(ctx, bc); err != nil {
+	// 			return false, err
+	// 		}
 
-			return true, nil
-		}
-	}
+	// 		return true, nil
+	// 	}
+	// }
 
 	return false, nil
 }
@@ -215,17 +213,16 @@ func (s *TwoFactorService) generateRandomCode(length int) (string, error) {
 }
 
 // GetTwoFactorStatus gets 2FA status for a user
-func (s *TwoFactorService) GetTwoFactorStatus(ctx context.Context, userID string) (*models.TwoFactorAuth, error) {
-	var twoFA models.TwoFactorAuth
-	repo := s.storage.Repository(&twoFA)
+func (s *TwoFactorService) GetTwoFactorStatus(ctx context.Context, userID string) (*models.TwoFactor, error) {
+	var twoFA models.TwoFactor
+	// repo := s.storage.Repository(&twoFA)
 
-	if err := repo.FindOne(ctx, map[string]interface{}{"user_id": userID}, &twoFA); err != nil {
-		return nil, err
-	}
+	// if err := repo.FindOne(ctx, map[string]interface{}{"user_id": userID}, &twoFA); err != nil {
+	// 	return nil, nil
+	// }
 
 	return &twoFA, nil
 }
-
 
 func (s *TwoFactorService) SwaggerSpec() []byte {
 	return nil

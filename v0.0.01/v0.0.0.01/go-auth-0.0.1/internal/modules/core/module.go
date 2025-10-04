@@ -42,50 +42,68 @@ func New(config *Config) *CoreModule {
 func (m *CoreModule) Init(ctx context.Context, deps config.ModuleDependencies) error {
 	m.deps = deps
 
-	// Helper to resolve repositories
-	resolveRepo := func(cfgRepo interface{}, key string, target interface{}) (interface{}, error) {
+	// Get repository or return error
+	getRepo := func(cfgRepo interface{}, key string) (interface{}, error) {
 		if cfgRepo != nil {
 			return cfgRepo, nil
 		}
-		repo := deps.Storage.GetRepository(string(key))
+		repo := deps.Storage.GetRepository(key)
 		if repo == nil {
-			return nil, fmt.Errorf("%s repository is not found in storage", key)
+			return nil, fmt.Errorf("%s repository not found", key)
 		}
 		return repo, nil
 	}
 
 	// Resolve repositories
-	userRepo, err := resolveRepo(m.config.UserRepository, string(config.CoreUserRepository), (*models.UserRepository)(nil))
+	userRepoRaw, err := getRepo(m.config.UserRepository, string(config.CoreUserRepository))
 	if err != nil {
 		return err
 	}
-	sessionRepo, err := resolveRepo(m.config.SessionRepository, string(config.CoreSessionRepository), (*models.SessionRepository)(nil))
+	userRepo, ok := userRepoRaw.(models.UserRepository)
+	if !ok {
+		return fmt.Errorf("user repository has invalid type")
+	}
+
+	sessionRepoRaw, err := getRepo(m.config.SessionRepository, string(config.CoreSessionRepository))
 	if err != nil {
 		return err
 	}
-	tokenRepo, err := resolveRepo(m.config.TokenRepository, string(config.CoreTokenRepository), (*models.TokenRepository)(nil))
+	sessionRepo, ok := sessionRepoRaw.(models.SessionRepository)
+	if !ok {
+		return fmt.Errorf("session repository has invalid type")
+	}
+
+	tokenRepoRaw, err := getRepo(m.config.TokenRepository, string(config.CoreTokenRepository))
 	if err != nil {
 		return err
 	}
-	verificationTokenRepo, err := resolveRepo(m.config.VerificationTokenRepository, string(config.CoreVerificationTokenRepository), (*models.VerificationTokenRepository)(nil))
+	tokenRepo, ok := tokenRepoRaw.(models.TokenRepository)
+	if !ok {
+		return fmt.Errorf("token repository has invalid type")
+	}
+
+	verificationTokenRepoRaw, err := getRepo(m.config.VerificationTokenRepository, string(config.CoreVerificationTokenRepository))
 	if err != nil {
 		return err
+	}
+	verificationTokenRepo, ok := verificationTokenRepoRaw.(models.VerificationTokenRepository)
+	if !ok {
+		return fmt.Errorf("verification token repository has invalid type")
 	}
 
 	m.handlers = handlers.NewCoreHandler(
 		deps,
 		core_services.NewCoreService(
 			deps,
-			userRepo.(models.UserRepository),
-			sessionRepo.(models.SessionRepository),
-			tokenRepo.(models.TokenRepository),
-			verificationTokenRepo.(models.VerificationTokenRepository),
+			userRepo,
+			sessionRepo,
+			tokenRepo,
+			verificationTokenRepo,
 		),
 	)
 
 	return nil
 }
-
 func (m *CoreModule) SwaggerSpec() []byte {
 	return swaggerSpec
 }

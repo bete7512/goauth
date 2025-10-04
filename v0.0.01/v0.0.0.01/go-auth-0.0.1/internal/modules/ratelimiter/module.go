@@ -120,3 +120,7 @@ func (m *RateLimiterModule) RegisterHooks(events config.EventBus) error {
 func (m *RateLimiterModule) Dependencies() []string {
 	return nil
 }
+
+func (m *RateLimiterModule) SwaggerSpec() []byte {
+	return nil
+}
