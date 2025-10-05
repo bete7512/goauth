@@ -28,9 +28,8 @@ go mod init goauth-demo
 ### 2. Install dependencies
 
 ```bash
-go get github.com/your-org/goauth
+go get github.com/bete7512/goauth
 go get github.com/gin-gonic/gin
-go get github.com/lib/pq
 ```
 
 ### 3. Create the main application
@@ -41,49 +40,46 @@ Create `main.go`:
 package main
 
 import (
+    "context"
     "log"
-    "github.com/gin-gonic/gin"
-    "github.com/your-org/goauth"
-    "github.com/your-org/goauth/pkg/config"
+    "net/http"
+
+    "github.com/bete7512/goauth/internal/storage"
+    "github.com/bete7512/goauth/pkg/auth"
+    "github.com/bete7512/goauth/pkg/config"
 )
 
 func main() {
-    // Initialize GoAuth configuration
-    cfg := &config.Config{
-        Database: config.DatabaseConfig{
-            Driver: "postgres",
-            DSN:    "postgres://username:password@localhost/goauth?sslmode=disable",
-        },
-        Security: config.SecurityConfig{
-            JWTSecret: "your-secret-key-here",
-            SessionSecret: "your-session-secret",
-        },
-    }
-
-    // Initialize GoAuth
-    auth, err := goauth.New(cfg)
-    if err != nil {
-        log.Fatal("Failed to initialize GoAuth:", err)
-    }
-
-    // Setup Gin router
-    r := gin.Default()
-
-    // Register authentication routes
-    auth.SetupRoutes(r)
-
-    // Add a simple protected route
-    r.GET("/protected", auth.Middleware(), func(c *gin.Context) {
-        user := auth.GetUser(c)
-        c.JSON(200, gin.H{
-            "message": "Hello, " + user.Email + "!",
-            "user_id": user.ID,
-        })
+    // Storage
+    store, err := storage.NewStorage(config.StorageConfig{
+        Driver:      "gorm",
+        Dialect:     "postgres",
+        DSN:         "postgres://username:password@localhost/goauth?sslmode=disable",
+        AutoMigrate: true,
     })
+    if err != nil { log.Fatal(err) }
+    defer store.Close()
 
-    // Start server
+    // Auth
+    a, err := auth.New(&config.Config{
+        Storage: store,
+        Security: config.SecurityConfig{
+            JwtSecretKey:  "your-32-byte-secret",
+            EncryptionKey: "your-32-byte-secret",
+        },
+        AutoMigrate: true,
+    })
+    if err != nil { log.Fatal(err) }
+
+    if err := a.Initialize(context.Background()); err != nil { log.Fatal(err) }
+
+    // Serve routes
+    mux := http.NewServeMux()
+    for _, r := range a.Routes() {
+        mux.Handle(r.Path, r.Handler)
+    }
     log.Println("Server starting on :8080")
-    r.Run(":8080")
+    log.Fatal(http.ListenAndServe(":8080", mux))
 }
 ```
 
@@ -112,7 +108,7 @@ go run main.go
 ### 2. Test registration
 
 ```bash
-curl -X POST http://localhost:8080/api/auth/register \
+curl -X POST http://localhost:8080/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "email": "user@example.com",
@@ -124,7 +120,7 @@ curl -X POST http://localhost:8080/api/auth/register \
 ### 3. Test login
 
 ```bash
-curl -X POST http://localhost:8080/api/auth/login \
+curl -X POST http://localhost:8080/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "email": "user@example.com",
@@ -137,16 +133,16 @@ curl -X POST http://localhost:8080/api/auth/login \
 Use the token from the login response:
 
 ```bash
-curl -X GET http://localhost:8080/protected \
+curl -X GET http://localhost:8080/auth/me \
   -H "Authorization: Bearer YOUR_TOKEN_HERE"
 ```
 
 ## What's Happening?
 
 1. **Registration**: Creates a new user account with hashed password
-2. **Login**: Authenticates user and returns JWT token
-3. **Protected Route**: Uses JWT token to verify user identity
-4. **Middleware**: Automatically validates tokens and extracts user information
+2. **Login**: Authenticates user and returns tokens
+3. **Routes()**: You mount handlers returned by `a.Routes()` to your router
+4. **Middleware**: Module middlewares are applied automatically during `Initialize`
 
 ## Next Steps
 

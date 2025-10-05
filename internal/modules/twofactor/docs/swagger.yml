@@ -1,0 +1,197 @@
+paths:
+  # Two-Factor Authentication Routes
+  /2fa/setup:
+    post:
+      summary: Setup two-factor authentication
+      description: Initialize 2FA setup for the authenticated user and get QR code
+      tags: [Two-Factor Authentication Module]
+      security:
+        - sessionAuth: []
+      responses:
+        '200':
+          description: 2FA setup initiated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TwoFactorSetupResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /2fa/verify:
+    post:
+      summary: Verify and enable two-factor authentication
+      description: Verify the TOTP code from authenticator app and enable 2FA
+      tags: [Two-Factor Authentication Module]
+      security:
+        - sessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TwoFactorVerifyRequest'
+      responses:
+        '200':
+          description: 2FA enabled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid code or not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /2fa/disable:
+    post:
+      summary: Disable two-factor authentication
+      description: Disable 2FA for the authenticated user
+      tags: [Two-Factor Authentication Module]
+      security:
+        - sessionAuth: []
+      responses:
+        '200':
+          description: 2FA disabled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /2fa/status:
+    get:
+      summary: Get two-factor authentication status
+      description: Retrieve the current 2FA status for the authenticated user
+      tags: [Two-Factor Authentication Module]
+      security:
+        - sessionAuth: []
+      responses:
+        '200':
+          description: 2FA status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TwoFactorStatusResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    sessionAuth:
+      type: apiKey
+      in: cookie
+      name: session_token
+      description: Session token cookie
+
+  schemas:
+    # Request Schemas
+    TwoFactorVerifyRequest:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+          pattern: '^\d{6}$'
+          example: "123456"
+          description: 6-digit TOTP code from authenticator app
+
+    # Response Schemas
+    TwoFactorSetupResponse:
+      type: object
+      properties:
+        secret:
+          type: string
+          example: JBSWY3DPEHPK3PXP
+          description: TOTP secret key (base32 encoded)
+        qr_url:
+          type: string
+          format: uri
+          example: otpauth://totp/GoAuth:user@example.com?secret=JBSWY3DPEHPK3PXP&issuer=GoAuth
+          description: QR code URL for authenticator app
+        message:
+          type: string
+          example: Scan QR code with your authenticator app
+          description: Setup instructions
+
+    TwoFactorStatusResponse:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          example: true
+          description: Whether 2FA is enabled
+        verified:
+          type: boolean
+          example: true
+          description: Whether 2FA has been verified
+        method:
+          type: string
+          example: totp
+          enum: [totp, sms, email]
+          description: 2FA method being used
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Two-factor authentication enabled successfully
+          description: Response message
+        success:
+          type: boolean
+          example: true
+          description: Operation success status
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: Invalid code
+          description: Error message
+        message:
+          type: string
+          example: The provided verification code is invalid
+          description: Additional error information
+        code:
+          type: integer
+          example: 401
+          description: HTTP status code
+
+tags:
+  - name: Two-Factor Authentication Module
+    description: Two-factor authentication (2FA) endpoints for enhanced account security
+

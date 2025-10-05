@@ -25,17 +25,19 @@ Gin is a high-performance HTTP web framework written in Go. GoAuth's Gin integra
 
 ```bash
 go get github.com/gin-gonic/gin
-go get github.com/your-org/goauth
-go get github.com/your-org/goauth/pkg/adapters/gin
+go get github.com/bete7512/goauth
 ```
 
 ### 2. Import Packages
 
 ```go
 import (
+    "context"
+    "net/http"
     "github.com/gin-gonic/gin"
-    "github.com/your-org/goauth"
-    "github.com/your-org/goauth/pkg/adapters/gin"
+    "github.com/bete7512/goauth/internal/storage"
+    "github.com/bete7512/goauth/pkg/auth"
+    "github.com/bete7512/goauth/pkg/config"
 )
 ```
 
@@ -46,85 +48,35 @@ import (
 ```go
 package main
 
-import (
-    "log"
-    "github.com/gin-gonic/gin"
-    "github.com/your-org/goauth"
-    "github.com/your-org/goauth/pkg/config"
-)
-
 func main() {
-    // Initialize GoAuth configuration
-    cfg := &config.Config{
-        Database: config.DatabaseConfig{
-            Driver: "postgres",
-            DSN:    "postgres://user:pass@localhost/goauth?sslmode=disable",
-        },
-        Security: config.SecurityConfig{
-            JWTSecret:        "your-jwt-secret",
-            SessionSecret:    "your-session-secret",
-            PasswordMinLength: 8,
-        },
-    }
+    store, _ := storage.NewStorage(config.StorageConfig{Driver: "gorm", Dialect: "sqlite", DSN: "auth.db", AutoMigrate: true})
+    a, _ := auth.New(&config.Config{Storage: store, AutoMigrate: true, Security: config.SecurityConfig{JwtSecretKey: "...", EncryptionKey: "..."}})
+    _ = a.Initialize(context.Background())
 
-    // Initialize GoAuth
-    auth, err := goauth.New(cfg)
-    if err != nil {
-        log.Fatal("Failed to initialize GoAuth:", err)
-    }
-
-    // Create Gin router
     r := gin.Default()
-
-    // Setup authentication routes
-    setupAuthRoutes(r, auth)
-
-    // Start server
-    log.Println("Server starting on :8080")
+    for _, rt := range a.Routes() {
+        switch rt.Method {
+        case http.MethodGet:
+            r.GET(rt.Path, gin.WrapF(rt.Handler))
+        case http.MethodPost:
+            r.POST(rt.Path, gin.WrapF(rt.Handler))
+        case http.MethodPut:
+            r.PUT(rt.Path, gin.WrapF(rt.Handler))
+        case http.MethodDelete:
+            r.DELETE(rt.Path, gin.WrapF(rt.Handler))
+        case http.MethodPatch:
+            r.PATCH(rt.Path, gin.WrapF(rt.Handler))
+        case http.MethodOptions:
+            r.OPTIONS(rt.Path, gin.WrapF(rt.Handler))
+        }
+    }
     r.Run(":8080")
 }
 ```
 
 ### 2. Setup Authentication Routes
 
-```go
-func setupAuthRoutes(r *gin.Engine, auth *goauth.Auth) {
-    // Public routes
-    public := r.Group("/api/auth")
-    {
-        public.POST("/register", auth.RegisterHandler())
-        public.POST("/login", auth.LoginHandler())
-        public.POST("/forgot-password", auth.ForgotPasswordHandler())
-        public.POST("/reset-password", auth.ResetPasswordHandler())
-        public.GET("/verify-email", auth.VerifyEmailHandler())
-        public.GET("/verify-phone", auth.VerifyPhoneHandler())
-    }
-
-    // OAuth routes
-    oauth := r.Group("/api/auth/oauth")
-    {
-        oauth.GET("/:provider", auth.OAuthInitiateHandler())
-        oauth.GET("/:provider/callback", auth.OAuthCallbackHandler())
-        oauth.POST("/:provider/link", auth.OAuthLinkHandler())
-        oauth.DELETE("/:provider/unlink", auth.OAuthUnlinkHandler())
-    }
-
-    // Protected routes
-    protected := r.Group("/api")
-    protected.Use(auth.AuthMiddleware())
-    {
-        protected.GET("/me", auth.GetMeHandler())
-        protected.PUT("/profile", auth.UpdateProfileHandler())
-        protected.POST("/logout", auth.LogoutHandler())
-        protected.POST("/refresh", auth.RefreshTokenHandler())
-
-        // 2FA routes
-        protected.POST("/2fa/enable", auth.Enable2FAHandler())
-        protected.POST("/2fa/verify", auth.Verify2FAHandler())
-        protected.POST("/2fa/disable", auth.Disable2FAHandler())
-    }
-}
-```
+Replace the old adapter-based setup with the modular Routes approach above. Middlewares configured by modules are applied during `Initialize`.
 
 ## Middleware Integration
 

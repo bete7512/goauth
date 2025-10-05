@@ -1,96 +1,40 @@
 package config
 
+type ModuleName string
+
 const (
-	RecaptchaAPIURL  = "https://www.google.com/recaptcha/api/siteverify"
-	CloudflareAPIURL = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+	CoreModule         ModuleName = "core"
+	TwoFactorModule    ModuleName = "twofactor"
+	OAuthModule        ModuleName = "oauth"
+	MagicLinkModule    ModuleName = "magiclink"
+	AdminModule        ModuleName = "admin"
+	CSRFModule         ModuleName = "csrf"
+	RateLimiterModule  ModuleName = "ratelimiter"
+	CaptchaModule      ModuleName = "captcha"
+	ReportModule       ModuleName = "report"
+	NotificationModule ModuleName = "notification"
 )
 
-const (
-	RecaptchaGoogle     RecaptchaProvider = "google"
-	RecaptchaCloudflare RecaptchaProvider = "cloudflare"
-)
+type RepositoryName string
 
+// Repository name constants for type-safe access
 const (
-	RouteRegister                 = "register"
-	RouteLogin                    = "login"
-	RouteLogout                   = "logout"
-	RouteRefreshToken             = "refresh-token"
-	RouteForgotPassword           = "forgot-password"
-	RouteResetPassword            = "reset-password"
-	RouteUpdateProfile            = "update-profile"
-	RouteDeactivateUser           = "deactivate-user"
-	RouteGetMe                    = "me"
-	RouteEnableTwoFactor          = "enable-two-factor"
-	RouteVerifyTwoFactor          = "verify-two-factor"
-	RouteDisableTwoFactor         = "disable-two-factor"
-	RouteSendMagicLink            = "send-magic-link"
-	RouteVerifyMagicLink          = "verify-magic-link"
-	RouteSendEmailVerification    = "send-email-verification"
-	RouteSendPhoneVerification    = "send-phone-verification"
-	RouteVerifyEmail              = "verify-email"
-	RouteVerifyPhone              = "verify-phone"
-	RouteSendActionConfirmation   = "send-action-confirmation"
-	RouteVerifyActionConfirmation = "verify-action-confirmation"
-	RouteInviteUser               = "admin.invitations.create"
-	RouteListInvitations          = "admin.invitations.list"
-	RouteCancelInvitation         = "admin.invitations.cancel"
-)
+	// Core module repositories
+	CoreUserRepository              RepositoryName = "core.user"
+	CoreSessionRepository           RepositoryName = "core.session"
+	CoreTokenRepository             RepositoryName = "core.token"
+	CoreVerificationTokenRepository RepositoryName = "core.verification_token"
 
-const (
-	PostgreSQL  DatabaseType = "postgres"
-	MySQL       DatabaseType = "mysql"
-	MongoDB     DatabaseType = "mongodb"
-	SQLite      DatabaseType = "sqlite"
-	SQLServer   DatabaseType = "sqlserver"
-	MariaDB     DatabaseType = "mariadb"
-	ClickHouse  DatabaseType = "clickhouse"
-	CockroachDB DatabaseType = "cockroachdb"
-)
+	// Admin module repositories
+	AdminAuditLogRepository RepositoryName = "admin.auditlog"
 
-const (
-	Google    AuthProvider = "google"
-	GitHub    AuthProvider = "github"
-	Facebook  AuthProvider = "facebook"
-	Microsoft AuthProvider = "microsoft"
-	Apple     AuthProvider = "apple"
-	Discord   AuthProvider = "discord"
-	Twitter   AuthProvider = "twitter"
-	LinkedIn  AuthProvider = "linkedin"
-	Spotify   AuthProvider = "spotify"
-	Slack     AuthProvider = "slack"
-	Custom    AuthProvider = "custom"
-)
+	// MagicLink module repositories
+	MagicLinkRepository RepositoryName = "magiclink.token"
 
-// const (
-// 	RedisRateLimiter    RateLimiterStorageType = "redis"
-// 	MemoryRateLimiter   RateLimiterStorageType = "memory"
-// 	DatabaseRateLimiter RateLimiterStorageType = "database"
-// )
+	// TwoFactor module repositories
+	TwoFactorRepository RepositoryName = "twofactor.secret"
 
-const (
-	RedisCache  CacheType = "redis"
-	MemoryCache CacheType = "memory"
-	ValkeyCache CacheType = "valkey"
-	CustomCache CacheType = "custom"
-	NoCache     CacheType = "none"
-)
-
-const (
-	ResponseDataKey       contextKey = "response_data"
-	ResponseStatusCodeKey contextKey = "response_status_code"
-	RequestDataKey        contextKey = "request_data"
-	UserIDKey             contextKey = "user_id"
-	IsAdminKey            contextKey = "is_admin"
-)
-
-const (
-	AuthenticationTypeCookie  AuthenticationType = "cookie"
-	AuthenticationTypeBearer  AuthenticationType = "bearer"
-	AuthenticationTypeSession AuthenticationType = "session"
-)
-
-const (
-	SES               EmailSenderType = "ses"
-	SendGrid          EmailSenderType = "sendgrid"
-	CustomEmailSender EmailSenderType = "custom"
+	// OAuth module repositories
+	OAuthProviderRepository RepositoryName = "oauth.provider"
+	OAuthTokenRepository    RepositoryName = "oauth.token"
 )

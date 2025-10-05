@@ -29,27 +29,42 @@ GoAuth is designed to simplify the implementation of authentication in Go applic
 - **Well Documented**: Comprehensive documentation and examples
 - **Active Development**: Regular updates and community support
 
-## Quick Example
+## Quick Example (Modular Architecture)
 
 ```go
 package main
 
 import (
-    "github.com/your-org/goauth"
-    "github.com/gin-gonic/gin"
+    "context"
+    "log"
+    "net/http"
+
+    "github.com/bete7512/goauth/internal/storage"
+    "github.com/bete7512/goauth/pkg/auth"
+    "github.com/bete7512/goauth/pkg/config"
 )
 
 func main() {
-    // Initialize GoAuth
-    auth := goauth.New()
+    // Storage via factory (GORM + SQLite shown)
+    store, err := storage.NewStorage(config.StorageConfig{Driver: "gorm", Dialect: "sqlite", DSN: "auth.db", AutoMigrate: true})
+    if err != nil { log.Fatal(err) }
+    defer store.Close()
 
-    // Setup routes
-    r := gin.Default()
+    // Auth with security settings
+    a, err := auth.New(&config.Config{Storage: store, AutoMigrate: true, Security: config.SecurityConfig{JwtSecretKey: "change-me-32-bytes", EncryptionKey: "change-me-32-bytes"}})
+    if err != nil { log.Fatal(err) }
 
-    // Register authentication endpoints
-    auth.SetupRoutes(r)
+    // Optional: register modules before Initialize (e.g., twofactor, csrf)
+    // a.Use(twofactor.New(&twofactor.TwoFactorConfig{...}))
 
-    r.Run(":8080")
+    if err := a.Initialize(context.Background()); err != nil { log.Fatal(err) }
+
+    // Serve with net/http
+    mux := http.NewServeMux()
+    for _, r := range a.Routes() {
+        mux.Handle(r.Path, r.Handler)
+    }
+    log.Fatal(http.ListenAndServe(":8080", mux))
 }
 ```
 

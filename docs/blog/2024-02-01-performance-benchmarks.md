@@ -1,6 +1,6 @@
 ---
 slug: goauth-performance-benchmarks
-title: GoAuth Performance Benchmarks: How Fast Can You Go?
+title: "GoAuth Performance Benchmarks: How Fast Can You Go?"
 authors: [goauth-team]
 tags: [performance, benchmarks, go, authentication]
 ---

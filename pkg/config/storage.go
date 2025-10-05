@@ -1,56 +1,98 @@
 package config
 
 import (
-	"time"
-
-	"github.com/bete7512/goauth/pkg/interfaces"
+	"context"
 )
 
-type DatabaseConfig struct {
-	Type        DatabaseType
-	URL         string
+// Storage defines the main storage interface that all storage backends must implement
+// This is storage-agnostic and doesn't know about any module-specific repositories
+type Storage interface {
+	// Initialize the storage backend
+	Initialize(ctx context.Context) error
+
+	// Close the storage connection
+	Close() error
+
+	// Migrate runs database migrations for the given models
+	Migrate(ctx context.Context, models []interface{}) error
+
+	// Transaction handling
+	BeginTx(ctx context.Context) (Transaction, error)
+
+	// Get the underlying connection (e.g., *gorm.DB, *mongo.Client)
+	DB() interface{}
+
+	// GetRepository retrieves a module's repository by name
+	// Example: storage.GetRepository("core.user").(coreModels.UserRepository)
+	GetRepository(name string) interface{}
+
+	// RegisterRepository registers a module's repository
+	// This is called internally by storage implementations
+	RegisterRepository(name string, repo interface{})
+}
+
+// Transaction defines transaction operations
+type Transaction interface {
+	Commit() error
+	Rollback() error
+
+	// GetRepository retrieves a module's repository within transaction context
+	GetRepository(name string) interface{}
+}
+
+// StorageConfig holds storage configuration
+type StorageConfig struct {
+	// Driver specifies the storage backend: "gorm", "mongo", "sqlc", "custom"
+	Driver string
+
+	// ORM/Database driver (for gorm: "postgres", "mysql", "sqlite")
+	Dialect string
+
+	// DSN is the Data Source Name / connection string
+	DSN string
+
+	// Connection pool settings
+	MaxOpenConns    int
+	MaxIdleConns    int
+	ConnMaxLifetime int
+
+	// AutoMigrate enables automatic database migration
 	AutoMigrate bool
 
-	// Custom storage
-	EnableCustomRepository bool
-	RepositoryFactory      CustomStorageRepositoryConfig
+	// LogLevel for database operations
+	LogLevel string
 }
 
-type CustomStorageRepositoryConfig struct {
-	Factory interfaces.RepositoryFactory
+// Helper functions for type-safe repository access
+
+// GetTypedRepository safely casts repositories to their expected type
+func GetTypedRepository[T any](storage Storage, name string) (T, error) {
+	var zero T
+	repo := storage.GetRepository(name)
+	if repo == nil {
+		return zero, ErrRepositoryNotFound(name)
+	}
+
+	typed, ok := repo.(T)
+	if !ok {
+		return zero, ErrRepositoryTypeMismatch(name)
+	}
+
+	return typed, nil
 }
 
-type RedisConfig struct {
-	Host     string
-	Port     int
-	Database int
-	Password string
-}
+// GetTypedRepositoryFromTx is similar but for transactions
+func GetTypedRepositoryFromTx[T any](tx Transaction, name string) (T, error) {
+	var zero T
+	repo := tx.GetRepository(name)
+	if repo == nil {
+		return zero, ErrRepositoryNotFound(name)
+	}
 
-// CacheConfig defines the configuration for caching
-type CacheConfig struct {
-	Type CacheType
-	// Redis configuration (used when Type is RedisCache)
-	Redis RedisConfig
-	// Valkey configuration (used when Type is ValkeyCache)
-	Valkey ValkeyConfig
-	// Custom cache configuration
-	EnableCustomCache bool
-	CustomCache       CustomCacheConfig
-	// Global cache settings
-	DefaultTTL time.Duration
-	Enabled    bool
-}
+	typed, ok := repo.(T)
+	if !ok {
+		return zero, ErrRepositoryTypeMismatch(name)
+	}
 
-// ValkeyConfig defines configuration for Valkey cache
-type ValkeyConfig struct {
-	Host     string
-	Port     int
-	Database int
-	Password string
-}
-
-// CustomCacheConfig defines configuration for custom cache implementations
-type CustomCacheConfig struct {
-	Factory interfaces.CacheFactory
+	return typed, nil
 }
