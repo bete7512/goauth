@@ -8,6 +8,7 @@ import (
 	"github.com/bete7512/goauth/internal/modules/notification/models"
 	"github.com/bete7512/goauth/internal/modules/notification/services"
 	"github.com/bete7512/goauth/pkg/config"
+	"github.com/bete7512/goauth/pkg/types"
 )
 
 type NotificationModule struct {
@@ -57,7 +58,7 @@ func New(cfg *Config) *NotificationModule {
 }
 
 func (m *NotificationModule) Name() string {
-	return string(config.NotificationModule)
+	return string(types.NotificationModule)
 }
 
 func (m *NotificationModule) Init(ctx context.Context, deps config.ModuleDependencies) error {
@@ -109,15 +110,15 @@ func (m *NotificationModule) Models() []interface{} {
 	return nil
 }
 
-func (m *NotificationModule) RegisterHooks(events config.EventBus) error {
+func (m *NotificationModule) RegisterHooks(events types.EventBus) error {
 	m.deps.Logger.Info("notification module: registering event hooks")
 
 	// AFTER SIGNUP - Send welcome email
 	if m.config.EnableWelcomeEmail {
-		events.Subscribe("after:signup", func(ctx context.Context, event interface{}) error {
+		events.Subscribe(types.EventAfterSignup, types.EventHandler(func(ctx context.Context, event *types.Event) error {
 			m.deps.Logger.Info("notification: after:signup event received")
 
-			data, ok := event.(map[string]interface{})
+			data, ok := event.Data.(map[string]interface{})
 			if !ok {
 				m.deps.Logger.Warnf("notification: invalid event data for after:signup")
 				return nil
@@ -135,15 +136,15 @@ func (m *NotificationModule) RegisterHooks(events config.EventBus) error {
 			}
 
 			return nil
-		})
+		}))
 	}
 
 	// PASSWORD RESET REQUEST - Send reset email/SMS
 	if m.config.EnablePasswordResetEmail || m.config.EnablePasswordResetSMS {
-		events.Subscribe("password:reset:request", func(ctx context.Context, event interface{}) error {
+		events.Subscribe(types.EventBeforeResetPassword, types.EventHandler(func(ctx context.Context, event *types.Event) error {
 			m.deps.Logger.Info("notification: password:reset:request event received")
 
-			data, ok := event.(map[string]interface{})
+			data, ok := event.Data.(map[string]interface{})
 			if !ok {
 				return nil
 			}
@@ -173,15 +174,15 @@ func (m *NotificationModule) RegisterHooks(events config.EventBus) error {
 			}
 
 			return nil
-		})
+		}))
 	}
 
 	// PASSWORD CHANGED - Send alert
 	if m.config.EnablePasswordChangeAlert {
-		events.Subscribe("password:changed", func(ctx context.Context, event interface{}) error {
+		events.Subscribe(types.EventAfterChangePassword, types.EventHandler(func(ctx context.Context, event *types.Event) error {
 			m.deps.Logger.Info("notification: password:changed event received")
 
-			data, ok := event.(map[string]interface{})
+			data, ok := event.Data.(map[string]interface{})
 			if !ok {
 				return nil
 			}
@@ -199,15 +200,15 @@ func (m *NotificationModule) RegisterHooks(events config.EventBus) error {
 			}
 
 			return nil
-		})
+		}))
 	}
 
 	// AFTER LOGIN - Send login alert (optional)
 	if m.config.EnableLoginAlerts {
-		events.Subscribe("after:login", func(ctx context.Context, event interface{}) error {
+		events.Subscribe(types.EventAfterLogin, types.EventHandler(func(ctx context.Context, event *types.Event) error {
 			m.deps.Logger.Info("notification: after:login event received")
 
-			data, ok := event.(map[string]interface{})
+			data, ok := event.Data.(map[string]interface{})
 			if !ok {
 				return nil
 			}
@@ -227,14 +228,14 @@ func (m *NotificationModule) RegisterHooks(events config.EventBus) error {
 			}
 
 			return nil
-		})
+		}))
 	}
 
 	// EMAIL VERIFICATION SENT
-	events.Subscribe("email:verification:sent", func(ctx context.Context, event interface{}) error {
+	events.Subscribe(types.EventBeforeChangeEmailVerification, types.EventHandler(func(ctx context.Context, event *types.Event) error {
 		m.deps.Logger.Info("notification: email:verification:sent event received")
 
-		data, ok := event.(map[string]interface{})
+		data, ok := event.Data.(map[string]interface{})
 		if !ok {
 			return nil
 		}
@@ -253,14 +254,14 @@ func (m *NotificationModule) RegisterHooks(events config.EventBus) error {
 		}
 
 		return nil
-	})
+	}))
 
 	// 2FA VERIFICATION - Send code
 	if m.config.Enable2FANotifications {
-		events.Subscribe("2fa:code:sent", func(ctx context.Context, event interface{}) error {
+		events.Subscribe(types.EventBeforeChangePhoneVerification, types.EventHandler(func(ctx context.Context, event *types.Event) error {
 			m.deps.Logger.Info("notification: 2fa:code:sent event received")
 
-			data, ok := event.(map[string]interface{})
+			data, ok := event.Data.(map[string]interface{})
 			if !ok {
 				return nil
 			}
@@ -274,7 +275,7 @@ func (m *NotificationModule) RegisterHooks(events config.EventBus) error {
 			}
 
 			return nil
-		})
+		}))
 	}
 
 	m.deps.Logger.Info("notification module: event hooks registered successfully")
@@ -283,7 +284,7 @@ func (m *NotificationModule) RegisterHooks(events config.EventBus) error {
 
 func (m *NotificationModule) Dependencies() []string {
 	// Notification module depends on core for user events
-	return []string{string(config.CoreModule)}
+	return []string{string(types.CoreModule)}
 }
 
 // GetService returns the notification service for direct access

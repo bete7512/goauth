@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/bete7512/goauth/pkg/config"
+	"github.com/bete7512/goauth/pkg/types"
 	"gopkg.in/yaml.v3"
 )
 
@@ -13,7 +14,7 @@ type SwaggerGenerator struct {
 	baseSpec map[string]interface{}
 }
 
-func NewGenerator(modules []config.Module, metadata config.SwaggerConfig) *SwaggerGenerator {
+func NewGenerator(modules []config.Module, metadata types.SwaggerConfig) *SwaggerGenerator {
 	return &SwaggerGenerator{
 		modules:  modules,
 		baseSpec: getBaseSpec(metadata),
@@ -86,7 +87,7 @@ func mergeComponents(base, new map[string]interface{}) {
 	}
 }
 
-func getBaseSpec(metadata config.SwaggerConfig) map[string]interface{} {
+func getBaseSpec(metadata types.SwaggerConfig) map[string]interface{} {
 	return map[string]interface{}{
 		"openapi": "3.0.3",
 		"info": map[string]interface{}{

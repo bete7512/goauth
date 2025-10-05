@@ -13,8 +13,16 @@ type Event struct {
 	Error   error
 }
 
+// EventBus interface for event handling
+type EventBus interface {
+	Subscribe(eventType EventType, handler EventHandler, opts ...interface{})
+	Emit(ctx context.Context, eventType EventType, data interface{}) error
+	EmitSync(ctx context.Context, eventType EventType, data interface{}) error
+}
+
 // Handler is a function that handles an event
 type EventHandler func(ctx context.Context, event *Event) error
+
 // AsyncBackend defines the interface for async event processing backends
 // Users can provide custom implementations (Redis, RabbitMQ, Kafka, etc.)
 type AsyncBackend interface {
@@ -65,4 +73,5 @@ const (
 	EventAfterChangeProfileVerification   EventType = "after:change-profile-verification"
 	EventBeforeChangeAvatarVerification   EventType = "before:change-avatar-verification"
 	EventAfterChangeAvatarVerification    EventType = "after:change-avatar-verification"
+	EventAdminAction                      EventType = "admin:action"
 )

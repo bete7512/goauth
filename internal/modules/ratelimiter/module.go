@@ -6,6 +6,7 @@ import (
 	"github.com/bete7512/goauth/internal/modules/ratelimiter/middlewares"
 	"github.com/bete7512/goauth/internal/modules/ratelimiter/services"
 	"github.com/bete7512/goauth/pkg/config"
+	"github.com/bete7512/goauth/pkg/types"
 )
 
 type RateLimiterModule struct {
@@ -76,9 +77,9 @@ func (m *RateLimiterModule) Models() []interface{} {
 	return nil // No models needed (uses in-memory storage)
 }
 
-func (m *RateLimiterModule) RegisterHooks(events config.EventBus) error {
-	events.Subscribe("before:login", func(ctx context.Context, event interface{}) error {
-		_, ok := event.(map[string]interface{})
+func (m *RateLimiterModule) RegisterHooks(events types.EventBus) error {
+	events.Subscribe(types.EventBeforeLogin, types.EventHandler(func(ctx context.Context, event *types.Event) error {
+		_, ok := event.Data.(map[string]interface{})
 		if !ok {
 			return nil
 		}
@@ -87,9 +88,9 @@ func (m *RateLimiterModule) RegisterHooks(events config.EventBus) error {
 		// 	return nil
 		// }
 		return nil
-	})
-	events.Subscribe("before:signup", func(ctx context.Context, event interface{}) error {
-		_, ok := event.(map[string]interface{})
+	}))
+	events.Subscribe(types.EventBeforeSignup, types.EventHandler(func(ctx context.Context, event *types.Event) error {
+		_, ok := event.Data.(map[string]interface{})
 		if !ok {
 			return nil
 		}
@@ -98,22 +99,22 @@ func (m *RateLimiterModule) RegisterHooks(events config.EventBus) error {
 		// 	return nil
 		// }
 		return nil
-	})
-	events.Subscribe("before:logout", func(ctx context.Context, event interface{}) error {
-		_, ok := event.(map[string]interface{})
+	}))
+	events.Subscribe(types.EventBeforeLogout, types.EventHandler(func(ctx context.Context, event *types.Event) error {
+		_, ok := event.Data.(map[string]interface{})
 		if !ok {
 			return nil
 		}
 
 		return nil
-	})
-	events.Subscribe("before:forgot-password", func(ctx context.Context, event interface{}) error {
-		_, ok := event.(map[string]interface{})
+	}))
+	events.Subscribe(types.EventBeforeForgotPassword, types.EventHandler(func(ctx context.Context, event *types.Event) error {
+		_, ok := event.Data.(map[string]interface{})
 		if !ok {
 			return nil
 		}
 		return nil
-	})
+	}))
 	return nil
 }
 

@@ -5,10 +5,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/bete7512/goauth/internal/modules/core/models"
+	// "github.com/bete7512/goauth/internal/security"
+	"github.com/bete7512/goauth/internal/security"
 	"github.com/bete7512/goauth/internal/utils/logger"
 	"github.com/bete7512/goauth/pkg/types"
-	"github.com/golang-jwt/jwt/v5"
 )
 
 type RouteInfo struct {
@@ -41,7 +41,7 @@ type Module interface {
 	Models() []interface{}
 
 	// RegisterHooks registers event handlers for this module
-	RegisterHooks(events EventBus) error
+	RegisterHooks(events types.EventBus) error
 
 	// Dependencies returns required module names
 	Dependencies() []string
@@ -55,8 +55,9 @@ type ModuleDependencies struct {
 	Storage           Storage
 	Config            *Config
 	Logger            logger.Logger
-	Events            EventBus
+	Events            types.EventBus
 	MiddlewareManager MiddlewareManager
+	SecurityManager   *security.SecurityManager
 	Options           interface{}
 }
 
@@ -68,29 +69,6 @@ type MiddlewareConfig struct {
 	ApplyTo     []string // Route names or patterns
 	ExcludeFrom []string // Route names or patterns to exclude
 	Global      bool     // Apply to all routes
-}
-
-// EventBus interface for event handling
-type EventBus interface {
-	Subscribe(eventType types.EventType, handler EventHandler, opts ...interface{})
-	Emit(ctx context.Context, eventType types.EventType, data interface{}) error
-	EmitSync(ctx context.Context, eventType types.EventType, data interface{}) error
-}
-
-// EventHandler handles events
-type EventHandler func(ctx context.Context, event interface{}) error
-
-// AsyncBackend defines the interface for async event processing
-// Users can provide custom implementations (Redis, RabbitMQ, Kafka, etc.)
-type AsyncBackend interface {
-	// Publish sends an event to the async backend
-	Publish(ctx context.Context, eventType types.EventType, event *types.Event) error
-
-	// Close gracefully shuts down the backend
-	Close() error
-
-	// Name returns the backend name for logging
-	Name() string
 }
 
 // MiddlewareManager manages middleware application
@@ -125,33 +103,9 @@ type Config struct {
 	AsyncBackend types.AsyncBackend
 
 	// Security
-	Security SecurityConfig
+	Security types.SecurityConfig
 	// Swagger
-	SwaggerConfig *SwaggerConfig
-}
-type SwaggerConfig struct {
-	Title       string
-	Description string
-	Version     string
-	Servers     []SwaggerServer
-}
-type SwaggerServer struct {
-	URL         string
-	Description string
-}
-
-type SecurityConfig struct {
-	JwtSecretKey         string
-	SessionDuration      time.Duration
-	AccessTokenTTL       time.Duration
-	RefreshTokenTTL      time.Duration
-	EncryptionKey        string
-	HashSaltLength       int
-	CustomClaimsProvider CustomClaimsProvider
-}
-
-type CustomClaimsProvider interface {
-	GetClaims(user models.User) (jwt.MapClaims, error)
+	SwaggerConfig *types.SwaggerConfig
 }
 
 // CORSConfig holds CORS configuration

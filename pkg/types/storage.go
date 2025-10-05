@@ -1,18 +1,19 @@
-package config
+package types
 
-type ModuleName string
+type DriverType string
 
 const (
-	CoreModule         ModuleName = "core"
-	TwoFactorModule    ModuleName = "twofactor"
-	OAuthModule        ModuleName = "oauth"
-	MagicLinkModule    ModuleName = "magiclink"
-	AdminModule        ModuleName = "admin"
-	CSRFModule         ModuleName = "csrf"
-	RateLimiterModule  ModuleName = "ratelimiter"
-	CaptchaModule      ModuleName = "captcha"
-	ReportModule       ModuleName = "report"
-	NotificationModule ModuleName = "notification"
+	DriverTypeGorm  DriverType = "gorm"
+	DriverTypeMongo DriverType = "mongo"
+	DriverTypeSqlc  DriverType = "sqlc"
+)
+
+type DialectType string
+
+const (
+	DialectTypePostgres DialectType = "postgres"
+	DialectTypeMysql    DialectType = "mysql"
+	DialectTypeSqlite   DialectType = "sqlite"
 )
 
 type RepositoryName string

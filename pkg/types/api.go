@@ -9,7 +9,7 @@ type APIResponse[T any] struct {
 	Error     *GoAuthError `json:"error,omitempty"`
 	Message   *string      `json:"message,omitempty"`
 	Timestamp time.Time    `json:"timestamp"`
-	RequestID string       `json:"request_id,omitempty"`
+	// RequestID string       `json:"request_id,omitempty"`
 }
 
 // Pagination metadata

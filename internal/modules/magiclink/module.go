@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/bete7512/goauth/pkg/config"
+	"github.com/bete7512/goauth/pkg/types"
 )
 
 type MagicLinkModule struct{}
@@ -14,7 +15,7 @@ func New() *MagicLinkModule {
 	return &MagicLinkModule{}
 }
 func (m *MagicLinkModule) Name() string {
-	return string(config.MagicLinkModule)
+	return string(types.MagicLinkModule)
 }
 
 func (m *MagicLinkModule) Init(ctx context.Context, deps config.ModuleDependencies) error {
@@ -39,14 +40,13 @@ func (m *MagicLinkModule) Models() []interface{} {
 	return models
 }
 
-func (m *MagicLinkModule) RegisterHooks(events config.EventBus) error {
+func (m *MagicLinkModule) RegisterHooks(events types.EventBus) error {
 	return nil
 }
 
 func (m *MagicLinkModule) Dependencies() []string {
 	return nil
 }
-
 
 func (m *MagicLinkModule) SwaggerSpec() []byte {
 	return nil

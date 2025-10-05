@@ -8,6 +8,7 @@ import (
 	"github.com/bete7512/goauth/internal/storage/gorm/modules/admin"
 	"github.com/bete7512/goauth/internal/storage/gorm/modules/core"
 	"github.com/bete7512/goauth/pkg/config"
+	"github.com/bete7512/goauth/pkg/types"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
@@ -28,11 +29,11 @@ func NewFromConfig(config config.StorageConfig) (config.Storage, error) {
 	var dialector gorm.Dialector
 
 	switch config.Dialect {
-	case "postgres":
+	case types.DialectTypePostgres:
 		dialector = postgres.Open(config.DSN)
-	case "mysql":
+	case types.DialectTypeMysql:
 		dialector = mysql.Open(config.DSN)
-	case "sqlite":
+	case types.DialectTypeSqlite:
 		dialector = sqlite.Open(config.DSN)
 	default:
 		return nil, fmt.Errorf("unsupported dialect: %s", config.Dialect)
@@ -91,13 +92,13 @@ func NewGormStorage(db *gorm.DB) *GormStorage {
 // registerRepositories registers all module repositories
 func (s *GormStorage) registerRepositories() {
 	// Core module repositories
-	s.repositories[string(config.CoreUserRepository)] = core.NewUserRepository(s.db)
-	s.repositories[string(config.CoreSessionRepository)] = core.NewSessionRepository(s.db)
-	s.repositories[string(config.CoreVerificationTokenRepository)] = core.NewVerificationTokenRepository(s.db)
-	s.repositories[string(config.CoreTokenRepository)] = core.NewTokenRepository(s.db)
+	s.repositories[string(types.CoreUserRepository)] = core.NewUserRepository(s.db)
+	s.repositories[string(types.CoreSessionRepository)] = core.NewSessionRepository(s.db)
+	s.repositories[string(types.CoreVerificationTokenRepository)] = core.NewVerificationTokenRepository(s.db)
+	s.repositories[string(types.CoreTokenRepository)] = core.NewTokenRepository(s.db)
 
 	// Admin module repositories
-	s.repositories[string(config.AdminAuditLogRepository)] = admin.NewAuditLogRepository(s.db)
+	s.repositories[string(types.AdminAuditLogRepository)] = admin.NewAuditLogRepository(s.db)
 
 	// TODO: Add other module repositories as they are implemented
 	// s.repositories[storage.MagicLinkRepository] = magiclink.NewTokenRepository(s.db)
@@ -183,12 +184,12 @@ func (s *GormStorage) createTransactionRepositories(tx *gorm.DB) map[string]inte
 	repos := make(map[string]interface{})
 
 	// Core module repositories
-	repos[string(config.CoreUserRepository)] = core.NewUserRepository(tx)
-	repos[string(config.CoreSessionRepository)] = core.NewSessionRepository(tx)
-	repos[string(config.CoreVerificationTokenRepository)] = core.NewVerificationTokenRepository(tx)
+	repos[string(types.CoreUserRepository)] = core.NewUserRepository(tx)
+	repos[string(types.CoreSessionRepository)] = core.NewSessionRepository(tx)
+	repos[string(types.CoreVerificationTokenRepository)] = core.NewVerificationTokenRepository(tx)
 
 	// Admin module repositories
-	repos[string(config.AdminAuditLogRepository)] = admin.NewAuditLogRepository(tx)
+	repos[string(types.AdminAuditLogRepository)] = admin.NewAuditLogRepository(tx)
 
 	// TODO: Add other module repositories
 

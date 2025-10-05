@@ -99,21 +99,21 @@ func New(cfg *config.Config) (*Auth, error) {
 		Events:            eventBusAdapter,
 		MiddlewareManager: middlewareManager,
 	}
-	if auth.config.ModuleConfigs[string(config.CoreModule)] == nil {
+	if auth.config.ModuleConfigs[string(types.CoreModule)] == nil {
 		coreConfig := &core.Config{}
 		if auth.storage != nil {
-			if auth.storage.GetRepository(string(config.CoreUserRepository)) == nil {
+			if auth.storage.GetRepository(string(types.CoreUserRepository)) == nil {
 				return nil, fmt.Errorf("core.user repository is not found storage is not connected correctly")
 			}
-			if auth.storage.GetRepository(string(config.CoreSessionRepository)) == nil {
+			if auth.storage.GetRepository(string(types.CoreSessionRepository)) == nil {
 				return nil, fmt.Errorf("core.session repository is not found storage is not connected correctly")
 			}
-			if auth.storage.GetRepository(string(config.CoreTokenRepository)) == nil {
+			if auth.storage.GetRepository(string(types.CoreTokenRepository)) == nil {
 				return nil, fmt.Errorf("core.token repository is not found storage is not connected correctly")
 			}
-			coreConfig.UserRepository = auth.storage.GetRepository(string(config.CoreUserRepository)).(models.UserRepository)
-			coreConfig.SessionRepository = auth.storage.GetRepository(string(config.CoreSessionRepository)).(models.SessionRepository)
-			coreConfig.TokenRepository = auth.storage.GetRepository(string(config.CoreTokenRepository)).(models.TokenRepository)
+			coreConfig.UserRepository = auth.storage.GetRepository(string(types.CoreUserRepository)).(models.UserRepository)
+			coreConfig.SessionRepository = auth.storage.GetRepository(string(types.CoreSessionRepository)).(models.SessionRepository)
+			coreConfig.TokenRepository = auth.storage.GetRepository(string(types.CoreTokenRepository)).(models.TokenRepository)
 
 		}
 		coreModule := core.New(coreConfig)
@@ -291,7 +291,7 @@ func (a *Auth) Close() error {
 
 // asyncBackendAdapter adapts config.AsyncBackend to events.AsyncBackend
 type asyncBackendAdapter struct {
-	backend config.AsyncBackend
+	backend types.AsyncBackend
 }
 
 func (a *asyncBackendAdapter) Publish(ctx context.Context, eventType types.EventType, event *types.Event) error {

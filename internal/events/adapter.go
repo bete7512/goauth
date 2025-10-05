@@ -3,7 +3,6 @@ package events
 import (
 	"context"
 
-	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/types"
 )
 
@@ -26,7 +25,7 @@ func NewEventBusAdapter(bus *EventBus) *EventBusAdapter {
 }
 
 // Subscribe registers a handler for an event type (string version)
-func (a *EventBusAdapter) Subscribe(eventType types.EventType, handler config.EventHandler, opts ...interface{}) {
+func (a *EventBusAdapter) Subscribe(eventType types.EventType, handler types.EventHandler, opts ...interface{}) {
 	// Convert string event type to EventType
 	et := types.EventType(eventType)
 

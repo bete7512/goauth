@@ -12,6 +12,7 @@ import (
 	core_services "github.com/bete7512/goauth/internal/modules/core/services"
 	"github.com/bete7512/goauth/internal/security"
 	"github.com/bete7512/goauth/pkg/config"
+	"github.com/bete7512/goauth/pkg/types"
 )
 
 type CoreModule struct {
@@ -56,7 +57,7 @@ func (m *CoreModule) Init(ctx context.Context, deps config.ModuleDependencies) e
 	}
 
 	// Resolve repositories
-	userRepoRaw, err := getRepo(m.config.UserRepository, string(config.CoreUserRepository))
+	userRepoRaw, err := getRepo(m.config.UserRepository, string(types.CoreUserRepository))
 	if err != nil {
 		return err
 	}
@@ -65,7 +66,7 @@ func (m *CoreModule) Init(ctx context.Context, deps config.ModuleDependencies) e
 		return fmt.Errorf("user repository has invalid type")
 	}
 
-	sessionRepoRaw, err := getRepo(m.config.SessionRepository, string(config.CoreSessionRepository))
+	sessionRepoRaw, err := getRepo(m.config.SessionRepository, string(types.CoreSessionRepository))
 	if err != nil {
 		return err
 	}
@@ -74,7 +75,7 @@ func (m *CoreModule) Init(ctx context.Context, deps config.ModuleDependencies) e
 		return fmt.Errorf("session repository has invalid type")
 	}
 
-	tokenRepoRaw, err := getRepo(m.config.TokenRepository, string(config.CoreTokenRepository))
+	tokenRepoRaw, err := getRepo(m.config.TokenRepository, string(types.CoreTokenRepository))
 	if err != nil {
 		return err
 	}
@@ -83,7 +84,7 @@ func (m *CoreModule) Init(ctx context.Context, deps config.ModuleDependencies) e
 		return fmt.Errorf("token repository has invalid type")
 	}
 
-	verificationTokenRepoRaw, err := getRepo(m.config.VerificationTokenRepository, string(config.CoreVerificationTokenRepository))
+	verificationTokenRepoRaw, err := getRepo(m.config.VerificationTokenRepository, string(types.CoreVerificationTokenRepository))
 	if err != nil {
 		return err
 	}
@@ -92,7 +93,7 @@ func (m *CoreModule) Init(ctx context.Context, deps config.ModuleDependencies) e
 		return fmt.Errorf("verification token repository has invalid type")
 	}
 
-	securityManager := security.NewSecurityManager(*m.deps.Config)
+	securityManager := security.NewSecurityManager(m.deps.Config.Security)
 	m.handlers = handlers.NewCoreHandler(
 		deps,
 		core_services.NewCoreService(
@@ -113,7 +114,7 @@ func (m *CoreModule) SwaggerSpec() []byte {
 }
 
 func (m *CoreModule) Name() string {
-	return string(config.CoreModule)
+	return string(types.CoreModule)
 }
 
 func (m *CoreModule) Routes() []config.RouteInfo {
@@ -124,10 +125,11 @@ func (m *CoreModule) Routes() []config.RouteInfo {
 }
 
 func (m *CoreModule) Middlewares() []config.MiddlewareConfig {
+	authMiddleware := middlewares.NewAuthMiddleware(m.deps.Config, m.handlers.CoreService.SecurityManager)
 	return []config.MiddlewareConfig{
 		{
 			Name:       "core.auth",
-			Middleware: middlewares.AuthMiddleware,
+			Middleware: authMiddleware.AuthMiddleware,
 			Priority:   50,
 			ApplyTo:    []string{"core.me", "core.profile", "core.logout"},
 			Global:     false,
@@ -145,28 +147,28 @@ func (m *CoreModule) Models() []interface{} {
 	return models
 }
 
-func (m *CoreModule) RegisterHooks(events config.EventBus) error {
-	events.Subscribe("before:signup", func(ctx context.Context, event interface{}) error {
-		_, ok := event.(map[string]interface{})
+func (m *CoreModule) RegisterHooks(events types.EventBus) error {
+	events.Subscribe(types.EventBeforeSignup, types.EventHandler(func(ctx context.Context, event *types.Event) error {
+		_, ok := event.Data.(map[string]interface{})
 		if !ok {
 			return nil
 		}
 		return nil
-	})
-	events.Subscribe("before:login", func(ctx context.Context, event interface{}) error {
-		_, ok := event.(map[string]interface{})
+	}))
+	events.Subscribe(types.EventBeforeLogin, types.EventHandler(func(ctx context.Context, event *types.Event) error {
+		_, ok := event.Data.(map[string]interface{})
 		if !ok {
 			return nil
 		}
 		return nil
-	})
-	events.Subscribe("before:logout", func(ctx context.Context, event interface{}) error {
-		_, ok := event.(map[string]interface{})
+	}))
+	events.Subscribe(types.EventBeforeLogout, types.EventHandler(func(ctx context.Context, event *types.Event) error {
+		_, ok := event.Data.(map[string]interface{})
 		if !ok {
 			return nil
 		}
 		return nil
-	})
+	}))
 	return nil
 }
 

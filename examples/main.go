@@ -6,13 +6,13 @@ import (
 	"net/http"
 
 	"github.com/bete7512/goauth/internal/modules/csrf"
-	"github.com/bete7512/goauth/internal/modules/magiclink"
 	"github.com/bete7512/goauth/internal/modules/notification"
 	"github.com/bete7512/goauth/internal/modules/notification/services"
 	"github.com/bete7512/goauth/internal/modules/notification/services/senders"
 	"github.com/bete7512/goauth/internal/storage"
 	"github.com/bete7512/goauth/pkg/auth"
 	"github.com/bete7512/goauth/pkg/config"
+	"github.com/bete7512/goauth/pkg/types"
 	"github.com/gin-gonic/gin"
 	"github.com/go-chi/chi/v5"
 	"github.com/gofiber/fiber/v2"
@@ -39,16 +39,16 @@ func main() {
 	// Create auth instance
 	authInstance, err := auth.New(&config.Config{
 		Storage: store,
-		Security: config.SecurityConfig{
+		Security: types.SecurityConfig{
 			JwtSecretKey:  "your-secret-key-change-in-production",
 			EncryptionKey: "your-encryption-key-change-in-production",
 		},
 		AutoMigrate: true,
-		SwaggerConfig: &config.SwaggerConfig{
+		SwaggerConfig: &types.SwaggerConfig{
 			Title:       "GoAuth Docs",
 			Description: "GoAuth Documentation",
 			Version:     "1.0.0",
-			Servers: []config.SwaggerServer{
+			Servers: []types.SwaggerServer{
 				{URL: "http://localhost:8080", Description: "Development Server"},
 				{URL: "https://goauth.com", Description: "Production Server"},
 			},
@@ -60,7 +60,7 @@ func main() {
 
 	// Register modules before Initialize
 	// authInstance.Use(core.New(&core.Config{}))
-	authInstance.Use(magiclink.New())
+	// authInstance.Use(magiclink.New(&magiclink.MagicLinkConfig{}))
 	// authInstance.Use(twofactor.New(&twofactor.TwoFactorConfig{
 	// 	Issuer:           "MyAwesomeApp",
 	// 	Required:         false,

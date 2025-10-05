@@ -6,7 +6,8 @@ import (
 	"github.com/bete7512/goauth/internal/modules/captcha/middlewares"
 	"github.com/bete7512/goauth/internal/modules/captcha/services"
 	"github.com/bete7512/goauth/pkg/config"
-)
+	"github.com/bete7512/goauth/pkg/types"
+	)
 
 type CaptchaModule struct {
 	deps    config.ModuleDependencies
@@ -114,7 +115,7 @@ func (m *CaptchaModule) Models() []interface{} {
 	return nil // No models needed
 }
 
-func (m *CaptchaModule) RegisterHooks(events config.EventBus) error {
+func (m *CaptchaModule) RegisterHooks(events types.EventBus) error {
 	return nil
 }
 

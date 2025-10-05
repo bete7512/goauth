@@ -2,6 +2,8 @@ package config
 
 import (
 	"context"
+
+	"github.com/bete7512/goauth/pkg/types"
 )
 
 // Storage defines the main storage interface that all storage backends must implement
@@ -43,10 +45,10 @@ type Transaction interface {
 // StorageConfig holds storage configuration
 type StorageConfig struct {
 	// Driver specifies the storage backend: "gorm", "mongo", "sqlc", "custom"
-	Driver string
+	Driver types.DriverType
 
 	// ORM/Database driver (for gorm: "postgres", "mysql", "sqlite")
-	Dialect string
+	Dialect types.DialectType
 
 	// DSN is the Data Source Name / connection string
 	DSN string

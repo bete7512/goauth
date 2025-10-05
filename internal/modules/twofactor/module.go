@@ -2,13 +2,14 @@ package twofactor
 
 import (
 	"context"
-	"net/http"
 	_ "embed"
+	"net/http"
 
 	"github.com/bete7512/goauth/internal/modules/twofactor/handlers"
 	"github.com/bete7512/goauth/internal/modules/twofactor/models"
 	"github.com/bete7512/goauth/internal/modules/twofactor/services"
 	"github.com/bete7512/goauth/pkg/config"
+	"github.com/bete7512/goauth/pkg/types"
 )
 
 type TwoFactorModule struct {
@@ -50,7 +51,7 @@ func New(cfg ...*TwoFactorConfig) *TwoFactorModule {
 }
 
 func (m *TwoFactorModule) Name() string {
-	return string(config.TwoFactorModule)
+	return string(types.TwoFactorModule)
 }
 
 func (m *TwoFactorModule) Init(ctx context.Context, deps config.ModuleDependencies) error {
@@ -97,13 +98,13 @@ func (m *TwoFactorModule) Models() []interface{} {
 	}
 }
 
-func (m *TwoFactorModule) RegisterHooks(events config.EventBus) error {
+func (m *TwoFactorModule) RegisterHooks(events types.EventBus) error {
 	m.deps.Logger.Info("Registering 2FA hooks")
 
 	// Hook into after-login to check if 2FA verification is required
 	// This runs synchronously - will block login if 2FA needs verification
-	events.Subscribe("after:login", func(ctx context.Context, event interface{}) error {
-		data, ok := event.(map[string]interface{})
+	events.Subscribe(types.EventAfterLogin, types.EventHandler(func(ctx context.Context, event *types.Event) error {
+		data, ok := event.Data.(map[string]interface{})
 		if !ok {
 			return nil
 		}
@@ -133,16 +134,16 @@ func (m *TwoFactorModule) RegisterHooks(events config.EventBus) error {
 		}
 
 		return nil
-	})
+	}))
 
 	// If 2FA is required for all users, hook into signup
 	if m.config.Required {
-		events.Subscribe("after:signup", func(ctx context.Context, event interface{}) error {
+		events.Subscribe(types.EventAfterSignup, types.EventHandler(func(ctx context.Context, event *types.Event) error {
 			m.deps.Logger.Info("2FA is required for all users - new user must set up 2FA")
 			// In a real implementation, you might redirect to 2FA setup
 			// or send an email prompting 2FA setup
 			return nil
-		})
+		}))
 	}
 
 	return nil

@@ -97,7 +97,7 @@ func main() {
 	fmt.Println("\n=== Option 1: Default Worker Pool ===")
 	auth1, _ := auth.New(&config.Config{
 		Storage: store,
-		Security: config.SecurityConfig{
+		Security: types.SecurityConfig{
 			JwtSecretKey: "secret",
 		},
 		// AsyncBackend: nil = uses default worker pool
@@ -110,7 +110,7 @@ func main() {
 	redisBackend := &CustomRedisBackend{}
 	auth2, _ := auth.New(&config.Config{
 		Storage: store,
-		Security: config.SecurityConfig{
+		Security: types.SecurityConfig{
 			JwtSecretKey: "secret",
 		},
 		AsyncBackend: redisBackend,
@@ -126,7 +126,7 @@ func main() {
 	queueBackend := &CustomQueueBackend{queueName: "goauth-events"}
 	auth3, _ := auth.New(&config.Config{
 		Storage: store,
-		Security: config.SecurityConfig{
+		Security: types.SecurityConfig{
 			JwtSecretKey: "secret",
 		},
 		AsyncBackend: queueBackend,
@@ -147,7 +147,7 @@ func main() {
 	jetstreamBackend := &NatsJetstreamBackend{conn: conn, js: js}
 	auth4, _ := auth.New(&config.Config{
 		Storage: store,
-		Security: config.SecurityConfig{
+		Security: types.SecurityConfig{
 			JwtSecretKey: "secret",
 		},
 		AsyncBackend: jetstreamBackend,

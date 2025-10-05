@@ -7,6 +7,7 @@ import (
 	"github.com/bete7512/goauth/internal/modules/csrf/middlewares"
 	"github.com/bete7512/goauth/internal/modules/csrf/services"
 	"github.com/bete7512/goauth/pkg/config"
+	"github.com/bete7512/goauth/pkg/types"
 )
 
 type CSRFModule struct {
@@ -108,11 +109,11 @@ func (m *CSRFModule) Models() []interface{} {
 	return nil // No models needed (uses in-memory or session storage)
 }
 
-func (m *CSRFModule) RegisterHooks(events config.EventBus) error {
-	events.Subscribe("after:login", func(ctx context.Context, event interface{}) error {
+func (m *CSRFModule) RegisterHooks(events types.EventBus) error {
+	events.Subscribe(types.EventAfterLogin, types.EventHandler(func(ctx context.Context, event *types.Event) error {
 
 		return nil
-	})
+	}))
 	return nil
 }
 

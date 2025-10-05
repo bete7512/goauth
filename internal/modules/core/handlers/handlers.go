@@ -22,6 +22,7 @@ func NewCoreHandler(deps config.ModuleDependencies, coreService *core_services.C
 
 func (h *CoreHandler) GetRoutes() []config.RouteInfo {
 	// register routes here with unique names
+	authMiddleware := middlewares.NewAuthMiddleware(h.deps.Config, h.CoreService.SecurityManager)
 	routes := []config.RouteInfo{
 		// 📌 Core Auth Routes
 		{
@@ -40,13 +41,13 @@ func (h *CoreHandler) GetRoutes() []config.RouteInfo {
 			Name:    "core.logout",
 			Path:    "/logout",
 			Method:  "POST",
-			Handler: middlewares.AuthMiddleware(http.HandlerFunc(h.Logout)).ServeHTTP,
+			Handler: authMiddleware.AuthMiddleware(http.HandlerFunc(h.Logout)).ServeHTTP,
 		},
 		{
 			Name:    "core.me",
 			Path:    "/me",
 			Method:  "GET",
-			Handler: middlewares.AuthMiddleware(http.HandlerFunc(h.Me)).ServeHTTP,
+			Handler: authMiddleware.AuthMiddleware(http.HandlerFunc(h.Me)).ServeHTTP,
 		},
 
 		// 📌 Email / Phone Verification
@@ -94,19 +95,19 @@ func (h *CoreHandler) GetRoutes() []config.RouteInfo {
 			Name:    "core.profile",
 			Path:    "/profile",
 			Method:  "GET",
-			Handler: middlewares.AuthMiddleware(http.HandlerFunc(h.Profile)).ServeHTTP,
+			Handler: authMiddleware.AuthMiddleware(http.HandlerFunc(h.Profile)).ServeHTTP,
 		},
 		{
 			Name:    "core.update_profile",
 			Path:    "/profile",
 			Method:  "PUT",
-			Handler: middlewares.AuthMiddleware(http.HandlerFunc(h.UpdateProfile)).ServeHTTP,
+			Handler: authMiddleware.AuthMiddleware(http.HandlerFunc(h.UpdateProfile)).ServeHTTP,
 		},
 		{
 			Name:    "core.change_password",
 			Path:    "/change-password",
 			Method:  "PUT",
-			Handler: middlewares.AuthMiddleware(http.HandlerFunc(h.ChangePassword)).ServeHTTP,
+			Handler: authMiddleware.AuthMiddleware(http.HandlerFunc(h.ChangePassword)).ServeHTTP,
 		},
 		{
 			Name:    "core.check_availability",

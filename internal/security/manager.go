@@ -8,16 +8,16 @@ import (
 	"time"
 
 	"github.com/bete7512/goauth/internal/modules/core/models"
-	"github.com/bete7512/goauth/pkg/config"
+	"github.com/bete7512/goauth/pkg/types"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type SecurityManager struct {
-	Config config.Config
+	Config types.SecurityConfig
 }
 
-func NewSecurityManager(config config.Config) *SecurityManager {
+func NewSecurityManager(config types.SecurityConfig) *SecurityManager {
 	return &SecurityManager{Config: config}
 }
 
@@ -26,8 +26,8 @@ func (t *SecurityManager) GenerateAccessToken(user models.User, duration time.Du
 		"user_id": user.ID,
 		"exp":     time.Now().Add(duration).Unix(),
 	}
-	if t.Config.Security.CustomClaimsProvider != nil {
-		customClaims, err := t.Config.Security.CustomClaimsProvider.GetClaims(user)
+	if t.Config.CustomClaimsProvider != nil {
+		customClaims, err := t.Config.CustomClaimsProvider.GetClaims(user)
 		if err != nil {
 			return "", err
 		}
@@ -42,7 +42,7 @@ func (t *SecurityManager) GenerateAccessToken(user models.User, duration time.Du
 
 // HashPassword creates a bcrypt hash of the password
 func (t *SecurityManager) HashPassword(password string) (string, error) {
-	bytes, err := bcrypt.GenerateFromPassword([]byte(password), t.Config.Security.HashSaltLength)
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), t.Config.HashSaltLength)
 	return string(bytes), err
 }
 
@@ -59,12 +59,12 @@ func (t *SecurityManager) GenerateTokens(user *models.User) (accessToken string,
 	}
 	accessTokenClaims := jwt.MapClaims{
 		"user_id": user.ID,
-		"exp":     time.Now().Add(t.Config.Security.AccessTokenTTL).Unix(),
+		"exp":     time.Now().Add(t.Config.AccessTokenTTL).Unix(),
 		"iat":     time.Now().Unix(),
 		"type":    "access",
 	}
-	if t.Config.Security.CustomClaimsProvider != nil {
-		customClaims, err := t.Config.Security.CustomClaimsProvider.GetClaims(*user)
+	if t.Config.CustomClaimsProvider != nil {
+		customClaims, err := t.Config.CustomClaimsProvider.GetClaims(*user)
 		if err != nil {
 			return "", "", err
 		}
@@ -73,7 +73,7 @@ func (t *SecurityManager) GenerateTokens(user *models.User) (accessToken string,
 		}
 	}
 	accessTokenObj := jwt.NewWithClaims(jwt.SigningMethodHS256, accessTokenClaims)
-	accessToken, err = accessTokenObj.SignedString([]byte(t.Config.Security.JwtSecretKey))
+	accessToken, err = accessTokenObj.SignedString([]byte(t.Config.JwtSecretKey))
 	if err != nil {
 		return "", "", err
 	}
@@ -91,7 +91,7 @@ func (t *SecurityManager) ValidateJWTToken(tokenString string) (jwt.MapClaims, e
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errors.New("unexpected signing method")
 		}
-		return []byte(t.Config.Security.JwtSecretKey), nil
+		return []byte(t.Config.JwtSecretKey), nil
 	})
 
 	if err != nil {
@@ -141,7 +141,7 @@ func (t *SecurityManager) GenerateBase64Token(length int) (string, error) {
 }
 
 func (t *SecurityManager) HashToken(token string) (string, error) {
-	hashedToken, err := bcrypt.GenerateFromPassword([]byte(token), t.Config.Security.HashSaltLength)
+	hashedToken, err := bcrypt.GenerateFromPassword([]byte(token), t.Config.HashSaltLength)
 	return string(hashedToken), err
 }
 
@@ -151,7 +151,7 @@ func (t *SecurityManager) ValidateHashedToken(hashedToken, token string) error {
 
 func (t *SecurityManager) Encrypt(data string) (string, error) {
 	// do some research on how to encrypt and encrypt data in better way
-	//TODO: encryptedData, err := t.Config.Security.EncryptionKey.Encrypt([]byte(data))
+	//TODO: encryptedData, err := t.Config.EncryptionKey.Encrypt([]byte(data))
 	return data, nil
 }
 

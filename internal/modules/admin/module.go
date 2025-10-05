@@ -9,6 +9,7 @@ import (
 	"github.com/bete7512/goauth/internal/modules/admin/services"
 	coreModels "github.com/bete7512/goauth/internal/modules/core/models"
 	"github.com/bete7512/goauth/pkg/config"
+	"github.com/bete7512/goauth/pkg/types"
 )
 
 type AdminModule struct {
@@ -46,7 +47,7 @@ func (m *AdminModule) Init(ctx context.Context, deps config.ModuleDependencies) 
 		var err error
 		auditLogRepo, err = config.GetTypedRepository[models.AuditLogRepository](
 			deps.Storage,
-			string(config.AdminAuditLogRepository),
+			string(types.AdminAuditLogRepository),
 		)
 		if err != nil {
 			return err
@@ -62,7 +63,7 @@ func (m *AdminModule) Init(ctx context.Context, deps config.ModuleDependencies) 
 		var err error
 		userRepo, err = config.GetTypedRepository[coreModels.UserRepository](
 			deps.Storage,
-			string(config.CoreUserRepository),
+			string(types.CoreUserRepository),
 		)
 		if err != nil {
 			return err
@@ -79,7 +80,7 @@ func (m *AdminModule) Init(ctx context.Context, deps config.ModuleDependencies) 
 }
 
 func (m *AdminModule) Name() string {
-	return string(config.AdminModule)
+	return string(types.AdminModule)
 }
 
 func (m *AdminModule) Routes() []config.RouteInfo {
@@ -107,20 +108,19 @@ func (m *AdminModule) Models() []interface{} {
 	}
 }
 
-func (m *AdminModule) RegisterHooks(events config.EventBus) error {
+func (m *AdminModule) RegisterHooks(events types.EventBus) error {
 	// Log admin actions
-	events.Subscribe("admin:action", func(ctx context.Context, event interface{}) error {
+	events.Subscribe(types.EventAdminAction, types.EventHandler(func(ctx context.Context, event *types.Event) error {
 		// Handle admin action logging
 		return nil
-	})
+	}))
 	return nil
 }
 
 func (m *AdminModule) Dependencies() []string {
 	// Admin module depends on core module
-	return []string{string(config.CoreModule)}
+	return []string{string(types.CoreModule)}
 }
-
 
 func (m *AdminModule) SwaggerSpec() []byte {
 	return nil
