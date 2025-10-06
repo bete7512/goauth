@@ -9,7 +9,6 @@ import (
 	"github.com/bete7512/goauth/internal/modules/core/models"
 	"github.com/bete7512/goauth/pkg/types"
 	"github.com/google/uuid"
-	"golang.org/x/crypto/bcrypt"
 )
 
 // Signup creates a new user account
@@ -36,10 +35,13 @@ func (s *CoreService) Signup(ctx context.Context, req *dto.SignupRequest) (*dto.
 		}
 	}
 
+	if s.SecurityManager == nil {
+		return nil, types.NewInternalError("security manager is nil")
+	}
 	// Hash password
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	hashedPassword, err := s.SecurityManager.HashPassword(req.Password)
 	if err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to hash password: %w", err))
+		return nil, types.NewInternalError(fmt.Sprintf("failed to hash password: %v", err.Error()))
 	}
 
 	// Create user
@@ -56,13 +58,13 @@ func (s *CoreService) Signup(ctx context.Context, req *dto.SignupRequest) (*dto.
 	}
 
 	if err := s.UserRepository.Create(ctx, user); err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to create user: %w", err))
+		return nil, types.NewInternalError(fmt.Sprintf("failed to create user: %v", err.Error()))
 	}
 
 	// Generate session token
-	sessionToken, err := generateSecureToken(32)
+	sessionToken, err := s.deps.SecurityManager.GenerateRandomToken(32)
 	if err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to generate session token: %w", err))
+		return nil, types.NewInternalError(fmt.Sprintf("failed to generate session token: %v", err.Error()))
 	}
 
 	// Create session
@@ -75,15 +77,8 @@ func (s *CoreService) Signup(ctx context.Context, req *dto.SignupRequest) (*dto.
 	}
 
 	if err := s.SessionRepository.Create(ctx, session); err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to create session: %w", err))
+		return nil, types.NewInternalError(fmt.Sprintf("failed to create session: %v", err.Error()))
 	}
-
-	// Emit after:signup event
-	s.deps.Events.Emit(ctx, "after:signup", map[string]interface{}{
-		"user_id": user.ID,
-		"email":   user.Email,
-		"name":    user.Name,
-	})
 
 	return &dto.AuthResponse{
 		Token: sessionToken,

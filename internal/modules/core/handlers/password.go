@@ -6,6 +6,7 @@ import (
 
 	"github.com/bete7512/goauth/internal/modules/core/handlers/dto"
 	http_utils "github.com/bete7512/goauth/internal/utils/http"
+	"github.com/bete7512/goauth/pkg/types"
 )
 
 // ForgotPassword handles POST /forgot-password
@@ -29,7 +30,7 @@ func (h *CoreHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 	// 3. Store in database
 	// 4. Emit event for notification module
 
-	h.deps.Events.Emit(ctx, "password:reset:request", map[string]interface{}{
+	h.deps.Events.EmitAsync(ctx, types.EventBeforeResetPassword, map[string]interface{}{
 		"email":        req.Email,
 		"phone":        req.Phone,
 		"reset_link":   "https://app.com/reset?token=xxx",
@@ -66,7 +67,7 @@ func (h *CoreHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	// 5. Mark token as used
 	// 6. Emit event
 
-	h.deps.Events.Emit(ctx, "password:reset", map[string]interface{}{
+	h.deps.Events.EmitAsync(ctx, types.EventAfterResetPassword, map[string]interface{}{
 		"email": req.Email,
 		"phone": req.Phone,
 	})
@@ -102,7 +103,7 @@ func (h *CoreHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	// 4. Update user password
 	// 5. Emit event
 
-	h.deps.Events.Emit(ctx, "password:changed", map[string]interface{}{
+	h.deps.Events.EmitAsync(ctx, types.EventAfterChangePassword, map[string]interface{}{
 		"email": "user@example.com",
 		"name":  "User Name",
 	})

@@ -4,8 +4,8 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"time"
 
-	"github.com/bete7512/goauth/internal/modules/csrf"
 	"github.com/bete7512/goauth/internal/modules/notification"
 	"github.com/bete7512/goauth/internal/modules/notification/services"
 	"github.com/bete7512/goauth/internal/modules/notification/services/senders"
@@ -42,17 +42,15 @@ func main() {
 		Security: types.SecurityConfig{
 			JwtSecretKey:  "your-secret-key-change-in-production",
 			EncryptionKey: "your-encryption-key-change-in-production",
-		},
-		AutoMigrate: true,
-		SwaggerConfig: &types.SwaggerConfig{
-			Title:       "GoAuth Docs",
-			Description: "GoAuth Documentation",
-			Version:     "1.0.0",
-			Servers: []types.SwaggerServer{
-				{URL: "http://localhost:8080", Description: "Development Server"},
-				{URL: "https://goauth.com", Description: "Production Server"},
+			Session: types.SessionConfig{
+				Name:            "session_token",
+				SessionDuration: 24 * time.Hour,
+				AccessTokenTTL:  15 * time.Minute,
+				RefreshTokenTTL: 7 * 24 * time.Hour,
 			},
 		},
+		AutoMigrate: true,
+		BasePath:    "/api/v1",
 	})
 	if err != nil {
 		log.Fatalf("Failed to create auth: %v", err)
@@ -91,27 +89,53 @@ func main() {
 	// 	RequestsPerHour:   1000,
 	// 	BurstSize:         10,
 	// }))
-	csrfModule := csrf.New(&csrf.CSRFConfig{
-		TokenLength:      32,
-		TokenExpiry:      3600,
-		CookieName:       "csrf_token",
-		HeaderName:       "X-CSRF-Token",
-		FormFieldName:    "csrf_token",
-		Secure:           true,
-		HTTPOnly:         true,
-		SameSite:         http.SameSiteStrictMode,
-		OnlyToPaths:      []string{"/auth/login", "/auth/signup", "/auth/forgot-password"},
-		ProtectedMethods: []string{"POST", "PUT", "DELETE"},
-	})
-	authInstance.Use(csrfModule)
+	// csrfModule := csrf.New(&csrf.CSRFConfig{
+	// 	TokenLength:      32,
+	// 	TokenExpiry:      3600,
+	// 	CookieName:       "csrf_token",
+	// 	HeaderName:       "X-CSRF-Token",
+	// 	FormFieldName:    "csrf_token",
+	// 	Secure:           true,
+	// 	HTTPOnly:         true,
+	// 	SameSite:         http.SameSiteStrictMode,
+	// 	OnlyToPaths:      []string{"/auth/login", "/auth/signup", "/auth/forgot-password"},
+	// 	ProtectedMethods: []string{"POST", "PUT", "DELETE"},
+	// })
+	// authInstance.Use(csrfModule)
 
+	// Register custom hooks (user-defined)
+	authInstance.On(types.EventAfterLogin, func(ctx context.Context, e *types.Event) error {
+		log.Println("custom after:login hook", e.Type)
+		return nil
+	})
+	// authInstance.OnRouteBefore("core.signup", func(ctx context.Context, e *types.Event) error {
+	// 	log.Println("custom before core.signup hook")
+	// 	return nil
+	// })
+
+	authInstance.On(types.EventBeforeSignup, func(ctx context.Context, event *types.Event) error {
+		// log.Println("Befdddddddddddddddddddddddddddddddddddddore signup event", event)
+
+		return nil
+	})
 	// Initialize after all modules are registered
 	if err := authInstance.Initialize(context.Background()); err != nil {
 		log.Fatalf("Failed to initialize auth: %v", err)
 	}
 
 	// Enable swagger after initialization
-	if err := authInstance.EnableSwagger(); err != nil {
+	if err := authInstance.EnableSwagger(
+		types.SwaggerConfig{
+			Title:       "GoAuth Docs",
+			Description: "GoAuth Documentation",
+			Version:     "1.0.0",
+			Path:        "/docs/v1",
+			Servers: []types.SwaggerServer{
+				{URL: "http://localhost:8080", Description: "Development Server"},
+				{URL: "https://goauth.com", Description: "Production Server"},
+			},
+		},
+	); err != nil {
 		log.Fatalf("Failed to enable swagger: %v", err)
 	}
 

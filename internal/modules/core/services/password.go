@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/rand"
 	"time"
 
 	"github.com/bete7512/goauth/internal/modules/core/handlers/dto"
@@ -41,7 +40,7 @@ func (s *CoreService) ForgotPassword(ctx context.Context, req *dto.ForgotPasswor
 
 	// Generate token or code based on method
 	var token string
-	var code string
+	// var code string
 
 	if req.Email != "" {
 		// Email: generate token
@@ -51,7 +50,7 @@ func (s *CoreService) ForgotPassword(ctx context.Context, req *dto.ForgotPasswor
 		}
 	} else {
 		// Phone: generate 6-digit code
-		code = fmt.Sprintf("%06d", rand.Intn(1000000))
+		// code = fmt.Sprintf("%06d", rand.Intn(1000000))
 	}
 
 	// Create password reset record
@@ -67,22 +66,6 @@ func (s *CoreService) ForgotPassword(ctx context.Context, req *dto.ForgotPasswor
 
 	if err := s.TokenRepository.Create(ctx, resetToken); err != nil {
 		return nil, fmt.Errorf("failed to create reset token: %w", err)
-	}
-
-	// Emit event to send email/SMS
-	if req.Email != "" {
-		s.deps.Events.Emit(ctx, "password:reset:request", map[string]interface{}{
-			"user_id":     user.ID,
-			"email":       user.Email,
-			"name":        user.Name,
-			"reset_token": token,
-		})
-	} else {
-		s.deps.Events.Emit(ctx, "password:reset:sms", map[string]interface{}{
-			"user_id":    user.ID,
-			"phone":      user.Phone,
-			"reset_code": code,
-		})
 	}
 
 	return &dto.MessageResponse{
@@ -141,12 +124,6 @@ func (s *CoreService) ResetPassword(ctx context.Context, req *dto.ResetPasswordR
 	// Invalidate all sessions for security
 	s.SessionRepository.DeleteByUserID(ctx, user.ID)
 
-	// Emit event
-	s.deps.Events.Emit(ctx, "password:changed", map[string]interface{}{
-		"user_id": user.ID,
-		"email":   user.Email,
-	})
-
 	return &dto.MessageResponse{
 		Message: "Password reset successfully. Please login with your new password.",
 		Success: true,
@@ -180,16 +157,14 @@ func (s *CoreService) ChangePassword(ctx context.Context, userID string, req *dt
 		return nil, fmt.Errorf("failed to update password: %w", err)
 	}
 
-	// Emit event
-	s.deps.Events.Emit(ctx, "password:changed", map[string]interface{}{
-		"user_id": user.ID,
-		"email":   user.Email,
-	})
+	// // Emit event
+	// s.deps.Events.Emit(ctx, "password:changed", map[string]interface{}{
+	// 	"user_id": user.ID,
+	// 	"email":   user.Email,
+	// })
 
 	return &dto.MessageResponse{
 		Message: "Password changed successfully",
 		Success: true,
 	}, nil
 }
-
-

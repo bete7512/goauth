@@ -3,7 +3,6 @@ package middlewares
 import (
 	"context"
 	"errors"
-	"log"
 	"net/http"
 	"strings"
 
@@ -28,8 +27,8 @@ func NewAuthMiddleware(config *config.Config, securityManager *security.Security
 // AuthMiddleware validates user authentication but doesn't require admin privileges
 func (m *AuthMiddleware) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Println("AuthMiddleware")
-		userID, err := m.getUserIdFromRequest(r, m.Config.Security.Cookie.Name)
+		accessToken := "goauth_access_" + m.Config.Security.Session.Name
+		userID, err := m.getUserIdFromRequest(r, accessToken)
 		if err != nil {
 			http_utils.RespondError(w, http.StatusUnauthorized, string(types.ErrUnauthorized), err.Error())
 			return
@@ -47,8 +46,8 @@ func (m *AuthMiddleware) AuthMiddleware(next http.Handler) http.Handler {
 }
 
 // getUserIdFromRequest extracts and validates the token from a request
-func (m *AuthMiddleware) getUserIdFromRequest(r *http.Request, cookieName string) (string, error) {
-	token := m.extractToken(r, cookieName)
+func (m *AuthMiddleware) getUserIdFromRequest(r *http.Request, accessToken string) (string, error) {
+	token := m.extractToken(r, accessToken)
 	if token == "" {
 		return "", errors.New("no authentication token provided")
 	}
@@ -66,20 +65,8 @@ func (m *AuthMiddleware) getUserIdFromRequest(r *http.Request, cookieName string
 	return userID, nil
 }
 
-func (m *AuthMiddleware) extractToken(r *http.Request, cookieName string) string {
-	// switch m.Config.Security.AuthenticationType {
-	// case config.AuthenticationTypeCookie:
-	// 	cookie, err := r.Cookie("__goauth_access_token_" + cookieName)
-	// 	if err == nil && cookie.Value != "" {
-	// 		return cookie.Value
-	// 	}
-	// case types.AuthenticationTypeCookie:
-	// 	bearerToken := r.Header.Get("Authorization")
-	// 	if len(bearerToken) > 7 && strings.ToUpper(bearerToken[0:7]) == "BEARER " {
-	// 		return bearerToken[7:]
-	// 	}
-	// }
-	cookie, err := r.Cookie("__goauth_access_token_" + cookieName)
+func (m *AuthMiddleware) extractToken(r *http.Request, accessToken string) string {
+	cookie, err := r.Cookie(accessToken)
 	if err == nil && cookie.Value != "" {
 		return cookie.Value
 	}

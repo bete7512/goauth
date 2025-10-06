@@ -6,6 +6,7 @@ import (
 
 	"github.com/bete7512/goauth/internal/modules/core/handlers/dto"
 	http_utils "github.com/bete7512/goauth/internal/utils/http"
+	"github.com/bete7512/goauth/pkg/types"
 )
 
 // SendVerificationEmail handles POST /send-verification-email
@@ -29,7 +30,7 @@ func (h *CoreHandler) SendVerificationEmail(w http.ResponseWriter, r *http.Reque
 	// 3. Store token in database
 	// 4. Emit event for notification module to send email
 
-	h.deps.Events.Emit(ctx, "email:verification:sent", map[string]interface{}{
+	h.deps.Events.EmitAsync(ctx, types.EventBeforeChangeEmailVerification, map[string]interface{}{
 		"email":             req.Email,
 		"verification_link": "https://app.com/verify?token=xxx",
 		"code":              "123456",
@@ -63,7 +64,7 @@ func (h *CoreHandler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 	// 4. Mark token as used
 	// 5. Emit event
 
-	h.deps.Events.Emit(ctx, "email:verified", map[string]interface{}{
+	h.deps.Events.EmitAsync(ctx, types.EventAfterChangeEmailVerification, map[string]interface{}{
 		"email": req.Email,
 	})
 
@@ -94,7 +95,7 @@ func (h *CoreHandler) SendVerificationPhone(w http.ResponseWriter, r *http.Reque
 	// 3. Store code in database
 	// 4. Emit event for notification module to send SMS
 
-	h.deps.Events.Emit(ctx, "phone:verification:sent", map[string]interface{}{
+	h.deps.Events.EmitAsync(ctx, types.EventBeforeChangePhoneVerification, map[string]interface{}{
 		"phone": req.Phone,
 		"code":  "123456",
 	})
@@ -127,7 +128,7 @@ func (h *CoreHandler) VerifyPhone(w http.ResponseWriter, r *http.Request) {
 	// 4. Mark code as used
 	// 5. Emit event
 
-	h.deps.Events.Emit(ctx, "phone:verified", map[string]interface{}{
+	h.deps.Events.EmitAsync(ctx, types.EventAfterChangePhoneVerification, map[string]interface{}{
 		"phone": req.Phone,
 	})
 

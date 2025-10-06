@@ -3,9 +3,11 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/bete7512/goauth/internal/modules/core/handlers/dto"
 	http_utils "github.com/bete7512/goauth/internal/utils/http"
+	"github.com/bete7512/goauth/pkg/types"
 )
 
 func (h *CoreHandler) Signup(w http.ResponseWriter, r *http.Request) {
@@ -14,36 +16,57 @@ func (h *CoreHandler) Signup(w http.ResponseWriter, r *http.Request) {
 	// 1. Parse request
 	var req dto.SignupRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http_utils.RespondError(w, http.StatusBadRequest, "INVALID_REQUEST_BODY", "Invalid request body")
+		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidRequestBody), err.Error())
 		return
 	}
 
 	// 2. Validate request
 	if err := req.Validate(); err != nil {
-		http_utils.RespondError(w, http.StatusBadRequest, "INVALID_REQUEST_BODY", err.Error())
+		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidRequestBody), err.Error())
 		return
 	}
 
 	// 3. Emit BEFORE signup event (rate limiting, fraud detection, etc)
 	signupData := map[string]interface{}{
-		"email":      req.Email,
-		"username":   req.Username,
-		"phone":      req.Phone,
-		"ip_address": r.RemoteAddr,
+		// User-provided identifiers
+		"email":    req.Email,
+		"username": req.Username,
+		"phone":    req.Phone,
+
+		// Network info
+		"ip_address":    r.RemoteAddr,                    // primary IP
+		"forwarded_for": r.Header.Get("X-Forwarded-For"), // if behind proxy
+		"user_agent":    r.UserAgent(),                   // browser/device info
+		"referer":       r.Referer(),                     // where the request came from
+		"host":          r.Host,                          // target host
+
+		// Request info
+		"method":    r.Method,     // GET, POST, etc.
+		"uri":       r.RequestURI, // path + query
+		"protocol":  r.Proto,      // HTTP/1.1, HTTP/2
+		"timestamp": time.Now(),   // when request occurred
+
+		// Optional: session/user context
+		"user_id":    r.Context().Value(types.UserIDKey), // if logged in
+		"request_id": r.Header.Get("X-Request-ID"),       // unique request id
+
+		// Optional: device fingerprint (frontend can send)
+		"device_fingerprint": r.Header.Get("X-Device-Fingerprint"), // e.g., hash of browser + screen + timezone
 	}
-	if err := h.deps.Events.EmitSync(ctx, "before:signup", signupData); err != nil {
-		http_utils.RespondError(w, http.StatusForbidden, "SIGNUP_BLOCKED", "Signup blocked: "+err.Error())
+
+	if err := h.deps.Events.EmitSync(ctx, types.EventBeforeSignup, signupData); err != nil {
+		http_utils.RespondError(w, http.StatusForbidden, string(types.ErrForbidden), "Signup blocked: "+err.Error())
 		return
 	}
 
 	// 4. Call service - ALL business logic here
 	response, err := h.CoreService.Signup(ctx, &req)
 	if err != nil {
-		http_utils.RespondError(w, http.StatusBadRequest, "INVALID_REQUEST_BODY", err.Error())
+		http_utils.RespondError(w, err.StatusCode, string(err.Code), err.Message)
 		return
 	}
 	// 5. Emit after:signup event
-	h.deps.Events.Emit(ctx, "after:signup", map[string]interface{}{
+	h.deps.Events.EmitAsync(ctx, types.EventAfterSignup, map[string]interface{}{
 		"user_id": response.User.ID,
 		"email":   response.User.Email,
 	})

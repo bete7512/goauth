@@ -94,6 +94,10 @@ func (m *CoreModule) Init(ctx context.Context, deps config.ModuleDependencies) e
 	}
 
 	securityManager := security.NewSecurityManager(m.deps.Config.Security)
+	if securityManager == nil {
+		return fmt.Errorf("security manager is nil")
+	}
+	deps.SecurityManager = securityManager
 	m.handlers = handlers.NewCoreHandler(
 		deps,
 		core_services.NewCoreService(

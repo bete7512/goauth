@@ -6,6 +6,7 @@ import (
 
 	"github.com/bete7512/goauth/internal/modules/core/handlers/dto"
 	http_utils "github.com/bete7512/goauth/internal/utils/http"
+	"github.com/bete7512/goauth/pkg/types"
 )
 
 // Profile handles GET /profile (same as Me)
@@ -38,7 +39,7 @@ func (h *CoreHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	// 3. Save to database
 	// 4. Return updated user
 
-	h.deps.Events.Emit(ctx, "profile:updated", map[string]interface{}{
+	h.deps.Events.EmitAsync(ctx, types.EventAfterChangeProfile, map[string]interface{}{
 		"user_id": "user-123",
 		"fields":  []string{"name", "phone", "avatar"},
 	})

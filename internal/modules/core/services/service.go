@@ -18,6 +18,7 @@ type CoreService struct {
 }
 
 func NewCoreService(deps config.ModuleDependencies, userRepository models.UserRepository, sessionRepository models.SessionRepository, tokenRepository models.TokenRepository, verificationTokenRepository models.VerificationTokenRepository, logger logger.Logger, securityManager *security.SecurityManager) *CoreService {
+
 	return &CoreService{
 		deps:                        deps,
 		UserRepository:              userRepository,

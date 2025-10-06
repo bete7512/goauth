@@ -7,20 +7,15 @@ import (
 )
 
 // Logout invalidates user session
-func (s *CoreService) Logout(ctx context.Context, sessionToken string) *types.GoAuthError {
-	session, err := s.SessionRepository.FindByToken(ctx, sessionToken)
-	if err != nil || session == nil {
+func (s *CoreService) Logout(ctx context.Context, userID string) *types.GoAuthError {
+	sessions, err := s.SessionRepository.FindByUserID(ctx, userID)
+	if err != nil || len(sessions) == 0 {
 		return types.NewSessionNotFoundError()
 	}
 
-	if err := s.SessionRepository.Delete(ctx, session.ID); err != nil {
+	if err := s.SessionRepository.DeleteByUserID(ctx, userID); err != nil {
 		return types.NewSessionNotFoundError()
 	}
-
-	// Emit after:logout event
-	s.deps.Events.Emit(ctx, "after:logout", map[string]interface{}{
-		"user_id": session.UserID,
-	})
 
 	return nil
 }

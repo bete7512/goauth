@@ -52,7 +52,7 @@ func (a *EventBusAdapter) Subscribe(eventType types.EventType, handler types.Eve
 }
 
 // Emit dispatches an event (string version)
-func (a *EventBusAdapter) Emit(ctx context.Context, eventType types.EventType, data interface{}) error {
+func (a *EventBusAdapter) EmitAsync(ctx context.Context, eventType types.EventType, data interface{}) error {
 	return a.bus.Emit(ctx, eventType, data)
 }
 

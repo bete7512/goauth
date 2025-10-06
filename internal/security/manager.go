@@ -59,7 +59,7 @@ func (t *SecurityManager) GenerateTokens(user *models.User) (accessToken string,
 	}
 	accessTokenClaims := jwt.MapClaims{
 		"user_id": user.ID,
-		"exp":     time.Now().Add(t.Config.AccessTokenTTL).Unix(),
+		"exp":     time.Now().Add(t.Config.Session.AccessTokenTTL).Unix(),
 		"iat":     time.Now().Unix(),
 		"type":    "access",
 	}

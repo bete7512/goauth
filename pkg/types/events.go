@@ -16,7 +16,7 @@ type Event struct {
 // EventBus interface for event handling
 type EventBus interface {
 	Subscribe(eventType EventType, handler EventHandler, opts ...interface{})
-	Emit(ctx context.Context, eventType EventType, data interface{}) error
+	EmitAsync(ctx context.Context, eventType EventType, data interface{}) error
 	EmitSync(ctx context.Context, eventType EventType, data interface{}) error
 }
 

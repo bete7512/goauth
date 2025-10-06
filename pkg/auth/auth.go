@@ -15,15 +15,15 @@ import (
 )
 
 type Auth struct {
-	config                   *config.Config
-	storage                  config.Storage
-	modules                  map[string]config.Module
-	routes                   []config.RouteInfo
-	commonModuleDependencies config.ModuleDependencies
-	eventBus                 *events.EventBus
-	middlewareManager        *middleware.Manager
-	logger                   logger.Logger
-	initialized              bool
+	config             *config.Config
+	storage            config.Storage
+	modules            map[string]config.Module
+	routes             []config.RouteInfo
+	moduleDependencies config.ModuleDependencies
+	eventBus           *events.EventBus
+	middlewareManager  *middleware.Manager
+	logger             logger.Logger
+	initialized        bool
 }
 
 // New creates a new Auth instance
@@ -51,6 +51,9 @@ func New(cfg *config.Config) (*Auth, error) {
 	} else {
 		// Use default worker pool
 		eventBus = events.NewEventBus(authLogger)
+	}
+	if cfg.BasePath == "" {
+		cfg.BasePath = "/auth"
 	}
 
 	// Initialize middleware manager
@@ -92,7 +95,7 @@ func New(cfg *config.Config) (*Auth, error) {
 	}
 
 	eventBusAdapter := events.NewEventBusAdapter(eventBus)
-	auth.commonModuleDependencies = config.ModuleDependencies{
+	auth.moduleDependencies = config.ModuleDependencies{
 		Storage:           cfg.Storage,
 		Config:            cfg,
 		Logger:            configLogger,
@@ -169,7 +172,6 @@ func (a *Auth) Routes() []config.RouteInfo {
 			Handler: handler.ServeHTTP,
 		}
 	}
-	
 
 	return routesWithMiddleware
 }
@@ -188,7 +190,7 @@ func (a *Auth) Initialize(ctx context.Context) error {
 	// 	string(config.AdminAuditLogRepository),
 	// 	// Add more repository constants as needed
 	// } {
-	// 	a.commonModuleDependencies.Repositories[repoName] = a.storage.GetRepository(repoName)
+	// 	a.moduleDependencies.Repositories[repoName] = a.storage.GetRepository(repoName)
 	// }
 
 	// Collect all models from modules
@@ -209,12 +211,12 @@ func (a *Auth) Initialize(ctx context.Context) error {
 	// Initialize all modules
 	for name, module := range a.modules {
 		a.logger.Info("Initializing module", "name", name)
-		if err := module.Init(ctx, a.commonModuleDependencies); err != nil {
+		if err := module.Init(ctx, a.moduleDependencies); err != nil {
 			return fmt.Errorf("failed to initialize module %s: %w", name, err)
 		}
 
 		// Register module hooks
-		if err := module.RegisterHooks(a.commonModuleDependencies.Events); err != nil {
+		if err := module.RegisterHooks(a.moduleDependencies.Events); err != nil {
 			return fmt.Errorf("failed to register hooks for module %s: %w", name, err)
 		}
 
@@ -288,6 +290,21 @@ func (a *Auth) Close() error {
 
 	return nil
 }
+
+// On allows users to subscribe to any event type
+func (a *Auth) On(event types.EventType, handler types.EventHandler, opts ...interface{}) {
+	a.moduleDependencies.Events.Subscribe(event, handler, opts...)
+}
+
+// // OnRouteBefore subscribes to a before:<routeName> event (e.g., before:core.login)
+// func (a *Auth) OnRouteBefore(routeName string, handler types.EventHandler, opts ...interface{}) {
+// 	a.moduleDependencies.Events.Subscribe(types.EventType("before:"+routeName), handler, opts...)
+// }
+
+// // OnRouteAfter subscribes to an after:<routeName> event (e.g., after:core.login)
+// func (a *Auth) OnRouteAfter(routeName string, handler types.EventHandler, opts ...interface{}) {
+// 	a.moduleDependencies.Events.Subscribe(types.EventType("after:"+routeName), handler, opts...)
+// }
 
 // asyncBackendAdapter adapts config.AsyncBackend to events.AsyncBackend
 type asyncBackendAdapter struct {

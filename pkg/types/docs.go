@@ -2,6 +2,7 @@ package types
 
 type SwaggerConfig struct {
 	Title       string
+	Path        string
 	Description string
 	Version     string
 	Servers     []SwaggerServer

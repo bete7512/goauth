@@ -104,8 +104,6 @@ type Config struct {
 
 	// Security
 	Security types.SecurityConfig
-	// Swagger
-	SwaggerConfig *types.SwaggerConfig
 }
 
 // CORSConfig holds CORS configuration
@@ -131,8 +129,8 @@ func (c *Config) Validate() error {
 	if c.Security.HashSaltLength <= 0 {
 		c.Security.HashSaltLength = 10 // Default to 10
 	}
-	if c.Security.SessionDuration <= 0 {
-		c.Security.SessionDuration = 24 * time.Hour // Default to 24 hours
+	if c.Security.Session.Expiration <= 0 {
+		c.Security.Session.Expiration = 24 * time.Hour // Default to 24 hours
 	}
 	if c.BasePath == "" {
 		c.BasePath = "/auth"

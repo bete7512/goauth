@@ -44,16 +44,16 @@ func (s *CoreService) SendVerificationEmail(ctx context.Context, req *dto.SendVe
 		return nil, types.NewInternalError(fmt.Sprintf("failed to create verification: %w", err))
 	}
 
-	// Emit event to send email
-	err = s.deps.Events.Emit(ctx, "email:verification:sent", map[string]interface{}{
-		"user_id":            user.ID,
-		"email":              user.Email,
-		"name":               user.Name,
-		"verification_token": token,
-	})
-	if err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to emit event: %w", err))
-	}
+	// // Emit event to send email
+	// err = s.deps.Events.Emit(ctx, "email:verification:sent", map[string]interface{}{
+	// 	"user_id":            user.ID,
+	// 	"email":              user.Email,
+	// 	"name":               user.Name,
+	// 	"verification_token": token,
+	// })
+	// if err != nil {
+	// 	return nil, types.NewInternalError(fmt.Sprintf("failed to emit event: %w", err))
+	// }
 
 	return &dto.MessageResponse{
 		Message: "Verification email sent successfully",
@@ -92,11 +92,11 @@ func (s *CoreService) VerifyEmail(ctx context.Context, req *dto.VerifyEmailReque
 	// Delete verification token
 	s.VerificationTokenRepository.Delete(ctx, verification.ID)
 
-	// Emit event
-	s.deps.Events.Emit(ctx, "email:verified", map[string]interface{}{
-		"user_id": user.ID,
-		"email":   user.Email,
-	})
+	// // Emit event
+	// s.deps.Events.Emit(ctx, "email:verified", map[string]interface{}{
+	// 	"user_id": user.ID,
+	// 	"email":   user.Email,
+	// })
 
 	return &dto.MessageResponse{
 		Message: "Email verified successfully",
@@ -134,11 +134,11 @@ func (s *CoreService) SendVerificationPhone(ctx context.Context, req *dto.SendVe
 	}
 
 	// Emit event to send SMS
-	s.deps.Events.Emit(ctx, "phone:verification:sent", map[string]interface{}{
-		"user_id": user.ID,
-		"phone":   user.Phone,
-		"code":    code,
-	})
+	// s.deps.Events.Emit(ctx, "phone:verification:sent", map[string]interface{}{
+	// 	"user_id": user.ID,
+	// 	"phone":   user.Phone,
+	// 	"code":    code,
+	// })
 
 	return &dto.MessageResponse{
 		Message: "Verification code sent to your phone",
@@ -177,11 +177,11 @@ func (s *CoreService) VerifyPhone(ctx context.Context, req *dto.VerifyPhoneReque
 	// Delete verification code
 	s.VerificationTokenRepository.Delete(ctx, verification.ID)
 
-	// Emit event
-	s.deps.Events.Emit(ctx, "phone:verified", map[string]interface{}{
-		"user_id": user.ID,
-		"phone":   user.Phone,
-	})
+	// // Emit event
+	// s.deps.Events.Emit(ctx, "phone:verified", map[string]interface{}{
+	// 	"user_id": user.ID,
+	// 	"phone":   user.Phone,
+	// })
 
 	return &dto.MessageResponse{
 		Message: "Phone verified successfully",

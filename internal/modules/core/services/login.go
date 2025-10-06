@@ -63,12 +63,6 @@ func (s *CoreService) Login(ctx context.Context, req *dto.LoginRequest) (*dto.Au
 	user.UpdatedAt = time.Now()
 	s.UserRepository.Update(ctx, user)
 
-	// Emit after:login event
-	s.deps.Events.Emit(ctx, "after:login", map[string]interface{}{
-		"user_id": user.ID,
-		"email":   user.Email,
-	})
-
 	return &dto.AuthResponse{
 		Token: sessionToken,
 		User: &dto.UserDTO{

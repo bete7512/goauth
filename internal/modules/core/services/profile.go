@@ -2,18 +2,18 @@ package core_services
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
 	"github.com/bete7512/goauth/internal/modules/core/handlers/dto"
+	"github.com/bete7512/goauth/pkg/types"
 )
 
 // GetProfile retrieves user profile
-func (s *CoreService) GetProfile(ctx context.Context, userID string) (*dto.UserDTO, error) {
+func (s *CoreService) GetProfile(ctx context.Context, userID string) (*dto.UserDTO, *types.GoAuthError) {
 	user, err := s.UserRepository.FindByID(ctx, userID)
 	if err != nil || user == nil {
-		return nil, errors.New("user not found")
+		return nil, types.NewUserNotFoundError()
 	}
 
 	return &dto.UserDTO{
@@ -32,18 +32,18 @@ func (s *CoreService) GetProfile(ctx context.Context, userID string) (*dto.UserD
 }
 
 // UpdateProfile updates user profile
-func (s *CoreService) UpdateProfile(ctx context.Context, userID string, req *dto.UpdateProfileRequest) (*dto.UserDTO, error) {
+func (s *CoreService) UpdateProfile(ctx context.Context, userID string, req *dto.UpdateProfileRequest) (*dto.UserDTO, *types.GoAuthError) {
 	// Find user
 	user, err := s.UserRepository.FindByID(ctx, userID)
 	if err != nil || user == nil {
-		return nil, errors.New("user not found")
+		return nil, types.NewUserNotFoundError()
 	}
 
 	// Check if phone is being changed and if it's already taken
 	if req.Phone != "" && req.Phone != user.Phone {
 		existing, _ := s.UserRepository.FindByPhone(ctx, req.Phone)
 		if existing != nil && existing.ID != user.ID {
-			return nil, errors.New("phone number already in use")
+			return nil, types.NewPhoneAlreadyVerifiedError()
 		}
 		// Mark phone as unverified if changed
 		user.Phone = req.Phone
@@ -61,14 +61,14 @@ func (s *CoreService) UpdateProfile(ctx context.Context, userID string, req *dto
 	user.UpdatedAt = time.Now()
 
 	if err := s.UserRepository.Update(ctx, user); err != nil {
-		return nil, fmt.Errorf("failed to update profile: %w", err)
+		return nil, types.NewInternalError(fmt.Sprintf("failed to update profile: %w", err))
 	}
 
-	// Emit event
-	s.deps.Events.Emit(ctx, "profile:updated", map[string]interface{}{
-		"user_id": user.ID,
-		"email":   user.Email,
-	})
+	// // Emit event
+	// s.deps.Events.EmitAsync(ctx, types.EventAfterChangeProfile, map[string]interface{}{
+	// 	"user_id": user.ID,
+	// 	"email":   user.Email,
+	// })
 
 	return &dto.UserDTO{
 		ID:            user.ID,

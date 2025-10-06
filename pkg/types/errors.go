@@ -24,7 +24,7 @@ const (
 	ErrAccountDeactivated   ErrorCode = "ACCOUNT_DEACTIVATED"
 	ErrEmailAlreadyVerified ErrorCode = "EMAIL_ALREADY_VERIFIED"
 	ErrPhoneAlreadyVerified ErrorCode = "PHONE_ALREADY_VERIFIED"
-
+	ErrPhoneAlreadyInUse    ErrorCode = "PHONE_ALREADY_IN_USE"
 	// Authentication errors
 	ErrInvalidCredentials  ErrorCode = "INVALID_CREDENTIALS"
 	ErrInvalidToken        ErrorCode = "INVALID_TOKEN"
@@ -175,6 +175,14 @@ func NewPhoneAlreadyVerifiedError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrPhoneAlreadyVerified,
 		Message:    "Phone number already verified",
+		StatusCode: http.StatusBadRequest,
+	}
+}
+
+func NewPhoneAlreadyInUseError() *GoAuthError {
+	return &GoAuthError{
+		Code:       ErrPhoneAlreadyInUse,
+		Message:    "Phone number already in use",
 		StatusCode: http.StatusBadRequest,
 	}
 }
