@@ -74,4 +74,8 @@ const (
 	EventBeforeChangeAvatarVerification   EventType = "before:change-avatar-verification"
 	EventAfterChangeAvatarVerification    EventType = "after:change-avatar-verification"
 	EventAdminAction                      EventType = "admin:action"
+
+	// Generic send events for verification (preferred)
+	EventSendEmailVerification EventType = "send:email-verification"
+	EventSendPhoneVerification EventType = "send:phone-verification"
 )

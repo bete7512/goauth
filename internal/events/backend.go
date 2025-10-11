@@ -7,7 +7,6 @@ import (
 	"github.com/bete7512/goauth/pkg/types"
 )
 
-
 // DefaultAsyncBackend uses the built-in worker pool
 type DefaultAsyncBackend struct {
 	workerPool *WorkerPool

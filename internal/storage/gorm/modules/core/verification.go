@@ -42,7 +42,7 @@ func (r *VerificationTokenRepository) FindByEmailAndType(ctx context.Context, em
 
 func (r *VerificationTokenRepository) FindByPhoneAndType(ctx context.Context, phone, tokenType string) (*models.VerificationToken, error) {
 	var vToken *models.VerificationToken
-	err := r.db.WithContext(ctx).Where("phone = ? AND type = ? AND used = ? AND expires_at > ?", phone, tokenType, false, time.Now()).Order("created_at DESC").First(&vToken).Error
+	err := r.db.WithContext(ctx).Where("phone_number = ? AND type = ? AND used = ? AND expires_at > ?", phone, tokenType, false, time.Now()).Order("created_at DESC").First(&vToken).Error
 	return vToken, err
 }
 
@@ -58,6 +58,6 @@ func (r *VerificationTokenRepository) DeleteExpired(ctx context.Context) error {
 	return r.db.WithContext(ctx).Where("expires_at < ?", time.Now()).Delete(&models.VerificationToken{}).Error
 }
 
-func (r *VerificationTokenRepository) Delete(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).Delete(&models.VerificationToken{}, "id = ?", id).Error
+func (r *VerificationTokenRepository) Delete(ctx context.Context, id string, tokenType string) error {
+	return r.db.WithContext(ctx).Delete(&models.VerificationToken{}, "id = ? AND type = ?", id, tokenType).Error
 }

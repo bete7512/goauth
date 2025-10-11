@@ -21,8 +21,8 @@ func NewSecurityManager(config types.SecurityConfig) *SecurityManager {
 	return &SecurityManager{Config: config}
 }
 
-func (t *SecurityManager) GenerateAccessToken(user models.User, duration time.Duration, secretKey string) (string, error) {
-	claims := jwt.MapClaims{
+func (t *SecurityManager) GenerateAccessToken(user models.User, claims map[string]interface{}, duration time.Duration, secretKey string) (string, error) {
+	claimsMap := jwt.MapClaims{
 		"user_id": user.ID,
 		"exp":     time.Now().Add(duration).Unix(),
 	}
@@ -32,11 +32,14 @@ func (t *SecurityManager) GenerateAccessToken(user models.User, duration time.Du
 			return "", err
 		}
 		for k, v := range customClaims {
-			claims[k] = v
+			claimsMap[k] = v
 		}
 	}
+	for k, v := range claims {
+		claimsMap[k] = v
+	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claimsMap)
 	return token.SignedString([]byte(secretKey))
 }
 
@@ -52,7 +55,7 @@ func (t *SecurityManager) ValidatePassword(hashedPassword, password string) erro
 }
 
 // GenerateTokens creates a new JWT access token and refresh token
-func (t *SecurityManager) GenerateTokens(user *models.User) (accessToken string, refreshToken string, err error) {
+func (t *SecurityManager) GenerateTokens(user *models.User, claims map[string]interface{}) (accessToken string, refreshToken string, err error) {
 	// Create access token
 	if user == nil {
 		return "", "", errors.New("user is nil")
@@ -62,6 +65,9 @@ func (t *SecurityManager) GenerateTokens(user *models.User) (accessToken string,
 		"exp":     time.Now().Add(t.Config.Session.AccessTokenTTL).Unix(),
 		"iat":     time.Now().Unix(),
 		"type":    "access",
+	}
+	for k, v := range claims {
+		accessTokenClaims[k] = v
 	}
 	if t.Config.CustomClaimsProvider != nil {
 		customClaims, err := t.Config.CustomClaimsProvider.GetClaims(*user)

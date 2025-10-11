@@ -464,7 +464,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
 
   # Utility Routes
-  /check-availability:
+  /availability/email:
     post:
       summary: Check field availability
       description: Check if email, username, or phone is available
@@ -475,7 +475,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CheckAvailabilityRequest'
+              $ref: '#/components/schemas/CheckEmailAvailabilityRequest'
       responses:
         '200':
           description: Availability check completed
@@ -489,6 +489,56 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
+  /availability/username:
+    post:
+      summary: Check username availability
+      description: Check if username is available
+      # tags: [Utility]
+      tags: [Core Authentication Module Docs]
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckUsernameAvailabilityRequest'
+
+      responses:
+        '200':
+          description: Availability check completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckAvailabilityResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /availability/phone:
+    post:
+      summary: Check phone availability
+      description: Check if phone is available
+      # tags: [Utility]
+      tags: [Core Authentication Module Docs]
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckPhoneAvailabilityRequest'
+
+      responses:
+        '200':
+          description: Availability check completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckAvailabilityResponse'
 
 components:
   securitySchemes:
@@ -671,8 +721,8 @@ components:
           minLength: 8
           example: newSecurePassword123
           description: New password (minimum 8 characters)
-
-    CheckAvailabilityRequest:
+  
+    CheckEmailAvailabilityRequest:
       type: object
       properties:
         email:
@@ -680,16 +730,24 @@ components:
           format: email
           example: user@example.com
           description: Email to check
+          required: true
+    CheckUsernameAvailabilityRequest:
+      type: object
+      properties:
         username:
           type: string
           example: john_doe
           description: Username to check
+          required: true
+    CheckPhoneAvailabilityRequest:
+      type: object
+      properties:
         phone:
           type: string
           pattern: '^\+[1-9]\d{1,14}$'
           example: +1234567890
           description: Phone number to check
-
+          required: true
     # Response Schemas
     AuthResponse:
       type: object

@@ -23,7 +23,7 @@ func (r *UserRepository) Create(ctx context.Context, user *models.User) error {
 
 func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*models.User, error) {
 	var user *models.User
-	err := r.db.WithContext(ctx).Where("email = ?", email).First(&user).Error
+	err := r.db.WithContext(ctx).Preload("ExtendedAttributes").Where("email = ?", email).First(&user).Error
 	// if user is not found, return nil
 	if err == gorm.ErrRecordNotFound {
 		return nil, nil
@@ -32,7 +32,7 @@ func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*models
 }
 func (r *UserRepository) FindByID(ctx context.Context, id string) (*models.User, error) {
 	var user *models.User
-	err := r.db.WithContext(ctx).Where("id = ?", id).First(&user).Error
+	err := r.db.WithContext(ctx).Preload("ExtendedAttributes").Where("id = ?", id).First(&user).Error
 	// if user is not found, return nil
 	if err == gorm.ErrRecordNotFound {
 		return nil, nil
@@ -42,7 +42,7 @@ func (r *UserRepository) FindByID(ctx context.Context, id string) (*models.User,
 
 func (r *UserRepository) List(ctx context.Context, limit, offset int) ([]*models.User, error) {
 	var users []*models.User
-	err := r.db.WithContext(ctx).Limit(limit).Offset(offset).Find(&users).Error
+	err := r.db.WithContext(ctx).Limit(limit).Offset(offset).Preload("ExtendedAttributes").Find(&users).Error
 	return users, err
 }
 func (r *UserRepository) Update(ctx context.Context, user *models.User) error {
@@ -54,7 +54,7 @@ func (r *UserRepository) Delete(ctx context.Context, id string) error {
 
 func (r *UserRepository) FindByUsername(ctx context.Context, username string) (*models.User, error) {
 	var user *models.User
-	err := r.db.WithContext(ctx).Where("username = ?", username).First(&user).Error
+	err := r.db.WithContext(ctx).Preload("ExtendedAttributes").Where("username = ?", username).First(&user).Error
 	// if user is not found, return nil
 	if err == gorm.ErrRecordNotFound {
 		return nil, nil
@@ -62,9 +62,9 @@ func (r *UserRepository) FindByUsername(ctx context.Context, username string) (*
 	return user, err
 }
 
-func (r *UserRepository) FindByPhone(ctx context.Context, phone string) (*models.User, error) {
+func (r *UserRepository) FindByPhoneNumber(ctx context.Context, phoneNumber string) (*models.User, error) {
 	var user *models.User
-	err := r.db.WithContext(ctx).Where("phone = ?", phone).First(&user).Error
+	err := r.db.WithContext(ctx).Preload("ExtendedAttributes").Where("phone_number = ?", phoneNumber).First(&user).Error
 	// if user is not found, return nil
 	if err == gorm.ErrRecordNotFound {
 		return nil, nil
@@ -74,7 +74,7 @@ func (r *UserRepository) FindByPhone(ctx context.Context, phone string) (*models
 
 func (r *UserRepository) FindByEmailOrUsername(ctx context.Context, emailOrUsername string) (*models.User, error) {
 	var user *models.User
-	err := r.db.WithContext(ctx).Where("email = ? OR username = ?", emailOrUsername, emailOrUsername).First(&user).Error
+	err := r.db.WithContext(ctx).Preload("ExtendedAttributes").Where("email = ? OR username = ?", emailOrUsername, emailOrUsername).First(&user).Error
 	// if user is not found, return nil
 	if err == gorm.ErrRecordNotFound {
 		return nil, nil
@@ -82,11 +82,14 @@ func (r *UserRepository) FindByEmailOrUsername(ctx context.Context, emailOrUsern
 	return user, err
 }
 
-func (r *UserRepository) CheckAvailability(ctx context.Context, field, value string) (bool, error) {
+func (r *UserRepository) IsAvailable(ctx context.Context, field, value string) (bool, error) {
 	var count int64
 	err := r.db.WithContext(ctx).Model(&models.User{}).Where(field+" = ?", value).Count(&count).Error
 	if err != nil {
 		return false, err
 	}
-	return count == 0, nil
+	if count > 0 {
+		return true, nil
+	}
+	return false, nil
 }

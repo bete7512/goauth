@@ -9,20 +9,20 @@ import (
 )
 
 type CoreHandler struct {
-	deps        config.ModuleDependencies
 	CoreService *core_services.CoreService
+	deps        config.ModuleDependencies
 }
 
-func NewCoreHandler(deps config.ModuleDependencies, coreService *core_services.CoreService) *CoreHandler {
+func NewCoreHandler(coreService *core_services.CoreService, deps config.ModuleDependencies) *CoreHandler {
 	return &CoreHandler{
-		deps:        deps,
 		CoreService: coreService,
+		deps:        deps,
 	}
 }
 
 func (h *CoreHandler) GetRoutes() []config.RouteInfo {
 	// register routes here with unique names
-	authMiddleware := middlewares.NewAuthMiddleware(h.deps.Config, h.CoreService.SecurityManager)
+	authMiddleware := middlewares.NewAuthMiddleware(h.deps.Config, h.deps.SecurityManager)
 	routes := []config.RouteInfo{
 		// 📌 Core Auth Routes
 		{
@@ -111,9 +111,21 @@ func (h *CoreHandler) GetRoutes() []config.RouteInfo {
 		},
 		{
 			Name:    "core.check_availability",
-			Path:    "/check-availability",
+			Path:    "/availability/email",
 			Method:  "POST",
-			Handler: h.CheckAvailability,
+			Handler: h.CheckEmailAvailability,
+		},
+		{
+			Name:    "core.check_username_availability",
+			Path:    "/availability/username",
+			Method:  "POST",
+			Handler: h.CheckUsernameAvailability,
+		},
+		{
+			Name:    "core.check_phone_availability",
+			Path:    "/availability/phone",
+			Method:  "POST",
+			Handler: h.CheckPhoneAvailability,
 		},
 		{
 			Name:    "core.resend_verification_email",

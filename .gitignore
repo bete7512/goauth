@@ -1,5 +1,6 @@
 .dev
 .dir
+.examples
 commands.sh
 dev
 __debug*

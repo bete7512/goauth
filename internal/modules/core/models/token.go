@@ -5,7 +5,6 @@ import (
 	"time"
 )
 
-
 type Token struct {
 	ID        string    `json:"id" gorm:"primaryKey"`
 	UserID    string    `json:"user_id" gorm:"not null;index"`

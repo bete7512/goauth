@@ -8,6 +8,7 @@ import (
 	"github.com/bete7512/goauth/internal/events"
 	"github.com/bete7512/goauth/internal/middleware"
 	"github.com/bete7512/goauth/internal/modules/core"
+	coreConfig "github.com/bete7512/goauth/internal/modules/core/config"
 	"github.com/bete7512/goauth/internal/modules/core/models"
 	"github.com/bete7512/goauth/internal/utils/logger"
 	"github.com/bete7512/goauth/pkg/config"
@@ -103,7 +104,8 @@ func New(cfg *config.Config) (*Auth, error) {
 		MiddlewareManager: middlewareManager,
 	}
 	if auth.config.ModuleConfigs[string(types.CoreModule)] == nil {
-		coreConfig := &core.Config{}
+		coreConfig := &coreConfig.Config{}
+		customRepositories := &core.CustomRepositories{}
 		if auth.storage != nil {
 			if auth.storage.GetRepository(string(types.CoreUserRepository)) == nil {
 				return nil, fmt.Errorf("core.user repository is not found storage is not connected correctly")
@@ -114,12 +116,21 @@ func New(cfg *config.Config) (*Auth, error) {
 			if auth.storage.GetRepository(string(types.CoreTokenRepository)) == nil {
 				return nil, fmt.Errorf("core.token repository is not found storage is not connected correctly")
 			}
-			coreConfig.UserRepository = auth.storage.GetRepository(string(types.CoreUserRepository)).(models.UserRepository)
-			coreConfig.SessionRepository = auth.storage.GetRepository(string(types.CoreSessionRepository)).(models.SessionRepository)
-			coreConfig.TokenRepository = auth.storage.GetRepository(string(types.CoreTokenRepository)).(models.TokenRepository)
+			customRepositories.UserRepository = auth.storage.GetRepository(string(types.CoreUserRepository)).(models.UserRepository)
+			customRepositories.SessionRepository = auth.storage.GetRepository(string(types.CoreSessionRepository)).(models.SessionRepository)
+			customRepositories.TokenRepository = auth.storage.GetRepository(string(types.CoreTokenRepository)).(models.TokenRepository)
+			customRepositories.VerificationTokenRepository = auth.storage.GetRepository(string(types.CoreVerificationTokenRepository)).(models.VerificationTokenRepository)
+			customRepositories.UserExtendedAttributesRepository = auth.storage.GetRepository(string(types.CoreUserExtendedAttributeRepository)).(models.ExtendedAttributesRepository)
 
 		}
-		coreModule := core.New(coreConfig)
+		if auth.config.Core != nil {
+			coreConfig.RequireEmailVerification = auth.config.Core.RequireEmailVerification
+			coreConfig.RequirePhoneVerification = auth.config.Core.RequirePhoneVerification
+			coreConfig.RequireUserName = auth.config.Core.RequireUserName
+			coreConfig.RequirePhoneNumber = auth.config.Core.RequirePhoneNumber
+		}
+		
+		coreModule := core.New(coreConfig, customRepositories)
 		auth.modules[coreModule.Name()] = coreModule
 	}
 
@@ -295,16 +306,6 @@ func (a *Auth) Close() error {
 func (a *Auth) On(event types.EventType, handler types.EventHandler, opts ...interface{}) {
 	a.moduleDependencies.Events.Subscribe(event, handler, opts...)
 }
-
-// // OnRouteBefore subscribes to a before:<routeName> event (e.g., before:core.login)
-// func (a *Auth) OnRouteBefore(routeName string, handler types.EventHandler, opts ...interface{}) {
-// 	a.moduleDependencies.Events.Subscribe(types.EventType("before:"+routeName), handler, opts...)
-// }
-
-// // OnRouteAfter subscribes to an after:<routeName> event (e.g., after:core.login)
-// func (a *Auth) OnRouteAfter(routeName string, handler types.EventHandler, opts ...interface{}) {
-// 	a.moduleDependencies.Events.Subscribe(types.EventType("after:"+routeName), handler, opts...)
-// }
 
 // asyncBackendAdapter adapts config.AsyncBackend to events.AsyncBackend
 type asyncBackendAdapter struct {

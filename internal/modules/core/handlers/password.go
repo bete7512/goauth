@@ -24,24 +24,14 @@ func (h *CoreHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: Implement forgot password logic
-	// 1. Find user by email or phone
-	// 2. Generate reset token/code
-	// 3. Store in database
-	// 4. Emit event for notification module
+	// Call service
+	response, err := h.CoreService.ForgotPassword(ctx, &req)
+	if err != nil {
+		http_utils.RespondError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		return
+	}
 
-	h.deps.Events.EmitAsync(ctx, types.EventBeforeResetPassword, map[string]interface{}{
-		"email":        req.Email,
-		"phone":        req.Phone,
-		"reset_link":   "https://app.com/reset?token=xxx",
-		"code":         "123456",
-		"phone_number": req.Phone,
-	})
-
-	http_utils.RespondSuccess(w, dto.MessageResponse{
-		Message: "Password reset instructions sent",
-		Success: true,
-	}, nil)
+	http_utils.RespondSuccess(w, response, nil)
 }
 
 // ResetPassword handles POST /reset-password
@@ -59,31 +49,26 @@ func (h *CoreHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: Implement reset password logic
-	// 1. Verify token/code
-	// 2. Find user
-	// 3. Hash new password
-	// 4. Update user password
-	// 5. Mark token as used
-	// 6. Emit event
+	// Call service
+	response, err := h.CoreService.ResetPassword(ctx, &req)
+	if err != nil {
+		http_utils.RespondError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		return
+	}
 
-	h.deps.Events.EmitAsync(ctx, types.EventAfterResetPassword, map[string]interface{}{
-		"email": req.Email,
-		"phone": req.Phone,
-	})
-
-	http_utils.RespondSuccess(w, dto.MessageResponse{
-		Message: "Password reset successfully",
-		Success: true,
-	}, nil)
+	http_utils.RespondSuccess(w, response, nil)
 }
 
 // ChangePassword handles PUT /change-password
 func (h *CoreHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	// TODO: Get user ID from context (set by auth middleware)
-	// userID := ctx.Value("user_id").(string)
+	// Get user ID from context (set by auth middleware)
+	userID, ok := ctx.Value(types.UserIDKey).(string)
+	if !ok || userID == "" {
+		http_utils.RespondError(w, http.StatusUnauthorized, "UNAUTHORIZED", "User not authenticated")
+		return
+	}
 
 	var req dto.ChangePasswordRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -96,20 +81,12 @@ func (h *CoreHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: Implement change password logic
-	// 1. Get user from database
-	// 2. Verify old password
-	// 3. Hash new password
-	// 4. Update user password
-	// 5. Emit event
+	// Call service
+	response, err := h.CoreService.ChangePassword(ctx, userID, &req)
+	if err != nil {
+		http_utils.RespondError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		return
+	}
 
-	h.deps.Events.EmitAsync(ctx, types.EventAfterChangePassword, map[string]interface{}{
-		"email": "user@example.com",
-		"name":  "User Name",
-	})
-
-	http_utils.RespondSuccess(w, dto.MessageResponse{
-		Message: "Password changed successfully",
-		Success: true,
-	}, nil)
+	http_utils.RespondSuccess(w, response, nil)
 }

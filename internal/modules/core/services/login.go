@@ -17,22 +17,15 @@ func (s *CoreService) Login(ctx context.Context, req *dto.LoginRequest) (*dto.Au
 	// Find user
 	var user *models.User
 	var err error
-
-	if req.Email != "" {
-		user, err = s.UserRepository.FindByEmail(ctx, req.Email)
-	} else if req.Username != "" {
-		user, err = s.UserRepository.FindByUsername(ctx, req.Username)
-	} else {
-		return nil, types.NewMissingFieldsError("email or username")
-	}
-
+	user, err = s.UserRepository.FindByEmail(ctx, req.Email)
 	if err != nil || user == nil {
 		return nil, types.NewInvalidCredentialsError()
 	}
-
-	// Check if account is active
-	if !user.Active {
-		return nil, types.NewUserNotActiveError()
+	if s.Config.RequireEmailVerification && user.Email != "" && !user.EmailVerified {
+		return nil, types.NewEmailNotVerifiedError()
+	}
+	if s.Config.RequirePhoneVerification && user.PhoneNumber != "" && !user.PhoneNumberVerified {
+		return nil, types.NewPhoneNotVerifiedError()
 	}
 
 	// Verify password
@@ -41,7 +34,7 @@ func (s *CoreService) Login(ctx context.Context, req *dto.LoginRequest) (*dto.Au
 	}
 
 	// Generate session token
-	sessionToken, err := generateSecureToken(32)
+	sessionToken, err := s.Deps.SecurityManager.GenerateRandomToken(32)
 	if err != nil {
 		return nil, types.NewInternalError(fmt.Sprintf("failed to generate session token: %w", err))
 	}
@@ -51,7 +44,7 @@ func (s *CoreService) Login(ctx context.Context, req *dto.LoginRequest) (*dto.Au
 		ID:        uuid.New().String(),
 		UserID:    user.ID,
 		Token:     sessionToken,
-		ExpiresAt: time.Now().Add(24 * time.Hour), // 24 hours
+		ExpiresAt: time.Now().Add(s.Deps.Config.Security.Session.SessionDuration), // 24 hours
 		CreatedAt: time.Now(),
 	}
 
@@ -63,21 +56,30 @@ func (s *CoreService) Login(ctx context.Context, req *dto.LoginRequest) (*dto.Au
 	user.UpdatedAt = time.Now()
 	s.UserRepository.Update(ctx, user)
 
+	// Emit after login event
+	s.Deps.Events.EmitAsync(ctx, types.EventAfterLogin, map[string]interface{}{
+		"user":       user,
+		"ip_address": ctx.Value("ip_address"),
+		"timestamp":  time.Now().Format("2006-01-02 15:04:05"),
+	})
+
 	return &dto.AuthResponse{
 		Token: sessionToken,
 		User: &dto.UserDTO{
-			ID:            user.ID,
-			Email:         user.Email,
-			Username:      user.Username,
-			Name:          user.Name,
-			Phone:         user.Phone,
-			Active:        user.Active,
-			EmailVerified: user.EmailVerified,
-			PhoneVerified: user.PhoneVerified,
-			CreatedAt:     user.CreatedAt.Format(time.RFC3339),
-			UpdatedAt:     user.UpdatedAt.Format(time.RFC3339),
+			ID:                  user.ID,
+			Email:               user.Email,
+			Username:            user.Username,
+			Name:                user.Name,
+			FirstName:           user.FirstName,
+			LastName:            user.LastName,
+			PhoneNumber:         user.PhoneNumber,
+			Active:              true,
+			EmailVerified:       user.EmailVerified,
+			PhoneNumberVerified: user.PhoneNumberVerified,
+			CreatedAt:           user.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:           user.UpdatedAt.Format(time.RFC3339),
 		},
-		ExpiresIn: 86400, // 24 hours in seconds
+		ExpiresIn: int64(s.Deps.Config.Security.Session.SessionDuration.Seconds()),
 		Message:   "Login successful",
 	}, nil
 }

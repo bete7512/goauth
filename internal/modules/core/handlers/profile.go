@@ -12,6 +12,8 @@ import (
 // Profile handles GET /profile (same as Me)
 func (h *CoreHandler) Profile(w http.ResponseWriter, r *http.Request) {
 	// Delegate to Me handler
+	h.deps.Logger.Info("Profile handler called")
+
 	h.Me(w, r)
 }
 
@@ -24,12 +26,12 @@ func (h *CoreHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 
 	var req dto.UpdateProfileRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http_utils.RespondError(w, http.StatusBadRequest, "INVALID_REQUEST_BODY", "Invalid request body")
+		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidRequestBody), "Invalid request body")
 		return
 	}
 
 	if err := req.Validate(); err != nil {
-		http_utils.RespondError(w, http.StatusBadRequest, "INVALID_REQUEST_BODY", err.Error())
+		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidRequestBody), err.Error())
 		return
 	}
 

@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/bete7512/goauth/internal/modules/core/handlers/dto"
 	http_utils "github.com/bete7512/goauth/internal/utils/http"
@@ -25,12 +26,21 @@ func (h *CoreHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 3. Emit BEFORE login event (rate limiting, fraud detection, etc)
+	// 3. Emit BEFORE login event (custom rate limiting, fraud detection, etc)
 	loginData := map[string]interface{}{
-		"email":      req.Email,
-		"username":   req.Username,
-		"ip_address": r.RemoteAddr,
-		"user_agent": r.UserAgent(),
+		"email":              req.Email,
+		"username":           req.Username,
+		"ip_address":         r.RemoteAddr,
+		"user_agent":         r.UserAgent(),
+		"timestamp":          time.Now().Format("2006-01-02 15:04:05"),
+		"user_id":            r.Context().Value(types.UserIDKey),
+		"method":             r.Method,
+		"uri":                r.RequestURI,
+		"protocol":           r.Proto,
+		"host":               r.Host,
+		"referer":            r.Referer(),
+		"forwarded_for":      r.Header.Get("X-Forwarded-For"),
+		"device_fingerprint": r.Header.Get("X-Device-Fingerprint"),
 	}
 	if err := h.deps.Events.EmitSync(ctx, "before:login", loginData); err != nil {
 		http_utils.RespondError(w, http.StatusForbidden, string(types.ErrForbidden), "Login blocked: "+err.Error())
@@ -40,7 +50,7 @@ func (h *CoreHandler) Login(w http.ResponseWriter, r *http.Request) {
 	// 4. Call service - ALL business logic here
 	response, err := h.CoreService.Login(ctx, &req)
 	if err != nil {
-		http_utils.RespondError(w, err.StatusCode, string(err.Code), err.Message) // TODO: add to types
+		http_utils.RespondError(w, err.StatusCode, string(err.Code), err.Message)
 		return
 	}
 

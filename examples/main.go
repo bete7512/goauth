@@ -56,15 +56,6 @@ func main() {
 		log.Fatalf("Failed to create auth: %v", err)
 	}
 
-	// Register modules before Initialize
-	// authInstance.Use(core.New(&core.Config{}))
-	// authInstance.Use(magiclink.New(&magiclink.MagicLinkConfig{}))
-	// authInstance.Use(twofactor.New(&twofactor.TwoFactorConfig{
-	// 	Issuer:           "MyAwesomeApp",
-	// 	Required:         false,
-	// 	BackupCodesCount: 10,
-	// 	CodeLength:       8,
-	// }))
 	authInstance.Use(notification.New(&notification.Config{
 		EmailSender: senders.NewSendGridEmailSender(&senders.SendGridConfig{
 			APIKey:          "your-sendgrid-api-key",
@@ -84,38 +75,10 @@ func main() {
 		EnablePasswordChangeAlert: true,
 		Enable2FANotifications:    true,
 	}))
-	// authInstance.Use(ratelimiter.New(&ratelimiter.RateLimiterConfig{
-	// 	RequestsPerMinute: 60,
-	// 	RequestsPerHour:   1000,
-	// 	BurstSize:         10,
-	// }))
-	// csrfModule := csrf.New(&csrf.CSRFConfig{
-	// 	TokenLength:      32,
-	// 	TokenExpiry:      3600,
-	// 	CookieName:       "csrf_token",
-	// 	HeaderName:       "X-CSRF-Token",
-	// 	FormFieldName:    "csrf_token",
-	// 	Secure:           true,
-	// 	HTTPOnly:         true,
-	// 	SameSite:         http.SameSiteStrictMode,
-	// 	OnlyToPaths:      []string{"/auth/login", "/auth/signup", "/auth/forgot-password"},
-	// 	ProtectedMethods: []string{"POST", "PUT", "DELETE"},
-	// })
-	// authInstance.Use(csrfModule)
 
 	// Register custom hooks (user-defined)
 	authInstance.On(types.EventAfterLogin, func(ctx context.Context, e *types.Event) error {
 		log.Println("custom after:login hook", e.Type)
-		return nil
-	})
-	// authInstance.OnRouteBefore("core.signup", func(ctx context.Context, e *types.Event) error {
-	// 	log.Println("custom before core.signup hook")
-	// 	return nil
-	// })
-
-	authInstance.On(types.EventBeforeSignup, func(ctx context.Context, event *types.Event) error {
-		// log.Println("Befdddddddddddddddddddddddddddddddddddddore signup event", event)
-
 		return nil
 	})
 	// Initialize after all modules are registered

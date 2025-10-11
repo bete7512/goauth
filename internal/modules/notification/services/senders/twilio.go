@@ -92,4 +92,3 @@ func (t *TwilioSMSSender) VerifyConfig(ctx context.Context) error {
 	}
 	return nil
 }
-

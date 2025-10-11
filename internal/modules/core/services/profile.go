@@ -17,17 +17,12 @@ func (s *CoreService) GetProfile(ctx context.Context, userID string) (*dto.UserD
 	}
 
 	return &dto.UserDTO{
-		ID:            user.ID,
-		Email:         user.Email,
-		Username:      user.Username,
-		Name:          user.Name,
-		Phone:         user.Phone,
-		Avatar:        user.Avatar,
-		Active:        user.Active,
-		EmailVerified: user.EmailVerified,
-		PhoneVerified: user.PhoneVerified,
-		CreatedAt:     user.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:     user.UpdatedAt.Format(time.RFC3339),
+		ID:        user.ID,
+		Email:     user.Email,
+		Name:      user.Name,
+		Avatar:    user.Avatar,
+		CreatedAt: user.CreatedAt.Format(time.RFC3339),
+		UpdatedAt: user.UpdatedAt.Format(time.RFC3339),
 	}, nil
 }
 
@@ -39,16 +34,16 @@ func (s *CoreService) UpdateProfile(ctx context.Context, userID string, req *dto
 		return nil, types.NewUserNotFoundError()
 	}
 
-	// Check if phone is being changed and if it's already taken
-	if req.Phone != "" && req.Phone != user.Phone {
-		existing, _ := s.UserRepository.FindByPhone(ctx, req.Phone)
-		if existing != nil && existing.ID != user.ID {
-			return nil, types.NewPhoneAlreadyVerifiedError()
-		}
-		// Mark phone as unverified if changed
-		user.Phone = req.Phone
-		user.PhoneVerified = false
-	}
+	// // Check if phone is being changed and if it's already taken
+	// if req.Phone != "" && req.Phone != user.Attributes {
+	// 	existing, _ := s.UserRepository.FindByPhone(ctx, req.Phone)
+	// 	if existing != nil && existing.ID != user.ID {
+	// 		return nil, types.NewPhoneAlreadyVerifiedError()
+	// 	}
+	// 	// Mark phone as unverified if changed
+	// 	user.Phone = req.Phone
+	// 	user.PhoneVerified = false
+	// }
 
 	// Update fields
 	if req.Name != "" {
@@ -71,16 +66,10 @@ func (s *CoreService) UpdateProfile(ctx context.Context, userID string, req *dto
 	// })
 
 	return &dto.UserDTO{
-		ID:            user.ID,
-		Email:         user.Email,
-		Username:      user.Username,
-		Name:          user.Name,
-		Phone:         user.Phone,
-		Avatar:        user.Avatar,
-		Active:        user.Active,
-		EmailVerified: user.EmailVerified,
-		PhoneVerified: user.PhoneVerified,
-		CreatedAt:     user.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:     user.UpdatedAt.Format(time.RFC3339),
+		ID:        user.ID,
+		Email:     user.Email,
+		Name:      user.Name,
+		CreatedAt: user.CreatedAt.Format(time.RFC3339),
+		UpdatedAt: user.UpdatedAt.Format(time.RFC3339),
 	}, nil
 }

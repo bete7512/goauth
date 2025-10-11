@@ -97,4 +97,3 @@ func (s *AdminService) DeleteUser(ctx context.Context, userID string) error {
 func (s *AdminService) GetUserAuditLogs(ctx context.Context, userID string, limit, offset int) ([]*models.AuditLog, error) {
 	return s.auditLogRepo.FindByUserID(ctx, userID, limit, offset)
 }
-

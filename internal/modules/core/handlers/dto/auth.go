@@ -8,11 +8,14 @@ import (
 
 // SignupRequest represents signup request
 type SignupRequest struct {
-	Email    string `json:"email"`
-	Username string `json:"username,omitempty"`
-	Password string `json:"password"`
-	Name     string `json:"name,omitempty"`
-	Phone    string `json:"phone,omitempty"`
+	Name               string               `json:"name,omitempty"`
+	FirstName          string               `json:"first_name,omitempty"`
+	LastName           string               `json:"last_name,omitempty"`
+	PhoneNumber        string               `json:"phone_number,omitempty"`
+	Email              string               `json:"email"`
+	Username           string               `json:"username,omitempty"`
+	Password           string               `json:"password"`
+	ExtendedAttributes []ExtendedAttributes `json:"extended_attributes,omitempty"`
 }
 
 func (r *SignupRequest) Validate() error {
@@ -31,7 +34,7 @@ func (r *SignupRequest) Validate() error {
 	if r.Username != "" && !isValidUsername(r.Username) {
 		return fmt.Errorf("username must be 3-30 characters and contain only letters, numbers, underscores, and hyphens")
 	}
-	if r.Phone != "" && !isValidPhone(r.Phone) {
+	if r.PhoneNumber != "" && !isValidPhone(r.PhoneNumber) {
 		return fmt.Errorf("invalid phone number format (use E.164 format: +1234567890)")
 	}
 	return nil
@@ -209,17 +212,29 @@ type CheckAvailabilityRequest struct {
 	Phone    string `json:"phone,omitempty"`
 }
 
-func (r *CheckAvailabilityRequest) Validate() error {
-	if r.Email == "" && r.Username == "" && r.Phone == "" {
-		return fmt.Errorf("at least one field (email, username, or phone) is required")
+func (r *CheckAvailabilityRequest) ValidateEmail() error {
+	if r.Email == "" {
+		return fmt.Errorf("email is required")
 	}
-	if r.Email != "" && !isValidEmail(r.Email) {
+	if !isValidEmail(r.Email) {
 		return fmt.Errorf("invalid email format")
 	}
-	if r.Username != "" && !isValidUsername(r.Username) {
+	return nil
+}
+func (r *CheckAvailabilityRequest) ValidateUsername() error {
+	if r.Username == "" {
+		return fmt.Errorf("username is required")
+	}
+	if !isValidUsername(r.Username) {
 		return fmt.Errorf("invalid username format")
 	}
-	if r.Phone != "" && !isValidPhone(r.Phone) {
+	return nil
+}
+func (r *CheckAvailabilityRequest) ValidatePhone() error {
+	if r.Phone == "" {
+		return fmt.Errorf("phone is required")
+	}
+	if !isValidPhone(r.Phone) {
 		return fmt.Errorf("invalid phone number format")
 	}
 	return nil
@@ -235,20 +250,27 @@ type AuthResponse struct {
 	ExpiresIn    int64    `json:"expires_in,omitempty"`
 	Message      string   `json:"message,omitempty"`
 }
+type ExtendedAttributes struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
 
 // UserDTO represents user data in responses
 type UserDTO struct {
-	ID            string `json:"id"`
-	Email         string `json:"email"`
-	Username      string `json:"username,omitempty"`
-	Name          string `json:"name,omitempty"`
-	Avatar        string `json:"avatar,omitempty"`
-	Phone         string `json:"phone,omitempty"`
-	Active        bool   `json:"active"`
-	EmailVerified bool   `json:"email_verified"`
-	PhoneVerified bool   `json:"phone_verified"`
-	CreatedAt     string `json:"created_at"`
-	UpdatedAt     string `json:"updated_at"`
+	ID                  string               `json:"id"`
+	FirstName           string               `json:"first_name,omitempty"`
+	LastName            string               `json:"last_name,omitempty"`
+	Name                string               `json:"name,omitempty"`
+	Email               string               `json:"email"`
+	Username            string               `json:"username,omitempty"`
+	Avatar              string               `json:"avatar,omitempty"`
+	PhoneNumber         string               `json:"phone_number,omitempty"`
+	Active              bool                 `json:"active"`
+	EmailVerified       bool                 `json:"email_verified"`
+	PhoneNumberVerified bool                 `json:"phone_number_verified"`
+	CreatedAt           string               `json:"created_at"`
+	UpdatedAt           string               `json:"updated_at"`
+	ExtendedAttributes  []ExtendedAttributes `json:"extended_attributes,omitempty"`
 }
 
 // MessageResponse represents a simple message response

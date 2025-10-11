@@ -32,9 +32,7 @@ func (BackupCode) TableName() string {
 	return "backup_codes"
 }
 
-type TwoFactorRepository interface{
-
+type TwoFactorRepository interface {
 }
-type BackupCodeRepository interface{
-	
+type BackupCodeRepository interface {
 }

@@ -21,20 +21,6 @@ func (s *CoreService) Signup(ctx context.Context, req *dto.SignupRequest) (*dto.
 		}
 	}
 
-	if req.Username != "" {
-		existing, _ := s.UserRepository.FindByUsername(ctx, req.Username)
-		if existing != nil {
-			return nil, types.NewUserAlreadyExistsError()
-		}
-	}
-
-	if req.Phone != "" {
-		existing, _ := s.UserRepository.FindByPhone(ctx, req.Phone)
-		if existing != nil {
-			return nil, types.NewUserAlreadyExistsError()
-		}
-	}
-
 	if s.SecurityManager == nil {
 		return nil, types.NewInternalError("security manager is nil")
 	}
@@ -48,11 +34,8 @@ func (s *CoreService) Signup(ctx context.Context, req *dto.SignupRequest) (*dto.
 	user := &models.User{
 		ID:           uuid.New().String(),
 		Email:        req.Email,
-		Username:     req.Username,
 		PasswordHash: string(hashedPassword),
 		Name:         req.Name,
-		Phone:        req.Phone,
-		Active:       true,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
@@ -60,41 +43,120 @@ func (s *CoreService) Signup(ctx context.Context, req *dto.SignupRequest) (*dto.
 	if err := s.UserRepository.Create(ctx, user); err != nil {
 		return nil, types.NewInternalError(fmt.Sprintf("failed to create user: %v", err.Error()))
 	}
-
-	// Generate session token
-	sessionToken, err := s.deps.SecurityManager.GenerateRandomToken(32)
-	if err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to generate session token: %v", err.Error()))
+	if req.ExtendedAttributes != nil {
+		for _, attr := range req.ExtendedAttributes {
+			_ = s.setAttribute(ctx, user.ID, attr.Name, attr.Value)
+		}
 	}
 
-	// Create session
+	// Auto-send verification if required
+	if s.Config.RequireEmailVerification || s.Config.RequirePhoneVerification {
+		if user.Email != "" {
+			// generate email verification
+			token, genErr := s.Deps.SecurityManager.GenerateRandomToken(32)
+			if genErr == nil {
+				verification := &models.VerificationToken{
+					ID:        uuid.New().String(),
+					UserID:    user.ID,
+					Email:     user.Email,
+					Token:     token,
+					Type:      models.TokenTypeEmailVerification,
+					ExpiresAt: time.Now().Add(24 * time.Hour),
+					CreatedAt: time.Now(),
+				}
+				err = s.VerificationTokenRepository.Create(ctx, verification)
+				if err != nil {
+					return nil, types.NewInternalError(fmt.Sprintf("failed to create verification: %w", err))
+				}
+				verificationLink := fmt.Sprintf("https://yourapp.com/verify-email?token=%s", token)
+				s.Deps.Events.EmitAsync(ctx, types.EventSendEmailVerification, map[string]interface{}{
+					"user":              user,
+					"email":             user.Email,
+					"name":              user.Name,
+					"verification_link": verificationLink,
+					"code":              token[:6],
+				})
+			}
+		}
+
+		if req.PhoneNumber != "" {
+			code := ""
+			// using first 6 of token-like randomness
+			if t, genErr := s.Deps.SecurityManager.GenerateRandomToken(12); genErr == nil {
+				code = t[:6]
+			}
+			verification := &models.VerificationToken{
+				ID:          uuid.New().String(),
+				UserID:      user.ID,
+				PhoneNumber: req.PhoneNumber,
+				Code:        code,
+				Type:        models.TokenTypePhoneVerification,
+				ExpiresAt:   time.Now().Add(10 * time.Minute),
+				CreatedAt:   time.Now(),
+			}
+			err = s.VerificationTokenRepository.Create(ctx, verification)
+			if err != nil {
+				return nil, types.NewInternalError(fmt.Sprintf("failed to create verification: %w", err))
+			}			
+			s.Deps.Events.EmitAsync(ctx, types.EventSendPhoneVerification, map[string]interface{}{
+				"user":         user,
+				"email":        user.Email,
+				"phone_number": req.PhoneNumber,
+				"code":         code,
+			})
+		}
+	}
+
+	// If verification is required, do not create session until verified
+	var sessionToken string
+	emailVerified := false
+
 	session := &models.Session{
 		ID:        uuid.New().String(),
 		UserID:    user.ID,
 		Token:     sessionToken,
-		ExpiresAt: time.Now().Add(24 * time.Hour), // 24 hours
+		ExpiresAt: time.Now().Add(s.Deps.Config.Security.Session.SessionDuration),
 		CreatedAt: time.Now(),
 	}
-
 	if err := s.SessionRepository.Create(ctx, session); err != nil {
 		return nil, types.NewInternalError(fmt.Sprintf("failed to create session: %v", err.Error()))
 	}
 
+	
 	return &dto.AuthResponse{
 		Token: sessionToken,
 		User: &dto.UserDTO{
-			ID:            user.ID,
-			Email:         user.Email,
-			Username:      user.Username,
-			Name:          user.Name,
-			Phone:         user.Phone,
-			Active:        user.Active,
-			EmailVerified: user.EmailVerified,
-			PhoneVerified: user.PhoneVerified,
-			CreatedAt:     user.CreatedAt.Format(time.RFC3339),
-			UpdatedAt:     user.UpdatedAt.Format(time.RFC3339),
+			ID:                  user.ID,
+			FirstName:           user.FirstName,
+			LastName:            user.LastName,
+			Name:                user.Name,
+			Email:               user.Email,
+			Username:            req.Username,
+			PhoneNumber:         req.PhoneNumber,
+			Active:              user.Active,
+			EmailVerified:       emailVerified,
+			PhoneNumberVerified: user.PhoneNumberVerified,
+			CreatedAt:           user.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:           user.UpdatedAt.Format(time.RFC3339),
+			ExtendedAttributes: func() []dto.ExtendedAttributes {
+				attrs := make([]dto.ExtendedAttributes, len(user.ExtendedAttributes))
+				for i, attr := range user.ExtendedAttributes {
+					attrs[i] = dto.ExtendedAttributes{Name: attr.Name, Value: attr.Value}
+				}
+				return attrs
+			}(),
 		},
-		ExpiresIn: 86400, // 24 hours in seconds
-		Message:   "Signup successful",
+		ExpiresIn: int64(s.Deps.Config.Security.Session.SessionDuration.Seconds()),
+		Message:   signupMessage(emailVerified, user.PhoneNumberVerified, user.Email, req.PhoneNumber, s.Config.RequireEmailVerification, s.Config.RequirePhoneVerification),
 	}, nil
+}
+
+func signupMessage(emailVerified bool, phoneVerified bool, email string, phone string, requireEmail bool, requirePhone bool) string {
+	if requireEmail && email != "" && !emailVerified {
+		return "Signup successful. Please verify your email to continue."
+	}
+	if requirePhone && phone != "" && !phoneVerified {
+		return "Signup successful. Please verify your phone to continue."
+	}
+	return "Signup successful"
 }

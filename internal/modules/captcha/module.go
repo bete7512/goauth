@@ -7,7 +7,7 @@ import (
 	"github.com/bete7512/goauth/internal/modules/captcha/services"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/types"
-	)
+)
 
 type CaptchaModule struct {
 	deps    config.ModuleDependencies
@@ -137,7 +137,6 @@ func (m *CaptchaModule) GetSiteKey() string {
 func (m *CaptchaModule) GetProvider() string {
 	return m.config.Provider
 }
-
 
 func (m *CaptchaModule) SwaggerSpec() []byte {
 	return nil

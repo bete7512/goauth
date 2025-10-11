@@ -31,7 +31,7 @@ func (h *CoreHandler) Signup(w http.ResponseWriter, r *http.Request) {
 		// User-provided identifiers
 		"email":    req.Email,
 		"username": req.Username,
-		"phone":    req.Phone,
+		"phone":    req.PhoneNumber,
 
 		// Network info
 		"ip_address":    r.RemoteAddr,                    // primary IP
@@ -65,10 +65,20 @@ func (h *CoreHandler) Signup(w http.ResponseWriter, r *http.Request) {
 		http_utils.RespondError(w, err.StatusCode, string(err.Code), err.Message)
 		return
 	}
-	// 5. Emit after:signup event
+	// 5. Emit after:signup event (include verification context)
 	h.deps.Events.EmitAsync(ctx, types.EventAfterSignup, map[string]interface{}{
-		"user_id": response.User.ID,
-		"email":   response.User.Email,
+		"request_info":          signupData,
+		"user_id":               response.User.ID,
+		"email":                 response.User.Email,
+		"name":                  response.User.Name,
+		"username":              response.User.Username,
+		"first_name":            response.User.FirstName,
+		"last_name":             response.User.LastName,
+		"phone_number":          response.User.PhoneNumber,
+		"extended_attributes":   response.User.ExtendedAttributes,
+		"email_verified":        response.User.EmailVerified,
+		"phone_verified":        response.User.PhoneNumberVerified,
+		"verification_required": h.deps.Config.Core.RequireEmailVerification || h.deps.Config.Core.RequirePhoneVerification,
 	})
 
 	// 5. Set session cookie

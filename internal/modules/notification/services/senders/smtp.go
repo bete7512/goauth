@@ -169,8 +169,8 @@ func (s *SMTPEmailSender) SendEmail(ctx context.Context, message *models.EmailMe
 	return smtp.SendMail(addr, auth, from, recipients, []byte(msg.String()))
 }
 
-// VerifyConnection verifies the SMTP connection
-func (s *SMTPEmailSender) VerifyConnection(ctx context.Context) error {
+// VerifyConfig verifies the SMTP connection
+func (s *SMTPEmailSender) VerifyConfig(ctx context.Context) error {
 	if s.host == "" {
 		return fmt.Errorf("smtp: host is required")
 	}
@@ -179,4 +179,3 @@ func (s *SMTPEmailSender) VerifyConnection(ctx context.Context) error {
 	}
 	return nil
 }
-

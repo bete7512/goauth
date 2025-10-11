@@ -104,6 +104,16 @@ type Config struct {
 
 	// Security
 	Security types.SecurityConfig
+
+	// Core Config
+	Core *CoreConfig
+}
+
+type CoreConfig struct {
+	RequirePhoneNumber       bool
+	RequireUserName          bool
+	RequireEmailVerification bool
+	RequirePhoneVerification bool
 }
 
 // CORSConfig holds CORS configuration

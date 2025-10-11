@@ -21,10 +21,11 @@ type RepositoryName string
 // Repository name constants for type-safe access
 const (
 	// Core module repositories
-	CoreUserRepository              RepositoryName = "core.user"
-	CoreSessionRepository           RepositoryName = "core.session"
-	CoreTokenRepository             RepositoryName = "core.token"
-	CoreVerificationTokenRepository RepositoryName = "core.verification_token"
+	CoreUserRepository                  RepositoryName = "core.user"
+	CoreSessionRepository               RepositoryName = "core.session"
+	CoreTokenRepository                 RepositoryName = "core.token"
+	CoreVerificationTokenRepository     RepositoryName = "core.verification_token"
+	CoreUserExtendedAttributeRepository RepositoryName = "core.user_attribute"
 
 	// Admin module repositories
 	AdminAuditLogRepository RepositoryName = "admin.auditlog"

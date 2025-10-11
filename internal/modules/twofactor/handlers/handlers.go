@@ -106,7 +106,7 @@ func (h *TwoFactorHandler) Verify(w http.ResponseWriter, r *http.Request) {
 }
 
 // Disable disables 2FA for the user
-func (h *TwoFactorHandler) Disable(w http.ResponseWriter, r *http.Request) {	
+func (h *TwoFactorHandler) Disable(w http.ResponseWriter, r *http.Request) {
 	// TODO: Get user ID from session/context
 	userID := "test-user-id"
 

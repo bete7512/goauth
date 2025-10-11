@@ -8,6 +8,7 @@ import (
 
 	"github.com/bete7512/goauth/internal/modules/core/handlers/dto"
 	"github.com/bete7512/goauth/internal/modules/core/models"
+	"github.com/bete7512/goauth/pkg/types"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -20,8 +21,6 @@ func (s *CoreService) ForgotPassword(ctx context.Context, req *dto.ForgotPasswor
 	// Find user by email or phone
 	if req.Email != "" {
 		user, err = s.UserRepository.FindByEmail(ctx, req.Email)
-	} else if req.Phone != "" {
-		user, err = s.UserRepository.FindByPhone(ctx, req.Phone)
 	} else {
 		return nil, errors.New("email or phone is required")
 	}
@@ -34,17 +33,13 @@ func (s *CoreService) ForgotPassword(ctx context.Context, req *dto.ForgotPasswor
 		}, nil
 	}
 
-	if !user.Active {
-		return nil, errors.New("account is inactive")
-	}
-
 	// Generate token or code based on method
 	var token string
 	// var code string
 
 	if req.Email != "" {
 		// Email: generate token
-		token, err = generateSecureToken(32)
+		token, err = s.Deps.SecurityManager.GenerateRandomToken(32)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate token: %w", err)
 		}
@@ -67,6 +62,18 @@ func (s *CoreService) ForgotPassword(ctx context.Context, req *dto.ForgotPasswor
 	if err := s.TokenRepository.Create(ctx, resetToken); err != nil {
 		return nil, fmt.Errorf("failed to create reset token: %w", err)
 	}
+
+	// Build reset link
+	resetLink := fmt.Sprintf("https://yourapp.com/reset-password?token=%s", token)
+
+	// Emit event for notification module
+	s.Deps.Events.EmitAsync(ctx, types.EventBeforeResetPassword, map[string]interface{}{
+		"user_id":    user.ID,
+		"email":      user.Email,
+		"name":       user.Name,
+		"reset_link": resetLink,
+		"code":       token[:6], // First 6 chars as code
+	})
 
 	return &dto.MessageResponse{
 		Message: "If an account exists, password reset instructions have been sent",
@@ -124,6 +131,13 @@ func (s *CoreService) ResetPassword(ctx context.Context, req *dto.ResetPasswordR
 	// Invalidate all sessions for security
 	s.SessionRepository.DeleteByUserID(ctx, user.ID)
 
+	// Emit event
+	s.Deps.Events.EmitAsync(ctx, types.EventAfterResetPassword, map[string]interface{}{
+		"user_id": user.ID,
+		"email":   user.Email,
+		"name":    user.Name,
+	})
+
 	return &dto.MessageResponse{
 		Message: "Password reset successfully. Please login with your new password.",
 		Success: true,
@@ -157,11 +171,13 @@ func (s *CoreService) ChangePassword(ctx context.Context, userID string, req *dt
 		return nil, fmt.Errorf("failed to update password: %w", err)
 	}
 
-	// // Emit event
-	// s.deps.Events.Emit(ctx, "password:changed", map[string]interface{}{
-	// 	"user_id": user.ID,
-	// 	"email":   user.Email,
-	// })
+	// Emit event
+	s.Deps.Events.EmitAsync(ctx, types.EventAfterChangePassword, map[string]interface{}{
+		"user_id":   user.ID,
+		"email":     user.Email,
+		"name":      user.Name,
+		"timestamp": time.Now().Format("2006-01-02 15:04:05"),
+	})
 
 	return &dto.MessageResponse{
 		Message: "Password changed successfully",

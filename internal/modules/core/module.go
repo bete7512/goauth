@@ -6,6 +6,7 @@ import (
 
 	_ "embed"
 
+	coreConfig "github.com/bete7512/goauth/internal/modules/core/config"
 	"github.com/bete7512/goauth/internal/modules/core/handlers"
 	"github.com/bete7512/goauth/internal/modules/core/middlewares"
 	"github.com/bete7512/goauth/internal/modules/core/models"
@@ -16,15 +17,17 @@ import (
 )
 
 type CoreModule struct {
-	deps     config.ModuleDependencies
-	handlers *handlers.CoreHandler
-	config   *Config
+	deps               config.ModuleDependencies
+	handlers           *handlers.CoreHandler
+	config             *coreConfig.Config
+	customRepositories *CustomRepositories
 }
-type Config struct {
-	UserRepository              models.UserRepository
-	SessionRepository           models.SessionRepository
-	TokenRepository             models.TokenRepository
-	VerificationTokenRepository models.VerificationTokenRepository
+type CustomRepositories struct {
+	UserRepository                   models.UserRepository
+	UserExtendedAttributesRepository models.ExtendedAttributesRepository
+	SessionRepository                models.SessionRepository
+	TokenRepository                  models.TokenRepository
+	VerificationTokenRepository      models.VerificationTokenRepository
 }
 
 //go:embed docs/swagger.yml
@@ -32,12 +35,13 @@ var swaggerSpec []byte
 
 var _ config.Module = (*CoreModule)(nil)
 
-func New(config *Config) *CoreModule {
+func New(config *coreConfig.Config, customRepositories *CustomRepositories) *CoreModule {
 	if config == nil {
-		config = &Config{}
+		config = &coreConfig.Config{}
 	}
 	return &CoreModule{
-		config: config,
+		config:             config,
+		customRepositories: customRepositories,
 	}
 }
 
@@ -57,7 +61,7 @@ func (m *CoreModule) Init(ctx context.Context, deps config.ModuleDependencies) e
 	}
 
 	// Resolve repositories
-	userRepoRaw, err := getRepo(m.config.UserRepository, string(types.CoreUserRepository))
+	userRepoRaw, err := getRepo(m.customRepositories.UserRepository, string(types.CoreUserRepository))
 	if err != nil {
 		return err
 	}
@@ -66,7 +70,7 @@ func (m *CoreModule) Init(ctx context.Context, deps config.ModuleDependencies) e
 		return fmt.Errorf("user repository has invalid type")
 	}
 
-	sessionRepoRaw, err := getRepo(m.config.SessionRepository, string(types.CoreSessionRepository))
+	sessionRepoRaw, err := getRepo(m.customRepositories.SessionRepository, string(types.CoreSessionRepository))
 	if err != nil {
 		return err
 	}
@@ -75,7 +79,7 @@ func (m *CoreModule) Init(ctx context.Context, deps config.ModuleDependencies) e
 		return fmt.Errorf("session repository has invalid type")
 	}
 
-	tokenRepoRaw, err := getRepo(m.config.TokenRepository, string(types.CoreTokenRepository))
+	tokenRepoRaw, err := getRepo(m.customRepositories.TokenRepository, string(types.CoreTokenRepository))
 	if err != nil {
 		return err
 	}
@@ -84,7 +88,7 @@ func (m *CoreModule) Init(ctx context.Context, deps config.ModuleDependencies) e
 		return fmt.Errorf("token repository has invalid type")
 	}
 
-	verificationTokenRepoRaw, err := getRepo(m.config.VerificationTokenRepository, string(types.CoreVerificationTokenRepository))
+	verificationTokenRepoRaw, err := getRepo(m.customRepositories.VerificationTokenRepository, string(types.CoreVerificationTokenRepository))
 	if err != nil {
 		return err
 	}
@@ -92,23 +96,41 @@ func (m *CoreModule) Init(ctx context.Context, deps config.ModuleDependencies) e
 	if !ok {
 		return fmt.Errorf("verification token repository has invalid type")
 	}
+	userAttrRepoRaw, err := getRepo(m.customRepositories.UserExtendedAttributesRepository, string(types.CoreUserExtendedAttributeRepository))
+	if err != nil {
+		return err
+	}
+	userAttrRepo, ok := userAttrRepoRaw.(models.ExtendedAttributesRepository)
+	if !ok {
+		return fmt.Errorf("user attribute repository has invalid type")
+	}
+	if err != nil {
+		return err
+	}
+	if m.deps.Config.Core != nil {
+		m.config = &coreConfig.Config{
+			RequireEmailVerification: m.deps.Config.Core.RequireEmailVerification,
+			RequirePhoneVerification: m.deps.Config.Core.RequirePhoneVerification,
+			RequireUserName:          m.deps.Config.Core.RequireUserName,
+			RequirePhoneNumber:       m.deps.Config.Core.RequirePhoneNumber,
+		}
+	}
 
 	securityManager := security.NewSecurityManager(m.deps.Config.Security)
-	if securityManager == nil {
-		return fmt.Errorf("security manager is nil")
-	}
 	deps.SecurityManager = securityManager
 	m.handlers = handlers.NewCoreHandler(
-		deps,
 		core_services.NewCoreService(
 			deps,
 			userRepo,
+			userAttrRepo,
 			sessionRepo,
 			tokenRepo,
 			verificationTokenRepo,
 			deps.Logger,
 			securityManager,
+			m.config,
 		),
+		m.deps,
 	)
 
 	return nil
@@ -144,6 +166,7 @@ func (m *CoreModule) Middlewares() []config.MiddlewareConfig {
 func (m *CoreModule) Models() []interface{} {
 	models := []interface{}{
 		&models.User{},
+		&models.ExtendedAttributes{},
 		&models.Session{},
 		&models.VerificationToken{},
 		&models.Token{},

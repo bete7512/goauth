@@ -28,6 +28,16 @@ type SecurityConfig struct {
 	HashSaltLength       int
 	CustomClaimsProvider CustomClaimsProvider
 	Session              SessionConfig
+	PasswordPolicy       PasswordPolicy
+}
+
+type PasswordPolicy struct {
+	MinLength        int
+	MaxLength        int
+	RequireUppercase bool
+	RequireLowercase bool
+	RequireNumbers   bool
+	RequireSpecial   bool
 }
 
 type CustomClaimsProvider interface {

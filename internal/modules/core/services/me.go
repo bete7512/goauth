@@ -2,8 +2,6 @@ package core_services
 
 import (
 	"context"
-	"encoding/hex"
-	"math/rand"
 	"time"
 
 	"github.com/bete7512/goauth/internal/modules/core/handlers/dto"
@@ -29,25 +27,11 @@ func (s *CoreService) GetCurrentUser(ctx context.Context, sessionToken string) (
 	}
 
 	return &dto.UserDTO{
-		ID:            user.ID,
-		Email:         user.Email,
-		Username:      user.Username,
-		Name:          user.Name,
-		Phone:         user.Phone,
-		Avatar:        user.Avatar,
-		Active:        user.Active,
-		EmailVerified: user.EmailVerified,
-		PhoneVerified: user.PhoneVerified,
-		CreatedAt:     user.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:     user.UpdatedAt.Format(time.RFC3339),
+		ID:        user.ID,
+		Email:     user.Email,
+		Name:      user.Name,
+		Avatar:    user.Avatar,
+		CreatedAt: user.CreatedAt.Format(time.RFC3339),
+		UpdatedAt: user.UpdatedAt.Format(time.RFC3339),
 	}, nil
-}
-
-// Helper function to generate secure random token
-func generateSecureToken(length int) (string, error) {
-	bytes := make([]byte, length)
-	if _, err := rand.Read(bytes); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(bytes), nil
 }

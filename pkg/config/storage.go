@@ -18,19 +18,12 @@ type Storage interface {
 	// Migrate runs database migrations for the given models
 	Migrate(ctx context.Context, models []interface{}) error
 
-	// Transaction handling
-	BeginTx(ctx context.Context) (Transaction, error)
-
 	// Get the underlying connection (e.g., *gorm.DB, *mongo.Client)
 	DB() interface{}
 
 	// GetRepository retrieves a module's repository by name
 	// Example: storage.GetRepository("core.user").(coreModels.UserRepository)
 	GetRepository(name string) interface{}
-
-	// RegisterRepository registers a module's repository
-	// This is called internally by storage implementations
-	RegisterRepository(name string, repo interface{})
 }
 
 // Transaction defines transaction operations

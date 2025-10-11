@@ -69,11 +69,11 @@ func (s *TwoFactorService) EnableTwoFactor(ctx context.Context, userID, secret s
 	// }
 
 	// Use transaction to ensure atomicity
-	tx, err := s.storage.BeginTx(ctx)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
+	// tx, err := s.storage.BeginTx(ctx)
+	// if err != nil {
+	// 	return err
+	// }
+	// defer tx.Rollback()
 
 	// // Create 2FA record
 	// if err := tx.Repository(twoFA).Create(ctx, twoFA); err != nil {
@@ -105,7 +105,7 @@ func (s *TwoFactorService) EnableTwoFactor(ctx context.Context, userID, secret s
 	// }
 	// }
 
-	return tx.Commit()
+	return nil
 }
 
 // VerifyAndEnable verifies the TOTP code and enables 2FA

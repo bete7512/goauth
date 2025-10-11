@@ -113,31 +113,42 @@ func (m *NotificationModule) Models() []interface{} {
 func (m *NotificationModule) RegisterHooks(events types.EventBus) error {
 	m.deps.Logger.Info("notification module: registering event hooks")
 
-	// AFTER SIGNUP - Send welcome email
-	if m.config.EnableWelcomeEmail {
-		events.Subscribe(types.EventAfterSignup, types.EventHandler(func(ctx context.Context, event *types.Event) error {
-			m.deps.Logger.Info("notification: after:signup event received")
-
-			data, ok := event.Data.(map[string]interface{})
-			if !ok {
-				m.deps.Logger.Warnf("notification: invalid event data for after:signup")
-				return nil
-			}
-
-			email, _ := data["email"].(string)
-			userName, _ := data["name"].(string)
-			if userName == "" {
-				userName = email
-			}
-
-			if err := m.service.SendWelcomeEmail(ctx, email, userName); err != nil {
-				m.deps.Logger.Errorf("notification: failed to send welcome email: %v", err)
-				// Don't return error - we don't want to block signup
-			}
-
+	// AFTER SIGNUP - Conditionally send welcome email (only if verification is not required)
+	events.Subscribe(types.EventAfterSignup, types.EventHandler(func(ctx context.Context, event *types.Event) error {
+		if !m.config.EnableWelcomeEmail {
 			return nil
-		}))
-	}
+		}
+
+		m.deps.Logger.Info("notification: after:signup event received")
+
+		data, ok := event.Data.(map[string]interface{})
+		if !ok {
+			m.deps.Logger.Warnf("notification: invalid event data for after:signup")
+			return nil
+		}
+
+		// Skip welcome if verification is required and not yet verified
+		verificationRequired, _ := data["verification_required"].(bool)
+		emailVerified, _ := data["email_verified"].(bool)
+		phoneVerified, _ := data["phone_verified"].(bool)
+		if verificationRequired && !(emailVerified || phoneVerified) {
+			m.deps.Logger.Info("notification: welcome skipped - verification required")
+			return nil
+		}
+
+		email, _ := data["email"].(string)
+		userName, _ := data["name"].(string)
+		if userName == "" {
+			userName = email
+		}
+
+		if err := m.service.SendWelcomeEmail(ctx, email, userName); err != nil {
+			m.deps.Logger.Errorf("notification: failed to send welcome email: %v", err)
+			// Don't return error - we don't want to block signup
+		}
+
+		return nil
+	}))
 
 	// PASSWORD RESET REQUEST - Send reset email/SMS
 	if m.config.EnablePasswordResetEmail || m.config.EnablePasswordResetSMS {
@@ -231,8 +242,8 @@ func (m *NotificationModule) RegisterHooks(events types.EventBus) error {
 		}))
 	}
 
-	// EMAIL VERIFICATION SENT
-	events.Subscribe(types.EventBeforeChangeEmailVerification, types.EventHandler(func(ctx context.Context, event *types.Event) error {
+	// EMAIL VERIFICATION SENT (generic event) -> Send verification email
+	events.Subscribe(types.EventSendEmailVerification, types.EventHandler(func(ctx context.Context, event *types.Event) error {
 		m.deps.Logger.Info("notification: email:verification:sent event received")
 
 		data, ok := event.Data.(map[string]interface{})
@@ -256,9 +267,56 @@ func (m *NotificationModule) RegisterHooks(events types.EventBus) error {
 		return nil
 	}))
 
-	// 2FA VERIFICATION - Send code
+	// BACKWARD-COMPAT: also handle legacy before:change-email-verification
+	events.Subscribe(types.EventBeforeChangeEmailVerification, types.EventHandler(func(ctx context.Context, event *types.Event) error {
+		m.deps.Logger.Info("notification: legacy email verification event received")
+
+		data, ok := event.Data.(map[string]interface{})
+		if !ok {
+			return nil
+		}
+
+		email, _ := data["email"].(string)
+		userName, _ := data["name"].(string)
+		verificationLink, _ := data["verification_link"].(string)
+		code, _ := data["code"].(string)
+
+		if userName == "" {
+			userName = email
+		}
+
+		if err := m.service.SendEmailVerification(ctx, email, userName, verificationLink, code); err != nil {
+			m.deps.Logger.Errorf("notification: failed to send email verification: %v", err)
+		}
+		return nil
+	}))
+
+	// AFTER EMAIL VERIFIED -> Send welcome email if enabled
+	events.Subscribe(types.EventAfterChangeEmailVerification, types.EventHandler(func(ctx context.Context, event *types.Event) error {
+		if !m.config.EnableWelcomeEmail {
+			return nil
+		}
+
+		data, ok := event.Data.(map[string]interface{})
+		if !ok {
+			return nil
+		}
+
+		email, _ := data["email"].(string)
+		userName, _ := data["name"].(string)
+		if userName == "" {
+			userName = email
+		}
+
+		if err := m.service.SendWelcomeEmail(ctx, email, userName); err != nil {
+			m.deps.Logger.Errorf("notification: failed to send welcome after verification: %v", err)
+		}
+		return nil
+	}))
+
+	// PHONE / 2FA VERIFICATION - Send code (generic event)
 	if m.config.Enable2FANotifications {
-		events.Subscribe(types.EventBeforeChangePhoneVerification, types.EventHandler(func(ctx context.Context, event *types.Event) error {
+		events.Subscribe(types.EventSendPhoneVerification, types.EventHandler(func(ctx context.Context, event *types.Event) error {
 			m.deps.Logger.Info("notification: 2fa:code:sent event received")
 
 			data, ok := event.Data.(map[string]interface{})
@@ -274,6 +332,25 @@ func (m *NotificationModule) RegisterHooks(events types.EventBus) error {
 				m.deps.Logger.Errorf("notification: failed to send 2FA code: %v", err)
 			}
 
+			return nil
+		}))
+
+		// BACKWARD-COMPAT: also handle legacy before:change-phone-verification
+		events.Subscribe(types.EventBeforeChangePhoneVerification, types.EventHandler(func(ctx context.Context, event *types.Event) error {
+			m.deps.Logger.Info("notification: legacy phone verification event received")
+
+			data, ok := event.Data.(map[string]interface{})
+			if !ok {
+				return nil
+			}
+
+			email, _ := data["email"].(string)
+			phoneNumber, _ := data["phone_number"].(string)
+			code, _ := data["code"].(string)
+
+			if err := m.service.SendTwoFactorCode(ctx, email, phoneNumber, code, "5 minutes"); err != nil {
+				m.deps.Logger.Errorf("notification: failed to send 2FA code: %v", err)
+			}
 			return nil
 		}))
 	}
