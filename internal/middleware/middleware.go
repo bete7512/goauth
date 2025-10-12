@@ -3,6 +3,8 @@ package middleware
 import (
 	"net/http"
 	"strings"
+
+	"github.com/google/uuid"
 )
 
 // MiddlewareFunc is a standard HTTP middleware function
@@ -177,7 +179,6 @@ func RequestID() MiddlewareFunc {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			requestID := r.Header.Get("X-Request-ID")
 			if requestID == "" {
-				// Generate a simple request ID
 				requestID = generateRequestID()
 			}
 			w.Header().Set("X-Request-ID", requestID)
@@ -186,7 +187,6 @@ func RequestID() MiddlewareFunc {
 	}
 }
 
-// generateRequestID generates a simple request ID
 func generateRequestID() string {
-	return "req-" + strings.Replace(strings.Replace(http.TimeFormat, " ", "-", -1), ":", "-", -1)
+	return "req-" + uuid.NewString()
 }

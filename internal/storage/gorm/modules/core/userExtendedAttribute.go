@@ -11,7 +11,7 @@ type UserExtendedAttributeRepository struct {
 	db *gorm.DB
 }
 
-var _ models.ExtendedAttributesRepository = (*UserExtendedAttributeRepository)(nil)
+var _ models.ExtendedAttributeRepository = (*UserExtendedAttributeRepository)(nil)
 
 func NewUserExtendedAttributeRepository(db *gorm.DB) *UserExtendedAttributeRepository {
 	return &UserExtendedAttributeRepository{db: db}

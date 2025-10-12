@@ -8,7 +8,6 @@ import (
 	"github.com/bete7512/goauth/internal/events"
 	"github.com/bete7512/goauth/internal/middleware"
 	"github.com/bete7512/goauth/internal/modules/core"
-	coreConfig "github.com/bete7512/goauth/internal/modules/core/config"
 	"github.com/bete7512/goauth/internal/modules/core/models"
 	"github.com/bete7512/goauth/internal/utils/logger"
 	"github.com/bete7512/goauth/pkg/config"
@@ -104,7 +103,7 @@ func New(cfg *config.Config) (*Auth, error) {
 		MiddlewareManager: middlewareManager,
 	}
 	if auth.config.ModuleConfigs[string(types.CoreModule)] == nil {
-		coreConfig := &coreConfig.Config{}
+		coreConfig := &config.CoreConfig{}
 		customRepositories := &core.CustomRepositories{}
 		if auth.storage != nil {
 			if auth.storage.GetRepository(string(types.CoreUserRepository)) == nil {
@@ -120,7 +119,7 @@ func New(cfg *config.Config) (*Auth, error) {
 			customRepositories.SessionRepository = auth.storage.GetRepository(string(types.CoreSessionRepository)).(models.SessionRepository)
 			customRepositories.TokenRepository = auth.storage.GetRepository(string(types.CoreTokenRepository)).(models.TokenRepository)
 			customRepositories.VerificationTokenRepository = auth.storage.GetRepository(string(types.CoreVerificationTokenRepository)).(models.VerificationTokenRepository)
-			customRepositories.UserExtendedAttributesRepository = auth.storage.GetRepository(string(types.CoreUserExtendedAttributeRepository)).(models.ExtendedAttributesRepository)
+			customRepositories.UserExtendedAttributeRepository = auth.storage.GetRepository(string(types.CoreUserExtendedAttributeRepository)).(models.ExtendedAttributeRepository)
 
 		}
 		if auth.config.Core != nil {
@@ -129,7 +128,7 @@ func New(cfg *config.Config) (*Auth, error) {
 			coreConfig.RequireUserName = auth.config.Core.RequireUserName
 			coreConfig.RequirePhoneNumber = auth.config.Core.RequirePhoneNumber
 		}
-		
+
 		coreModule := core.New(coreConfig, customRepositories)
 		auth.modules[coreModule.Name()] = coreModule
 	}

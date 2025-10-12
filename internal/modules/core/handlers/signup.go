@@ -59,40 +59,17 @@ func (h *CoreHandler) Signup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 4. Call service - ALL business logic here
 	response, err := h.CoreService.Signup(ctx, &req)
 	if err != nil {
 		http_utils.RespondError(w, err.StatusCode, string(err.Code), err.Message)
 		return
 	}
-	// 5. Emit after:signup event (include verification context)
 	h.deps.Events.EmitAsync(ctx, types.EventAfterSignup, map[string]interface{}{
 		"request_info":          signupData,
-		"user_id":               response.User.ID,
-		"email":                 response.User.Email,
-		"name":                  response.User.Name,
-		"username":              response.User.Username,
-		"first_name":            response.User.FirstName,
-		"last_name":             response.User.LastName,
-		"phone_number":          response.User.PhoneNumber,
-		"extended_attributes":   response.User.ExtendedAttributes,
-		"email_verified":        response.User.EmailVerified,
-		"phone_verified":        response.User.PhoneNumberVerified,
+		"user":                  response.User,
 		"verification_required": h.deps.Config.Core.RequireEmailVerification || h.deps.Config.Core.RequirePhoneVerification,
 	})
 
-	// 5. Set session cookie
-	http.SetCookie(w, &http.Cookie{
-		Name:     "session_token",
-		Value:    response.Token,
-		HttpOnly: true,
-		Secure:   true, // Set to false in development
-		SameSite: http.SameSiteStrictMode,
-		Path:     "/",
-		MaxAge:   86400, // 24 hours
-	})
-
-	// 6. Return success response
 	w.WriteHeader(http.StatusCreated)
 	http_utils.RespondSuccess(w, response, nil)
 }

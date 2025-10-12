@@ -6,7 +6,6 @@ import (
 
 	_ "embed"
 
-	coreConfig "github.com/bete7512/goauth/internal/modules/core/config"
 	"github.com/bete7512/goauth/internal/modules/core/handlers"
 	"github.com/bete7512/goauth/internal/modules/core/middlewares"
 	"github.com/bete7512/goauth/internal/modules/core/models"
@@ -19,15 +18,15 @@ import (
 type CoreModule struct {
 	deps               config.ModuleDependencies
 	handlers           *handlers.CoreHandler
-	config             *coreConfig.Config
 	customRepositories *CustomRepositories
+	config             *config.CoreConfig
 }
 type CustomRepositories struct {
-	UserRepository                   models.UserRepository
-	UserExtendedAttributesRepository models.ExtendedAttributesRepository
-	SessionRepository                models.SessionRepository
-	TokenRepository                  models.TokenRepository
-	VerificationTokenRepository      models.VerificationTokenRepository
+	UserRepository                  models.UserRepository
+	UserExtendedAttributeRepository models.ExtendedAttributeRepository
+	SessionRepository               models.SessionRepository
+	TokenRepository                 models.TokenRepository
+	VerificationTokenRepository     models.VerificationTokenRepository
 }
 
 //go:embed docs/swagger.yml
@@ -35,12 +34,12 @@ var swaggerSpec []byte
 
 var _ config.Module = (*CoreModule)(nil)
 
-func New(config *coreConfig.Config, customRepositories *CustomRepositories) *CoreModule {
-	if config == nil {
-		config = &coreConfig.Config{}
+func New(cfg *config.CoreConfig, customRepositories *CustomRepositories) *CoreModule {
+	if cfg == nil {
+		cfg = &config.CoreConfig{}
 	}
 	return &CoreModule{
-		config:             config,
+		config:             cfg,
 		customRepositories: customRepositories,
 	}
 }
@@ -96,19 +95,16 @@ func (m *CoreModule) Init(ctx context.Context, deps config.ModuleDependencies) e
 	if !ok {
 		return fmt.Errorf("verification token repository has invalid type")
 	}
-	userAttrRepoRaw, err := getRepo(m.customRepositories.UserExtendedAttributesRepository, string(types.CoreUserExtendedAttributeRepository))
+	userAttrRepoRaw, err := getRepo(m.customRepositories.UserExtendedAttributeRepository, string(types.CoreUserExtendedAttributeRepository))
 	if err != nil {
 		return err
 	}
-	userAttrRepo, ok := userAttrRepoRaw.(models.ExtendedAttributesRepository)
+	userAttrRepo, ok := userAttrRepoRaw.(models.ExtendedAttributeRepository)
 	if !ok {
 		return fmt.Errorf("user attribute repository has invalid type")
 	}
-	if err != nil {
-		return err
-	}
 	if m.deps.Config.Core != nil {
-		m.config = &coreConfig.Config{
+		m.config = &config.CoreConfig{
 			RequireEmailVerification: m.deps.Config.Core.RequireEmailVerification,
 			RequirePhoneVerification: m.deps.Config.Core.RequirePhoneVerification,
 			RequireUserName:          m.deps.Config.Core.RequireUserName,

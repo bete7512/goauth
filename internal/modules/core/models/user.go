@@ -46,7 +46,7 @@ type UserRepository interface {
 	IsAvailable(ctx context.Context, field, value string) (bool, error)
 }
 
-type ExtendedAttributesRepository interface {
+type ExtendedAttributeRepository interface {
 	Create(ctx context.Context, attr *ExtendedAttributes) error
 	FindByUserAndName(ctx context.Context, userID string, name string) (*ExtendedAttributes, error)
 	FindByNameAndValue(ctx context.Context, name string, value string) (*ExtendedAttributes, error)
