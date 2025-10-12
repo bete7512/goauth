@@ -9,6 +9,7 @@ import (
 	"github.com/bete7512/goauth/internal/modules/core/handlers"
 	"github.com/bete7512/goauth/internal/modules/core/middlewares"
 	"github.com/bete7512/goauth/internal/modules/core/models"
+	notification_models "github.com/bete7512/goauth/internal/modules/notification/models"	
 	core_services "github.com/bete7512/goauth/internal/modules/core/services"
 	"github.com/bete7512/goauth/internal/security"
 	"github.com/bete7512/goauth/pkg/config"
@@ -26,7 +27,7 @@ type CustomRepositories struct {
 	UserExtendedAttributeRepository models.ExtendedAttributeRepository
 	SessionRepository               models.SessionRepository
 	TokenRepository                 models.TokenRepository
-	VerificationTokenRepository     models.VerificationTokenRepository
+	VerificationTokenRepository     notification_models.VerificationTokenRepository
 }
 
 //go:embed docs/swagger.yml
@@ -91,7 +92,7 @@ func (m *CoreModule) Init(ctx context.Context, deps config.ModuleDependencies) e
 	if err != nil {
 		return err
 	}
-	verificationTokenRepo, ok := verificationTokenRepoRaw.(models.VerificationTokenRepository)
+	verificationTokenRepo, ok := verificationTokenRepoRaw.(notification_models.VerificationTokenRepository)
 	if !ok {
 		return fmt.Errorf("verification token repository has invalid type")
 	}
@@ -164,7 +165,6 @@ func (m *CoreModule) Models() []interface{} {
 		&models.User{},
 		&models.ExtendedAttributes{},
 		&models.Session{},
-		&models.VerificationToken{},
 		&models.Token{},
 	}
 	return models

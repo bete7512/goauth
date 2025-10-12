@@ -3,6 +3,7 @@ package core_services
 import (
 	"context"
 
+	notification_models "github.com/bete7512/goauth/internal/modules/notification/models"
 	"github.com/bete7512/goauth/internal/modules/core/models"
 	"github.com/bete7512/goauth/internal/security"
 	"github.com/bete7512/goauth/internal/utils/logger"
@@ -16,12 +17,12 @@ type CoreService struct {
 	UserExtendedAttributeRepository models.ExtendedAttributeRepository
 	SessionRepository               models.SessionRepository
 	TokenRepository                 models.TokenRepository
-	VerificationTokenRepository     models.VerificationTokenRepository
+	VerificationTokenRepository     notification_models.VerificationTokenRepository
 	Logger                          logger.Logger
 	SecurityManager                 *security.SecurityManager
 }
 
-func NewCoreService(deps config.ModuleDependencies, userRepository models.UserRepository, userAttrRepo models.ExtendedAttributeRepository, sessionRepository models.SessionRepository, tokenRepository models.TokenRepository, verificationTokenRepository models.VerificationTokenRepository, logger logger.Logger, securityManager *security.SecurityManager, config *config.CoreConfig) *CoreService {
+func NewCoreService(deps config.ModuleDependencies, userRepository models.UserRepository, userAttrRepo models.ExtendedAttributeRepository, sessionRepository models.SessionRepository, tokenRepository models.TokenRepository, verificationTokenRepository notification_models.VerificationTokenRepository, logger logger.Logger, securityManager *security.SecurityManager, config *config.CoreConfig) *CoreService {
 
 	return &CoreService{
 		Deps:                            deps,

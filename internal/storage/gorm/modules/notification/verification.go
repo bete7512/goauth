@@ -1,10 +1,10 @@
-package core
+package notification
 
 import (
 	"context"
 	"time"
 
-	"github.com/bete7512/goauth/internal/modules/core/models"
+	"github.com/bete7512/goauth/internal/modules/notification/models"
 	"gorm.io/gorm"
 )
 

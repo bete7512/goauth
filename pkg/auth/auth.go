@@ -9,6 +9,7 @@ import (
 	"github.com/bete7512/goauth/internal/middleware"
 	"github.com/bete7512/goauth/internal/modules/core"
 	"github.com/bete7512/goauth/internal/modules/core/models"
+	notification_models "github.com/bete7512/goauth/internal/modules/notification/models"
 	"github.com/bete7512/goauth/internal/utils/logger"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/types"
@@ -118,7 +119,7 @@ func New(cfg *config.Config) (*Auth, error) {
 			customRepositories.UserRepository = auth.storage.GetRepository(string(types.CoreUserRepository)).(models.UserRepository)
 			customRepositories.SessionRepository = auth.storage.GetRepository(string(types.CoreSessionRepository)).(models.SessionRepository)
 			customRepositories.TokenRepository = auth.storage.GetRepository(string(types.CoreTokenRepository)).(models.TokenRepository)
-			customRepositories.VerificationTokenRepository = auth.storage.GetRepository(string(types.CoreVerificationTokenRepository)).(models.VerificationTokenRepository)
+			customRepositories.VerificationTokenRepository = auth.storage.GetRepository(string(types.CoreVerificationTokenRepository)).(notification_models.VerificationTokenRepository)
 			customRepositories.UserExtendedAttributeRepository = auth.storage.GetRepository(string(types.CoreUserExtendedAttributeRepository)).(models.ExtendedAttributeRepository)
 
 		}

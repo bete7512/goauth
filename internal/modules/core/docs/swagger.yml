@@ -4,8 +4,7 @@ paths:
     post:
       summary: Register a new user
       description: Create a new user account with email/password
-      # tags: [Authentication]
-      tags: [Core Authentication Module Docs ]
+      tags: [Core Authentication Module Docs]
       requestBody:
         required: true
         content:
@@ -36,7 +35,6 @@ paths:
     post:
       summary: Login with credentials
       description: Authenticate user with email/username and password
-      # tags: [Authentication]
       tags: [Core Authentication Module Docs]
       requestBody:
         required: true
@@ -74,7 +72,6 @@ paths:
     post:
       summary: Logout user
       description: End user session
-      # tags: [Authentication]
       tags: [Core Authentication Module Docs]
       security:
         - sessionAuth: []
@@ -96,7 +93,6 @@ paths:
     get:
       summary: Get current user
       description: Retrieve current authenticated user information
-      # tags: [User]
       tags: [Core Authentication Module Docs]
       security:
         - sessionAuth: []
@@ -114,238 +110,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  # Email Verification Routes
-  /send-verification-email:
-    post:
-      summary: Send email verification
-      description: Send verification email to user's email address
-      # tags: [Verification]
-      tags: [Core Authentication Module Docs]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SendVerificationEmailRequest'
-      responses:
-        '200':
-          description: Verification email sent
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MessageResponse'
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: User not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /verify-email:
-    post:
-      summary: Verify email address
-      description: Verify email address using verification token
-      # tags: [Verification]
-      tags: [Core Authentication Module Docs]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/VerifyEmailRequest'
-      responses:
-        '200':
-          description: Email verified successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MessageResponse'
-        '400':
-          description: Validation error or invalid token
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: User not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /resend-verification-email:
-    post:
-      summary: Resend email verification
-      description: Resend verification email to user's email address
-      # tags: [Verification]
-      tags: [Core Authentication Module Docs]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SendVerificationEmailRequest'
-      responses:
-        '200':
-          description: Verification email resent
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MessageResponse'
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '429':
-          description: Too many requests
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  # Phone Verification Routes
-  /send-verification-phone:
-    post:
-      summary: Send phone verification
-      description: Send verification SMS to user's phone number
-      # tags: [Verification]
-      tags: [Core Authentication Module Docs]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SendVerificationPhoneRequest'
-      responses:
-        '200':
-          description: Verification SMS sent
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MessageResponse'
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: User not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /verify-phone:
-    post:
-      summary: Verify phone number
-      description: Verify phone number using SMS verification code
-      # tags: [Verification]
-      tags: [Core Authentication Module Docs]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/VerifyPhoneRequest'
-      responses:
-        '200':
-          description: Phone verified successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MessageResponse'
-        '400':
-          description: Validation error or invalid code
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: User not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /resend-verification-phone:
-    post:
-      summary: Resend phone verification
-      description: Resend verification SMS to user's phone number
-      # tags: [Verification]
-      tags: [Core Authentication Module Docs]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SendVerificationPhoneRequest'
-      responses:
-        '200':
-          description: Verification SMS resent
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MessageResponse'
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '429':
-          description: Too many requests
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  # Password Recovery Routes
-  /forgot-password:
-    post:
-      summary: Request password reset
-      description: Send password reset link/code via email or SMS
-      # tags: [Password Recovery]
-      tags: [Core Authentication Module Docs]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ForgotPasswordRequest'
-      responses:
-        '200':
-          description: Password reset instructions sent
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MessageResponse'
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: User not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
+  # Password Recovery Routes (reset only)
   /reset-password:
     post:
       summary: Reset password
       description: Reset password using token/code from email/SMS
-      # tags: [Password Recovery]
       tags: [Core Authentication Module Docs]
       requestBody:
         required: true
@@ -378,7 +147,6 @@ paths:
     get:
       summary: Get user profile
       description: Retrieve user profile information
-      # tags: [Profile]
       tags: [Core Authentication Module Docs]
       security:
         - sessionAuth: []
@@ -399,7 +167,6 @@ paths:
     put:
       summary: Update user profile
       description: Update user profile information
-      # tags: [Profile]
       tags: [Core Authentication Module Docs]        
       security:
         - sessionAuth: []
@@ -433,7 +200,6 @@ paths:
     put:
       summary: Change password
       description: Change user password (requires old password)
-      # tags: [Profile]
       tags: [Core Authentication Module Docs]
       security:
         - sessionAuth: []
@@ -468,7 +234,6 @@ paths:
     post:
       summary: Check field availability
       description: Check if email, username, or phone is available
-      # tags: [Utility]
       tags: [Core Authentication Module Docs]
       requestBody:
         required: true
@@ -494,7 +259,6 @@ paths:
     post:
       summary: Check username availability
       description: Check if username is available
-      # tags: [Utility]
       tags: [Core Authentication Module Docs]
 
       requestBody:
@@ -522,7 +286,6 @@ paths:
     post:
       summary: Check phone availability
       description: Check if phone is available
-      # tags: [Utility]
       tags: [Core Authentication Module Docs]
 
       requestBody:
@@ -598,69 +361,6 @@ components:
           type: string
           example: securePassword123
           description: Password
-
-    SendVerificationEmailRequest:
-      type: object
-      required: [email]
-      properties:
-        email:
-          type: string
-          format: email
-          example: user@example.com
-          description: Email address to verify
-
-    VerifyEmailRequest:
-      type: object
-      required: [token, email]
-      properties:
-        token:
-          type: string
-          example: abc123def456
-          description: Verification token from email
-        email:
-          type: string
-          format: email
-          example: user@example.com
-          description: Email address being verified
-
-    SendVerificationPhoneRequest:
-      type: object
-      required: [phone]
-      properties:
-        phone:
-          type: string
-          pattern: '^\+[1-9]\d{1,14}$'
-          example: +1234567890
-          description: Phone number in E.164 format
-
-    VerifyPhoneRequest:
-      type: object
-      required: [phone, code]
-      properties:
-        phone:
-          type: string
-          pattern: '^\+[1-9]\d{1,14}$'
-          example: +1234567890
-          description: Phone number
-        code:
-          type: string
-          pattern: '^\d{6}$'
-          example: "123456"
-          description: 6-digit verification code
-
-    ForgotPasswordRequest:
-      type: object
-      properties:
-        email:
-          type: string
-          format: email
-          example: user@example.com
-          description: Email address
-        phone:
-          type: string
-          pattern: '^\+[1-9]\d{1,14}$'
-          example: +1234567890
-          description: Phone number in E.164 format
 
     ResetPasswordRequest:
       type: object
@@ -870,4 +570,4 @@ components:
 
 tags:
   - name: Core Authentication Module Docs
-    description: Core Authentication Module Docs
+    description: Core Authentication Module API Documentation - Handles user authentication, profile management, and account operations

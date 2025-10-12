@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/bete7512/goauth/internal/storage/gorm/modules/notification"
 	"github.com/bete7512/goauth/internal/storage/gorm/modules/admin"
 	"github.com/bete7512/goauth/internal/storage/gorm/modules/core"
 	"github.com/bete7512/goauth/pkg/config"
@@ -94,7 +95,7 @@ func (s *GormStorage) registerRepositories() {
 	// Core module repositories
 	s.repositories[string(types.CoreUserRepository)] = core.NewUserRepository(s.db)
 	s.repositories[string(types.CoreSessionRepository)] = core.NewSessionRepository(s.db)
-	s.repositories[string(types.CoreVerificationTokenRepository)] = core.NewVerificationTokenRepository(s.db)
+	s.repositories[string(types.CoreVerificationTokenRepository)] = notification.NewVerificationTokenRepository(s.db)
 	s.repositories[string(types.CoreTokenRepository)] = core.NewTokenRepository(s.db)
 	s.repositories[string(types.CoreUserExtendedAttributeRepository)] = core.NewUserExtendedAttributeRepository(s.db)
 

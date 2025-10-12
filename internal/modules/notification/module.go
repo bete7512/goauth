@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"time"
 
+	_ "embed"
+
+	"github.com/bete7512/goauth/internal/modules/notification/handlers"
 	"github.com/bete7512/goauth/internal/modules/notification/models"
 	"github.com/bete7512/goauth/internal/modules/notification/services"
 	"github.com/bete7512/goauth/pkg/config"
@@ -12,9 +15,11 @@ import (
 )
 
 type NotificationModule struct {
-	deps    config.ModuleDependencies
-	service *services.NotificationService
-	config  *Config
+	deps                  config.ModuleDependencies
+	service               *services.NotificationService
+	handlers              *handlers.NotificationHandler
+	config                *Config
+	verificationTokenRepo models.VerificationTokenRepository
 }
 
 // Config holds notification module configuration
@@ -24,6 +29,9 @@ type Config struct {
 
 	// SMS sender implementation (optional - user can provide their own)
 	SMSSender models.SMSSender
+
+	// Verification token repository (optional - user can provide their own)
+	VerificationTokenRepository models.VerificationTokenRepository
 
 	// Service configuration
 	ServiceConfig *services.NotificationConfig
@@ -36,6 +44,9 @@ type Config struct {
 	EnablePasswordChangeAlert bool
 	Enable2FANotifications    bool
 }
+
+//go:embed docs/swagger.yml
+var swaggerSpec []byte
 
 var _ config.Module = (*NotificationModule)(nil)
 
@@ -64,6 +75,19 @@ func (m *NotificationModule) Name() string {
 func (m *NotificationModule) Init(ctx context.Context, deps config.ModuleDependencies) error {
 	m.deps = deps
 
+	// Get verification token repository
+	if m.config.VerificationTokenRepository != nil {
+		m.verificationTokenRepo = m.config.VerificationTokenRepository
+	} else {
+		// Try to get from storage
+		repo := deps.Storage.GetRepository(string(types.CoreVerificationTokenRepository))
+		if repo != nil {
+			if verificationRepo, ok := repo.(models.VerificationTokenRepository); ok {
+				m.verificationTokenRepo = verificationRepo
+			}
+		}
+	}
+
 	// Validate that at least one sender is configured
 	if m.config.EmailSender == nil && m.config.SMSSender == nil {
 		deps.Logger.Warnf("notification module: no email or SMS sender configured, notifications will not be sent")
@@ -90,14 +114,20 @@ func (m *NotificationModule) Init(ctx context.Context, deps config.ModuleDepende
 		m.config.EmailSender,
 		m.config.SMSSender,
 		m.config.ServiceConfig,
+		m.verificationTokenRepo,
 	)
+
+	// Initialize handlers
+	m.handlers = handlers.NewNotificationHandler(m.service, deps)
 
 	return nil
 }
 
 func (m *NotificationModule) Routes() []config.RouteInfo {
-	// Notification module doesn't expose any routes
-	return nil
+	if m.handlers == nil {
+		return nil
+	}
+	return m.handlers.GetRoutes()
 }
 
 func (m *NotificationModule) Middlewares() []config.MiddlewareConfig {
@@ -106,8 +136,11 @@ func (m *NotificationModule) Middlewares() []config.MiddlewareConfig {
 }
 
 func (m *NotificationModule) Models() []interface{} {
-	// Notification module doesn't have any database models
-	return nil
+	// Notification module now includes verification token model
+	models := []interface{}{
+		&models.VerificationToken{},
+	}
+	return models
 }
 
 func (m *NotificationModule) RegisterHooks(events types.EventBus) error {
@@ -359,6 +392,10 @@ func (m *NotificationModule) RegisterHooks(events types.EventBus) error {
 	return nil
 }
 
+func (m *NotificationModule) SwaggerSpec() []byte {
+	return swaggerSpec
+}
+
 func (m *NotificationModule) Dependencies() []string {
 	// Notification module depends on core for user events
 	return []string{string(types.CoreModule)}
@@ -367,8 +404,4 @@ func (m *NotificationModule) Dependencies() []string {
 // GetService returns the notification service for direct access
 func (m *NotificationModule) GetService() *services.NotificationService {
 	return m.service
-}
-
-func (m *NotificationModule) SwaggerSpec() []byte {
-	return nil
 }

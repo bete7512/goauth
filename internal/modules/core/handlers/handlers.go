@@ -50,46 +50,6 @@ func (h *CoreHandler) GetRoutes() []config.RouteInfo {
 			Handler: authMiddleware.AuthMiddleware(http.HandlerFunc(h.Me)).ServeHTTP,
 		},
 
-		// 📌 Email / Phone Verification
-		{
-			Name:    "core.send_verification_email",
-			Path:    "/send-verification-email",
-			Method:  "POST",
-			Handler: h.SendVerificationEmail,
-		},
-		{
-			Name:    "core.verify_email",
-			Path:    "/verify-email",
-			Method:  "POST",
-			Handler: h.VerifyEmail,
-		},
-		{
-			Name:    "core.send_verification_phone",
-			Path:    "/send-verification-phone",
-			Method:  "POST",
-			Handler: h.SendVerificationPhone,
-		},
-		{
-			Name:    "core.verify_phone",
-			Path:    "/verify-phone",
-			Method:  "POST",
-			Handler: h.VerifyPhone,
-		},
-
-		// 📌 Password Recovery
-		{
-			Name:    "core.forgot_password",
-			Path:    "/forgot-password",
-			Method:  "POST",
-			Handler: h.ForgotPassword,
-		},
-		{
-			Name:    "core.reset_password",
-			Path:    "/reset-password",
-			Method:  "POST",
-			Handler: h.ResetPassword,
-		},
-
 		// 📌 Account Management
 		{
 			Name:    "core.profile",
@@ -126,18 +86,6 @@ func (h *CoreHandler) GetRoutes() []config.RouteInfo {
 			Path:    "/availability/phone",
 			Method:  "POST",
 			Handler: h.CheckPhoneAvailability,
-		},
-		{
-			Name:    "core.resend_verification_email",
-			Path:    "/resend-verification-email",
-			Method:  "POST",
-			Handler: h.ResendVerificationEmail,
-		},
-		{
-			Name:    "core.resend_verification_phone",
-			Path:    "/resend-verification-phone",
-			Method:  "POST",
-			Handler: h.ResendVerificationPhone,
 		},
 	}
 	return routes

@@ -57,3 +57,4 @@ export function isFeatureEnabled(feature: keyof typeof DEMO_CONFIG.features): bo
 export function getValidationRules() {
   return DEMO_CONFIG.validation
 }
+
