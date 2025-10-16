@@ -77,3 +77,11 @@ func (m *AuthMiddleware) extractToken(r *http.Request, accessToken string) strin
 	}
 	return ""
 }
+
+func (m *AuthMiddleware) AuthMiddlewareFunc(next http.HandlerFunc) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		m.AuthMiddleware(http.HandlerFunc(next)).ServeHTTP(w, r)
+	})
+}
+
+

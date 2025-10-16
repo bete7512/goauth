@@ -15,16 +15,17 @@ type GoAuthError struct {
 
 const (
 	// User related errors
-	ErrUserNotFound         ErrorCode = "USER_NOT_FOUND"
-	ErrUserAlreadyExists    ErrorCode = "USER_ALREADY_EXISTS"
-	ErrUserNotActive        ErrorCode = "USER_NOT_ACTIVE"
-	ErrUserBlocked          ErrorCode = "USER_BLOCKED"
-	ErrEmailNotVerified     ErrorCode = "EMAIL_NOT_VERIFIED"
-	ErrPhoneNotVerified     ErrorCode = "PHONE_NOT_VERIFIED"
-	ErrAccountDeactivated   ErrorCode = "ACCOUNT_DEACTIVATED"
-	ErrEmailAlreadyVerified ErrorCode = "EMAIL_ALREADY_VERIFIED"
-	ErrPhoneAlreadyVerified ErrorCode = "PHONE_ALREADY_VERIFIED"
-	ErrPhoneAlreadyInUse    ErrorCode = "PHONE_ALREADY_IN_USE"
+	ErrUserNotFound          ErrorCode = "USER_NOT_FOUND"
+	ErrUserAlreadyExists     ErrorCode = "USER_ALREADY_EXISTS"
+	ErrUserNotActive         ErrorCode = "USER_NOT_ACTIVE"
+	ErrUserBlocked           ErrorCode = "USER_BLOCKED"
+	ErrEmailNotVerified      ErrorCode = "EMAIL_NOT_VERIFIED"
+	ErrPhoneNotVerified      ErrorCode = "PHONE_NOT_VERIFIED"
+	ErrAccountDeactivated    ErrorCode = "ACCOUNT_DEACTIVATED"
+	ErrEmailAlreadyVerified  ErrorCode = "EMAIL_ALREADY_VERIFIED"
+	ErrPhoneAlreadyVerified  ErrorCode = "PHONE_ALREADY_VERIFIED"
+	ErrPhoneAlreadyInUse     ErrorCode = "PHONE_ALREADY_IN_USE"
+	ErrUsernameAlreadyExists ErrorCode = "USERNAME_ALREADY_EXISTS"
 	// Authentication errors
 	ErrInvalidCredentials  ErrorCode = "INVALID_CREDENTIALS"
 	ErrInvalidToken        ErrorCode = "INVALID_TOKEN"
@@ -365,6 +366,14 @@ func NewInternalError(message string) *GoAuthError {
 		Code:       ErrInternalError,
 		Message:    message,
 		StatusCode: http.StatusInternalServerError,
+	}
+}
+
+func NewUsernameAlreadyExistsError() *GoAuthError {
+	return &GoAuthError{
+		Code:       ErrUsernameAlreadyExists,
+		Message:    "Username already exists",
+		StatusCode: http.StatusBadRequest,
 	}
 }
 

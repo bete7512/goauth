@@ -12,10 +12,11 @@ import (
 )
 
 type RouteInfo struct {
-	Name    string // Unique route identifier (e.g., "core.login", "admin.users.list")
-	Method  string
-	Path    string
-	Handler http.HandlerFunc
+	Name        string // Unique route identifier (e.g., "core.login", "admin.users.list")
+	Method      string
+	Path        string
+	Handler     http.HandlerFunc
+	Middlewares []string
 }
 
 type ModuleMigration struct {
@@ -92,7 +93,7 @@ type Config struct {
 
 	// Logger - Users can provide their own logger implementation
 	// If nil, a default logrus logger will be used
-	Logger logger.Logger
+	Logger *logger.LogrusLogger
 
 	// CORS Configuration
 	CORS *CORSConfig
@@ -107,6 +108,21 @@ type Config struct {
 
 	// Core Config
 	Core *CoreConfig
+
+	// app config
+	FrontendConfig *FrontendConfig
+}
+
+type FrontendConfig struct {
+	Domain             string
+	URL                string
+	ResetPasswordPath  string
+	VerifyEmailPath    string
+	LoginPath          string
+	SignupPath         string
+	LogoutPath         string
+	ProfilePath        string
+	ChangePasswordPath string
 }
 
 type CoreConfig struct {
@@ -114,6 +130,7 @@ type CoreConfig struct {
 	RequireUserName          bool
 	RequireEmailVerification bool
 	RequirePhoneVerification bool
+	UniquePhoneNumber        bool
 }
 
 // CORSConfig holds CORS configuration
@@ -139,8 +156,11 @@ func (c *Config) Validate() error {
 	if c.Security.HashSaltLength <= 0 {
 		c.Security.HashSaltLength = 10 // Default to 10
 	}
-	if c.Security.Session.Expiration <= 0 {
-		c.Security.Session.Expiration = 24 * time.Hour // Default to 24 hours
+	if c.Security.Session.SessionTTL <= 0 {
+		c.Security.Session.SessionTTL = 30 * 24 * time.Hour // Default to 24 hours
+	}
+	if c.Security.Session.RefreshTokenTTL <= 0 {
+		c.Security.Session.RefreshTokenTTL = 7 * 24 * time.Hour // Default to 7 days
 	}
 	if c.BasePath == "" {
 		c.BasePath = "/auth"

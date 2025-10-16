@@ -7,6 +7,7 @@ import (
 
 	_ "embed"
 
+	coreModels "github.com/bete7512/goauth/internal/modules/core/models"
 	"github.com/bete7512/goauth/internal/modules/notification/handlers"
 	"github.com/bete7512/goauth/internal/modules/notification/models"
 	"github.com/bete7512/goauth/internal/modules/notification/services"
@@ -144,9 +145,7 @@ func (m *NotificationModule) Models() []interface{} {
 }
 
 func (m *NotificationModule) RegisterHooks(events types.EventBus) error {
-	m.deps.Logger.Info("notification module: registering event hooks")
 
-	// AFTER SIGNUP - Conditionally send welcome email (only if verification is not required)
 	events.Subscribe(types.EventAfterSignup, types.EventHandler(func(ctx context.Context, event *types.Event) error {
 		if !m.config.EnableWelcomeEmail {
 			return nil
@@ -159,25 +158,21 @@ func (m *NotificationModule) RegisterHooks(events types.EventBus) error {
 			m.deps.Logger.Warnf("notification: invalid event data for after:signup")
 			return nil
 		}
-
-		// Skip welcome if verification is required and not yet verified
-		verificationRequired, _ := data["verification_required"].(bool)
-		emailVerified, _ := data["email_verified"].(bool)
-		phoneVerified, _ := data["phone_verified"].(bool)
-		if verificationRequired && !(emailVerified || phoneVerified) {
-			m.deps.Logger.Info("notification: welcome skipped - verification required")
+		user, ok := data["user"].(coreModels.User)
+		if !ok {
+			m.deps.Logger.Warnf("notification: invalid user data for after:signup")
+			return nil
+		}
+		_, ok = data["metadata"].(map[string]interface{})
+		if !ok {
+			m.deps.Logger.Warnf("notification: invalid metadata data for after:signup")
 			return nil
 		}
 
-		email, _ := data["email"].(string)
-		userName, _ := data["name"].(string)
-		if userName == "" {
-			userName = email
-		}
-
-		if err := m.service.SendWelcomeEmail(ctx, email, userName); err != nil {
-			m.deps.Logger.Errorf("notification: failed to send welcome email: %v", err)
-			// Don't return error - we don't want to block signup
+		if m.config.EnableWelcomeEmail {
+			if err := m.service.SendWelcomeEmail(ctx, user.Email, user.Username); err != nil {
+				m.deps.Logger.Errorf("notification: failed to send welcome email: %v", err)
+			}
 		}
 
 		return nil
@@ -256,18 +251,20 @@ func (m *NotificationModule) RegisterHooks(events types.EventBus) error {
 			if !ok {
 				return nil
 			}
-
-			userMap, _ := data["user"].(map[string]interface{})
-			email, _ := userMap["email"].(string)
-			userName, _ := userMap["name"].(string)
-			ipAddress, _ := data["ip_address"].(string)
-			timestamp, _ := data["timestamp"].(string)
-
-			if userName == "" {
-				userName = email
+			user, ok := data["user"].(coreModels.User)
+			if !ok {
+				m.deps.Logger.Warnf("notification: invalid user data for after:login")
+				return nil
 			}
+			metadata, ok := data["metadata"].(map[string]interface{})
+			if !ok {
+				m.deps.Logger.Warnf("notification: invalid metadata data for after:login")
+				return nil
+			}
+			ipAddress, _ := metadata["ip_address"].(string)
+			timestamp, _ := metadata["timestamp"].(string)
 
-			if err := m.service.SendLoginAlert(ctx, email, userName, ipAddress, timestamp); err != nil {
+			if err := m.service.SendLoginAlert(ctx, user.Email, user.Username, ipAddress, timestamp); err != nil {
 				m.deps.Logger.Errorf("notification: failed to send login alert: %v", err)
 			}
 
@@ -283,17 +280,15 @@ func (m *NotificationModule) RegisterHooks(events types.EventBus) error {
 		if !ok {
 			return nil
 		}
-
-		email, _ := data["email"].(string)
-		userName, _ := data["name"].(string)
+		user, ok := data["user"].(coreModels.User)
+		if !ok {
+			m.deps.Logger.Warnf("notification: invalid user data for send:email-verification")
+			return nil
+		}
 		verificationLink, _ := data["verification_link"].(string)
 		code, _ := data["code"].(string)
 
-		if userName == "" {
-			userName = email
-		}
-
-		if err := m.service.SendEmailVerification(ctx, email, userName, verificationLink, code); err != nil {
+		if err := m.service.SendEmailVerification(ctx, user.Email, user.Username, verificationLink, code); err != nil {
 			m.deps.Logger.Errorf("notification: failed to send email verification: %v", err)
 		}
 

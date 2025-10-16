@@ -4,6 +4,10 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
+
+	"github.com/bete7512/goauth/internal/modules/core/models"
+	"github.com/bete7512/goauth/pkg/types"
 )
 
 // SignupRequest represents signup request
@@ -25,18 +29,38 @@ func (r *SignupRequest) Validate() error {
 	if r.Email != "" && !isValidEmail(r.Email) {
 		return fmt.Errorf("invalid email format")
 	}
-	if r.Password == "" {
-		return fmt.Errorf("password is required")
-	}
-	if len(r.Password) < 8 {
-		return fmt.Errorf("password must be at least 8 characters")
-	}
 	if r.Username != "" && !isValidUsername(r.Username) {
 		return fmt.Errorf("username must be 3-30 characters and contain only letters, numbers, underscores, and hyphens")
 	}
 	if r.PhoneNumber != "" && !isValidPhone(r.PhoneNumber) {
 		return fmt.Errorf("invalid phone number format (use E.164 format: +1234567890)")
 	}
+
+	return nil
+}
+func (r *SignupRequest) ValidatePassword(policy types.PasswordPolicy) error {
+	if r.Password == "" {
+		return fmt.Errorf("password is required")
+	}
+	if len(r.Password) < policy.MinLength {
+		return fmt.Errorf("password must be at least %d characters", policy.MinLength)
+	}
+	if len(r.Password) > policy.MaxLength {
+		return fmt.Errorf("password must be less than %d characters", policy.MaxLength)
+	}
+	if policy.RequireUppercase && !strings.ContainsAny(r.Password, "ABCDEFGHIJKLMNOPQRSTUVWXYZ") {
+		return fmt.Errorf("password must contain at least one uppercase letter")
+	}
+	if policy.RequireLowercase && !strings.ContainsAny(r.Password, "abcdefghijklmnopqrstuvwxyz") {
+		return fmt.Errorf("password must contain at least one lowercase letter")
+	}
+	if policy.RequireNumbers && !strings.ContainsAny(r.Password, "0123456789") {
+		return fmt.Errorf("password must contain at least one number")
+	}
+	if policy.RequireSpecial && !strings.ContainsAny(r.Password, "!@#$%^&*()_+-=[]{}|;:,.<>?") {
+		return fmt.Errorf("password must contain at least one special character")
+	}
+
 	return nil
 }
 
@@ -244,8 +268,8 @@ func (r *CheckAvailabilityRequest) ValidatePhone() error {
 
 // AuthResponse represents authentication response
 type AuthResponse struct {
-	Token        string   `json:"token,omitempty"`
-	RefreshToken string   `json:"refresh_token,omitempty"`
+	AccessToken  *string  `json:"access_token,omitempty"`
+	RefreshToken *string  `json:"refresh_token,omitempty"`
 	User         *UserDTO `json:"user"`
 	ExpiresIn    int64    `json:"expires_in,omitempty"`
 	Message      string   `json:"message,omitempty"`
@@ -268,9 +292,45 @@ type UserDTO struct {
 	Active              bool                 `json:"active"`
 	EmailVerified       bool                 `json:"email_verified"`
 	PhoneNumberVerified bool                 `json:"phone_number_verified"`
-	CreatedAt           string               `json:"created_at"`
-	UpdatedAt           string               `json:"updated_at"`
+	CreatedAt           time.Time            `json:"created_at"`
+	UpdatedAt           *time.Time           `json:"updated_at"`
+	LastLoginAt         *time.Time           `json:"last_login_at,omitempty"`
 	ExtendedAttributes  []ExtendedAttributes `json:"extended_attributes,omitempty"`
+}
+
+func (u *UserDTO) ToUser() *models.User {
+	return &models.User{
+		ID:                  u.ID,
+		FirstName:           u.FirstName,
+		LastName:            u.LastName,
+		Name:                u.Name,
+		Email:               u.Email,
+		Username:            u.Username,
+		Avatar:              u.Avatar,
+		PhoneNumber:         u.PhoneNumber,
+		Active:              u.Active,
+		EmailVerified:       u.EmailVerified,
+		PhoneNumberVerified: u.PhoneNumberVerified,
+		CreatedAt:           u.CreatedAt,
+		UpdatedAt:           u.UpdatedAt,
+		LastLoginAt:         u.LastLoginAt,
+		ExtendedAttributes: func() []models.ExtendedAttributes {
+			attrs := make([]models.ExtendedAttributes, len(u.ExtendedAttributes))
+			for i, attr := range u.ExtendedAttributes {
+				attrs[i] = models.ExtendedAttributes{Name: attr.Name, Value: attr.Value}
+			}
+			return attrs
+		}(),
+	}
+}
+
+func (u *UserDTO) ToUserDTO() *UserDTO {
+	return &UserDTO{
+		ID:        u.ID,
+		FirstName: u.FirstName,
+		LastName:  u.LastName,
+		Name:      u.Name,
+	}
 }
 
 // MessageResponse represents a simple message response

@@ -33,38 +33,46 @@ func (s *CoreService) Login(ctx context.Context, req *dto.LoginRequest) (*dto.Au
 		return nil, types.NewInvalidCredentialsError()
 	}
 
-	// Generate session token
-	sessionToken, err := s.Deps.SecurityManager.GenerateRandomToken(32)
+	// // Generate session token
+	// sessionToken, err := s.Deps.SecurityManager.GenerateRandomToken(32)
+	// if err != nil {
+	// 	return nil, types.NewInternalError(fmt.Sprintf("failed to generate session token: %w", err))
+	// }
+	accessToken, refreshToken, err := s.SecurityManager.GenerateTokens(user, map[string]interface{}{})
 	if err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to generate session token: %w", err))
+		return nil, types.NewInternalError(fmt.Sprintf("failed to generate tokens: %w", err))
 	}
 
 	// Create session
 	session := &models.Session{
-		ID:        uuid.New().String(),
-		UserID:    user.ID,
-		Token:     sessionToken,
-		ExpiresAt: time.Now().Add(s.Deps.Config.Security.Session.SessionDuration), // 24 hours
-		CreatedAt: time.Now(),
+		ID:                    uuid.New().String(),
+		UserID:                user.ID,
+		RefreshToken:          refreshToken,
+		RefreshTokenExpiresAt: time.Now().Add(s.Deps.Config.Security.Session.RefreshTokenTTL),
+		ExpiresAt:             time.Now().Add(s.Deps.Config.Security.Session.SessionTTL), // 24 hours
+		CreatedAt:             time.Now(),
+	}
+	now := time.Now()
+
+	user.LastLoginAt = &now
+	user.UpdatedAt = &now
+	if err := s.UserRepository.Update(ctx, user); err != nil {
+		s.Deps.Logger.Error("failed to update user", "error", err)
 	}
 
 	if err := s.SessionRepository.Create(ctx, session); err != nil {
 		return nil, types.NewInternalError(fmt.Sprintf("failed to create session: %w", err))
 	}
 
-	// Update last login
-	user.UpdatedAt = time.Now()
-	s.UserRepository.Update(ctx, user)
-
 	// Emit after login event
 	s.Deps.Events.EmitAsync(ctx, types.EventAfterLogin, map[string]interface{}{
-		"user":       user,
-		"ip_address": ctx.Value("ip_address"),
-		"timestamp":  time.Now().Format("2006-01-02 15:04:05"),
+		"user":    user,
+		"session": session,
 	})
 
 	return &dto.AuthResponse{
-		Token: sessionToken,
+		AccessToken:  &accessToken,
+		RefreshToken: &refreshToken,
 		User: &dto.UserDTO{
 			ID:                  user.ID,
 			Email:               user.Email,
@@ -73,13 +81,21 @@ func (s *CoreService) Login(ctx context.Context, req *dto.LoginRequest) (*dto.Au
 			FirstName:           user.FirstName,
 			LastName:            user.LastName,
 			PhoneNumber:         user.PhoneNumber,
-			Active:              true,
+			Active:              user.Active,
 			EmailVerified:       user.EmailVerified,
 			PhoneNumberVerified: user.PhoneNumberVerified,
-			CreatedAt:           user.CreatedAt.Format(time.RFC3339),
-			UpdatedAt:           user.UpdatedAt.Format(time.RFC3339),
+			CreatedAt:           user.CreatedAt,
+			UpdatedAt:           user.UpdatedAt,
+			LastLoginAt:         user.LastLoginAt,
+			ExtendedAttributes: func() []dto.ExtendedAttributes {
+				attrs := make([]dto.ExtendedAttributes, len(user.ExtendedAttributes))
+				for i, attr := range user.ExtendedAttributes {
+					attrs[i] = dto.ExtendedAttributes{Name: attr.Name, Value: attr.Value}
+				}
+				return attrs
+			}(),
 		},
-		ExpiresIn: int64(s.Deps.Config.Security.Session.SessionDuration.Seconds()),
+		ExpiresIn: int64(s.Deps.Config.Security.Session.SessionTTL.Seconds()),
 		Message:   "Login successful",
 	}, nil
 }

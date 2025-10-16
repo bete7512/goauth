@@ -18,9 +18,9 @@ type User struct {
 	Active              bool                 `json:"active" gorm:"default:true"`
 	EmailVerified       bool                 `json:"email_verified" gorm:"default:false"`
 	PhoneNumberVerified bool                 `json:"phone_number_verified" gorm:"default:false"`
-	LastLoginAt         *time.Time           `json:"last_login_at"`
 	CreatedAt           time.Time            `json:"created_at"`
-	UpdatedAt           time.Time            `json:"updated_at"`
+	LastLoginAt         *time.Time           `json:"last_login_at"`
+	UpdatedAt           *time.Time           `json:"updated_at"`
 	ExtendedAttributes  []ExtendedAttributes `json:"extended_attributes" gorm:"foreignKey:UserId;references:ID"`
 }
 

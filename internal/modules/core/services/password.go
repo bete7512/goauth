@@ -111,6 +111,7 @@ func (s *CoreService) ResetPassword(ctx context.Context, req *dto.ResetPasswordR
 		return nil, errors.New("user not found")
 	}
 
+	now := time.Now()
 	// Hash new password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
 	if err != nil {
@@ -119,7 +120,7 @@ func (s *CoreService) ResetPassword(ctx context.Context, req *dto.ResetPasswordR
 
 	// Update password
 	user.PasswordHash = string(hashedPassword)
-	user.UpdatedAt = time.Now()
+	user.UpdatedAt = &now
 
 	if err := s.UserRepository.Update(ctx, user); err != nil {
 		return nil, fmt.Errorf("failed to update password: %w", err)
@@ -152,6 +153,7 @@ func (s *CoreService) ChangePassword(ctx context.Context, userID string, req *dt
 		return nil, errors.New("user not found")
 	}
 
+	now := time.Now()
 	// Verify old password
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.OldPassword)); err != nil {
 		return nil, errors.New("invalid old password")
@@ -165,7 +167,7 @@ func (s *CoreService) ChangePassword(ctx context.Context, userID string, req *dt
 
 	// Update password
 	user.PasswordHash = string(hashedPassword)
-	user.UpdatedAt = time.Now()
+	user.UpdatedAt = &now
 
 	if err := s.UserRepository.Update(ctx, user); err != nil {
 		return nil, fmt.Errorf("failed to update password: %w", err)

@@ -53,7 +53,7 @@ func (a *EventBusAdapter) Subscribe(eventType types.EventType, handler types.Eve
 
 // Emit dispatches an event (string version)
 func (a *EventBusAdapter) EmitAsync(ctx context.Context, eventType types.EventType, data interface{}) error {
-	return a.bus.Emit(ctx, eventType, data)
+	return a.bus.EmitAsync(ctx, eventType, data)
 }
 
 // EmitSync dispatches an event synchronously (string version)

@@ -44,13 +44,14 @@ func main() {
 			EncryptionKey: "your-encryption-key-change-in-production",
 			Session: types.SessionConfig{
 				Name:            "session_token",
-				SessionDuration: 24 * time.Hour,
+				SessionTTL:      30 * 24 * time.Hour,
 				AccessTokenTTL:  15 * time.Minute,
 				RefreshTokenTTL: 7 * 24 * time.Hour,
 			},
 		},
 		AutoMigrate: true,
 		BasePath:    "/api/v1",
+
 	})
 	if err != nil {
 		log.Fatalf("Failed to create auth: %v", err)
@@ -66,7 +67,6 @@ func main() {
 			AppName:           "Your App",
 			SupportEmail:      "support@yourapp.com",
 			SupportLink:       "https://yourapp.com/support",
-			EnableEmailAlerts: true,
 		},
 		EnableWelcomeEmail:        true,
 		EnablePasswordResetEmail:  true,
@@ -77,8 +77,10 @@ func main() {
 	}))
 
 	// Register custom hooks (user-defined)
-	authInstance.On(types.EventAfterLogin, func(ctx context.Context, e *types.Event) error {
-		log.Println("custom after:login hook", e.Type)
+	authInstance.On(types.EventBeforeSignup, func(ctx context.Context, e *types.Event) error {
+		log.Println("looooooooooooooooooooooooooo Handler error for before:signup", e.Type, e.Data)
+		time.Sleep(30 * time.Second)	
+		log.Println("looooooooooooooooooooooooooo Handler error for before:signup", e.Type)
 		return nil
 	})
 	// Initialize after all modules are registered

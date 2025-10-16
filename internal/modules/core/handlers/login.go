@@ -53,11 +53,20 @@ func (h *CoreHandler) Login(w http.ResponseWriter, r *http.Request) {
 		http_utils.RespondError(w, err.StatusCode, string(err.Code), err.Message)
 		return
 	}
+	if response.AccessToken == nil || response.RefreshToken == nil {
+		http_utils.RespondError(w, http.StatusInternalServerError, string(types.ErrInternalError), "Failed to generate tokens")
+		return
+	}
+	h.setSessionCookies(w, response)
+	// 6. Return success response
+	http_utils.RespondSuccess(w, response, nil)
+}
 
+func (h *CoreHandler) setSessionCookies(w http.ResponseWriter, response *dto.AuthResponse) {
 	accessTokenName := "goauth_access_" + h.deps.Config.Security.Session.Name
 	http.SetCookie(w, &http.Cookie{
 		Name:     accessTokenName,
-		Value:    response.Token,
+		Value:    *response.AccessToken,
 		HttpOnly: h.deps.Config.Security.Session.HttpOnly,
 		Secure:   h.deps.Config.Security.Session.Secure, // Set to false in development
 		SameSite: h.deps.Config.Security.Session.SameSite,
@@ -67,14 +76,11 @@ func (h *CoreHandler) Login(w http.ResponseWriter, r *http.Request) {
 	refreshTokenName := "goauth_refresh_" + h.deps.Config.Security.Session.Name
 	http.SetCookie(w, &http.Cookie{
 		Name:     refreshTokenName,
-		Value:    response.RefreshToken,
+		Value:    *response.RefreshToken,
 		HttpOnly: h.deps.Config.Security.Session.HttpOnly,
 		Secure:   h.deps.Config.Security.Session.Secure, // Set to false in development
 		SameSite: h.deps.Config.Security.Session.SameSite,
 		Path:     h.deps.Config.Security.Session.Path,
 		MaxAge:   h.deps.Config.Security.Session.MaxAge, // 24 hours
 	})
-
-	// 6. Return success response
-	http_utils.RespondSuccess(w, response, nil)
 }

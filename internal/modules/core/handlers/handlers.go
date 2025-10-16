@@ -42,12 +42,14 @@ func (h *CoreHandler) GetRoutes() []config.RouteInfo {
 			Path:    "/logout",
 			Method:  "POST",
 			Handler: authMiddleware.AuthMiddleware(http.HandlerFunc(h.Logout)).ServeHTTP,
+			Middlewares: []string{"core.auth"},
 		},
 		{
 			Name:    "core.me",
 			Path:    "/me",
 			Method:  "GET",
 			Handler: authMiddleware.AuthMiddleware(http.HandlerFunc(h.Me)).ServeHTTP,
+			Middlewares: []string{"core.auth"},
 		},
 
 		// 📌 Account Management
@@ -56,18 +58,21 @@ func (h *CoreHandler) GetRoutes() []config.RouteInfo {
 			Path:    "/profile",
 			Method:  "GET",
 			Handler: authMiddleware.AuthMiddleware(http.HandlerFunc(h.Profile)).ServeHTTP,
+			Middlewares: []string{"core.user.auth","admin.admin.auth"},
 		},
 		{
 			Name:    "core.update_profile",
 			Path:    "/profile",
 			Method:  "PUT",
 			Handler: authMiddleware.AuthMiddleware(http.HandlerFunc(h.UpdateProfile)).ServeHTTP,
+			Middlewares: []string{"core.user.auth","admin.admin.auth"},
 		},
 		{
 			Name:    "core.change_password",
 			Path:    "/change-password",
 			Method:  "PUT",
 			Handler: authMiddleware.AuthMiddleware(http.HandlerFunc(h.ChangePassword)).ServeHTTP,
+			Middlewares: []string{"core.auth"},
 		},
 		{
 			Name:    "core.check_availability",

@@ -86,7 +86,7 @@ func (eb *EventBus) Subscribe(eventType types.EventType, handler types.EventHand
 
 // Emit dispatches an event to all registered handlers
 // Sync handlers execute immediately, async handlers use the backend
-func (eb *EventBus) Emit(ctx context.Context, eventType types.EventType, data interface{}) error {
+func (eb *EventBus) EmitAsync(ctx context.Context, eventType types.EventType, data interface{}) error {
 	eb.mu.RLock()
 	handlers := eb.handlers[eventType]
 	eb.mu.RUnlock()
@@ -101,37 +101,20 @@ func (eb *EventBus) Emit(ctx context.Context, eventType types.EventType, data in
 		Context: ctx,
 	}
 
-	// Execute sync handlers first
-	for _, h := range handlers {
-		if !h.async {
-			if err := h.handler(ctx, event); err != nil {
-				return fmt.Errorf("handler error for %s: %w", eventType, err)
-			}
-		}
-	}
-
-	// Submit async handlers to backend
-	for _, h := range handlers {
-		if h.async {
-			// Use custom backend if it's not the default
+	go func() {
+		for _, h := range handlers {
 			if defaultBackend, ok := eb.asyncBackend.(*DefaultAsyncBackend); ok {
-				// Use worker pool
-				if err := defaultBackend.SubmitJob(ctx, h.handler, event); err != nil {
-					if eb.logger != nil {
-						eb.logger.Error("Failed to submit async job", "event", eventType, "error", err)
-					}
+				if err := defaultBackend.SubmitJob(ctx, h.handler, event); err != nil && eb.logger != nil {
+					eb.logger.Errorf("Failed to submit async job: %v", err)
 				}
 			} else {
-				// Use external queue (Redis, RabbitMQ, etc.)
-				// The handler will be executed by external consumers
-				if err := eb.asyncBackend.Publish(ctx, eventType, event); err != nil {
-					if eb.logger != nil {
-						eb.logger.Error("Failed to publish to async backend", "event", eventType, "error", err)
-					}
+				if err := eb.asyncBackend.Publish(ctx, eventType, event); err != nil && eb.logger != nil {
+					eb.logger.Error("Failed to publish to async backend", "event", eventType, "error", err)
 				}
 			}
+
 		}
-	}
+	}()
 
 	return nil
 }
@@ -154,7 +137,7 @@ func (eb *EventBus) EmitSync(ctx context.Context, eventType types.EventType, dat
 
 	for _, h := range handlers {
 		if err := h.handler(ctx, event); err != nil {
-			return fmt.Errorf("handler error for %s: %w", eventType, err)
+			return fmt.Errorf("event bus: handler error for %s: %w", eventType, err)
 		}
 	}
 

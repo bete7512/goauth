@@ -8,18 +8,21 @@ import (
 )
 
 type CSRFConfig struct {
-	ExcludePaths     []string
-	ProtectedMethods []string
+	ApplyToOnlyRoutes []string
+	ExcludePaths      []string
+	ProtectedMethods  []string
 }
 
 // NewCSRFMiddleware creates a CSRF protection middleware
 func NewCSRFMiddleware(service *services.CSRFService, config interface{}) func(http.Handler) http.Handler {
 	// Extract config
+	var applyToOnlyRoutes []string
 	var excludePaths []string
 	var protectedMethods []string
 
 	// Try to extract config values using type assertion
 	type csrfConfig interface {
+		GetApplyToOnlyRoutes() []string
 		GetExcludePaths() []string
 		GetProtectedMethods() []string
 	}
@@ -27,9 +30,11 @@ func NewCSRFMiddleware(service *services.CSRFService, config interface{}) func(h
 	// Use reflection-free approach
 	switch cfg := config.(type) {
 	case *CSRFConfig:
+		applyToOnlyRoutes = cfg.ApplyToOnlyRoutes
 		excludePaths = cfg.ExcludePaths
 		protectedMethods = cfg.ProtectedMethods
 	case CSRFConfig:
+		applyToOnlyRoutes = cfg.ApplyToOnlyRoutes
 		excludePaths = cfg.ExcludePaths
 		protectedMethods = cfg.ProtectedMethods
 	}
@@ -41,6 +46,21 @@ func NewCSRFMiddleware(service *services.CSRFService, config interface{}) func(h
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Check if path is apply to only routes
+			if len(applyToOnlyRoutes) > 0 {
+				found := false
+				for _, path := range applyToOnlyRoutes {
+					if strings.HasPrefix(r.URL.Path, path) {
+						found = true
+						break
+					}
+				}
+				if !found {
+					next.ServeHTTP(w, r)
+					return
+				}
+			}
+
 			// Check if path is excluded
 			for _, path := range excludePaths {
 				if strings.HasPrefix(r.URL.Path, path) {

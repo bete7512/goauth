@@ -24,12 +24,10 @@ type NotificationService struct {
 
 // NotificationConfig holds notification service configuration
 type NotificationConfig struct {
-	AppName           string
-	SupportEmail      string
-	SupportLink       string
-	EnableEmailAlerts bool
-	EnableSMSAlerts   bool
-	Templates         map[string]models.NotificationTemplate
+	AppName      string
+	SupportEmail string
+	SupportLink  string
+	Templates    map[string]models.NotificationTemplate
 }
 
 // NewNotificationService creates a new notification service
@@ -42,10 +40,8 @@ func NewNotificationService(
 ) *NotificationService {
 	if cfg == nil {
 		cfg = &NotificationConfig{
-			AppName:           "GoAuth",
-			EnableEmailAlerts: true,
-			EnableSMSAlerts:   false,
-			Templates:         make(map[string]models.NotificationTemplate),
+			AppName:   "GoAuth",
+			Templates: make(map[string]models.NotificationTemplate),
 		}
 	}
 
@@ -86,7 +82,7 @@ func (s *NotificationService) SendWelcomeEmail(ctx context.Context, email, userN
 		"UserName": userName,
 	}
 
-	if tmpl.SendEmail && s.config.EnableEmailAlerts && s.emailSender != nil {
+	if tmpl.SendEmail && s.emailSender != nil {
 		return s.sendTemplatedEmail(ctx, &tmpl, email, data)
 	}
 
@@ -109,7 +105,7 @@ func (s *NotificationService) SendPasswordResetEmail(ctx context.Context, email,
 	}
 
 	var err error
-	if tmpl.SendEmail && s.config.EnableEmailAlerts && s.emailSender != nil {
+	if tmpl.SendEmail && s.emailSender != nil {
 		err = s.sendTemplatedEmail(ctx, &tmpl, email, data)
 	}
 
@@ -123,7 +119,7 @@ func (s *NotificationService) SendPasswordResetSMS(ctx context.Context, phoneNum
 		return nil
 	}
 
-	if !s.config.EnableSMSAlerts || s.smsSender == nil {
+	if s.smsSender == nil {
 		return nil
 	}
 
@@ -149,7 +145,7 @@ func (s *NotificationService) SendEmailVerification(ctx context.Context, email, 
 		"Code":             code,
 	}
 
-	if tmpl.SendEmail && s.config.EnableEmailAlerts && s.emailSender != nil {
+	if tmpl.SendEmail && s.emailSender != nil {
 		return s.sendTemplatedEmail(ctx, &tmpl, email, data)
 	}
 
@@ -171,12 +167,12 @@ func (s *NotificationService) SendTwoFactorCode(ctx context.Context, email, phon
 	var emailErr, smsErr error
 
 	// Send via email
-	if tmpl.SendEmail && s.config.EnableEmailAlerts && s.emailSender != nil && email != "" {
+	if tmpl.SendEmail && s.emailSender != nil && email != "" {
 		emailErr = s.sendTemplatedEmail(ctx, &tmpl, email, data)
 	}
 
 	// Send via SMS
-	if tmpl.SendSMS && s.config.EnableSMSAlerts && s.smsSender != nil && phoneNumber != "" {
+	if tmpl.SendSMS && s.smsSender != nil && phoneNumber != "" {
 		smsErr = s.sendTemplatedSMS(ctx, &tmpl, phoneNumber, data)
 	}
 
@@ -201,7 +197,7 @@ func (s *NotificationService) SendLoginAlert(ctx context.Context, email, userNam
 		"Timestamp": timestamp,
 	}
 
-	if tmpl.SendEmail && s.config.EnableEmailAlerts && s.emailSender != nil {
+	if tmpl.SendEmail && s.emailSender != nil {
 		return s.sendTemplatedEmail(ctx, &tmpl, email, data)
 	}
 
@@ -221,7 +217,7 @@ func (s *NotificationService) SendPasswordChangedAlert(ctx context.Context, emai
 		"SupportLink": s.config.SupportLink,
 	}
 
-	if tmpl.SendEmail && s.config.EnableEmailAlerts && s.emailSender != nil {
+	if tmpl.SendEmail && s.emailSender != nil {
 		return s.sendTemplatedEmail(ctx, &tmpl, email, data)
 	}
 

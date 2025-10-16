@@ -10,10 +10,9 @@ import (
 
 type SessionConfig struct {
 	Name            string
-	SessionDuration time.Duration
+	SessionTTL      time.Duration
 	AccessTokenTTL  time.Duration
 	RefreshTokenTTL time.Duration
-	Expiration      time.Duration
 	Secure          bool
 	HttpOnly        bool
 	SameSite        http.SameSite
@@ -41,5 +40,5 @@ type PasswordPolicy struct {
 }
 
 type CustomClaimsProvider interface {
-	GetClaims(user models.User) (jwt.MapClaims, error)
+	GetClaims(user *models.User) (jwt.MapClaims, error)
 }

@@ -37,6 +37,7 @@ type AsyncBackend interface {
 }
 
 const (
+	// Hook Events
 	EventBeforeSignup                     EventType = "before:signup"
 	EventAfterSignup                      EventType = "after:signup"
 	EventBeforeLogin                      EventType = "before:login"
@@ -75,7 +76,8 @@ const (
 	EventAfterChangeAvatarVerification    EventType = "after:change-avatar-verification"
 	EventAdminAction                      EventType = "admin:action"
 
-	// Generic send events for verification (preferred)
-	EventSendEmailVerification EventType = "send:email-verification"
-	EventSendPhoneVerification EventType = "send:phone-verification"
+	// Action Events
+	EventSendEmailVerification  EventType = "send:email-verification"
+	EventSendPhoneVerification  EventType = "send:phone-verification"
+	EventSendPasswordResetEmail EventType = "send:password-reset-email"
 )

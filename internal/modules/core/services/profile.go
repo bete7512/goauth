@@ -21,8 +21,8 @@ func (s *CoreService) GetProfile(ctx context.Context, userID string) (*dto.UserD
 		Email:     user.Email,
 		Name:      user.Name,
 		Avatar:    user.Avatar,
-		CreatedAt: user.CreatedAt.Format(time.RFC3339),
-		UpdatedAt: user.UpdatedAt.Format(time.RFC3339),
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
 	}, nil
 }
 
@@ -33,7 +33,7 @@ func (s *CoreService) UpdateProfile(ctx context.Context, userID string, req *dto
 	if err != nil || user == nil {
 		return nil, types.NewUserNotFoundError()
 	}
-
+	now := time.Now()
 	// // Check if phone is being changed and if it's already taken
 	// if req.Phone != "" && req.Phone != user.Attributes {
 	// 	existing, _ := s.UserRepository.FindByPhone(ctx, req.Phone)
@@ -53,7 +53,7 @@ func (s *CoreService) UpdateProfile(ctx context.Context, userID string, req *dto
 		user.Avatar = req.Avatar
 	}
 
-	user.UpdatedAt = time.Now()
+	user.UpdatedAt = &now
 
 	if err := s.UserRepository.Update(ctx, user); err != nil {
 		return nil, types.NewInternalError(fmt.Sprintf("failed to update profile: %w", err))
@@ -69,7 +69,7 @@ func (s *CoreService) UpdateProfile(ctx context.Context, userID string, req *dto
 		ID:        user.ID,
 		Email:     user.Email,
 		Name:      user.Name,
-		CreatedAt: user.CreatedAt.Format(time.RFC3339),
-		UpdatedAt: user.UpdatedAt.Format(time.RFC3339),
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
 	}, nil
 }

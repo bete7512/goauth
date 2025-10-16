@@ -1,0 +1,46 @@
+paths:
+  /csrf-token:
+    get:
+      summary: Get CSRF token
+      description: Get CSRF token for the current session
+      tags: [CSRF Module Docs]
+      responses:
+        '200':
+          description: CSRF token generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CSRFTokenResponse'  
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: CSRF token generation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'  
+
+components:
+  schemas:
+    CSRFTokenResponse:
+      type: object
+      properties:
+        csrf_token:
+          type: string
+          example: abc123
+          description: CSRF token 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: Invalid CSRF token
+          description: Error message
+        status:
+          type: string
+          example: 400
+          description: Error status

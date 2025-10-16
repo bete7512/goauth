@@ -27,7 +27,7 @@ func (t *SecurityManager) GenerateAccessToken(user models.User, claims map[strin
 		"exp":     time.Now().Add(duration).Unix(),
 	}
 	if t.Config.CustomClaimsProvider != nil {
-		customClaims, err := t.Config.CustomClaimsProvider.GetClaims(user)
+		customClaims, err := t.Config.CustomClaimsProvider.GetClaims(&user)
 		if err != nil {
 			return "", err
 		}
@@ -70,7 +70,7 @@ func (t *SecurityManager) GenerateTokens(user *models.User, claims map[string]in
 		accessTokenClaims[k] = v
 	}
 	if t.Config.CustomClaimsProvider != nil {
-		customClaims, err := t.Config.CustomClaimsProvider.GetClaims(*user)
+		customClaims, err := t.Config.CustomClaimsProvider.GetClaims(user)
 		if err != nil {
 			return "", "", err
 		}

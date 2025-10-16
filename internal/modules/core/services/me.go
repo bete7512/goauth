@@ -31,7 +31,7 @@ func (s *CoreService) GetCurrentUser(ctx context.Context, sessionToken string) (
 		Email:     user.Email,
 		Name:      user.Name,
 		Avatar:    user.Avatar,
-		CreatedAt: user.CreatedAt.Format(time.RFC3339),
-		UpdatedAt: user.UpdatedAt.Format(time.RFC3339),
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
 	}, nil
 }

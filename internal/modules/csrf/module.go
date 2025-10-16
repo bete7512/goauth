@@ -2,8 +2,10 @@ package csrf
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 
+	_ "embed"
 	"github.com/bete7512/goauth/internal/modules/csrf/middlewares"
 	"github.com/bete7512/goauth/internal/modules/csrf/services"
 	"github.com/bete7512/goauth/pkg/config"
@@ -36,6 +38,8 @@ type CSRFConfig struct {
 	// Methods that require CSRF protection
 	ProtectedMethods []string
 }
+//go:embed docs/swagger.yml
+var swaggerSpec []byte
 
 var _ config.Module = (*CSRFModule)(nil)
 
@@ -143,9 +147,9 @@ func (m *CSRFModule) handleGetToken(w http.ResponseWriter, r *http.Request) {
 
 	// Return token in response
 	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(`{"csrf_token":"` + token + `"}`))
+	json.NewEncoder(w).Encode(map[string]string{"csrf_token": token})
 }
 
 func (m *CSRFModule) SwaggerSpec() []byte {
-	return nil
+	return swaggerSpec
 }

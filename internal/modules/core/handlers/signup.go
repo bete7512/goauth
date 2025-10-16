@@ -12,46 +12,40 @@ import (
 
 func (h *CoreHandler) Signup(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-
-	// 1. Parse request
+	var metadata map[string]interface{}
 	var req dto.SignupRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidRequestBody), err.Error())
 		return
 	}
 
-	// 2. Validate request
 	if err := req.Validate(); err != nil {
 		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidRequestBody), err.Error())
 		return
 	}
 
-	// 3. Emit BEFORE signup event (rate limiting, fraud detection, etc)
-	signupData := map[string]interface{}{
-		// User-provided identifiers
-		"email":    req.Email,
-		"username": req.Username,
-		"phone":    req.PhoneNumber,
+	if err := req.ValidatePassword(h.deps.Config.Security.PasswordPolicy); err != nil {
+		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidRequestBody), err.Error())
+		return
+	}
 
-		// Network info
-		"ip_address":    r.RemoteAddr,                    // primary IP
-		"forwarded_for": r.Header.Get("X-Forwarded-For"), // if behind proxy
-		"user_agent":    r.UserAgent(),                   // browser/device info
-		"referer":       r.Referer(),                     // where the request came from
-		"host":          r.Host,                          // target host
-
-		// Request info
-		"method":    r.Method,     // GET, POST, etc.
-		"uri":       r.RequestURI, // path + query
-		"protocol":  r.Proto,      // HTTP/1.1, HTTP/2
-		"timestamp": time.Now(),   // when request occurred
-
-		// Optional: session/user context
-		"user_id":    r.Context().Value(types.UserIDKey), // if logged in
-		"request_id": r.Header.Get("X-Request-ID"),       // unique request id
-
-		// Optional: device fingerprint (frontend can send)
+	metadata = map[string]interface{}{
+		"ip_address":         r.RemoteAddr,                         // primary IP
+		"forwarded_for":      r.Header.Get("X-Forwarded-For"),      // if behind proxy
+		"user_agent":         r.UserAgent(),                        // browser/device info
+		"referer":            r.Referer(),                          // where the request came from
+		"host":               r.Host,                               // target host
+		"timestamp":          time.Now(),                           // when request occurred
+		"user_id":            r.Context().Value(types.UserIDKey),   // if logged in
+		"request_id":         r.Header.Get("X-Request-ID"),         // unique request id
 		"device_fingerprint": r.Header.Get("X-Device-Fingerprint"), // e.g., hash of browser + screen + timezone
+		"headers":            r.Header,                             // all headers
+		"cookies":            r.Cookies(),                          // all cookies
+		"query_params":       r.URL.Query(),                        // all query params
+	}
+	signupData := map[string]interface{}{
+		"body":     req,
+		"metadata": metadata,
 	}
 
 	if err := h.deps.Events.EmitSync(ctx, types.EventBeforeSignup, signupData); err != nil {
@@ -64,11 +58,38 @@ func (h *CoreHandler) Signup(w http.ResponseWriter, r *http.Request) {
 		http_utils.RespondError(w, err.StatusCode, string(err.Code), err.Message)
 		return
 	}
-	h.deps.Events.EmitAsync(ctx, types.EventAfterSignup, map[string]interface{}{
-		"request_info":          signupData,
-		"user":                  response.User,
-		"verification_required": h.deps.Config.Core.RequireEmailVerification || h.deps.Config.Core.RequirePhoneVerification,
-	})
+	if h.deps.Config.Core.RequireEmailVerification {
+		h.deps.Logger.Infof("core: sending email verificationssssssssss %v", response.User.ToUser())
+		err := h.deps.Events.EmitAsync(ctx, types.EventSendEmailVerification, map[string]interface{}{
+			"user": response.User.ToUser(),
+		})
+		if err != nil {
+			h.deps.Logger.Errorf("core: failed to send email verification: %v", err)
+			return
+		}
+	}
+	if h.deps.Config.Core.RequirePhoneVerification {
+		err := h.deps.Events.EmitAsync(ctx, types.EventSendPhoneVerification, map[string]interface{}{
+			"user": response.User.ToUser(),
+		})
+		if err != nil {
+			h.deps.Logger.Errorf("core: failed to send phone verification: %v", err)
+			return
+		}
+	}
+
+	if err := h.deps.Events.EmitAsync(ctx, types.EventAfterSignup, map[string]interface{}{
+		"user":     response.User.ToUser(),
+		"metadata": metadata,
+	}); err != nil {
+		return
+	}
+	if !h.deps.Config.Core.RequireEmailVerification && !h.deps.Config.Core.RequirePhoneVerification {
+		h.setSessionCookies(w, response)
+		w.WriteHeader(http.StatusCreated)
+		http_utils.RespondSuccess(w, response, nil)
+		return
+	}
 
 	w.WriteHeader(http.StatusCreated)
 	http_utils.RespondSuccess(w, response, nil)
