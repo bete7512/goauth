@@ -40,6 +40,7 @@ const (
 	// Hook Events
 	EventBeforeSignup                     EventType = "before:signup"
 	EventAfterSignup                      EventType = "after:signup"
+	EventAfterEmailVerified               EventType = "after:email-verified"
 	EventBeforeLogin                      EventType = "before:login"
 	EventAfterLogin                       EventType = "after:login"
 	EventBeforeLogout                     EventType = "before:logout"

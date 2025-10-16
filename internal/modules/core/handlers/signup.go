@@ -12,7 +12,6 @@ import (
 
 func (h *CoreHandler) Signup(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	var metadata map[string]interface{}
 	var req dto.SignupRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidRequestBody), err.Error())
@@ -29,7 +28,7 @@ func (h *CoreHandler) Signup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	metadata = map[string]interface{}{
+	metadata := map[string]interface{}{
 		"ip_address":         r.RemoteAddr,                         // primary IP
 		"forwarded_for":      r.Header.Get("X-Forwarded-For"),      // if behind proxy
 		"user_agent":         r.UserAgent(),                        // browser/device info
@@ -59,9 +58,8 @@ func (h *CoreHandler) Signup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.deps.Config.Core.RequireEmailVerification {
-		h.deps.Logger.Infof("core: sending email verificationssssssssss %v", response.User.ToUser())
 		err := h.deps.Events.EmitAsync(ctx, types.EventSendEmailVerification, map[string]interface{}{
-			"user": response.User.ToUser(),
+			"user": *response.User.ToUser(),
 		})
 		if err != nil {
 			h.deps.Logger.Errorf("core: failed to send email verification: %v", err)
@@ -70,7 +68,7 @@ func (h *CoreHandler) Signup(w http.ResponseWriter, r *http.Request) {
 	}
 	if h.deps.Config.Core.RequirePhoneVerification {
 		err := h.deps.Events.EmitAsync(ctx, types.EventSendPhoneVerification, map[string]interface{}{
-			"user": response.User.ToUser(),
+			"user": *response.User.ToUser(),
 		})
 		if err != nil {
 			h.deps.Logger.Errorf("core: failed to send phone verification: %v", err)
@@ -79,7 +77,7 @@ func (h *CoreHandler) Signup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.deps.Events.EmitAsync(ctx, types.EventAfterSignup, map[string]interface{}{
-		"user":     response.User.ToUser(),
+		"user":     *response.User.ToUser(),
 		"metadata": metadata,
 	}); err != nil {
 		return

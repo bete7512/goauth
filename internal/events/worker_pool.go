@@ -72,8 +72,12 @@ func (wp *WorkerPool) worker(id int) {
 
 // Submit adds a job to the queue (non-blocking with timeout)
 func (wp *WorkerPool) Submit(ctx context.Context, handler types.EventHandler, event *types.Event) error {
+	// Create a background context for async job execution
+	// This prevents context cancellation when HTTP request completes
+	backgroundCtx := context.Background()
+
 	j := &job{
-		ctx:     ctx,
+		ctx:     backgroundCtx, // Use background context instead of request context
 		handler: handler,
 		event:   event,
 	}

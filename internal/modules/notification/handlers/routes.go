@@ -25,7 +25,7 @@ func (h *NotificationHandler) SendVerificationEmail(w http.ResponseWriter, r *ht
 	}
 
 	// Send verification email directly
-	err := h.NotificationService.SendVerificationEmailDirect(ctx, req.Email)
+	err := h.NotificationService.SendEmailVerification(ctx, req.Email)
 	if err != nil {
 		http_utils.RespondError(w, http.StatusInternalServerError, "NOTIFICATION_ERROR", "Failed to send verification email")
 		return
@@ -41,8 +41,30 @@ func (h *NotificationHandler) SendVerificationEmail(w http.ResponseWriter, r *ht
 
 // ResendVerificationEmail handles POST /resend-verification-email
 func (h *NotificationHandler) ResendVerificationEmail(w http.ResponseWriter, r *http.Request) {
-	// Reuse the same logic as SendVerificationEmail
-	h.SendVerificationEmail(w, r)
+	ctx := r.Context()
+	var req dto.SendVerificationEmailRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidRequestBody), "Invalid request body")
+		return
+	}
+
+	if err := req.Validate(); err != nil {
+		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidRequestBody), err.Error())
+		return
+	}
+
+	err := h.NotificationService.ResendEmailVerification(ctx, req.Email)
+	if err != nil {
+		http_utils.RespondError(w, http.StatusInternalServerError, "NOTIFICATION_ERROR", "Failed to resend verification email")
+		return
+	}
+
+	response := map[string]interface{}{
+		"message": "Verification email resent successfully",
+		"email":   req.Email,
+	}
+
+	http_utils.RespondSuccess(w, response, nil)
 }
 
 // SendVerificationPhone handles POST /send-verification-phone
@@ -61,7 +83,7 @@ func (h *NotificationHandler) SendVerificationPhone(w http.ResponseWriter, r *ht
 	}
 
 	// Send verification SMS directly
-	err := h.NotificationService.SendVerificationPhoneDirect(ctx, req.PhoneNumber)
+	err := h.NotificationService.SendPhoneVerification(ctx, req.PhoneNumber)
 	if err != nil {
 		http_utils.RespondError(w, http.StatusInternalServerError, "NOTIFICATION_ERROR", "Failed to send verification SMS")
 		return
@@ -77,8 +99,30 @@ func (h *NotificationHandler) SendVerificationPhone(w http.ResponseWriter, r *ht
 
 // ResendVerificationPhone handles POST /resend-verification-phone
 func (h *NotificationHandler) ResendVerificationPhone(w http.ResponseWriter, r *http.Request) {
-	// Reuse the same logic as SendVerificationPhone
-	h.SendVerificationPhone(w, r)
+	ctx := r.Context()
+	var req dto.SendVerificationPhoneRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidRequestBody), "Invalid request body")
+		return
+	}
+
+	if err := req.Validate(); err != nil {
+		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidRequestBody), err.Error())
+		return
+	}
+
+	err := h.NotificationService.ResendPhoneVerification(ctx, req.PhoneNumber)
+	if err != nil {
+		http_utils.RespondError(w, http.StatusInternalServerError, "NOTIFICATION_ERROR", "Failed to resend verification SMS")
+		return
+	}
+
+	response := map[string]interface{}{
+		"message":      "Verification SMS resent successfully",
+		"phone_number": req.PhoneNumber,
+	}
+
+	http_utils.RespondSuccess(w, response, nil)
 }
 
 // ForgotPassword handles POST /forgot-password
@@ -95,12 +139,19 @@ func (h *NotificationHandler) ForgotPassword(w http.ResponseWriter, r *http.Requ
 		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidRequestBody), err.Error())
 		return
 	}
-
-	// Send password reset notification directly
-	err := h.NotificationService.SendPasswordResetDirect(ctx, req.Email, req.Phone)
-	if err != nil {
-		http_utils.RespondError(w, http.StatusInternalServerError, "NOTIFICATION_ERROR", "Failed to send password reset notification")
-		return
+	if req.Email != "" {
+		err := h.NotificationService.SendPasswordResetEmail(ctx, req.Email)
+		if err != nil {
+			http_utils.RespondError(w, http.StatusInternalServerError, "NOTIFICATION_ERROR", "Failed to send password reset notification")
+			return
+		}
+	}
+	if req.Phone != "" {
+		err := h.NotificationService.SendPasswordResetSMS(ctx, req.Phone)
+		if err != nil {
+			http_utils.RespondError(w, http.StatusInternalServerError, "NOTIFICATION_ERROR", "Failed to send password reset notification")
+			return
+		}
 	}
 
 	response := map[string]interface{}{
@@ -113,7 +164,6 @@ func (h *NotificationHandler) ForgotPassword(w http.ResponseWriter, r *http.Requ
 // VerifyEmail handles POST /verify-email
 func (h *NotificationHandler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-
 	var req dto.VerifyEmailRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidRequestBody), "Invalid request body")
@@ -124,9 +174,8 @@ func (h *NotificationHandler) VerifyEmail(w http.ResponseWriter, r *http.Request
 		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidRequestBody), err.Error())
 		return
 	}
-
 	// Call notification service to verify email
-	err := h.NotificationService.VerifyEmailToken(ctx, req.Token, req.Email)
+	verification, err := h.NotificationService.VerifyEmail(ctx, req.Token)
 	if err != nil {
 		http_utils.RespondError(w, http.StatusBadRequest, "VERIFICATION_ERROR", err.Error())
 		return
@@ -134,7 +183,8 @@ func (h *NotificationHandler) VerifyEmail(w http.ResponseWriter, r *http.Request
 
 	response := map[string]interface{}{
 		"message": "Email verified successfully",
-		"email":   req.Email,
+		"email":   verification.Email,
+		"user_id": verification.UserID,
 	}
 
 	http_utils.RespondSuccess(w, response, nil)
@@ -156,7 +206,7 @@ func (h *NotificationHandler) VerifyPhone(w http.ResponseWriter, r *http.Request
 	}
 
 	// Call notification service to verify phone
-	err := h.NotificationService.VerifyPhoneCode(ctx, req.Code, req.PhoneNumber)
+	verification, err := h.NotificationService.VerifyPhone(ctx, req.Code, req.PhoneNumber)
 	if err != nil {
 		http_utils.RespondError(w, http.StatusBadRequest, "VERIFICATION_ERROR", err.Error())
 		return
@@ -164,7 +214,8 @@ func (h *NotificationHandler) VerifyPhone(w http.ResponseWriter, r *http.Request
 
 	response := map[string]interface{}{
 		"message":      "Phone verified successfully",
-		"phone_number": req.PhoneNumber,
+		"phone_number": verification.PhoneNumber,
+		"user_id":      verification.UserID,
 	}
 
 	http_utils.RespondSuccess(w, response, nil)

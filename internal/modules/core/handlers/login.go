@@ -13,41 +13,40 @@ import (
 func (h *CoreHandler) Login(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	// 1. Parse request
 	var req dto.LoginRequest
+	metadata := map[string]interface{}{
+		"ip_address":         r.RemoteAddr,                         // primary IP
+		"forwarded_for":      r.Header.Get("X-Forwarded-For"),      // if behind proxy
+		"user_agent":         r.UserAgent(),                        // browser/device info
+		"referer":            r.Referer(),                          // where the request came from
+		"host":               r.Host,                               // target host
+		"timestamp":          time.Now(),                           // when request occurred
+		"user_id":            r.Context().Value(types.UserIDKey),   // if logged in
+		"request_id":         r.Header.Get("X-Request-ID"),         // unique request id
+		"device_fingerprint": r.Header.Get("X-Device-Fingerprint"), // e.g., hash of browser + screen + timezone
+		"headers":            r.Header,                             // all headers
+		"cookies":            r.Cookies(),                          // all cookies
+		"query_params":       r.URL.Query(),                        // all query params
+	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidRequestBody), "Invalid request body")
 		return
 	}
 
-	// 2. Validate request
 	if err := req.Validate(); err != nil {
 		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidRequestBody), err.Error())
 		return
 	}
 
-	// 3. Emit BEFORE login event (custom rate limiting, fraud detection, etc)
 	loginData := map[string]interface{}{
-		"email":              req.Email,
-		"username":           req.Username,
-		"ip_address":         r.RemoteAddr,
-		"user_agent":         r.UserAgent(),
-		"timestamp":          time.Now().Format("2006-01-02 15:04:05"),
-		"user_id":            r.Context().Value(types.UserIDKey),
-		"method":             r.Method,
-		"uri":                r.RequestURI,
-		"protocol":           r.Proto,
-		"host":               r.Host,
-		"referer":            r.Referer(),
-		"forwarded_for":      r.Header.Get("X-Forwarded-For"),
-		"device_fingerprint": r.Header.Get("X-Device-Fingerprint"),
+		"body":     req,
+		"metadata": metadata,
 	}
 	if err := h.deps.Events.EmitSync(ctx, "before:login", loginData); err != nil {
 		http_utils.RespondError(w, http.StatusForbidden, string(types.ErrForbidden), "Login blocked: "+err.Error())
 		return
 	}
 
-	// 4. Call service - ALL business logic here
 	response, err := h.CoreService.Login(ctx, &req)
 	if err != nil {
 		http_utils.RespondError(w, err.StatusCode, string(err.Code), err.Message)
@@ -58,11 +57,20 @@ func (h *CoreHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.setSessionCookies(w, response)
-	// 6. Return success response
+	if err := h.deps.Events.EmitAsync(ctx, types.EventAfterLogin, map[string]interface{}{
+		"user":     *response.User.ToUser(), // Dereference pointer to value
+		"session":  *response,
+		"metadata": metadata,
+	}); err != nil {
+		return
+	}
 	http_utils.RespondSuccess(w, response, nil)
 }
 
 func (h *CoreHandler) setSessionCookies(w http.ResponseWriter, response *dto.AuthResponse) {
+	if response.AccessToken == nil || response.RefreshToken == nil {
+		return
+	}
 	accessTokenName := "goauth_access_" + h.deps.Config.Security.Session.Name
 	http.SetCookie(w, &http.Cookie{
 		Name:     accessTokenName,

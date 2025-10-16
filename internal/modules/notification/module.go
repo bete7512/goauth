@@ -3,12 +3,12 @@ package notification
 import (
 	"context"
 	"fmt"
-	"time"
 
 	_ "embed"
 
 	coreModels "github.com/bete7512/goauth/internal/modules/core/models"
 	"github.com/bete7512/goauth/internal/modules/notification/handlers"
+	"github.com/bete7512/goauth/internal/modules/notification/hooks"
 	"github.com/bete7512/goauth/internal/modules/notification/models"
 	"github.com/bete7512/goauth/internal/modules/notification/services"
 	"github.com/bete7512/goauth/pkg/config"
@@ -21,10 +21,12 @@ type NotificationModule struct {
 	handlers              *handlers.NotificationHandler
 	config                *Config
 	verificationTokenRepo models.VerificationTokenRepository
+	userRepo              coreModels.UserRepository
 }
 
 // Config holds notification module configuration
 type Config struct {
+
 	// Email sender implementation (optional - user can provide their own)
 	EmailSender models.EmailSender
 
@@ -33,6 +35,9 @@ type Config struct {
 
 	// Verification token repository (optional - user can provide their own)
 	VerificationTokenRepository models.VerificationTokenRepository
+
+	// User repository (optional - user can provide their own)
+	UserRepository coreModels.UserRepository
 
 	// Service configuration
 	ServiceConfig *services.NotificationConfig
@@ -88,6 +93,17 @@ func (m *NotificationModule) Init(ctx context.Context, deps config.ModuleDepende
 			}
 		}
 	}
+	if m.config.UserRepository != nil {
+		m.userRepo = m.config.UserRepository
+	} else {
+		// Try to get from storage
+		repo := deps.Storage.GetRepository(string(types.CoreUserRepository))
+		if repo != nil {
+			if userRepo, ok := repo.(coreModels.UserRepository); ok {
+				m.userRepo = userRepo
+			}
+		}
+	}
 
 	// Validate that at least one sender is configured
 	if m.config.EmailSender == nil && m.config.SMSSender == nil {
@@ -116,6 +132,7 @@ func (m *NotificationModule) Init(ctx context.Context, deps config.ModuleDepende
 		m.config.SMSSender,
 		m.config.ServiceConfig,
 		m.verificationTokenRepo,
+		m.userRepo,
 	)
 
 	// Initialize handlers
@@ -145,242 +162,19 @@ func (m *NotificationModule) Models() []interface{} {
 }
 
 func (m *NotificationModule) RegisterHooks(events types.EventBus) error {
+	// Create hooks manager - clean configuration-driven approach
+	hookManager := hooks.NewNotificationHooks(m.service, m.deps, &hooks.HookConfig{
+		EnableWelcomeEmail:        m.config.EnableWelcomeEmail,
+		EnablePasswordResetEmail:  m.config.EnablePasswordResetEmail,
+		EnablePasswordResetSMS:    m.config.EnablePasswordResetSMS,
+		EnableLoginAlerts:         m.config.EnableLoginAlerts,
+		EnablePasswordChangeAlert: m.config.EnablePasswordChangeAlert,
+		Enable2FANotifications:    m.config.Enable2FANotifications,
+	})
 
-	events.Subscribe(types.EventAfterSignup, types.EventHandler(func(ctx context.Context, event *types.Event) error {
-		if !m.config.EnableWelcomeEmail {
-			return nil
-		}
-
-		m.deps.Logger.Info("notification: after:signup event received")
-
-		data, ok := event.Data.(map[string]interface{})
-		if !ok {
-			m.deps.Logger.Warnf("notification: invalid event data for after:signup")
-			return nil
-		}
-		user, ok := data["user"].(coreModels.User)
-		if !ok {
-			m.deps.Logger.Warnf("notification: invalid user data for after:signup")
-			return nil
-		}
-		_, ok = data["metadata"].(map[string]interface{})
-		if !ok {
-			m.deps.Logger.Warnf("notification: invalid metadata data for after:signup")
-			return nil
-		}
-
-		if m.config.EnableWelcomeEmail {
-			if err := m.service.SendWelcomeEmail(ctx, user.Email, user.Username); err != nil {
-				m.deps.Logger.Errorf("notification: failed to send welcome email: %v", err)
-			}
-		}
-
-		return nil
-	}))
-
-	// PASSWORD RESET REQUEST - Send reset email/SMS
-	if m.config.EnablePasswordResetEmail || m.config.EnablePasswordResetSMS {
-		events.Subscribe(types.EventBeforeResetPassword, types.EventHandler(func(ctx context.Context, event *types.Event) error {
-			m.deps.Logger.Info("notification: password:reset:request event received")
-
-			data, ok := event.Data.(map[string]interface{})
-			if !ok {
-				return nil
-			}
-
-			email, _ := data["email"].(string)
-			userName, _ := data["name"].(string)
-			resetLink, _ := data["reset_link"].(string)
-			code, _ := data["code"].(string)
-			phoneNumber, _ := data["phone_number"].(string)
-
-			if userName == "" {
-				userName = email
-			}
-
-			// Send email
-			if m.config.EnablePasswordResetEmail && email != "" {
-				if err := m.service.SendPasswordResetEmail(ctx, email, userName, resetLink, code, "15 minutes"); err != nil {
-					m.deps.Logger.Errorf("notification: failed to send password reset email: %v", err)
-				}
-			}
-
-			// Send SMS
-			if m.config.EnablePasswordResetSMS && phoneNumber != "" {
-				if err := m.service.SendPasswordResetSMS(ctx, phoneNumber, code, "15 minutes"); err != nil {
-					m.deps.Logger.Errorf("notification: failed to send password reset SMS: %v", err)
-				}
-			}
-
-			return nil
-		}))
-	}
-
-	// PASSWORD CHANGED - Send alert
-	if m.config.EnablePasswordChangeAlert {
-		events.Subscribe(types.EventAfterChangePassword, types.EventHandler(func(ctx context.Context, event *types.Event) error {
-			m.deps.Logger.Info("notification: password:changed event received")
-
-			data, ok := event.Data.(map[string]interface{})
-			if !ok {
-				return nil
-			}
-
-			email, _ := data["email"].(string)
-			userName, _ := data["name"].(string)
-			timestamp := time.Now().Format("2006-01-02 15:04:05")
-
-			if userName == "" {
-				userName = email
-			}
-
-			if err := m.service.SendPasswordChangedAlert(ctx, email, userName, timestamp); err != nil {
-				m.deps.Logger.Errorf("notification: failed to send password changed alert: %v", err)
-			}
-
-			return nil
-		}))
-	}
-
-	// AFTER LOGIN - Send login alert (optional)
-	if m.config.EnableLoginAlerts {
-		events.Subscribe(types.EventAfterLogin, types.EventHandler(func(ctx context.Context, event *types.Event) error {
-			m.deps.Logger.Info("notification: after:login event received")
-
-			data, ok := event.Data.(map[string]interface{})
-			if !ok {
-				return nil
-			}
-			user, ok := data["user"].(coreModels.User)
-			if !ok {
-				m.deps.Logger.Warnf("notification: invalid user data for after:login")
-				return nil
-			}
-			metadata, ok := data["metadata"].(map[string]interface{})
-			if !ok {
-				m.deps.Logger.Warnf("notification: invalid metadata data for after:login")
-				return nil
-			}
-			ipAddress, _ := metadata["ip_address"].(string)
-			timestamp, _ := metadata["timestamp"].(string)
-
-			if err := m.service.SendLoginAlert(ctx, user.Email, user.Username, ipAddress, timestamp); err != nil {
-				m.deps.Logger.Errorf("notification: failed to send login alert: %v", err)
-			}
-
-			return nil
-		}))
-	}
-
-	// EMAIL VERIFICATION SENT (generic event) -> Send verification email
-	events.Subscribe(types.EventSendEmailVerification, types.EventHandler(func(ctx context.Context, event *types.Event) error {
-		m.deps.Logger.Info("notification: email:verification:sent event received")
-
-		data, ok := event.Data.(map[string]interface{})
-		if !ok {
-			return nil
-		}
-		user, ok := data["user"].(coreModels.User)
-		if !ok {
-			m.deps.Logger.Warnf("notification: invalid user data for send:email-verification")
-			return nil
-		}
-		verificationLink, _ := data["verification_link"].(string)
-		code, _ := data["code"].(string)
-
-		if err := m.service.SendEmailVerification(ctx, user.Email, user.Username, verificationLink, code); err != nil {
-			m.deps.Logger.Errorf("notification: failed to send email verification: %v", err)
-		}
-
-		return nil
-	}))
-
-	// BACKWARD-COMPAT: also handle legacy before:change-email-verification
-	events.Subscribe(types.EventBeforeChangeEmailVerification, types.EventHandler(func(ctx context.Context, event *types.Event) error {
-		m.deps.Logger.Info("notification: legacy email verification event received")
-
-		data, ok := event.Data.(map[string]interface{})
-		if !ok {
-			return nil
-		}
-
-		email, _ := data["email"].(string)
-		userName, _ := data["name"].(string)
-		verificationLink, _ := data["verification_link"].(string)
-		code, _ := data["code"].(string)
-
-		if userName == "" {
-			userName = email
-		}
-
-		if err := m.service.SendEmailVerification(ctx, email, userName, verificationLink, code); err != nil {
-			m.deps.Logger.Errorf("notification: failed to send email verification: %v", err)
-		}
-		return nil
-	}))
-
-	// AFTER EMAIL VERIFIED -> Send welcome email if enabled
-	events.Subscribe(types.EventAfterChangeEmailVerification, types.EventHandler(func(ctx context.Context, event *types.Event) error {
-		if !m.config.EnableWelcomeEmail {
-			return nil
-		}
-
-		data, ok := event.Data.(map[string]interface{})
-		if !ok {
-			return nil
-		}
-
-		email, _ := data["email"].(string)
-		userName, _ := data["name"].(string)
-		if userName == "" {
-			userName = email
-		}
-
-		if err := m.service.SendWelcomeEmail(ctx, email, userName); err != nil {
-			m.deps.Logger.Errorf("notification: failed to send welcome after verification: %v", err)
-		}
-		return nil
-	}))
-
-	// PHONE / 2FA VERIFICATION - Send code (generic event)
-	if m.config.Enable2FANotifications {
-		events.Subscribe(types.EventSendPhoneVerification, types.EventHandler(func(ctx context.Context, event *types.Event) error {
-			m.deps.Logger.Info("notification: 2fa:code:sent event received")
-
-			data, ok := event.Data.(map[string]interface{})
-			if !ok {
-				return nil
-			}
-
-			email, _ := data["email"].(string)
-			phoneNumber, _ := data["phone_number"].(string)
-			code, _ := data["code"].(string)
-
-			if err := m.service.SendTwoFactorCode(ctx, email, phoneNumber, code, "5 minutes"); err != nil {
-				m.deps.Logger.Errorf("notification: failed to send 2FA code: %v", err)
-			}
-
-			return nil
-		}))
-
-		// BACKWARD-COMPAT: also handle legacy before:change-phone-verification
-		events.Subscribe(types.EventBeforeChangePhoneVerification, types.EventHandler(func(ctx context.Context, event *types.Event) error {
-			m.deps.Logger.Info("notification: legacy phone verification event received")
-
-			data, ok := event.Data.(map[string]interface{})
-			if !ok {
-				return nil
-			}
-
-			email, _ := data["email"].(string)
-			phoneNumber, _ := data["phone_number"].(string)
-			code, _ := data["code"].(string)
-
-			if err := m.service.SendTwoFactorCode(ctx, email, phoneNumber, code, "5 minutes"); err != nil {
-				m.deps.Logger.Errorf("notification: failed to send 2FA code: %v", err)
-			}
-			return nil
-		}))
+	// Register all hooks - simple loop instead of 300+ lines!
+	for _, hook := range hookManager.GetHooks() {
+		events.Subscribe(hook.Event, hook.Handler)
 	}
 
 	m.deps.Logger.Info("notification module: event hooks registered successfully")

@@ -51,12 +51,30 @@ func main() {
 		},
 		AutoMigrate: true,
 		BasePath:    "/api/v1",
-
+		Core: &config.CoreConfig{
+			RequireEmailVerification: true,  // Enable email verification
+			RequirePhoneVerification: false, // Disable phone verification
+			RequireUserName:          false, // Username is optional
+			RequirePhoneNumber:       false, // Phone number is optional
+			UniquePhoneNumber:        true,  // Phone numbers must be unique
+		},
+		FrontendConfig: &config.FrontendConfig{
+			URL:                "http://localhost:3000",
+			Domain:             "localhost",
+			ResetPasswordPath:  "/reset-password",
+			VerifyEmailPath:    "/verify-email",
+			LoginPath:          "/login",
+			SignupPath:         "/signup",
+			LogoutPath:         "/logout",
+			ProfilePath:        "/profile",
+			ChangePasswordPath: "/change-password",
+		},
 	})
 	if err != nil {
 		log.Fatalf("Failed to create auth: %v", err)
 	}
 
+	// Configure notification module with email verification support
 	authInstance.Use(notification.New(&notification.Config{
 		EmailSender: senders.NewSendGridEmailSender(&senders.SendGridConfig{
 			APIKey:          "your-sendgrid-api-key",
@@ -64,16 +82,17 @@ func main() {
 			DefaultFromName: "Your App",
 		}),
 		ServiceConfig: &services.NotificationConfig{
-			AppName:           "Your App",
-			SupportEmail:      "support@yourapp.com",
-			SupportLink:       "https://yourapp.com/support",
+			AppName:      "Your App",
+			SupportEmail: "support@yourapp.com",
+			SupportLink:  "http://localhost:3000/support",
 		},
-		EnableWelcomeEmail:        true,
-		EnablePasswordResetEmail:  true,
-		EnablePasswordResetSMS:    false,
-		EnableLoginAlerts:         false,
-		EnablePasswordChangeAlert: true,
-		Enable2FANotifications:    true,
+		// Enable various notification types
+		EnableWelcomeEmail:        true,  // Send welcome email after signup (if no verification required)
+		EnablePasswordResetEmail:  true,  // Send password reset emails
+		EnablePasswordResetSMS:    false, // SMS for password reset (requires SMS sender)
+		EnableLoginAlerts:         true,  // Send login alerts (security feature)
+		EnablePasswordChangeAlert: true,  // Alert on password changes
+		Enable2FANotifications:    true,  // Send 2FA codes (requires phone verification)
 	}))
 
 	// Register custom hooks (user-defined)

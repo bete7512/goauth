@@ -86,7 +86,7 @@ func (eb *EventBus) Subscribe(eventType types.EventType, handler types.EventHand
 
 // Emit dispatches an event to all registered handlers
 // Sync handlers execute immediately, async handlers use the backend
-func (eb *EventBus) EmitAsync(ctx context.Context, eventType types.EventType, data interface{}) error {
+func (eb *EventBus) EmitAsync(_ context.Context, eventType types.EventType, data interface{}) error {
 	eb.mu.RLock()
 	handlers := eb.handlers[eventType]
 	eb.mu.RUnlock()
@@ -95,20 +95,21 @@ func (eb *EventBus) EmitAsync(ctx context.Context, eventType types.EventType, da
 		return nil
 	}
 
+	bgCtx := context.Background()
 	event := &types.Event{
 		Type:    eventType,
 		Data:    data,
-		Context: ctx,
+		Context: bgCtx,
 	}
 
 	go func() {
 		for _, h := range handlers {
 			if defaultBackend, ok := eb.asyncBackend.(*DefaultAsyncBackend); ok {
-				if err := defaultBackend.SubmitJob(ctx, h.handler, event); err != nil && eb.logger != nil {
+				if err := defaultBackend.SubmitJob(bgCtx, h.handler, event); err != nil && eb.logger != nil {
 					eb.logger.Errorf("Failed to submit async job: %v", err)
 				}
 			} else {
-				if err := eb.asyncBackend.Publish(ctx, eventType, event); err != nil && eb.logger != nil {
+				if err := eb.asyncBackend.Publish(bgCtx, eventType, event); err != nil && eb.logger != nil {
 					eb.logger.Error("Failed to publish to async backend", "event", eventType, "error", err)
 				}
 			}

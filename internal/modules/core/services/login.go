@@ -64,12 +64,6 @@ func (s *CoreService) Login(ctx context.Context, req *dto.LoginRequest) (*dto.Au
 		return nil, types.NewInternalError(fmt.Sprintf("failed to create session: %w", err))
 	}
 
-	// Emit after login event
-	s.Deps.Events.EmitAsync(ctx, types.EventAfterLogin, map[string]interface{}{
-		"user":    user,
-		"session": session,
-	})
-
 	return &dto.AuthResponse{
 		AccessToken:  &accessToken,
 		RefreshToken: &refreshToken,
