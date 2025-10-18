@@ -7,6 +7,7 @@ import (
 
 	"github.com/bete7512/goauth/internal/modules/admin/services"
 	"github.com/bete7512/goauth/pkg/config"
+	"github.com/bete7512/goauth/pkg/types"
 )
 
 type AdminHandler struct {
@@ -25,34 +26,39 @@ func NewAdminHandler(deps config.ModuleDependencies, service *services.AdminServ
 func (h *AdminHandler) GetRoutes() []config.RouteInfo {
 	return []config.RouteInfo{
 		{
-			Name:    "admin.users.list",
-			Path:    "/admin/users",
-			Method:  http.MethodGet,
-			Handler: h.ListUsers,
+			Name:        string(types.RouteAdminListUsers),
+			Path:        "/admin/users",
+			Method:      http.MethodGet,
+			Handler:     h.ListUsers,
+			Middlewares: []string{string(types.MiddlewareAdminAuth)},
 		},
 		{
-			Name:    "admin.users.get",
-			Path:    "/admin/users/{id}",
-			Method:  http.MethodGet,
-			Handler: h.GetUser,
+			Name:        string(types.RouteAdminGetUser),
+			Path:        "/admin/users/{id}",
+			Method:      http.MethodGet,
+			Handler:     h.GetUser,
+			Middlewares: []string{string(types.MiddlewareAdminAuth)},
 		},
 		{
-			Name:    "admin.users.update",
-			Path:    "/admin/users/{id}",
-			Method:  http.MethodPut,
-			Handler: h.UpdateUser,
+			Name:        string(types.RouteAdminUpdateUser),
+			Path:        "/admin/users/{id}",
+			Method:      http.MethodPut,
+			Handler:     h.UpdateUser,
+			Middlewares: []string{string(types.MiddlewareAdminAuth)},
 		},
 		{
-			Name:    "admin.users.delete",
-			Path:    "/admin/users/{id}",
-			Method:  http.MethodDelete,
-			Handler: h.DeleteUser,
+			Name:        string(types.RouteAdminDeleteUser),
+			Path:        "/admin/users/{id}",
+			Method:      http.MethodDelete,
+			Handler:     h.DeleteUser,
+			Middlewares: []string{string(types.MiddlewareAdminAuth)},
 		},
 		{
-			Name:    "admin.users.audit",
-			Path:    "/admin/users/{id}/audit",
-			Method:  http.MethodGet,
-			Handler: h.GetUserAuditLogs,
+			Name:        string(types.RouteAdminUserAuditLogs),
+			Path:        "/admin/users/{id}/audit",
+			Method:      http.MethodGet,
+			Handler:     h.GetUserAuditLogs,
+			Middlewares: []string{string(types.MiddlewareAdminAuth)},
 		},
 	}
 }

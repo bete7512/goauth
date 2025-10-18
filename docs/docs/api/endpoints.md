@@ -259,7 +259,7 @@ Authorization: Bearer <access_token>
 
 **GET** `/api/auth/verify-email`
 
-Verify email using verification token.
+Verify email using verification token. This endpoint is meant to be accessed directly from the email link sent to the user.
 
 **Query Parameters:**
 
@@ -267,7 +267,21 @@ Verify email using verification token.
 ?token=verification-token-here
 ```
 
-**Response (200):**
+**Response (302 Redirect):**
+
+Redirects to the frontend verify email page with status and message query parameters:
+
+```
+Location: http://your-frontend.com/verify-email?status=success&message=Email%20verified%20successfully
+```
+
+Or on error:
+
+```
+Location: http://your-frontend.com/verify-email?status=error&message=Error%20message
+```
+
+**Note:** If `FrontendConfig` is not set, it falls back to a JSON response:
 
 ```json
 {

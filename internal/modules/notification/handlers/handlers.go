@@ -3,6 +3,7 @@ package handlers
 import (
 	"github.com/bete7512/goauth/internal/modules/notification/services"
 	"github.com/bete7512/goauth/pkg/config"
+	"github.com/bete7512/goauth/pkg/types"
 )
 
 type NotificationHandler struct {
@@ -21,13 +22,13 @@ func (h *NotificationHandler) GetRoutes() []config.RouteInfo {
 	routes := []config.RouteInfo{
 		// 📌 Email Verification
 		{
-			Name:    "notification.send_verification_email",
+			Name:    string(types.RouteNotificationSendVerificationEmail),
 			Path:    "/send-verification-email",
 			Method:  "POST",
 			Handler: h.SendVerificationEmail,
 		},
 		{
-			Name:    "notification.resend_verification_email",
+			Name:    string(types.RouteNotificationResendVerificationEmail),
 			Path:    "/resend-verification-email",
 			Method:  "POST",
 			Handler: h.ResendVerificationEmail,
@@ -35,13 +36,13 @@ func (h *NotificationHandler) GetRoutes() []config.RouteInfo {
 
 		// 📌 Phone Verification
 		{
-			Name:    "notification.send_verification_phone",
+			Name:    string(types.RouteNotificationSendVerificationPhone),
 			Path:    "/send-verification-phone",
 			Method:  "POST",
 			Handler: h.SendVerificationPhone,
 		},
 		{
-			Name:    "notification.resend_verification_phone",
+			Name:    string(types.RouteNotificationResendVerificationPhone),
 			Path:    "/resend-verification-phone",
 			Method:  "POST",
 			Handler: h.ResendVerificationPhone,
@@ -49,7 +50,7 @@ func (h *NotificationHandler) GetRoutes() []config.RouteInfo {
 
 		// 📌 Password Recovery
 		{
-			Name:    "notification.forgot_password",
+			Name:    string(types.RouteNotificationForgotPassword),
 			Path:    "/forgot-password",
 			Method:  "POST",
 			Handler: h.ForgotPassword,
@@ -57,13 +58,13 @@ func (h *NotificationHandler) GetRoutes() []config.RouteInfo {
 
 		// 📌 Verification Processing
 		{
-			Name:    "notification.verify_email",
+			Name:    string(types.RouteNotificationVerifyEmail),
 			Path:    "/verify-email",
-			Method:  "POST",
+			Method:  "GET",
 			Handler: h.VerifyEmail,
 		},
 		{
-			Name:    "notification.verify_phone",
+			Name:    string(types.RouteNotificationVerifyPhone),
 			Path:    "/verify-phone",
 			Method:  "POST",
 			Handler: h.VerifyPhone,

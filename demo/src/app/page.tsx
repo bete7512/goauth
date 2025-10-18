@@ -324,8 +324,8 @@ export default function DemoPage() {
                       <p className="text-gray-400 text-xs mt-1">Send email verification</p>
                     </div>
                     <div className="p-3 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
-                      <code className="text-emerald-300 text-sm">POST /verify-email</code>
-                      <p className="text-gray-400 text-xs mt-1">Verify email</p>
+                      <code className="text-emerald-300 text-sm">GET /verify-email?token=xxx</code>
+                      <p className="text-gray-400 text-xs mt-1">Verify email (redirects to frontend)</p>
                     </div>
                     <div className="p-3 bg-violet-500/10 rounded-lg border border-violet-500/20">
                       <code className="text-violet-300 text-sm">POST /send-verification-phone</code>

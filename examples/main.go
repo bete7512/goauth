@@ -62,7 +62,7 @@ func main() {
 			URL:                "http://localhost:3000",
 			Domain:             "localhost",
 			ResetPasswordPath:  "/reset-password",
-			VerifyEmailPath:    "/verify-email",
+			VerifyEmailCallbackPath:    "/verify-email",
 			LoginPath:          "/login",
 			SignupPath:         "/signup",
 			LogoutPath:         "/logout",

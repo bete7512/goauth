@@ -71,9 +71,15 @@ export class CoreApiService {
     return apiClient.post<MessageResponse>(url, data)
   }
 
-  async verifyEmail(data: VerifyEmailRequest): Promise<MessageResponse> {
+  // Note: Email verification is now done via GET request with redirect
+  // Users click the link in their email which goes directly to backend
+  // Backend verifies and redirects to frontend with status/message query params
+  // This method is kept for reference but the actual flow is:
+  // 1. User receives email with link: GET /verify-email?token=xxx
+  // 2. Backend verifies and redirects to: frontend/verify-email?status=success&message=...
+  getVerifyEmailUrl(token: string): string {
     const url = apiClient.getEndpoint('core', 'verifyEmail')
-    return apiClient.post<MessageResponse>(url, data)
+    return `${url}?token=${encodeURIComponent(token)}`
   }
 
   async resendVerificationEmail(data: SendVerificationEmailRequest): Promise<MessageResponse> {
@@ -127,6 +133,9 @@ export class CoreApiService {
 
 // Create singleton instance
 export const coreApiService = new CoreApiService()
+
+
+
 
 
 

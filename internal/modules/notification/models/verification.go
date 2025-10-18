@@ -12,6 +12,7 @@ const (
 	TokenTypeEmailVerification VerificationTokenType = "email_verification"
 	TokenTypePhoneVerification VerificationTokenType = "phone_verification"
 	TokenTypePasswordReset     VerificationTokenType = "password_reset"
+	TokenTypeTwoFactorCode     VerificationTokenType = "two_factor_code"
 )
 
 // VerificationToken represents a token for email/phone verification or password reset

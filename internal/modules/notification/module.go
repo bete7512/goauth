@@ -81,51 +81,19 @@ func (m *NotificationModule) Name() string {
 func (m *NotificationModule) Init(ctx context.Context, deps config.ModuleDependencies) error {
 	m.deps = deps
 
-	// Get verification token repository
-	if m.config.VerificationTokenRepository != nil {
-		m.verificationTokenRepo = m.config.VerificationTokenRepository
-	} else {
-		// Try to get from storage
-		repo := deps.Storage.GetRepository(string(types.CoreVerificationTokenRepository))
-		if repo != nil {
-			if verificationRepo, ok := repo.(models.VerificationTokenRepository); ok {
-				m.verificationTokenRepo = verificationRepo
-			}
-		}
-	}
-	if m.config.UserRepository != nil {
-		m.userRepo = m.config.UserRepository
-	} else {
-		// Try to get from storage
-		repo := deps.Storage.GetRepository(string(types.CoreUserRepository))
-		if repo != nil {
-			if userRepo, ok := repo.(coreModels.UserRepository); ok {
-				m.userRepo = userRepo
-			}
-		}
+	// Resolve repositories
+	m.resolveVerificationTokenRepository()
+	m.resolveUserRepository()
+
+	// Validate sender configuration
+	m.validateSenderConfiguration()
+
+	// Verify sender connections
+	if err := m.verifySenderConnections(ctx); err != nil {
+		return err
 	}
 
-	// Validate that at least one sender is configured
-	if m.config.EmailSender == nil && m.config.SMSSender == nil {
-		deps.Logger.Warnf("notification module: no email or SMS sender configured, notifications will not be sent")
-	}
-
-	// Verify connections
-	if m.config.EmailSender != nil {
-		if err := m.config.EmailSender.VerifyConfig(ctx); err != nil {
-			return fmt.Errorf("notification: email sender verification failed: %w", err)
-		}
-		deps.Logger.Info("notification module: email sender connected successfully")
-	}
-
-	if m.config.SMSSender != nil {
-		if err := m.config.SMSSender.VerifyConfig(ctx); err != nil {
-			return fmt.Errorf("notification: SMS sender verification failed: %w", err)
-		}
-		deps.Logger.Info("notification module: SMS sender connected successfully")
-	}
-
-	// Initialize service
+	// Initialize service with resolved dependencies
 	m.service = services.NewNotificationService(
 		deps,
 		m.config.EmailSender,
@@ -149,8 +117,9 @@ func (m *NotificationModule) Routes() []config.RouteInfo {
 }
 
 func (m *NotificationModule) Middlewares() []config.MiddlewareConfig {
-	// Notification module doesn't add any middlewares
-	return nil
+	// Notification module doesn't export any middlewares
+	// It uses the auth middleware from the core module via RouteInfo.Middlewares
+	return []config.MiddlewareConfig{}
 }
 
 func (m *NotificationModule) Models() []interface{} {
@@ -193,4 +162,62 @@ func (m *NotificationModule) Dependencies() []string {
 // GetService returns the notification service for direct access
 func (m *NotificationModule) GetService() *services.NotificationService {
 	return m.service
+}
+
+// Private helper functions for initialization
+
+func (m *NotificationModule) resolveVerificationTokenRepository() {
+	if m.config.VerificationTokenRepository != nil {
+		m.verificationTokenRepo = m.config.VerificationTokenRepository
+		return
+	}
+
+	// Try to get from storage
+	repo := m.deps.Storage.GetRepository(string(types.CoreVerificationTokenRepository))
+	if repo != nil {
+		if verificationRepo, ok := repo.(models.VerificationTokenRepository); ok {
+			m.verificationTokenRepo = verificationRepo
+		}
+	}
+}
+
+func (m *NotificationModule) resolveUserRepository() {
+	if m.config.UserRepository != nil {
+		m.userRepo = m.config.UserRepository
+		return
+	}
+
+	// Try to get from storage
+	repo := m.deps.Storage.GetRepository(string(types.CoreUserRepository))
+	if repo != nil {
+		if userRepo, ok := repo.(coreModels.UserRepository); ok {
+			m.userRepo = userRepo
+		}
+	}
+}
+
+func (m *NotificationModule) validateSenderConfiguration() {
+	if m.config.EmailSender == nil && m.config.SMSSender == nil {
+		m.deps.Logger.Warnf("notification module: no email or SMS sender configured, notifications will not be sent")
+	}
+}
+
+func (m *NotificationModule) verifySenderConnections(ctx context.Context) error {
+	// Verify email sender connection
+	if m.config.EmailSender != nil {
+		if err := m.config.EmailSender.VerifyConfig(ctx); err != nil {
+			return fmt.Errorf("notification: email sender verification failed: %w", err)
+		}
+		m.deps.Logger.Info("notification module: email sender connected successfully")
+	}
+
+	// Verify SMS sender connection
+	if m.config.SMSSender != nil {
+		if err := m.config.SMSSender.VerifyConfig(ctx); err != nil {
+			return fmt.Errorf("notification: SMS sender verification failed: %w", err)
+		}
+		m.deps.Logger.Info("notification module: SMS sender connected successfully")
+	}
+
+	return nil
 }

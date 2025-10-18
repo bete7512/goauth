@@ -38,10 +38,8 @@ func (m *AuthMiddleware) AuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		// Add user ID to context for downstream handlers
 		ctx := context.WithValue(r.Context(), types.UserIDKey, userID)
 		next.ServeHTTP(w, r.WithContext(ctx))
-		return
 	})
 }
 
@@ -83,5 +81,3 @@ func (m *AuthMiddleware) AuthMiddlewareFunc(next http.HandlerFunc) http.HandlerF
 		m.AuthMiddleware(http.HandlerFunc(next)).ServeHTTP(w, r)
 	})
 }
-
-

@@ -93,10 +93,10 @@ func (m *AdminModule) Routes() []config.RouteInfo {
 func (m *AdminModule) Middlewares() []config.MiddlewareConfig {
 	return []config.MiddlewareConfig{
 		{
-			Name:       "admin.auth",
+			Name:       string(types.MiddlewareAdminAuth),
 			Middleware: middlewares.AdminAuthMiddleware,
 			Priority:   40,
-			ApplyTo:    []string{"admin.*"},
+			ApplyTo:    []string{}, // Routes now declare which middlewares they need via RouteInfo.Middlewares
 			Global:     false,
 		},
 	}

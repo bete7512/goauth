@@ -13,34 +13,29 @@ import (
 )
 
 // Login authenticates user and creates session
-func (s *CoreService) Login(ctx context.Context, req *dto.LoginRequest) (*dto.AuthResponse, *types.GoAuthError) {
+func (s *CoreService) Login(ctx context.Context, req *dto.LoginRequest) (dto.AuthResponse, *types.GoAuthError) {
 	// Find user
 	var user *models.User
 	var err error
 	user, err = s.UserRepository.FindByEmail(ctx, req.Email)
 	if err != nil || user == nil {
-		return nil, types.NewInvalidCredentialsError()
+		return dto.AuthResponse{}, types.NewInvalidCredentialsError()
 	}
-	if s.Config.RequireEmailVerification && user.Email != "" && !user.EmailVerified {
-		return nil, types.NewEmailNotVerifiedError()
+	if s.Config.RequireEmailVerification && user.Email != "" && user.EmailVerified {
+		return dto.AuthResponse{}, types.NewEmailNotVerifiedError()
 	}
-	if s.Config.RequirePhoneVerification && user.PhoneNumber != "" && !user.PhoneNumberVerified {
-		return nil, types.NewPhoneNotVerifiedError()
+	if s.Config.RequirePhoneVerification && user.PhoneNumber != "" && user.PhoneNumberVerified {
+		return dto.AuthResponse{}, types.NewPhoneNotVerifiedError()
 	}
 
 	// Verify password
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
-		return nil, types.NewInvalidCredentialsError()
+		return dto.AuthResponse{}, types.NewInvalidCredentialsError()
 	}
 
-	// // Generate session token
-	// sessionToken, err := s.Deps.SecurityManager.GenerateRandomToken(32)
-	// if err != nil {
-	// 	return nil, types.NewInternalError(fmt.Sprintf("failed to generate session token: %w", err))
-	// }
 	accessToken, refreshToken, err := s.SecurityManager.GenerateTokens(user, map[string]interface{}{})
 	if err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to generate tokens: %w", err))
+		return dto.AuthResponse{}, types.NewInternalError(fmt.Sprintf("failed to generate tokens: %s", err.Error()))
 	}
 
 	// Create session
@@ -55,16 +50,15 @@ func (s *CoreService) Login(ctx context.Context, req *dto.LoginRequest) (*dto.Au
 	now := time.Now()
 
 	user.LastLoginAt = &now
-	user.UpdatedAt = &now
 	if err := s.UserRepository.Update(ctx, user); err != nil {
-		s.Deps.Logger.Error("failed to update user", "error", err)
+		return dto.AuthResponse{}, types.NewInternalError(fmt.Sprintf("failed to update user: %s", err.Error()))
 	}
 
 	if err := s.SessionRepository.Create(ctx, session); err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to create session: %w", err))
+		return dto.AuthResponse{}, types.NewInternalError(fmt.Sprintf("failed to create session: %s", err.Error()))
 	}
 
-	return &dto.AuthResponse{
+	return dto.AuthResponse{
 		AccessToken:  &accessToken,
 		RefreshToken: &refreshToken,
 		User: &dto.UserDTO{

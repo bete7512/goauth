@@ -56,13 +56,13 @@ func (h *CoreHandler) Login(w http.ResponseWriter, r *http.Request) {
 		http_utils.RespondError(w, http.StatusInternalServerError, string(types.ErrInternalError), "Failed to generate tokens")
 		return
 	}
-	h.setSessionCookies(w, response)
+	h.setSessionCookies(w, &response)
 	if err := h.deps.Events.EmitAsync(ctx, types.EventAfterLogin, map[string]interface{}{
-		"user":     *response.User.ToUser(), // Dereference pointer to value
-		"session":  *response,
+		"user":     *response.User.ToUser(),
+		"session":  response,
 		"metadata": metadata,
 	}); err != nil {
-		return
+		h.deps.Logger.Errorf("core: failed to emit after login event: %v", err)
 	}
 	http_utils.RespondSuccess(w, response, nil)
 }

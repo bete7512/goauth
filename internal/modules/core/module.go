@@ -48,82 +48,49 @@ func New(cfg *config.CoreConfig, customRepositories *CustomRepositories) *CoreMo
 func (m *CoreModule) Init(ctx context.Context, deps config.ModuleDependencies) error {
 	m.deps = deps
 
-	// Get repository or return error
-	getRepo := func(cfgRepo interface{}, key string) (interface{}, error) {
-		if cfgRepo != nil {
-			return cfgRepo, nil
-		}
-		repo := deps.Storage.GetRepository(key)
-		if repo == nil {
-			return nil, fmt.Errorf("%s repository not found", key)
-		}
-		return repo, nil
-	}
-
 	// Resolve repositories
-	userRepoRaw, err := getRepo(m.customRepositories.UserRepository, string(types.CoreUserRepository))
+	userRepo, err := m.resolveUserRepository()
 	if err != nil {
 		return err
-	}
-	userRepo, ok := userRepoRaw.(models.UserRepository)
-	if !ok {
-		return fmt.Errorf("user repository has invalid type")
 	}
 
-	sessionRepoRaw, err := getRepo(m.customRepositories.SessionRepository, string(types.CoreSessionRepository))
+	sessionRepo, err := m.resolveSessionRepository()
 	if err != nil {
 		return err
-	}
-	sessionRepo, ok := sessionRepoRaw.(models.SessionRepository)
-	if !ok {
-		return fmt.Errorf("session repository has invalid type")
 	}
 
-	tokenRepoRaw, err := getRepo(m.customRepositories.TokenRepository, string(types.CoreTokenRepository))
+	tokenRepo, err := m.resolveTokenRepository()
 	if err != nil {
 		return err
-	}
-	tokenRepo, ok := tokenRepoRaw.(models.TokenRepository)
-	if !ok {
-		return fmt.Errorf("token repository has invalid type")
 	}
 
-	verificationTokenRepoRaw, err := getRepo(m.customRepositories.VerificationTokenRepository, string(types.CoreVerificationTokenRepository))
+	verificationTokenRepo, err := m.resolveVerificationTokenRepository()
 	if err != nil {
 		return err
-	}
-	verificationTokenRepo, ok := verificationTokenRepoRaw.(notification_models.VerificationTokenRepository)
-	if !ok {
-		return fmt.Errorf("verification token repository has invalid type")
-	}
-	userAttrRepoRaw, err := getRepo(m.customRepositories.UserExtendedAttributeRepository, string(types.CoreUserExtendedAttributeRepository))
-	if err != nil {
-		return err
-	}
-	userAttrRepo, ok := userAttrRepoRaw.(models.ExtendedAttributeRepository)
-	if !ok {
-		return fmt.Errorf("user attribute repository has invalid type")
-	}
-	if m.deps.Config.Core != nil {
-		m.config = &config.CoreConfig{
-			RequireEmailVerification: m.deps.Config.Core.RequireEmailVerification,
-			RequirePhoneVerification: m.deps.Config.Core.RequirePhoneVerification,
-			RequireUserName:          m.deps.Config.Core.RequireUserName,
-			RequirePhoneNumber:       m.deps.Config.Core.RequirePhoneNumber,
-		}
 	}
 
+	userAttrRepo, err := m.resolveUserAttributeRepository()
+	if err != nil {
+		return err
+	}
+
+	// Update config from dependencies if provided
+	m.updateConfigFromDeps()
+
+	// Initialize security manager
 	securityManager := security.NewSecurityManager(m.deps.Config.Security)
-	deps.SecurityManager = securityManager
+	m.deps.SecurityManager = securityManager
+
+	// Initialize handlers with all dependencies
 	m.handlers = handlers.NewCoreHandler(
 		core_services.NewCoreService(
-			deps,
+			m.deps,
 			userRepo,
 			userAttrRepo,
 			sessionRepo,
 			tokenRepo,
 			verificationTokenRepo,
-			deps.Logger,
+			m.deps.Logger,
 			securityManager,
 			m.config,
 		),
@@ -148,13 +115,13 @@ func (m *CoreModule) Routes() []config.RouteInfo {
 }
 
 func (m *CoreModule) Middlewares() []config.MiddlewareConfig {
-	authMiddleware := middlewares.NewAuthMiddleware(m.deps.Config, m.handlers.CoreService.SecurityManager)
+	authMiddleware := middlewares.NewAuthMiddleware(m.deps.Config, m.deps.SecurityManager)
 	return []config.MiddlewareConfig{
 		{
-			Name:       "core.auth",
+			Name:       string(types.MiddlewareAuth),
 			Middleware: authMiddleware.AuthMiddleware,
 			Priority:   50,
-			ApplyTo:    []string{"core.me", "core.profile", "core.logout"},
+			ApplyTo:    []string{},
 			Global:     false,
 		},
 	}
@@ -171,30 +138,94 @@ func (m *CoreModule) Models() []interface{} {
 }
 
 func (m *CoreModule) RegisterHooks(events types.EventBus) error {
-	events.Subscribe(types.EventBeforeSignup, types.EventHandler(func(ctx context.Context, event *types.Event) error {
-		_, ok := event.Data.(map[string]interface{})
-		if !ok {
-			return nil
-		}
-		return nil
-	}))
-	events.Subscribe(types.EventBeforeLogin, types.EventHandler(func(ctx context.Context, event *types.Event) error {
-		_, ok := event.Data.(map[string]interface{})
-		if !ok {
-			return nil
-		}
-		return nil
-	}))
-	events.Subscribe(types.EventBeforeLogout, types.EventHandler(func(ctx context.Context, event *types.Event) error {
-		_, ok := event.Data.(map[string]interface{})
-		if !ok {
-			return nil
-		}
-		return nil
-	}))
+	// register hooks here
 	return nil
 }
 
 func (m *CoreModule) Dependencies() []string {
 	return nil
+}
+
+// Private helper functions for repository resolution
+
+func (m *CoreModule) getRepositoryOrDefault(customRepo interface{}, repositoryKey string) (interface{}, error) {
+	if customRepo != nil {
+		return customRepo, nil
+	}
+	repo := m.deps.Storage.GetRepository(repositoryKey)
+	if repo == nil {
+		return nil, fmt.Errorf("%s repository not found", repositoryKey)
+	}
+	return repo, nil
+}
+
+func (m *CoreModule) resolveUserRepository() (models.UserRepository, error) {
+	repoRaw, err := m.getRepositoryOrDefault(m.customRepositories.UserRepository, string(types.CoreUserRepository))
+	if err != nil {
+		return nil, err
+	}
+	repo, ok := repoRaw.(models.UserRepository)
+	if !ok {
+		return nil, fmt.Errorf("user repository has invalid type")
+	}
+	return repo, nil
+}
+
+func (m *CoreModule) resolveSessionRepository() (models.SessionRepository, error) {
+	repoRaw, err := m.getRepositoryOrDefault(m.customRepositories.SessionRepository, string(types.CoreSessionRepository))
+	if err != nil {
+		return nil, err
+	}
+	repo, ok := repoRaw.(models.SessionRepository)
+	if !ok {
+		return nil, fmt.Errorf("session repository has invalid type")
+	}
+	return repo, nil
+}
+
+func (m *CoreModule) resolveTokenRepository() (models.TokenRepository, error) {
+	repoRaw, err := m.getRepositoryOrDefault(m.customRepositories.TokenRepository, string(types.CoreTokenRepository))
+	if err != nil {
+		return nil, err
+	}
+	repo, ok := repoRaw.(models.TokenRepository)
+	if !ok {
+		return nil, fmt.Errorf("token repository has invalid type")
+	}
+	return repo, nil
+}
+
+func (m *CoreModule) resolveVerificationTokenRepository() (notification_models.VerificationTokenRepository, error) {
+	repoRaw, err := m.getRepositoryOrDefault(m.customRepositories.VerificationTokenRepository, string(types.CoreVerificationTokenRepository))
+	if err != nil {
+		return nil, err
+	}
+	repo, ok := repoRaw.(notification_models.VerificationTokenRepository)
+	if !ok {
+		return nil, fmt.Errorf("verification token repository has invalid type")
+	}
+	return repo, nil
+}
+
+func (m *CoreModule) resolveUserAttributeRepository() (models.ExtendedAttributeRepository, error) {
+	repoRaw, err := m.getRepositoryOrDefault(m.customRepositories.UserExtendedAttributeRepository, string(types.CoreUserExtendedAttributeRepository))
+	if err != nil {
+		return nil, err
+	}
+	repo, ok := repoRaw.(models.ExtendedAttributeRepository)
+	if !ok {
+		return nil, fmt.Errorf("user attribute repository has invalid type")
+	}
+	return repo, nil
+}
+
+func (m *CoreModule) updateConfigFromDeps() {
+	if m.deps.Config.Core != nil {
+		m.config = &config.CoreConfig{
+			RequireEmailVerification: m.deps.Config.Core.RequireEmailVerification,
+			RequirePhoneVerification: m.deps.Config.Core.RequirePhoneVerification,
+			RequireUserName:          m.deps.Config.Core.RequireUserName,
+			RequirePhoneNumber:       m.deps.Config.Core.RequirePhoneNumber,
+		}
+	}
 }

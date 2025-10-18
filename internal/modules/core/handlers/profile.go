@@ -9,14 +9,6 @@ import (
 	"github.com/bete7512/goauth/pkg/types"
 )
 
-// Profile handles GET /profile (same as Me)
-func (h *CoreHandler) Profile(w http.ResponseWriter, r *http.Request) {
-	// Delegate to Me handler
-	h.deps.Logger.Info("Profile handler called")
-
-	h.Me(w, r)
-}
-
 // UpdateProfile handles PUT /profile
 func (h *CoreHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

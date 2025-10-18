@@ -330,6 +330,17 @@ func (u *UserDTO) ToUserDTO() *UserDTO {
 		FirstName: u.FirstName,
 		LastName:  u.LastName,
 		Name:      u.Name,
+		Email:     u.Email,
+		Username:  u.Username,
+		Avatar:    u.Avatar,
+		PhoneNumber: u.PhoneNumber,
+		Active:    u.Active,
+		EmailVerified: u.EmailVerified,
+		PhoneNumberVerified: u.PhoneNumberVerified,
+		CreatedAt: u.CreatedAt,
+		UpdatedAt: u.UpdatedAt,
+		LastLoginAt: u.LastLoginAt,
+		ExtendedAttributes: u.ExtendedAttributes,
 	}
 }
 

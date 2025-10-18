@@ -154,7 +154,29 @@ func resetPassword(c *gin.Context) {
 
 ## Email Verification
 
+GoAuth provides built-in email verification through the notification module. The verification flow works as follows:
+
+1. User receives an email with a verification link
+2. User clicks the link which goes directly to the backend: `GET /api/auth/verify-email?token=xxx`
+3. Backend verifies the token and redirects to the frontend with status
+
+### Configuration
+
+Configure the frontend URL in your auth setup:
+
+```go
+authInstance, err := auth.New(&config.Config{
+    // ... other config
+    FrontendConfig: &config.FrontendConfig{
+        URL:             "http://localhost:3000",
+        VerifyEmailPath: "/verify-email",
+    },
+})
+```
+
 ### Send Verification Email
+
+The notification module handles sending verification emails automatically, or you can trigger it manually:
 
 ```go
 func sendVerificationEmail(c *gin.Context) {
@@ -172,21 +194,26 @@ func sendVerificationEmail(c *gin.Context) {
 }
 ```
 
-### Verify Email
+### Frontend Verification Page
 
-```go
-func verifyEmail(c *gin.Context) {
-    token := c.Query("token")
+Create a frontend page at `/verify-email` to handle the redirect:
 
-    err := auth.VerifyEmail(c, token)
-    if err != nil {
-        c.JSON(400, gin.H{"error": err.Error()})
-        return
-    }
+```typescript
+// Example Next.js page
+export default function VerifyEmail() {
+  const searchParams = useSearchParams()
+  const status = searchParams.get('status')
+  const message = searchParams.get('message')
 
-    c.JSON(200, gin.H{
-        "message": "Email verified successfully",
-    })
+  return (
+    <div>
+      {status === 'success' ? (
+        <p>✅ {message}</p>
+      ) : (
+        <p>❌ {message}</p>
+      )}
+    </div>
+  )
 }
 ```
 

@@ -177,7 +177,7 @@ The demo connects to these Go-Auth core module endpoints:
 - `POST /forgot-password` - Request password reset
 - `POST /reset-password` - Reset password
 - `POST /send-verification-email` - Send email verification
-- `POST /verify-email` - Verify email
+- `GET /verify-email?token=xxx` - Verify email (redirects to frontend)
 - `POST /send-verification-phone` - Send phone verification
 - `POST /verify-phone` - Verify phone
 - `POST /availability/email` - Check email availability
@@ -212,6 +212,9 @@ The demo connects to these Go-Auth core module endpoints:
 ## License
 
 This demo is part of the Go-Auth project. See the main project for license information.
+
+
+
 
 
 

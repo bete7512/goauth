@@ -14,6 +14,11 @@ const (
 	RouteChangeEmail    RouteName = "core.change_email"
 	RouteChangePhone    RouteName = "core.change_phone"
 
+	// availability routes
+	RouteCheckAvailability         RouteName = "core.check_availability"
+	RouteCheckUsernameAvailability RouteName = "core.check_username_availability"
+	RouteCheckPhoneAvailability    RouteName = "core.check_phone_availability"
+
 	// Notification Routes
 	RouteNotificationSendVerificationEmail   RouteName = "notification.send_verification_email"
 	RouteNotificationResendVerificationEmail RouteName = "notification.resend_verification_email"
@@ -48,11 +53,12 @@ const (
 	RouteTwoFactorAuthEmail RouteName = "twofactor.auth.email"
 
 	// Admin Routes
-	RouteAdminListUsers  RouteName = "admin.users.list"
-	RouteAdminGetUser    RouteName = "admin.users.get"
-	RouteAdminCreateUser RouteName = "admin.users.create"
-	RouteAdminUpdateUser RouteName = "admin.users.update"
-	RouteAdminDeleteUser RouteName = "admin.users.delete"
+	RouteAdminListUsers     RouteName = "admin.users.list"
+	RouteAdminGetUser       RouteName = "admin.users.get"
+	RouteAdminCreateUser    RouteName = "admin.users.create"
+	RouteAdminUpdateUser    RouteName = "admin.users.update"
+	RouteAdminDeleteUser    RouteName = "admin.users.delete"
+	RouteAdminUserAuditLogs RouteName = "admin.users.audit"
 
 	// CSRF Routes
 	RouteCSRFToken RouteName = "csrf.get_token"

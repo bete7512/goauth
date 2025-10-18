@@ -111,18 +111,21 @@ type Config struct {
 
 	// app config
 	FrontendConfig *FrontendConfig
+
+	// Domain
+	APIURL string
 }
 
 type FrontendConfig struct {
-	Domain             string
-	URL                string
-	ResetPasswordPath  string
-	VerifyEmailPath    string
-	LoginPath          string
-	SignupPath         string
-	LogoutPath         string
-	ProfilePath        string
-	ChangePasswordPath string
+	Domain                  string
+	URL                     string
+	ResetPasswordPath       string
+	VerifyEmailCallbackPath string
+	LoginPath               string
+	SignupPath              string
+	LogoutPath              string
+	ProfilePath             string
+	ChangePasswordPath      string
 }
 
 type CoreConfig struct {

@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
 
 	"github.com/bete7512/goauth/internal/modules/notification/handlers/dto"
 	http_utils "github.com/bete7512/goauth/internal/utils/http"
@@ -161,33 +162,61 @@ func (h *NotificationHandler) ForgotPassword(w http.ResponseWriter, r *http.Requ
 	http_utils.RespondSuccess(w, response, nil)
 }
 
-// VerifyEmail handles POST /verify-email
+// VerifyEmail handles GET /verify-email?token=xxx
 func (h *NotificationHandler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	var req dto.VerifyEmailRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidRequestBody), "Invalid request body")
+
+	// Extract token from query parameter
+	token := r.URL.Query().Get("token")
+	if token == "" {
+		// Redirect to frontend with error
+		h.redirectToFrontend(w, r, false, "Missing verification token")
 		return
 	}
 
-	if err := req.Validate(); err != nil {
-		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidRequestBody), err.Error())
-		return
-	}
 	// Call notification service to verify email
-	verification, err := h.NotificationService.VerifyEmail(ctx, req.Token)
+	_, err := h.NotificationService.VerifyEmail(ctx, token)
 	if err != nil {
-		http_utils.RespondError(w, http.StatusBadRequest, "VERIFICATION_ERROR", err.Error())
+		// Redirect to frontend with error
+		h.redirectToFrontend(w, r, false, err.Error())
 		return
 	}
 
-	response := map[string]interface{}{
-		"message": "Email verified successfully",
-		"email":   verification.Email,
-		"user_id": verification.UserID,
+	// Redirect to frontend with success
+	h.redirectToFrontend(w, r, true, "Email verified successfully")
+}
+
+// redirectToFrontend redirects to the frontend verify email page
+func (h *NotificationHandler) redirectToFrontend(w http.ResponseWriter, r *http.Request, success bool, message string) {
+	// Get frontend config
+	frontendConfig := h.deps.Config.FrontendConfig
+	if frontendConfig == nil {
+		// Fallback to JSON response if frontend config is not set
+		if success {
+			http_utils.RespondSuccess(w, map[string]interface{}{
+				"message": message,
+			}, nil)
+		} else {
+			http_utils.RespondError(w, http.StatusBadRequest, "VERIFICATION_ERROR", message)
+		}
+		return
 	}
 
-	http_utils.RespondSuccess(w, response, nil)
+	// Build redirect URL with properly encoded query parameters
+	redirectURL := frontendConfig.URL + frontendConfig.VerifyEmailCallbackPath
+
+	// Add query parameters for status and message
+	params := url.Values{}
+	if success {
+		params.Add("status", "success")
+	} else {
+		params.Add("status", "error")
+	}
+
+	redirectURL += "?" + params.Encode()
+
+	// Perform redirect
+	http.Redirect(w, r, redirectURL, http.StatusFound)
 }
 
 // VerifyPhone handles POST /verify-phone

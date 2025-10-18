@@ -12,9 +12,6 @@ import (
 
 // SendEmailVerificationWithToken sends email verification and creates a token
 func (s *NotificationService) SendEmailVerificationFromHook(ctx context.Context, user coreModels.User) error {
-	if s.verificationTokenRepo == nil {
-		return fmt.Errorf("verification token repository not configured")
-	}
 
 	// Generate verification token and code
 	token, err := s.deps.SecurityManager.GenerateRandomToken(32)
@@ -49,9 +46,6 @@ func (s *NotificationService) SendEmailVerificationFromHook(ctx context.Context,
 
 // SendPhoneVerificationWithToken sends phone verification and creates a token
 func (s *NotificationService) SendPhoneVerificationFromHook(ctx context.Context, user coreModels.User) error {
-	if s.verificationTokenRepo == nil {
-		return fmt.Errorf("verification token repository not configured")
-	}
 
 	// Generate verification code (6-digit for phone)
 	code, err := s.deps.SecurityManager.GenerateNumericOTP(6)

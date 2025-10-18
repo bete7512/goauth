@@ -10,14 +10,16 @@ import (
 )
 
 type SwaggerGenerator struct {
-	modules  []config.Module
-	baseSpec map[string]interface{}
+	modules       []config.Module
+	baseSpec      map[string]interface{}
+	swaggerConfig types.SwaggerConfig
 }
 
 func NewGenerator(modules []config.Module, metadata types.SwaggerConfig) *SwaggerGenerator {
 	return &SwaggerGenerator{
-		modules:  modules,
-		baseSpec: getBaseSpec(metadata),
+		modules:       modules,
+		baseSpec:      getBaseSpec(metadata),
+		swaggerConfig: metadata,
 	}
 }
 
@@ -88,7 +90,7 @@ func mergeComponents(base, new map[string]interface{}) {
 }
 
 func getBaseSpec(metadata types.SwaggerConfig) map[string]interface{} {
-	return map[string]interface{}{
+	baseSpec := map[string]interface{}{
 		"openapi": "3.0.3",
 		"info": map[string]interface{}{
 			"title":       metadata.Title,
@@ -106,15 +108,66 @@ func getBaseSpec(metadata types.SwaggerConfig) map[string]interface{} {
 			return servers
 		}(),
 		"components": map[string]interface{}{
-			"securitySchemes": map[string]interface{}{
-				"sessionAuth": map[string]interface{}{
-					"type": "apiKey",
-					"in":   "cookie",
-					"name": "session_token",
-				},
-			},
+			"securitySchemes": buildSecuritySchemes(metadata),
 		},
 	}
+
+	return baseSpec
+}
+
+// buildSecuritySchemes dynamically builds security schemes based on configuration
+func buildSecuritySchemes(metadata types.SwaggerConfig) map[string]interface{} {
+	schemes := make(map[string]interface{})
+
+	// If custom security schemes are provided, use them
+	if len(metadata.SecuritySchemes) > 0 {
+		for name, scheme := range metadata.SecuritySchemes {
+			schemeMap := map[string]interface{}{
+				"type": scheme.Type,
+			}
+
+			// Add optional fields based on type
+			if scheme.Description != "" {
+				schemeMap["description"] = scheme.Description
+			}
+
+			switch scheme.Type {
+			case "apiKey":
+				schemeMap["in"] = scheme.In
+				schemeMap["name"] = scheme.Name
+			case "http":
+				schemeMap["scheme"] = scheme.Scheme
+				if scheme.BearerFormat != "" {
+					schemeMap["bearerFormat"] = scheme.BearerFormat
+				}
+			case "oauth2":
+				if scheme.Flows != nil {
+					schemeMap["flows"] = scheme.Flows
+				}
+			case "openIdConnect":
+				// OpenID Connect specific fields would go here
+			}
+
+			schemes[name] = schemeMap
+		}
+	} else {
+		// Use default schemes - both cookie and bearer for backwards compatibility
+		// This maintains existing behavior when no custom schemes are specified
+		schemes["cookieAuth"] = map[string]interface{}{
+			"type":        "apiKey",
+			"in":          "cookie",
+			"name":        "session_token",
+			"description": "Session cookie authentication",
+		}
+		schemes["bearerAuth"] = map[string]interface{}{
+			"type":         "http",
+			"scheme":       "bearer",
+			"bearerFormat": "JWT",
+			"description":  "JWT Bearer token authentication",
+		}
+	}
+
+	return schemes
 }
 
 func copyMap(m map[string]interface{}) map[string]interface{} {

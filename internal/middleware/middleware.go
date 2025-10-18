@@ -59,6 +59,47 @@ func (m *Manager) Apply(routeName string, handler http.Handler) http.Handler {
 	return handler
 }
 
+// ApplyWithRouteMiddlewares applies middlewares to a handler based on route's middleware list
+// This method considers both global middlewares and route-specific middlewares
+func (m *Manager) ApplyWithRouteMiddlewares(routeName string, handler http.Handler, routeMiddlewares []string) http.Handler {
+	// Create a map of route-required middlewares for fast lookup
+	requiredMiddlewares := make(map[string]bool)
+	for _, mwName := range routeMiddlewares {
+		requiredMiddlewares[mwName] = true
+	}
+
+	// Apply middlewares in reverse order (last registered, first executed in chain)
+	for i := len(m.middlewares) - 1; i >= 0; i-- {
+		mw := m.middlewares[i]
+
+		// Apply middleware if:
+		// 1. It's global and not excluded
+		// 2. It's in the route's middleware list
+		shouldApply := false
+
+		if mw.Global {
+			// Check exclusions for global middlewares
+			excluded := false
+			for _, exclude := range mw.ExcludeFrom {
+				if matchPattern(exclude, routeName) {
+					excluded = true
+					break
+				}
+			}
+			shouldApply = !excluded
+		} else if requiredMiddlewares[mw.Name] {
+			// Route explicitly requires this middleware
+			shouldApply = true
+		}
+
+		if shouldApply {
+			handler = mw.Middleware(handler)
+		}
+	}
+
+	return handler
+}
+
 // ApplyGlobal applies only global middlewares to a handler
 func (m *Manager) ApplyGlobal(handler http.Handler) http.Handler {
 	for i := len(m.middlewares) - 1; i >= 0; i-- {

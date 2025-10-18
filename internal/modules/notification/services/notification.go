@@ -11,9 +11,6 @@ import (
 
 // SendEmailVerificationWithToken sends email verification and creates a token
 func (s *NotificationService) SendEmailVerification(ctx context.Context, email string) error {
-	if s.verificationTokenRepo == nil {
-		return fmt.Errorf("verification token repository not configured")
-	}
 
 	// Generate verification token and code
 	token, err := s.deps.SecurityManager.GenerateRandomToken(32)
@@ -55,9 +52,6 @@ func (s *NotificationService) SendEmailVerification(ctx context.Context, email s
 
 // SendPhoneVerificationWithToken sends phone verification and creates a token
 func (s *NotificationService) SendPhoneVerification(ctx context.Context, phoneNumber string) error {
-	if s.verificationTokenRepo == nil {
-		return fmt.Errorf("verification token repository not configured")
-	}
 
 	// Generate verification code (6-digit for phone)
 	code, err := s.deps.SecurityManager.GenerateNumericOTP(6)
@@ -96,9 +90,6 @@ func (s *NotificationService) SendPhoneVerification(ctx context.Context, phoneNu
 
 // ResendEmailVerification resends email verification
 func (s *NotificationService) ResendEmailVerification(ctx context.Context, email string) error {
-	if s.verificationTokenRepo == nil {
-		return fmt.Errorf("verification token repository not configured")
-	}
 
 	// Find existing verification token
 	existingToken, err := s.verificationTokenRepo.FindByEmailAndType(ctx, email, string(models.TokenTypeEmailVerification))
@@ -146,9 +137,6 @@ func (s *NotificationService) ResendEmailVerification(ctx context.Context, email
 }
 
 func (s *NotificationService) SendPasswordResetEmail(ctx context.Context, email string) error {
-	if s.verificationTokenRepo == nil {
-		return fmt.Errorf("verification token repository not configured")
-	}
 
 	// Generate verification token and code
 	token, err := s.deps.SecurityManager.GenerateRandomToken(32)
@@ -194,9 +182,6 @@ func (s *NotificationService) SendPasswordResetEmail(ctx context.Context, email 
 }
 
 func (s *NotificationService) SendPasswordResetSMS(ctx context.Context, phoneNumber string) error {
-	if s.verificationTokenRepo == nil {
-		return fmt.Errorf("verification token repository not configured")
-	}
 
 	// Generate verification code (6-digit for phone)
 	code, err := s.deps.SecurityManager.GenerateNumericOTP(6)
@@ -216,9 +201,6 @@ func (s *NotificationService) SendPasswordResetSMS(ctx context.Context, phoneNum
 
 // ResendPhoneVerification resends phone verification
 func (s *NotificationService) ResendPhoneVerification(ctx context.Context, phoneNumber string) error {
-	if s.verificationTokenRepo == nil {
-		return fmt.Errorf("verification token repository not configured")
-	}
 
 	// Find existing verification token
 	existingToken, err := s.verificationTokenRepo.FindByPhoneAndType(ctx, phoneNumber, string(models.TokenTypePhoneVerification))
@@ -262,9 +244,6 @@ func (s *NotificationService) ResendPhoneVerification(ctx context.Context, phone
 
 // VerifyEmailWithToken verifies an email using token
 func (s *NotificationService) VerifyEmail(ctx context.Context, token string) (*models.VerificationToken, error) {
-	if s.verificationTokenRepo == nil {
-		return nil, fmt.Errorf("verification token repository not configured")
-	}
 
 	// Find the verification token
 	verification, err := s.verificationTokenRepo.FindByToken(ctx, token)
@@ -310,9 +289,6 @@ func (s *NotificationService) VerifyEmail(ctx context.Context, token string) (*m
 
 // VerifyPhoneWithCode verifies a phone using code
 func (s *NotificationService) VerifyPhone(ctx context.Context, code string, phoneNumber string) (*models.VerificationToken, error) {
-	if s.verificationTokenRepo == nil {
-		return nil, fmt.Errorf("verification token repository not configured")
-	}
 
 	// Find the verification token by code
 	verification, err := s.verificationTokenRepo.FindByCode(ctx, code, string(models.TokenTypePhoneVerification))
@@ -358,20 +334,13 @@ func (s *NotificationService) VerifyPhone(ctx context.Context, code string, phon
 
 // buildVerificationLink builds a verification link using frontend config
 func (s *NotificationService) buildVerificationLink(email, token string) string {
-	// Try to use frontend config first
-	if s.deps.Config.FrontendConfig != nil && s.deps.Config.FrontendConfig.VerifyEmailPath != "" {
-		baseURL := s.deps.Config.FrontendConfig.URL
-		if baseURL == "" {
-			return ""
-		}
-		verifyPath := s.deps.Config.FrontendConfig.VerifyEmailPath
-		return fmt.Sprintf("%s%s?token=%s&email=%s", baseURL, verifyPath, token, email)
-	}
-
-	return ""
+	apiURL := s.deps.Config.APIURL + s.deps.Config.BasePath
+	redirectUrl := fmt.Sprintf("%s%s", s.deps.Config.FrontendConfig.URL, s.deps.Config.FrontendConfig.VerifyEmailCallbackPath)
+	verifificationLink := fmt.Sprintf("%s%s?token=%s&redirect_url=%s", apiURL, s.deps.Config.FrontendConfig.VerifyEmailCallbackPath, token, redirectUrl)
+	return verifificationLink
 }
 
-func (s *NotificationService) buildPasswordResetLink(email, code string) string {
+func (s *NotificationService) buildPasswordResetLink(email, token string) string {
 	// Try to use frontend config first
 	if s.deps.Config.FrontendConfig != nil && s.deps.Config.FrontendConfig.ResetPasswordPath != "" {
 		baseURL := s.deps.Config.FrontendConfig.URL
@@ -379,7 +348,7 @@ func (s *NotificationService) buildPasswordResetLink(email, code string) string 
 			return ""
 		}
 		resetPath := s.deps.Config.FrontendConfig.ResetPasswordPath
-		return fmt.Sprintf("%s%s?email=%s&code=%s", baseURL, resetPath, email, code)
+		return fmt.Sprintf("%s%s?email=%s&code=%s", baseURL, resetPath, email, token)
 	}
 	return ""
 }

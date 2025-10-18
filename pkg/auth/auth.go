@@ -174,8 +174,10 @@ func (a *Auth) Routes() []config.RouteInfo {
 	// Return routes with middlewares applied
 	routesWithMiddleware := make([]config.RouteInfo, len(a.routes))
 	for i, route := range a.routes {
-		// Apply middlewares to route handler
-		handler := a.middlewareManager.Apply(route.Name, http.HandlerFunc(route.Handler))
+		// Apply middlewares to route handler based on route's Middlewares attribute
+		// This applies both global middlewares and route-specific middlewares
+		handler := a.middlewareManager.ApplyWithRouteMiddlewares(route.Name, http.HandlerFunc(route.Handler), route.Middlewares)
+
 		routesWithMiddleware[i] = config.RouteInfo{
 			Name:    route.Name,
 			Path:    route.Path,
@@ -192,17 +194,6 @@ func (a *Auth) Initialize(ctx context.Context) error {
 	if a.initialized {
 		return fmt.Errorf("auth already initialized")
 	}
-
-	// Populate repositories from storage to dependencies
-	// Modules can access repositories via deps.Repositories or deps.Storage.GetRepository()
-	// for _, repoName := range []string{
-	// 	string(config.CoreUserRepository),
-	// 	string(config.CoreSessionRepository),
-	// 	string(config.AdminAuditLogRepository),
-	// 	// Add more repository constants as needed
-	// } {
-	// 	a.moduleDependencies.Repositories[repoName] = a.storage.GetRepository(repoName)
-	// }
 
 	// Collect all models from modules
 	var allModels []interface{}
@@ -307,7 +298,7 @@ func (a *Auth) On(event types.EventType, handler types.EventHandler, opts ...int
 	a.moduleDependencies.Events.Subscribe(event, handler, opts...)
 }
 
-// asyncBackendAdapter adapts config.AsyncBackend to events.AsyncBackend
+// // asyncBackendAdapter adapts config.AsyncBackend to events.AsyncBackend
 type asyncBackendAdapter struct {
 	backend types.AsyncBackend
 }

@@ -16,6 +16,7 @@ func (s *CoreService) Logout(ctx context.Context, userID string) *types.GoAuthEr
 	if err := s.SessionRepository.DeleteByUserID(ctx, userID); err != nil {
 		return types.NewSessionNotFoundError()
 	}
+	
 
 	return nil
 }

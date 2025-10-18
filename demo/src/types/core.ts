@@ -68,9 +68,11 @@ export interface SendVerificationEmailRequest {
   email: string
 }
 
+// Note: Email verification is now done via GET request with redirect
+// This interface is kept for backward compatibility
 export interface VerifyEmailRequest {
   token: string
-  email: string
+  email?: string // Now optional since backend only needs token from query param
 }
 
 export interface SendVerificationPhoneRequest {
@@ -111,6 +113,9 @@ export interface CheckAvailabilityRequest {
   username?: string
   phone?: string
 }
+
+
+
 
 
 

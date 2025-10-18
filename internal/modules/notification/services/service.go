@@ -3,6 +3,7 @@ package services
 import (
 	coreModels "github.com/bete7512/goauth/internal/modules/core/models"
 	"github.com/bete7512/goauth/internal/modules/notification/models"
+	"github.com/bete7512/goauth/internal/modules/notification/templates"
 	"github.com/bete7512/goauth/pkg/config"
 )
 
@@ -11,7 +12,7 @@ type NotificationService struct {
 	deps                  config.ModuleDependencies
 	emailSender           models.EmailSender
 	smsSender             models.SMSSender
-	templates             map[string]models.NotificationTemplate
+	templates             map[string]templates.NotificationTemplate
 	config                *NotificationConfig
 	verificationTokenRepo models.VerificationTokenRepository
 	userRepo              coreModels.UserRepository
@@ -22,7 +23,7 @@ type NotificationConfig struct {
 	AppName      string
 	SupportEmail string
 	SupportLink  string
-	Templates    map[string]models.NotificationTemplate
+	Templates    map[string]templates.NotificationTemplate
 }
 
 // NewNotificationService creates a new notification service
@@ -37,18 +38,18 @@ func NewNotificationService(
 	if cfg == nil {
 		cfg = &NotificationConfig{
 			AppName:   "GoAuth",
-			Templates: make(map[string]models.NotificationTemplate),
+			Templates: make(map[string]templates.NotificationTemplate),
 		}
 	}
 
 	// Initialize default templates
-	templates := map[string]models.NotificationTemplate{
-		"welcome":            models.TemplateWelcome,
-		"password_reset":     models.TemplatePasswordReset,
-		"email_verification": models.TemplateEmailVerification,
-		"two_factor_code":    models.TemplateTwoFactorCode,
-		"login_alert":        models.TemplateLoginAlert,
-		"password_changed":   models.TemplatePasswordChanged,
+	templates := map[string]templates.NotificationTemplate{
+		"welcome":            templates.TemplateWelcome,
+		"password_reset":     templates.TemplatePasswordReset,
+		"email_verification": templates.TemplateEmailVerification,
+		"two_factor_code":    templates.TemplateTwoFactorCode,
+		"login_alert":        templates.TemplateLoginAlert,
+		"password_changed":   templates.TemplatePasswordChanged,
 	}
 
 	// Override with custom templates

@@ -32,31 +32,29 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
 
   /verify-email:
-    post:
+    get:
       summary: Verify email address
-      description: Verify email address using verification token
+      description: Verify email address using verification token from email link. Redirects to frontend with success or error status.
       tags: [Notification Module Docs]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/VerifyEmailRequest'
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Verification token from email
+          example: abc123def456
       responses:
-        '200':
-          description: Email verified successfully
-          content:
-            application/json:
+        '302':
+          description: Redirects to frontend verify-email page with status and message query parameters
+          headers:
+            Location:
+              description: Redirect URL to frontend
               schema:
-                $ref: '#/components/schemas/MessageResponse'
+                type: string
+                example: http://localhost:3000/verify-email?status=success&message=Email%20verified%20successfully
         '400':
-          description: Validation error or invalid token
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Verification service error
+          description: Missing token or frontend config not set (fallback JSON response)
           content:
             application/json:
               schema:

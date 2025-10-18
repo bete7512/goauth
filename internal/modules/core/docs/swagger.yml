@@ -74,7 +74,8 @@ paths:
       description: End user session
       tags: [Core Authentication Module Docs]
       security:
-        - sessionAuth: []
+        - cookieAuth: []
+        - bearerAuth: []
       responses:
         '200':
           description: Logout successful
@@ -95,7 +96,8 @@ paths:
       description: Retrieve current authenticated user information
       tags: [Core Authentication Module Docs]
       security:
-        - sessionAuth: []
+        - cookieAuth: []
+        - bearerAuth: []
       responses:
         '200':
           description: User information retrieved
@@ -144,32 +146,13 @@ paths:
 
   # Profile Management Routes
   /profile:
-    get:
-      summary: Get user profile
-      description: Retrieve user profile information
-      tags: [Core Authentication Module Docs]
-      security:
-        - sessionAuth: []
-      responses:
-        '200':
-          description: Profile retrieved successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UserDTO'
-        '401':
-          description: Not authenticated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
     put:
       summary: Update user profile
       description: Update user profile information
       tags: [Core Authentication Module Docs]        
       security:
-        - sessionAuth: []
+        - cookieAuth: []
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -202,7 +185,8 @@ paths:
       description: Change user password (requires old password)
       tags: [Core Authentication Module Docs]
       security:
-        - sessionAuth: []
+        - cookieAuth: []
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -304,13 +288,10 @@ paths:
                 $ref: '#/components/schemas/CheckAvailabilityResponse'
 
 components:
-  securitySchemes:
-    sessionAuth:
-      type: apiKey
-      in: cookie
-      name: session_token
-      description: Session token cookie
-
+  # Security schemes are now defined globally in the swagger generator
+  # This allows for dynamic configuration based on user settings
+  # Supported schemes: cookieAuth (cookie-based) and bearerAuth (JWT Bearer token)
+  
   schemas:
     # Request Schemas
     SignupRequest:

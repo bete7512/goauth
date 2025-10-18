@@ -34,17 +34,6 @@ func (s *CoreService) UpdateProfile(ctx context.Context, userID string, req *dto
 		return nil, types.NewUserNotFoundError()
 	}
 	now := time.Now()
-	// // Check if phone is being changed and if it's already taken
-	// if req.Phone != "" && req.Phone != user.Attributes {
-	// 	existing, _ := s.UserRepository.FindByPhone(ctx, req.Phone)
-	// 	if existing != nil && existing.ID != user.ID {
-	// 		return nil, types.NewPhoneAlreadyVerifiedError()
-	// 	}
-	// 	// Mark phone as unverified if changed
-	// 	user.Phone = req.Phone
-	// 	user.PhoneVerified = false
-	// }
-
 	// Update fields
 	if req.Name != "" {
 		user.Name = req.Name
@@ -58,12 +47,6 @@ func (s *CoreService) UpdateProfile(ctx context.Context, userID string, req *dto
 	if err := s.UserRepository.Update(ctx, user); err != nil {
 		return nil, types.NewInternalError(fmt.Sprintf("failed to update profile: %w", err))
 	}
-
-	// // Emit event
-	// s.deps.Events.EmitAsync(ctx, types.EventAfterChangeProfile, map[string]interface{}{
-	// 	"user_id": user.ID,
-	// 	"email":   user.Email,
-	// })
 
 	return &dto.UserDTO{
 		ID:        user.ID,

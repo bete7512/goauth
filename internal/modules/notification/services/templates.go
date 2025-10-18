@@ -8,10 +8,11 @@ import (
 	textTemplate "text/template"
 
 	"github.com/bete7512/goauth/internal/modules/notification/models"
+	"github.com/bete7512/goauth/internal/modules/notification/templates"
 )
 
 // sendTemplatedEmail sends an email using a template
-func (s *NotificationService) sendTemplatedEmail(ctx context.Context, tmpl *models.NotificationTemplate, to string, data map[string]interface{}) error {
+func (s *NotificationService) sendTemplatedEmail(ctx context.Context, tmpl *templates.NotificationTemplate, to string, data map[string]interface{}) error {
 	// Parse and execute subject template
 	subjectTmpl, err := template.New("subject").Parse(tmpl.Subject)
 	if err != nil {
@@ -59,7 +60,7 @@ func (s *NotificationService) sendTemplatedEmail(ctx context.Context, tmpl *mode
 }
 
 // sendTemplatedSMS sends an SMS using a template
-func (s *NotificationService) sendTemplatedSMS(ctx context.Context, tmpl *models.NotificationTemplate, to string, data map[string]interface{}) error {
+func (s *NotificationService) sendTemplatedSMS(ctx context.Context, tmpl *templates.NotificationTemplate, to string, data map[string]interface{}) error {
 	// Parse and execute SMS body template
 	smsTmpl, err := textTemplate.New("sms").Parse(tmpl.SMSBody)
 	if err != nil {

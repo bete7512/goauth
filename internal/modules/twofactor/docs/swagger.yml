@@ -6,7 +6,8 @@ paths:
       description: Initialize 2FA setup for the authenticated user and get QR code
       tags: [Two-Factor Authentication Module]
       security:
-        - sessionAuth: []
+        - cookieAuth: []
+        - bearerAuth: []
       responses:
         '200':
           description: 2FA setup initiated successfully
@@ -33,7 +34,8 @@ paths:
       description: Verify the TOTP code from authenticator app and enable 2FA
       tags: [Two-Factor Authentication Module]
       security:
-        - sessionAuth: []
+        - cookieAuth: []
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -66,7 +68,8 @@ paths:
       description: Disable 2FA for the authenticated user
       tags: [Two-Factor Authentication Module]
       security:
-        - sessionAuth: []
+        - cookieAuth: []
+        - bearerAuth: []
       responses:
         '200':
           description: 2FA disabled successfully
@@ -93,7 +96,8 @@ paths:
       description: Retrieve the current 2FA status for the authenticated user
       tags: [Two-Factor Authentication Module]
       security:
-        - sessionAuth: []
+        - cookieAuth: []
+        - bearerAuth: []
       responses:
         '200':
           description: 2FA status retrieved successfully
@@ -109,13 +113,10 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
 
 components:
-  securitySchemes:
-    sessionAuth:
-      type: apiKey
-      in: cookie
-      name: session_token
-      description: Session token cookie
-
+  # Security schemes are now defined globally in the swagger generator
+  # This allows for dynamic configuration based on user settings
+  # Supported schemes: cookieAuth (cookie-based) and bearerAuth (JWT Bearer token)
+  
   schemas:
     # Request Schemas
     TwoFactorVerifyRequest:
