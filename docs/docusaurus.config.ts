@@ -7,7 +7,7 @@ import type * as Preset from "@docusaurus/preset-classic";
 const config: Config = {
   title: "GoAuth",
   tagline:
-    "A comprehensive Go authentication library with OAuth, JWT, and security features",
+    "Modular, framework-agnostic authentication for Go - build only what you need",
   favicon: "img/favicon.ico",
 
   // Future flags, see https://docusaurus.io/docs/api/docusaurus-config#future
@@ -66,9 +66,9 @@ const config: Config = {
 
     // Announcement Banner
     announcementBar: {
-      id: "goauth-version-banner",
+      id: "goauth-modular-banner",
       content:
-        '🚀 GoAuth v1.0.0 - Now with enhanced security features! <a href="https://github.com/your-org/goauth/releases" target="_blank" rel="noopener noreferrer">View Release Notes →</a>',
+        '🧩 GoAuth v2.0 - Now with modular architecture! Build only what you need. <a href="/docs/intro" target="_blank" rel="noopener noreferrer">Learn More →</a>',
       backgroundColor: "#667eea",
       textColor: "#ffffff",
       isCloseable: true,
@@ -145,7 +145,7 @@ const config: Config = {
           title: "Documentation",
           items: [
             {
-              label: "Getting Started",
+              label: "Introduction",
               to: "/docs/intro",
             },
             {
@@ -159,19 +159,19 @@ const config: Config = {
           ],
         },
         {
-          title: "Features",
+          title: "Modules",
           items: [
             {
-              label: "OAuth",
-              to: "/docs/features/oauth",
+              label: "Core Module",
+              to: "/docs/modules/core",
             },
             {
-              label: "JWT",
-              to: "/docs/features/jwt",
+              label: "Notification Module",
+              to: "/docs/modules/notification",
             },
             {
-              label: "Two-Factor Auth",
-              to: "/docs/features/two-factor",
+              label: "All Modules",
+              to: "/docs/intro#available-modules",
             },
           ],
         },
@@ -180,15 +180,15 @@ const config: Config = {
           items: [
             {
               label: "GitHub",
-              href: "https://github.com/your-org/goauth",
+              href: "https://github.com/bete7512/goauth",
             },
             {
               label: "Issues",
-              href: "https://github.com/your-org/goauth/issues",
+              href: "https://github.com/bete7512/goauth/issues",
             },
             {
               label: "Discussions",
-              href: "https://github.com/your-org/goauth/discussions",
+              href: "https://github.com/bete7512/goauth/discussions",
             },
           ],
         },

@@ -238,8 +238,10 @@ docker run -p 8080:8080 goauth-example
 
 ## 📚 Learning Resources
 
-- **[Documentation](/docs)** - Complete API reference
-- **[Tutorials](/docs/getting-started)** - Step-by-step guides
+- **[Documentation](/docs/intro)** - Introduction to GoAuth's modular architecture
+- **[Quick Start](/docs/quickstart)** - Get started in minutes
+- **[Core Module](/docs/modules/core)** - Essential authentication features
+- **[Notification Module](/docs/modules/notification)** - Email & SMS integration
 - **[Blog](/blog)** - Latest updates and tips
 - **[Community](/docs/community)** - Get help and contribute
 
@@ -256,12 +258,12 @@ Have a great GoAuth implementation? Share it with the community!
 3. **Add** comprehensive documentation
 4. **Submit** a pull request
 
-<a href="https://github.com/your-org/goauth-examples/pulls" className="github-link">Submit Your Example</a>
+<a href="https://github.com/bete7512/goauth/pulls" className="github-link">Submit Your Example</a>
 
 </div>
 
 ---
 
-_Ready to build something amazing? Start with our [Getting Started Guide](/docs/getting-started/basic-auth) or explore the examples above!_
+_Ready to build something amazing? Start with our [Quick Start Guide](/docs/quickstart) or explore the examples above!_
 
 </div>

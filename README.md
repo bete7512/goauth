@@ -7,22 +7,54 @@
 [![CI/CD](https://img.shields.io/github/actions/workflow/status/bete7512/goauth/ci.yml?branch=main)](https://github.com/bete7512/goauth/actions)
 [![Coverage](https://img.shields.io/codecov/c/github/bete7512/goauth)](https://codecov.io/gh/bete7512/goauth)
 
- A framework-agnostic authentication library for Go applications. GoAuth provides a modular authentication system that works seamlessly across multiple web frameworks including Gin, Echo, Chi, Fiber, and standard HTTP.
+A **modular, framework-agnostic** authentication library for Go. GoAuth provides a flexible authentication system that works seamlessly across multiple web frameworks and allows you to compose features using a powerful modular architecture.
+
+## 🎯 Why GoAuth?
+
+**Built for Flexibility**  
+Unlike monolithic auth libraries, GoAuth uses a modular architecture where you only include what you need. Start with core authentication and add features like 2FA, OAuth, rate limiting, or CSRF protection as modules.
+
+**Framework Agnostic**  
+Works with Gin, Echo, Chi, Fiber, Gorilla Mux, standard HTTP, and more. One library, any framework.
+
+**Production Ready**  
+Battle-tested with comprehensive error handling, extensive testing, auto-generated docs, and async event processing.
 
 ## ✨ Features
 
-- 🔐 **Multi-Framework Support**: Works with Gin, Echo, Chi, Fiber, Gorilla Mux, and standard HTTP
-- 🔑 **JWT Authentication**: Secure token-based authentication with customizable claims
-- 🔒 **OAuth Integration**: Support for Google, GitHub, Facebook, Microsoft, Apple, Discord, and more
-- 🛡️ **Security Features**: Rate limiting, reCAPTCHA, two-factor authentication, email verification
-- 🗄️ **Database Agnostic**: Support for PostgreSQL, MySQL, MongoDB, and SQLite
-- 🎣 **Hook System**: Customizable before/after hooks for authentication events
-- 📊 **Comprehensive Logging**: Built-in logging with customizable levels
-- 🧪 **Extensive Testing**: Unit tests, integration tests, and benchmarks
-- 📚 **Auto-Generated Docs**: Swagger/OpenAPI documentation
-- 🚀 **Production Ready**: Battle-tested with comprehensive error handling
-- 🔧 **Builder Pattern**: Flexible configuration with builder pattern
-- 🎯 **HTTP-First Design**: Clean HTTP-only implementation
+### 🧩 Modular Architecture
+- **Plug-and-Play Modules**: Add only the features you need
+- **Clean Dependencies**: Modules declare their dependencies explicitly
+- **Event-Driven**: Powerful hook system for customization
+- **Easy to Extend**: Create custom modules with provided scaffolding
+
+### 🔐 Core Module (Auto-Registered)
+- User registration & authentication
+- JWT-based sessions with refresh tokens
+- Profile management
+- Password reset & email verification
+- Phone verification support
+- Availability checking (email, username, phone)
+- Extended user attributes
+
+### 📦 Available Modules
+- **Notification**: Email/SMS notifications with multiple providers (SendGrid, Twilio, SMTP, Resend)
+- **Two-Factor**: TOTP-based 2FA with backup codes
+- **OAuth**: Social login (Google, GitHub, Facebook, Microsoft, Apple, Discord)
+- **Rate Limiter**: IP-based rate limiting with configurable rules
+- **Captcha**: reCAPTCHA v3 and Cloudflare Turnstile protection
+- **CSRF**: Token-based CSRF protection
+- **Admin**: Admin-only endpoints for user management
+- **Magic Link**: Passwordless authentication via email
+
+### 🔧 Technical Features
+- **Multi-Framework Support**: Gin, Echo, Chi, Fiber, Gorilla Mux, standard HTTP
+- **Database Agnostic**: PostgreSQL, MySQL, MongoDB, SQLite via GORM or custom storage
+- **Async Events**: Built-in event bus with async processing (supports custom backends)
+- **Custom Storage**: Bring your own database layer
+- **Swagger/OpenAPI**: Auto-generated API documentation
+- **Comprehensive Testing**: Unit, integration, and benchmark tests
+- **Production Ready**: Structured logging, error handling, graceful shutdown
 
 ## 🚀 Quick Start
 
@@ -32,7 +64,7 @@
 go get github.com/bete7512/goauth
 ```
 
-### Basic Usage (Modular Architecture)
+### Basic Usage
 
 ```go
 package main
@@ -41,14 +73,16 @@ import (
     "context"
     "log"
     "net/http"
+    "time"
 
     "github.com/bete7512/goauth/internal/storage"
     "github.com/bete7512/goauth/pkg/auth"
     "github.com/bete7512/goauth/pkg/config"
+    "github.com/bete7512/goauth/pkg/types"
 )
 
 func main() {
-    // 1) Create storage via factory (GORM + Postgres shown)
+    // 1. Create storage (GORM + Postgres)
     store, err := storage.NewStorage(config.StorageConfig{
         Driver:       "gorm",
         Dialect:      "postgres",
@@ -59,657 +93,618 @@ func main() {
         MaxIdleConns: 5,
     })
     if err != nil {
-        log.Fatalf("storage error: %v", err)
+        log.Fatalf("Storage error: %v", err)
     }
     defer store.Close()
 
-    // 2) Create auth instance
+    // 2. Create auth instance (core module auto-registered)
     a, err := auth.New(&config.Config{
-        Storage: store,
-        Security: config.SecurityConfig{
-            JwtSecretKey:  "change-me-32-bytes",
-            EncryptionKey: "change-me-32-bytes",
-        },
+        Storage:     store,
         AutoMigrate: true,
+        BasePath:    "/api/v1",
+        Security: types.SecurityConfig{
+            JwtSecretKey:  "your-secret-key-min-32-chars!!",
+            EncryptionKey: "your-encryption-key-32-chars!!",
+            Session: types.SessionConfig{
+                AccessTokenTTL:  15 * time.Minute,
+                RefreshTokenTTL: 7 * 24 * time.Hour,
+            },
+        },
+        Core: &config.CoreConfig{
+            RequireEmailVerification: true,
+            RequirePhoneVerification: false,
+        },
     })
     if err != nil {
         log.Fatal(err)
     }
+    defer a.Close()
 
-    // 3) Register optional modules BEFORE Initialize (examples in /examples)
-    // a.Use(twofactor.New(&twofactor.TwoFactorConfig{...}))
-    // a.Use(csrf.New(&csrf.CSRFConfig{...}))
+    // 3. Register optional modules (BEFORE Initialize)
+    // See "Adding Modules" section below
 
-    // 4) Initialize (runs migrations, builds routes, registers hooks/middlewares)
+    // 4. Initialize (runs migrations, builds routes, registers hooks)
     if err := a.Initialize(context.Background()); err != nil {
         log.Fatal(err)
     }
 
-    // 5) Serve routes (standard http shown)
+    // 5. Serve routes
     mux := http.NewServeMux()
-    for _, r := range a.Routes() {
-        mux.Handle(r.Path, r.Handler)
+    for _, route := range a.Routes() {
+        mux.Handle(route.Path, route.Handler)
     }
+    
+    log.Println("Server running on :8080")
     log.Fatal(http.ListenAndServe(":8080", mux))
 }
 ```
 
-## 📖 Framework Examples
+## 🧩 Modular Architecture
 
-### Gin Framework
+GoAuth uses a three-phase initialization pattern:
+
+1. **Creation**: `auth.New()` creates the auth instance with core configuration
+2. **Registration**: `auth.Use(module)` registers optional modules
+3. **Initialization**: `auth.Initialize()` runs migrations, builds routes, and wires everything together
+
+### Core Module (Auto-Registered)
+
+The core module is automatically registered when you create an auth instance. It provides:
+
+- `POST /signup` - User registration
+- `POST /login` - User authentication  
+- `POST /logout` - User logout
+- `GET /me` - Get current user
+- `GET /profile` - Get user profile
+- `PUT /profile` - Update user profile
+- `PUT /change-password` - Change password
+- `POST /forgot-password` - Request password reset
+- `POST /reset-password` - Reset password
+- `POST /send-verification-email` - Send email verification
+- `GET /verify-email` - Verify email
+- `POST /send-verification-phone` - Send phone verification
+- `POST /verify-phone` - Verify phone
+- `POST /availability/email` - Check email availability
+- `POST /availability/username` - Check username availability
+- `POST /availability/phone` - Check phone availability
+
+### Adding Modules
+
+Add modules using the `Use()` method before calling `Initialize()`:
+
+#### Notification Module (Email & SMS)
 
 ```go
-package main
-
 import (
-    "github.com/bete7512/goauth/pkg/auth"
-    "github.com/bete7512/goauth/pkg/config"
-    "github.com/gin-gonic/gin"
+    "github.com/bete7512/goauth/internal/modules/notification"
+    "github.com/bete7512/goauth/internal/modules/notification/services/senders"
 )
 
+a.Use(notification.New(&notification.Config{
+    EmailSender: senders.NewSendGridEmailSender(&senders.SendGridConfig{
+        APIKey:          "your-sendgrid-api-key",
+        DefaultFrom:     "noreply@yourapp.com",
+        DefaultFromName: "Your App",
+    }),
+    ServiceConfig: &services.NotificationConfig{
+        AppName:      "Your App",
+        SupportEmail: "support@yourapp.com",
+    },
+    EnableWelcomeEmail:        true,
+    EnablePasswordResetEmail:  true,
+    EnableLoginAlerts:         true,
+    EnablePasswordChangeAlert: true,
+}))
+```
+
+#### Two-Factor Authentication
+
+```go
+import "github.com/bete7512/goauth/internal/modules/twofactor"
+
+a.Use(twofactor.New(&twofactor.TwoFactorConfig{
+    Issuer:           "MyApp",
+    Required:         false,
+    BackupCodesCount: 10,
+    CodeLength:       8,
+}))
+```
+
+Adds routes:
+- `POST /2fa/setup` - Initialize 2FA setup
+- `POST /2fa/verify` - Verify and enable 2FA
+- `POST /2fa/disable` - Disable 2FA
+- `GET /2fa/status` - Get 2FA status
+
+#### Rate Limiter
+
+```go
+import "github.com/bete7512/goauth/internal/modules/ratelimiter"
+
+a.Use(ratelimiter.New(&ratelimiter.RateLimiterConfig{
+    RequestsPerMinute: 60,
+    RequestsPerHour:   1000,
+    BurstSize:         10,
+}))
+```
+
+Automatically applies IP-based rate limiting to all endpoints.
+
+#### Captcha Protection
+
+```go
+import "github.com/bete7512/goauth/internal/modules/captcha"
+
+// Google reCAPTCHA v3
+a.Use(captcha.New(&captcha.CaptchaConfig{
+    Provider:           "google",
+    RecaptchaSiteKey:   "your-site-key",
+    RecaptchaSecretKey: "your-secret-key",
+    RecaptchaThreshold: 0.5,
+    ApplyToRoutes:      []string{"core.login", "core.signup"},
+}))
+
+// Or Cloudflare Turnstile
+a.Use(captcha.New(&captcha.CaptchaConfig{
+    Provider:           "cloudflare",
+    TurnstileSiteKey:   "your-site-key",
+    TurnstileSecretKey: "your-secret-key",
+    ApplyToRoutes:      []string{"core.login", "core.signup"},
+}))
+```
+
+#### CSRF Protection
+
+```go
+import "github.com/bete7512/goauth/internal/modules/csrf"
+
+a.Use(csrf.New(&csrf.CSRFConfig{
+    TokenLength:      32,
+    TokenExpiry:      3600,
+    Secure:           true,
+    HTTPOnly:         true,
+    SameSite:         http.SameSiteStrictMode,
+    ProtectedMethods: []string{"POST", "PUT", "DELETE", "PATCH"},
+}))
+```
+
+Adds route:
+- `GET /csrf-token` - Get CSRF token
+
+#### Complete Example with Multiple Modules
+
+```go
 func main() {
+    store, _ := storage.NewStorage(config.StorageConfig{ /* ... */ })
+    
     a, _ := auth.New(&config.Config{ /* ... */ })
-    _ = a.Initialize(context.Background())
 
-    router := gin.Default()
-    for _, r := range a.Routes() {
-        switch r.Method {
-        case http.MethodGet:
-            router.GET(r.Path, gin.WrapF(r.Handler))
-        case http.MethodPost:
-            router.POST(r.Path, gin.WrapF(r.Handler))
-        case http.MethodPut:
-            router.PUT(r.Path, gin.WrapF(r.Handler))
-        case http.MethodDelete:
-            router.DELETE(r.Path, gin.WrapF(r.Handler))
-        case http.MethodPatch:
-            router.PATCH(r.Path, gin.WrapF(r.Handler))
-        case http.MethodOptions:
-            router.OPTIONS(r.Path, gin.WrapF(r.Handler))
-        }
-    }
-    router.Run(":8080")
-}
-```
+    // Add notification support
+    a.Use(notification.New(&notification.Config{
+        EmailSender: senders.NewSendGridEmailSender(/* ... */),
+        EnableWelcomeEmail:       true,
+        EnablePasswordResetEmail: true,
+    }))
 
-### Echo Framework
+    // Add two-factor authentication
+    a.Use(twofactor.New(&twofactor.TwoFactorConfig{
+        Issuer:   "MyApp",
+        Required: false,
+    }))
 
-```go
-package main
+    // Add rate limiting
+    a.Use(ratelimiter.New(&ratelimiter.RateLimiterConfig{
+        RequestsPerMinute: 60,
+        RequestsPerHour:   1000,
+    }))
 
-import (
-    "github.com/bete7512/goauth"
-    "github.com/labstack/echo/v4"
-)
+    // Add captcha protection
+    a.Use(captcha.New(&captcha.CaptchaConfig{
+        Provider:           "google",
+        RecaptchaSiteKey:   os.Getenv("RECAPTCHA_SITE_KEY"),
+        RecaptchaSecretKey: os.Getenv("RECAPTCHA_SECRET_KEY"),
+        ApplyToRoutes:      []string{"core.login", "core.signup"},
+    }))
 
-func main() {
-    config := createConfig()
-    auth, _ := goauth.NewBuilder().WithConfig(config).Build()
-    
-    e := echo.New()
-    
-    // Register auth routes manually
-    authRoutes := auth.GetRoutes()
-    for _, route := range authRoutes {
-        handler := auth.GetWrappedHandler(route)
-        e.Any(route.Path, echo.WrapHandler(http.HandlerFunc(handler)))
-    }
-    
-    e.Start(":8080")
-}
-```
+    // Add CSRF protection
+    a.Use(csrf.New(&csrf.CSRFConfig{
+        TokenLength: 32,
+        TokenExpiry: 3600,
+        Secure:      true,
+    }))
 
-### Chi Framework
+    // Initialize all modules
+    a.Initialize(context.Background())
 
-```go
-package main
-
-import (
-    "github.com/bete7512/goauth"
-    "github.com/go-chi/chi/v5"
-    "net/http"
-)
-
-func main() {
-    config := createConfig()
-    auth, _ := goauth.NewBuilder().WithConfig(config).Build()
-    
-    r := chi.NewRouter()
-    
-    // Register auth routes manually
-    authRoutes := auth.GetRoutes()
-    for _, route := range authRoutes {
-        handler := auth.GetWrappedHandler(route)
-        r.HandleFunc(route.Method+" "+route.Path, handler)
-    }
-    
-    http.ListenAndServe(":8080", r)
-}
-```
-
-### Fiber Framework
-
-```go
-package main
-
-import (
-    "github.com/bete7512/goauth"
-    "github.com/gofiber/fiber/v2"
-    "github.com/gofiber/fiber/v2/middleware/adaptor"
-)
-
-func main() {
-    config := createConfig()
-    auth, _ := goauth.NewBuilder().WithConfig(config).Build()
-    
-    app := fiber.New()
-    
-    // Register auth routes manually
-    authRoutes := auth.GetRoutes()
-    for _, route := range authRoutes {
-        handler := auth.GetWrappedHandler(route)
-        fiberHandler := adaptor.HTTPHandler(http.HandlerFunc(handler))
-        
-        switch route.Method {
-        case "GET":
-            app.Get(route.Path, fiberHandler)
-        case "POST":
-            app.Post(route.Path, fiberHandler)
-        case "PUT":
-            app.Put(route.Path, fiberHandler)
-        case "DELETE":
-            app.Delete(route.Path, fiberHandler)
-        }
-    }
-    
-    app.Listen(":8080")
-}
-```
-
-### Standard HTTP
-
-```go
-package main
-
-import (
-    "github.com/bete7512/goauth"
-    "net/http"
-)
-
-func main() {
-    config := createConfig()
-    auth, _ := goauth.NewBuilder().WithConfig(config).Build()
-    
+    // Serve
     mux := http.NewServeMux()
-    
-    // Option 1: Manual route registration
-    authRoutes := auth.GetRoutes()
-    for _, route := range authRoutes {
-        handler := auth.GetWrappedHandler(route)
-        mux.HandleFunc(route.Method+" "+route.Path, handler)
+    for _, route := range a.Routes() {
+        mux.Handle(route.Path, route.Handler)
     }
-    
-    // Option 2: Wildcard mounting
-    // mux.Handle("/auth/", http.StripPrefix("/auth", auth))
-    
     http.ListenAndServe(":8080", mux)
 }
 ```
 
-## 🔧 Configuration
+## 📖 Framework Integration
 
-### Basic Configuration
+GoAuth works with any Go web framework through route registration:
+
+### Standard HTTP
 
 ```go
-config := config.Config{
-    App: config.AppConfig{
-        BasePath:    "/auth",
-        Domain:      "localhost",
-        FrontendURL: "http://localhost:3000",
-    },
-    Database: config.DatabaseConfig{
-        Type: "postgres",
-        URL:  "postgres://user:pass@localhost/dbname?sslmode=disable",
-    },
-    AuthConfig: config.AuthConfig{
-        JWT: config.JWTConfig{
-            Secret:             "your-secret-key-32-chars-long",
-            AccessTokenTTL:     15 * time.Minute,
-            RefreshTokenTTL:    7 * 24 * time.Hour,
-            EnableCustomClaims: false,
-        },
-        Tokens: config.TokenConfig{
-            HashSaltLength:       16,
-            PhoneVerificationTTL: 10 * time.Minute,
-            EmailVerificationTTL: 1 * time.Hour,
-            PasswordResetTTL:     10 * time.Minute,
-            TwoFactorTTL:         10 * time.Minute,
-            MagicLinkTTL:         10 * time.Minute,
-        },
-        Methods: config.AuthMethodsConfig{
-            Type:                  config.AuthenticationTypeEmail,
-            EnableTwoFactor:       true,
-            EnableMultiSession:    false,
-            EnableMagicLink:       false,
-            EnableSmsVerification: false,
-            TwoFactorMethod:       "email",
-            EmailVerification: config.EmailVerificationConfig{
-                EnableOnSignup:   true,
-                VerificationURL:  "http://localhost:3000/verify",
-                SendWelcomeEmail: false,
-            },
-        },
-        PasswordPolicy: config.PasswordPolicy{
-            HashSaltLength: 16,
-            MinLength:      8,
-            RequireUpper:   true,
-            RequireLower:   true,
-            RequireNumber:  true,
-            RequireSpecial: true,
-        },
-        Cookie: config.CookieConfig{
-            Name:     "auth_token",
-            Path:     "/",
-            MaxAge:   86400,
-            Secure:   false,
-            HttpOnly: true,
-            SameSite: 1,
-        },
-    },
-    Features: config.FeaturesConfig{
-        EnableRateLimiter:   true,
-        EnableRecaptcha:     true,
-        EnableCustomJWT:     false,
-        EnableCustomStorage: false,
-    },
+mux := http.NewServeMux()
+for _, route := range a.Routes() {
+    mux.Handle(route.Path, route.Handler)
 }
+http.ListenAndServe(":8080", mux)
 ```
 
-### OAuth Configuration
+### Gin
 
 ```go
-config.Providers.Enabled = []config.AuthProvider{
-    config.Google, config.GitHub, config.Facebook,
+import "github.com/gin-gonic/gin"
+
+r := gin.Default()
+for _, route := range a.Routes() {
+    switch route.Method {
+    case http.MethodGet:
+        r.GET(route.Path, gin.WrapF(route.Handler))
+    case http.MethodPost:
+        r.POST(route.Path, gin.WrapF(route.Handler))
+    case http.MethodPut:
+        r.PUT(route.Path, gin.WrapF(route.Handler))
+    case http.MethodDelete:
+        r.DELETE(route.Path, gin.WrapF(route.Handler))
+    }
 }
-config.Providers.Google = config.ProviderConfig{
-    ClientID:     "your-google-client-id",
-    ClientSecret: "your-google-client-secret",
-    RedirectURL:  "http://localhost:8080/auth/oauth/google/callback",
-    Scopes:       []string{"email", "profile"},
-}
+r.Run(":8080")
 ```
 
-### Advanced Features
+### Echo
 
 ```go
-// Rate Limiting
-config.Features.EnableRateLimiter = true
-config.Security.RateLimiter = config.RateLimiterConfig{
-    Enabled: true,
-    Type:    config.MemoryRateLimiter,
-    Routes: map[string]config.LimiterConfig{
-        config.RouteRegister: {
-            WindowSize:    30 * time.Second,
-            MaxRequests:   10,
-            BlockDuration: 1 * time.Minute,
-        },
-        config.RouteLogin: {
-            WindowSize:    1 * time.Minute,
-            MaxRequests:   5,
-            BlockDuration: 1 * time.Minute,
-        },
-    },
+import (
+    "github.com/labstack/echo/v4"
+    "net/http"
+)
+
+e := echo.New()
+for _, route := range a.Routes() {
+    switch route.Method {
+    case http.MethodGet:
+        e.GET(route.Path, echo.WrapHandler(http.HandlerFunc(route.Handler)))
+    case http.MethodPost:
+        e.POST(route.Path, echo.WrapHandler(http.HandlerFunc(route.Handler)))
+    // ... other methods
+    }
+}
+e.Start(":8080")
+```
+
+### Chi
+
+```go
+import "github.com/go-chi/chi/v5"
+
+r := chi.NewRouter()
+for _, route := range a.Routes() {
+    switch route.Method {
+    case http.MethodGet:
+        r.Get(route.Path, route.Handler)
+    case http.MethodPost:
+        r.Post(route.Path, route.Handler)
+    // ... other methods
+    }
+}
+http.ListenAndServe(":8080", r)
+```
+
+### Fiber
+
+```go
+import (
+    "github.com/gofiber/fiber/v2"
+    "github.com/gofiber/fiber/v2/middleware/adaptor"
+)
+
+app := fiber.New()
+for _, route := range a.Routes() {
+    switch route.Method {
+    case http.MethodGet:
+        app.Get(route.Path, adaptor.HTTPHandler(route.Handler))
+    case http.MethodPost:
+        app.Post(route.Path, adaptor.HTTPHandler(route.Handler))
+    // ... other methods
+    }
+}
+app.Listen(":8080")
+```
+
+## 🎣 Event System
+
+GoAuth has a powerful event-driven architecture. Subscribe to events for custom logic:
+
+```go
+import "github.com/bete7512/goauth/pkg/types"
+
+// Hook into user signup
+a.On(types.EventBeforeSignup, func(ctx context.Context, e *types.Event) error {
+    log.Printf("User about to signup: %+v", e.Data)
+    // Add custom validation, external API calls, etc.
+    return nil
+})
+
+a.On(types.EventAfterSignup, func(ctx context.Context, e *types.Event) error {
+    log.Printf("User signed up: %+v", e.Data)
+    // Send to analytics, CRM, etc.
+    return nil
+})
+
+// Hook into login events
+a.On(types.EventAfterLogin, func(ctx context.Context, e *types.Event) error {
+    user := e.Data["user"]
+    log.Printf("User logged in: %+v", user)
+    return nil
+})
+```
+
+### Available Events
+
+**Core Events:**
+- `EventBeforeSignup` / `EventAfterSignup`
+- `EventBeforeLogin` / `EventAfterLogin`
+- `EventBeforeLogout` / `EventAfterLogout`
+- `EventBeforePasswordReset` / `EventAfterPasswordReset`
+- `EventBeforePasswordChange` / `EventAfterPasswordChange`
+- `EventBeforeProfileUpdate` / `EventAfterProfileUpdate`
+- `EventBeforeEmailVerification` / `EventAfterEmailVerification`
+- `EventBeforePhoneVerification` / `EventAfterPhoneVerification`
+
+**Module Events:**
+- Two-Factor: `EventBefore2FASetup`, `EventAfter2FAVerify`, `EventAfter2FADisable`
+- Notification: `EventBeforeSendEmail`, `EventAfterSendEmail`, `EventBeforeSendSMS`, `EventAfterSendSMS`
+
+### Async Event Processing
+
+Events are processed asynchronously by default. You can provide custom async backends:
+
+```go
+// Custom async backend (e.g., Redis, RabbitMQ, Kafka)
+type MyAsyncBackend struct {
+    // Your implementation
 }
 
-// reCAPTCHA
-config.Features.EnableRecaptcha = true
-config.Security.Recaptcha = config.RecaptchaConfig{
-    Enabled:   true,
-    Provider:  "google",
-    SecretKey: "your-recaptcha-secret",
-    SiteKey:   "your-recaptcha-site-key",
-    APIURL:    "https://www.google.com/recaptcha/api/siteverify",
-    Routes: map[string]bool{
-        config.RouteRegister: true,
-        config.RouteLogin:    true,
-    },
+func (b *MyAsyncBackend) Publish(ctx context.Context, eventType types.EventType, event *types.Event) error {
+    // Publish to your message queue
+    return nil
 }
 
-// Swagger Documentation
-config.App.Swagger = config.SwaggerConfig{
-    Enable:      true,
+func (b *MyAsyncBackend) Close() error {
+    return nil
+}
+
+func (b *MyAsyncBackend) Name() string {
+    return "my-backend"
+}
+
+// Use custom backend
+a, _ := auth.New(&config.Config{
+    AsyncBackend: &MyAsyncBackend{},
+    // ... other config
+})
+```
+
+## 📄 API Documentation (Swagger)
+
+Generate Swagger/OpenAPI documentation automatically:
+
+```go
+// After initialization
+err := a.EnableSwagger(types.SwaggerConfig{
     Title:       "My API",
+    Description: "My API Documentation",
     Version:     "1.0.0",
-    DocPath:     "/docs",
-    Description: "API Documentation",
-    Host:        "localhost:8080",
-}
-```
-
-### Custom JWT Claims
-
-```go
-type ClaimsProvider struct{}
-
-func (c *ClaimsProvider) GetClaims(usermodels.User) (map[string]interface{}, error) {
-    return map[string]interface{}{
-        "tenants":           []string{"one", "two"},
-        "primary_tenant_id": "2534532",
-    }, nil
-}
-
-config.AuthConfig.JWT.EnableCustomClaims = true
-config.AuthConfig.JWT.ClaimsProvider = &ClaimsProvider{}
-```
-
-### Custom Storage Repository
-
-```go
-// Create custom repository factory
-customFactory := &MyRepositoryFactory{}
-
-// Use builder with custom repository
-auth, err := goauth.NewBuilder().
-    WithConfig(config).
-    WithRepositoryFactory(customFactory).
-    Build()
-```
-
-### Custom Captcha Verifier
-
-```go
-// Create custom captcha verifier
-customCaptcha := &MyCaptchaVerifier{}
-
-// Use builder with custom captcha
-auth, err := goauth.NewBuilder().
-    WithConfig(config).
-    WithCaptchaVerifier(customCaptcha).
-    Build()
-```
-
-## 🔌 Available Endpoints
-
-### Core Authentication
-- `POST /auth/register` - User registration
-- `POST /auth/login` - User login
-- `POST /auth/logout` - User logout
-- `POST /auth/refresh-token` - Refresh access token
-- `POST /auth/forgot-password` - Password reset request
-- `POST /auth/reset-password` - Password reset
-- `GET /auth/me` - Get current user profile
-- `POST /auth/update-profile` - Update user profile
-- `POST /auth/deactivate-user` - Deactivate user account
-
-### Two-Factor Authentication
-- `POST /auth/enable-two-factor` - Enable 2FA
-- `POST /auth/verify-two-factor` - Verify 2FA code
-- `POST /auth/disable-two-factor` - Disable 2FA
-
-### Email Verification
-- `POST /auth/verification/email/send` - Send verification email
-- `POST /auth/verification/email/verify` - Verify email address
-
-### Phone Verification
-- `POST /auth/verification/phone/send` - Send verification SMS
-- `POST /auth/verification/phone/verify` - Verify phone number
-
-### OAuth Providers
-- `GET /auth/oauth/{provider}` - OAuth login
-- `GET /auth/oauth/{provider}/callback` - OAuth callback
-
-### Magic Link
-- `POST /auth/send-magic-link` - Send magic link
-- `POST /auth/verify-magic-link` - Magic link login
-
-## 🎣 Hooks System
-
-GoAuth provides a flexible hook system for customizing authentication behavior:
-
-```go
-// Register before hook
-err := auth.RegisterBeforeHook(config.RouteRegister, func(w http.ResponseWriter, r *http.Request) (bool, error) {
-    // Custom logic before registration
-    log.Println("Before registration hook executing...")
-    return true, nil // Return false to abort the request
+    Path:        "/docs",
+    Servers: []types.SwaggerServer{
+        {URL: "http://localhost:8080", Description: "Development"},
+        {URL: "https://api.myapp.com", Description: "Production"},
+    },
 })
 
-// Register after hook
-err = auth.RegisterAfterHook(config.RouteLogin, func(w http.ResponseWriter, r *http.Request) (bool, error) {
-    // Custom logic after login
-    log.Println("After login hook executing...")
-    
-    // Access request and response data from context
-    reqData := r.Context().Value(config.RequestDataKey)
-    respData := r.Context().Value(config.ResponseDataKey)
-    
-    log.Printf("Request data: %+v\n", reqData)
-    log.Printf("Response data: %+v\n", respData)
-    
-    return true, nil
+// Swagger UI available at: http://localhost:8080/docs
+```
+
+## 🗄️ Storage Configuration
+
+### Using GORM (Built-in)
+
+```go
+// PostgreSQL
+store, _ := storage.NewStorage(config.StorageConfig{
+    Driver:       "gorm",
+    Dialect:      "postgres",
+    DSN:          "host=localhost user=postgres password=secret dbname=authdb",
+    AutoMigrate:  true,
+    MaxOpenConns: 25,
+    MaxIdleConns: 5,
+})
+
+// MySQL
+store, _ := storage.NewStorage(config.StorageConfig{
+    Driver:   "gorm",
+    Dialect:  "mysql",
+    DSN:      "user:password@tcp(localhost:3306)/authdb?parseTime=true",
+})
+
+// SQLite
+store, _ := storage.NewStorage(config.StorageConfig{
+    Driver:  "gorm",
+    Dialect: "sqlite",
+    DSN:     "auth.db",
+})
+
+// MongoDB (via custom driver)
+store, _ := storage.NewStorage(config.StorageConfig{
+    Driver: "mongo",
+    DSN:    "mongodb://localhost:27017/authdb",
 })
 ```
 
-## 🔧 Middleware Usage
+### Custom Storage Layer
 
-### Authentication Middleware
+Implement your own storage:
 
 ```go
-// Get authentication middleware
-authMiddleware := auth.GetAuthMiddleware()
+type MyStorage struct {
+    // Your implementation
+}
 
-// Apply to your routes
-protectedHandler := authMiddleware(yourHandler)
+func (s *MyStorage) GetRepository(name string) interface{} {
+    // Return repository for the given name
+}
+
+func (s *MyStorage) Migrate(ctx context.Context, models []interface{}) error {
+    // Run migrations
+}
+
+func (s *MyStorage) Close() error {
+    return nil
+}
+
+// Use custom storage
+a, _ := auth.New(&config.Config{
+    Storage: &MyStorage{},
+    // ...
+})
 ```
 
-### Rate Limiting Middleware
+## 🔧 Configuration Reference
+
+### Core Configuration
 
 ```go
-// Get rate limiting middleware for specific route
-rateLimitMiddleware := auth.GetRateLimitMiddleware("login")
-
-// Apply to your routes
-rateLimitedHandler := rateLimitMiddleware(yourHandler)
-```
-
-### Manual Route Registration
-
-```go
-// Get all routes for manual registration
-routes := auth.GetRoutes()
-
-// Register routes manually with your framework
-for _, route := range routes {
-    // Apply middleware if needed
-    handler := auth.GetWrappedHandler(route)
+&config.Config{
+    Storage:     store,              // Storage implementation
+    AutoMigrate: true,               // Auto-run migrations
+    BasePath:    "/api/v1",          // API base path
+    Logger:      customLogger,       // Custom logger (optional)
+    AsyncBackend: customBackend,     // Custom async backend (optional)
     
-    // Register with your router
-    router.HandleFunc(route.Method+" "+route.Path, handler)
+    Security: types.SecurityConfig{
+        JwtSecretKey:  "secret-32-chars-minimum!!!!",
+        EncryptionKey: "encrypt-32-chars-minimum!!!",
+        Session: types.SessionConfig{
+            Name:            "session_token",
+            SessionTTL:      30 * 24 * time.Hour,
+            AccessTokenTTL:  15 * time.Minute,
+            RefreshTokenTTL: 7 * 24 * time.Hour,
+        },
+    },
+    
+    Core: &config.CoreConfig{
+        RequireEmailVerification: true,
+        RequirePhoneVerification: false,
+        RequireUserName:          false,
+        RequirePhoneNumber:       false,
+        UniquePhoneNumber:        true,
+    },
+    
+    FrontendConfig: &config.FrontendConfig{
+        URL:                     "http://localhost:3000",
+        Domain:                  "localhost",
+        ResetPasswordPath:       "/reset-password",
+        VerifyEmailCallbackPath: "/verify-email",
+        LoginPath:               "/login",
+    },
+    
+    CORS: &config.CORSConfig{
+        Enabled:        true,
+        AllowedOrigins: []string{"http://localhost:3000"},
+        AllowedMethods: []string{"GET", "POST", "PUT", "DELETE"},
+    },
 }
 ```
 
 ## 🧪 Testing
 
-### Running Tests
-
 ```bash
 # Run all tests
-make test-all
+go test ./...
 
-# Run unit tests only
-make test
+# Run with coverage
+go test -cover ./...
 
 # Run integration tests
-make test-integration
+go test -tags=integration ./tests/integration/...
 
 # Run benchmarks
-make test-benchmark
-
-# Generate coverage report
-make test-coverage
-```
-
-### Test Configuration
-
-```go
-// Use test configurations for different scenarios
-func createTestConfig() config.Config {
-    return config.Config{
-        App: config.AppConfig{
-            BasePath:    "/auth",
-            Domain:      "localhost",
-            FrontendURL: "http://localhost:3000",
-        },
-        Database: config.DatabaseConfig{
-            Type: "postgres",
-            URL:  "postgres://test:test@localhost:5432/test",
-        },
-        AuthConfig: config.AuthConfig{
-            JWT: config.JWTConfig{
-                Secret:             "test-secret-key",
-                AccessTokenTTL:     15 * time.Minute,
-                RefreshTokenTTL:    7 * 24 * time.Hour,
-                EnableCustomClaims: false,
-            },
-            Tokens: config.TokenConfig{
-                HashSaltLength:       16,
-                PhoneVerificationTTL: 10 * time.Minute,
-                EmailVerificationTTL: 1 * time.Hour,
-                PasswordResetTTL:     10 * time.Minute,
-                TwoFactorTTL:         10 * time.Minute,
-                MagicLinkTTL:         10 * time.Minute,
-            },
-            Methods: config.AuthMethodsConfig{
-                Type:                  config.AuthenticationTypeEmail,
-                EnableTwoFactor:       false,
-                EnableMultiSession:    false,
-                EnableMagicLink:       false,
-                EnableSmsVerification: false,
-            },
-            PasswordPolicy: config.PasswordPolicy{
-                HashSaltLength: 16,
-                MinLength:      8,
-                RequireUpper:   true,
-                RequireLower:   true,
-                RequireNumber:  true,
-                RequireSpecial: false,
-            },
-            Cookie: config.CookieConfig{
-                Name:     "auth_token",
-                Path:     "/",
-                MaxAge:   86400,
-                Secure:   false,
-                HttpOnly: true,
-                SameSite: 1,
-            },
-        },
-        Features: config.FeaturesConfig{
-            EnableRateLimiter:   false,
-            EnableRecaptcha:     false,
-            EnableCustomJWT:     false,
-            EnableCustomStorage: false,
-        },
-        Security: config.SecurityConfig{
-            RateLimiter: config.RateLimiterConfig{
-                Enabled: false,
-                Type:    config.MemoryRateLimiter,
-                Routes:  make(map[string]config.LimiterConfig),
-            },
-            Recaptcha: config.RecaptchaConfig{
-                Enabled:   false,
-                SecretKey: "",
-                SiteKey:   "",
-                Provider:  "google",
-                APIURL:    "",
-                Routes:    make(map[string]bool),
-            },
-        },
-        Email: config.EmailConfig{
-            Sender: config.EmailSenderConfig{
-                Type:         "sendgrid",
-                FromEmail:    "test@example.com",
-                FromName:     "Test App",
-                SupportEmail: "support@example.com",
-                CustomSender: nil,
-            },
-        },
-        SMS: config.SMSConfig{
-            CompanyName:  "Test Company",
-            CustomSender: nil,
-        },
-        Providers: config.ProvidersConfig{
-            Enabled: []config.AuthProvider{},
-        },
-    }
-}
+go test -bench=. -benchmem ./...
 ```
 
 ## 📚 Documentation
 
-- [API Documentation](docs/api/README.md) - Detailed API reference
-- [Framework Integration](docs/frameworks/README.md) - Framework-specific guides
-- [Configuration Guide](docs/configuration/README.md) - Configuration options
-- [Security Best Practices](docs/security/README.md) - Security recommendations
+- [Module Documentation](internal/modules/README.md) - Detailed module documentation
+- [Examples](examples/) - Working examples
+- [API Documentation](docs/api/endpoints.md) - API endpoints reference
+- [Live Demo](demo/) - Next.js demo application
 
-## 🛠️ Development
+## 🎨 Demo Application
 
-### Prerequisites
-
-- Go 1.21 or later
-- Git
-- Make (optional)
-
-### Setup
+A complete Next.js demo application is included in the `demo/` directory:
 
 ```bash
-# Clone the repository
-git clone https://github.com/bete7512/goauth.git
-cd goauth
-
-# Install development tools
-make install-tools
-
-# Download dependencies
-make deps
-
-# Run tests
-make test-all
+cd demo
+npm install
+npm run dev
+# Open http://localhost:3000
 ```
 
-### Code Quality
+The demo showcases all core module features with a modern UI built with shadcn/ui and Tailwind CSS.
+
+## 🛠️ Creating Custom Modules
+
+Use the provided scaffolding scripts:
 
 ```bash
-# Format code
-make fmt
+# Create a module with routes
+cd internal/modules
+./new_module_with_route.sh mymodule
 
-# Run linter
-make lint
-
-# Run security scanner
-make security
-
-# Run all quality checks
-make quality
+# Create a module without routes (middleware only)
+./new_module_with_no_route.sh mymodule
 ```
+
+Each module must implement the `config.Module` interface:
+
+```go
+type Module interface {
+    Name() string
+    Init(ctx context.Context, deps ModuleDependencies) error
+    Routes() []RouteInfo
+    Models() []interface{}
+    Dependencies() []string
+    RegisterHooks(events EventBus) error
+    Middlewares() []MiddlewareConfig
+}
+```
+
+See [module documentation](internal/modules/README.md) for details.
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guide](.github/CONTRIBUTING.md) for details.
-
-### Development Workflow
+We welcome contributions! See our [Contributing Guide](.github/CONTRIBUTING.md).
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
 3. Make your changes
-4. Run tests (`make test-all`)
-5. Check code quality (`make quality`)
-6. Commit your changes (`git commit -m 'Add amazing feature'`)
-7. Push to the branch (`git push origin feature/amazing-feature`)
-8. Open a Pull Request
+4. Run tests (`go test ./...`)
+5. Commit (`git commit -m 'Add amazing feature'`)
+6. Push (`git push origin feature/amazing-feature`)
+7. Open a Pull Request
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT License - see [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
@@ -722,16 +717,21 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📊 Project Status
 
-- ✅ Core authentication features
-- ✅ Multi-framework support
+- ✅ Modular architecture
+- ✅ Core authentication module
+- ✅ Multiple framework support
+- ✅ Notification module (Email/SMS)
+- ✅ Two-factor authentication
 - ✅ OAuth integration
-- ✅ Security features
+- ✅ Rate limiting
+- ✅ Captcha protection
+- ✅ CSRF protection
+- ✅ Event-driven architecture
+- ✅ Async event processing
+- ✅ Swagger/OpenAPI docs
 - ✅ Comprehensive testing
-- ✅ Documentation
-- ✅ Builder pattern implementation
-- ✅ HTTP-first design
-- 🔄 Performance optimizations
 - 🔄 Additional OAuth providers
+- 🔄 WebAuthn/Passkeys support
 
 ## 🆘 Support
 
@@ -747,30 +747,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 **Made with ❤️ by the GoAuth community**
-
-## 🔧 Integration Approach
-
-GoAuth uses manual route registration to provide full control over how routes are integrated with web frameworks. This approach allows you to:
-
-- Apply framework-specific middleware to individual routes
-- Customize route handling per endpoint
-- Better debugging and logging
-- More granular control over HTTP methods
-
-```go
-// Get all auth routes
-authRoutes := auth.GetRoutes()
-
-// Register each route individually
-for _, route := range authRoutes {
-    handler := auth.GetWrappedHandler(route)
-    
-    // Apply framework-specific conversion
-    frameworkHandler := convertToFrameworkHandler(handler)
-    
-    // Register with your framework
-    registerRoute(route.Method, route.Path, frameworkHandler)
-}
-```
-
-## 📚 Framework Examples 

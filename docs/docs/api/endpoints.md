@@ -7,14 +7,30 @@ sidebar_position: 1
 
 # API Endpoints
 
-GoAuth provides a comprehensive REST API for all authentication operations. This document describes all available endpoints, their parameters, and responses.
+GoAuth provides a comprehensive REST API based on its **modular architecture**. The endpoints available in your application depend on which modules you've registered.
+
+:::info Modular Endpoints
+The endpoints listed here represent the full feature set across all modules. Your application will only expose endpoints for the modules you've registered. See the [Module Documentation](/docs/modules/core) for module-specific endpoints.
+:::
+
+## Module-Based Endpoints
+
+| Module | Endpoints | Documentation |
+|--------|-----------|---------------|
+| **Core** (Auto-registered) | `/signup`, `/login`, `/profile`, `/verify-email`, etc. | [Core Module](/docs/modules/core) |
+| **Notification** | Hooks into Core events | [Notification Module](/docs/modules/notification) |
+| **Two-Factor** | `/2fa/setup`, `/2fa/verify`, `/2fa/disable` | Coming soon |
+| **OAuth** | `/oauth/{provider}`, `/oauth/{provider}/callback` | Coming soon |
+| **CSRF** | `/csrf-token` | Coming soon |
+| **Admin** | `/admin/users`, `/admin/users/{id}/role` | Coming soon |
 
 ## Base URL
 
-All API endpoints are prefixed with `/api/auth`:
+All API endpoints are prefixed with your configured `BasePath`:
 
 ```
-https://yourdomain.com/api/auth
+https://yourdomain.com/api/v1
+# Or your custom base path configured in auth.New()
 ```
 
 ## Authentication

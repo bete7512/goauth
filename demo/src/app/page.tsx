@@ -82,11 +82,14 @@ export default function DemoPage() {
             <span className="text-3xl">🔐</span>
           </div>
           <h1 className="text-6xl font-bold bg-gradient-to-r from-white via-purple-200 to-pink-200 bg-clip-text text-transparent mb-4 animate-fade-in">
-            Go-Auth Demo
+            GoAuth Demo
           </h1>
           <p className="text-xl text-gray-300 mb-6 animate-fade-in-delay">
-            Experience the future of authentication
+            Modular Authentication for Modern Go Applications
           </p>
+          <div className="inline-flex items-center space-x-2 bg-purple-500/10 backdrop-blur-sm border border-purple-500/30 rounded-full px-4 py-2 mb-4">
+            <span className="text-sm text-purple-300 font-medium">🧩 Showcasing: Core Module</span>
+          </div>
           <div className="inline-flex items-center space-x-2 bg-black/20 backdrop-blur-sm border border-white/20 rounded-full px-6 py-3 animate-fade-in-delay-2">
             <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
             <span className="text-sm text-gray-300">API Endpoint:</span>
@@ -269,18 +272,40 @@ export default function DemoPage() {
           <Card className="bg-black/20 border-white/10 backdrop-blur-sm">
             <CardHeader className="text-center">
               <CardTitle className="text-2xl bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-                🚀 API Configuration
+                🧩 GoAuth Modular Architecture
               </CardTitle>
               <CardDescription className="text-gray-300">
-                Complete Go-Auth API endpoints reference
+                This demo showcases the Core Module - the foundation of GoAuth's modular system
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
+                {/* Module Info */}
+                <div className="p-4 bg-purple-500/10 border border-purple-500/20 rounded-lg">
+                  <h4 className="font-semibold mb-2 text-purple-300 flex items-center">
+                    <span className="mr-2">ℹ️</span>
+                    About the Modular Architecture
+                  </h4>
+                  <p className="text-sm text-gray-300 mb-3">
+                    GoAuth uses a plug-and-play modular system. The <strong>Core Module</strong> (demonstrated here) is auto-registered and provides essential authentication features. 
+                    You can extend functionality by adding optional modules:
+                  </p>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                    <div className="p-2 bg-black/30 rounded">📧 Notification</div>
+                    <div className="p-2 bg-black/30 rounded">🔒 Two-Factor</div>
+                    <div className="p-2 bg-black/30 rounded">🌐 OAuth</div>
+                    <div className="p-2 bg-black/30 rounded">⏱️ Rate Limiter</div>
+                    <div className="p-2 bg-black/30 rounded">🤖 Captcha</div>
+                    <div className="p-2 bg-black/30 rounded">🛡️ CSRF</div>
+                    <div className="p-2 bg-black/30 rounded">👑 Admin</div>
+                    <div className="p-2 bg-black/30 rounded">✨ Magic Link</div>
+                  </div>
+                </div>
+
                 <div>
                   <h4 className="font-semibold mb-4 text-purple-300 flex items-center">
                     <span className="mr-2">🔐</span>
-                    Core Module Endpoints
+                    Core Module Endpoints (Auto-Registered)
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     <div className="p-3 bg-purple-500/10 rounded-lg border border-purple-500/20">
