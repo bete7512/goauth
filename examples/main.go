@@ -9,9 +9,9 @@ import (
 	"github.com/bete7512/goauth/internal/modules/notification"
 	"github.com/bete7512/goauth/internal/modules/notification/services"
 	"github.com/bete7512/goauth/internal/modules/notification/services/senders"
-	"github.com/bete7512/goauth/internal/storage"
 	"github.com/bete7512/goauth/pkg/auth"
 	"github.com/bete7512/goauth/pkg/config"
+	"github.com/bete7512/goauth/pkg/storage"
 	"github.com/bete7512/goauth/pkg/types"
 	"github.com/gin-gonic/gin"
 	"github.com/go-chi/chi/v5"
@@ -59,15 +59,15 @@ func main() {
 			UniquePhoneNumber:        true,  // Phone numbers must be unique
 		},
 		FrontendConfig: &config.FrontendConfig{
-			URL:                "http://localhost:3000",
-			Domain:             "localhost",
-			ResetPasswordPath:  "/reset-password",
-			VerifyEmailCallbackPath:    "/verify-email",
-			LoginPath:          "/login",
-			SignupPath:         "/signup",
-			LogoutPath:         "/logout",
-			ProfilePath:        "/profile",
-			ChangePasswordPath: "/change-password",
+			URL:                     "http://localhost:3000",
+			Domain:                  "localhost",
+			ResetPasswordPath:       "/reset-password",
+			VerifyEmailCallbackPath: "/verify-email",
+			LoginPath:               "/login",
+			SignupPath:              "/signup",
+			LogoutPath:              "/logout",
+			ProfilePath:             "/profile",
+			ChangePasswordPath:      "/change-password",
 		},
 	})
 	if err != nil {
@@ -98,7 +98,7 @@ func main() {
 	// Register custom hooks (user-defined)
 	authInstance.On(types.EventBeforeSignup, func(ctx context.Context, e *types.Event) error {
 		log.Println("looooooooooooooooooooooooooo Handler error for before:signup", e.Type, e.Data)
-		time.Sleep(30 * time.Second)	
+		time.Sleep(30 * time.Second)
 		log.Println("looooooooooooooooooooooooooo Handler error for before:signup", e.Type)
 		return nil
 	})
