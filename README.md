@@ -17,8 +17,6 @@ Unlike monolithic auth libraries, GoAuth uses a modular architecture where you o
 **Framework Agnostic**  
 Works with Gin, Echo, Chi, Fiber, Gorilla Mux, standard HTTP, and more. One library, any framework.
 
-**Production Ready**  
-Battle-tested with comprehensive error handling, extensive testing, auto-generated docs, and async event processing.
 
 ## ✨ Features
 
