@@ -5,20 +5,20 @@ import (
 	"fmt"
 
 	"github.com/bete7512/goauth/internal/modules/admin/models"
-	coreModels "github.com/bete7512/goauth/internal/modules/core/models"
 	"github.com/bete7512/goauth/pkg/config"
+	pkgmodels "github.com/bete7512/goauth/pkg/models"
 )
 
 type AdminService struct {
 	deps           config.ModuleDependencies
 	auditLogRepo   models.AuditLogRepository
-	userRepository coreModels.UserRepository // Access to core module's UserRepository
+	userRepository pkgmodels.UserRepository // Access to core module's UserRepository
 }
 
 func NewAdminService(
 	deps config.ModuleDependencies,
 	auditLogRepo models.AuditLogRepository,
-	userRepo coreModels.UserRepository,
+	userRepo pkgmodels.UserRepository,
 ) *AdminService {
 	return &AdminService{
 		deps:           deps,
@@ -28,7 +28,7 @@ func NewAdminService(
 }
 
 // Example: List all users (using core's UserRepository)
-func (s *AdminService) ListUsers(ctx context.Context, limit, offset int) ([]*coreModels.User, error) {
+func (s *AdminService) ListUsers(ctx context.Context, limit, offset int) ([]*pkgmodels.User, error) {
 	users, err := s.userRepository.List(ctx, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list users: %w", err)
@@ -45,7 +45,7 @@ func (s *AdminService) ListUsers(ctx context.Context, limit, offset int) ([]*cor
 }
 
 // Example: Get user by ID
-func (s *AdminService) GetUser(ctx context.Context, userID string) (*coreModels.User, error) {
+func (s *AdminService) GetUser(ctx context.Context, userID string) (*pkgmodels.User, error) {
 	user, err := s.userRepository.FindByID(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user: %w", err)
@@ -62,7 +62,7 @@ func (s *AdminService) GetUser(ctx context.Context, userID string) (*coreModels.
 }
 
 // Example: Update user
-func (s *AdminService) UpdateUser(ctx context.Context, user *coreModels.User) error {
+func (s *AdminService) UpdateUser(ctx context.Context, user *pkgmodels.User) error {
 	if err := s.userRepository.Update(ctx, user); err != nil {
 		return fmt.Errorf("failed to update user: %w", err)
 	}

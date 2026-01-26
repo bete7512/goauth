@@ -3,7 +3,7 @@ package services
 import (
 	"context"
 
-	coreModels "github.com/bete7512/goauth/internal/modules/core/models"
+	"github.com/bete7512/goauth/pkg/models"
 )
 
 // SendPasswordResetEmail sends password reset email
@@ -68,7 +68,7 @@ func (s *NotificationService) sendEmailVerification(ctx context.Context, email, 
 	return nil
 }
 
-func (s *NotificationService) sendPhoneVerification(ctx context.Context, user coreModels.User, code string, expiryTime string) error {
+func (s *NotificationService) sendPhoneVerification(ctx context.Context, user models.User, code string, expiryTime string) error {
 	tmpl, ok := s.templates["phone_verification"]
 	if !ok || !tmpl.Enabled {
 		return nil

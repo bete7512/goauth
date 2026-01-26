@@ -4,6 +4,8 @@ type ModuleName string
 
 const (
 	CoreModule         ModuleName = "core"
+	SessionModule      ModuleName = "session"
+	StatelessModule    ModuleName = "stateless"
 	TwoFactorModule    ModuleName = "twofactor"
 	OAuthModule        ModuleName = "oauth"
 	MagicLinkModule    ModuleName = "magiclink"

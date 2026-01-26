@@ -13,6 +13,7 @@ const (
 	RouteChangePassword RouteName = "core.change_password"
 	RouteChangeEmail    RouteName = "core.change_email"
 	RouteChangePhone    RouteName = "core.change_phone"
+	RouteRefreshToken   RouteName = "core.refresh_token"
 
 	// availability routes
 	RouteCheckAvailability         RouteName = "core.check_availability"

@@ -8,8 +8,8 @@ import (
 	"github.com/bete7512/goauth/internal/events"
 	"github.com/bete7512/goauth/internal/middleware"
 	"github.com/bete7512/goauth/internal/modules/core"
-	"github.com/bete7512/goauth/internal/modules/core/models"
-	notification_models "github.com/bete7512/goauth/internal/modules/notification/models"
+	"github.com/bete7512/goauth/internal/modules/core/middlewares"
+	"github.com/bete7512/goauth/internal/modules/stateless"
 	"github.com/bete7512/goauth/internal/utils/logger"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/types"
@@ -28,6 +28,9 @@ type Auth struct {
 }
 
 // New creates a new Auth instance
+// Note: After creating Auth, you should call Use() to register auth modules:
+//   - auth.Use(session.New(...)) for session-based authentication
+//   - auth.Use(stateless.New(...)) for stateless JWT authentication
 func New(cfg *config.Config) (*Auth, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
@@ -103,26 +106,12 @@ func New(cfg *config.Config) (*Auth, error) {
 		Events:            eventBusAdapter,
 		MiddlewareManager: middlewareManager,
 	}
+
+	// Auto-register core module if not already configured
+	// Core module will get storage from deps.Storage.Core() during initialization
 	if auth.config.ModuleConfigs[string(types.CoreModule)] == nil {
 		coreConfig := &config.CoreConfig{}
-		customRepositories := &core.CustomRepositories{}
-		if auth.storage != nil {
-			if auth.storage.GetRepository(string(types.CoreUserRepository)) == nil {
-				return nil, fmt.Errorf("core.user repository is not found storage is not connected correctly")
-			}
-			if auth.storage.GetRepository(string(types.CoreSessionRepository)) == nil {
-				return nil, fmt.Errorf("core.session repository is not found storage is not connected correctly")
-			}
-			if auth.storage.GetRepository(string(types.CoreTokenRepository)) == nil {
-				return nil, fmt.Errorf("core.token repository is not found storage is not connected correctly")
-			}
-			customRepositories.UserRepository = auth.storage.GetRepository(string(types.CoreUserRepository)).(models.UserRepository)
-			customRepositories.SessionRepository = auth.storage.GetRepository(string(types.CoreSessionRepository)).(models.SessionRepository)
-			customRepositories.TokenRepository = auth.storage.GetRepository(string(types.CoreTokenRepository)).(models.TokenRepository)
-			customRepositories.VerificationTokenRepository = auth.storage.GetRepository(string(types.CoreVerificationTokenRepository)).(notification_models.VerificationTokenRepository)
-			customRepositories.UserExtendedAttributeRepository = auth.storage.GetRepository(string(types.CoreUserExtendedAttributeRepository)).(models.ExtendedAttributeRepository)
 
-		}
 		if auth.config.Core != nil {
 			coreConfig.RequireEmailVerification = auth.config.Core.RequireEmailVerification
 			coreConfig.RequirePhoneVerification = auth.config.Core.RequirePhoneVerification
@@ -130,7 +119,8 @@ func New(cfg *config.Config) (*Auth, error) {
 			coreConfig.RequirePhoneNumber = auth.config.Core.RequirePhoneNumber
 		}
 
-		coreModule := core.New(coreConfig, customRepositories)
+		// Pass nil for customStorage - core will get storage from deps.Storage.Core()
+		coreModule := core.New(coreConfig, nil)
 		auth.modules[coreModule.Name()] = coreModule
 	}
 
@@ -138,6 +128,14 @@ func New(cfg *config.Config) (*Auth, error) {
 }
 
 // Use registers a module (must be called before Initialize)
+// For authentication, use ONE of:
+//   - session.New(...) for session-based authentication
+//   - stateless.New(...) for stateless JWT authentication
+//
+// Note: You cannot use both session and stateless modules together.
+// If neither is registered, stateless will be used as default.
+//
+// IMPORTANT: Registering both session and stateless modules will panic.
 func (a *Auth) Use(module config.Module) error {
 	if a.initialized {
 		return fmt.Errorf("cannot add module after initialization")
@@ -145,6 +143,21 @@ func (a *Auth) Use(module config.Module) error {
 
 	if _, exists := a.modules[module.Name()]; exists {
 		return fmt.Errorf("module already registered: %s", module.Name())
+	}
+
+	// Validate that only one auth module (session or stateless) is registered
+	// This is a hard failure - panic if both are registered
+	moduleName := module.Name()
+	if moduleName == string(types.SessionModule) || moduleName == string(types.StatelessModule) {
+		_, hasSession := a.modules[string(types.SessionModule)]
+		_, hasStateless := a.modules[string(types.StatelessModule)]
+
+		if moduleName == string(types.SessionModule) && hasStateless {
+			panic("goauth: cannot register session module: stateless module is already registered. Only one auth module (session or stateless) can be active at a time")
+		}
+		if moduleName == string(types.StatelessModule) && hasSession {
+			panic("goauth: cannot register stateless module: session module is already registered. Only one auth module (session or stateless) can be active at a time")
+		}
 	}
 
 	// Check dependencies
@@ -195,17 +208,23 @@ func (a *Auth) Initialize(ctx context.Context) error {
 		return fmt.Errorf("auth already initialized")
 	}
 
-	// Collect all models from modules
-	var allModels []interface{}
-	for _, module := range a.modules {
-		models := module.Models()
-		allModels = append(allModels, models...)
+	// Check if an auth module is registered, if not use stateless as default
+	_, hasSession := a.modules[string(types.SessionModule)]
+	_, hasStateless := a.modules[string(types.StatelessModule)]
+
+	if !hasSession && !hasStateless {
+		a.logger.Info("No auth module registered, using stateless as default")
+		statelessModule := stateless.New(&config.StatelessModuleConfig{
+			RefreshTokenRotation: true,
+		}, nil)
+		a.modules[statelessModule.Name()] = statelessModule
 	}
 
 	// Run migrations if enabled
-	if a.config.AutoMigrate && len(allModels) > 0 {
-		a.logger.Info("Running auto-migrations", "models", len(allModels))
-		if err := a.storage.Migrate(ctx, allModels); err != nil {
+	// Storage implementations handle their own models internally
+	if a.config.AutoMigrate && a.storage != nil {
+		a.logger.Info("Running auto-migrations")
+		if err := a.storage.Migrate(ctx); err != nil {
 			return fmt.Errorf("failed to run migrations: %w", err)
 		}
 	}
@@ -259,9 +278,14 @@ func (a *Auth) buildRoutes() []config.RouteInfo {
 
 // RequireAuth returns middleware that requires authentication
 func (a *Auth) RequireAuth(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		next.ServeHTTP(w, r)
-	})
+	if !a.initialized {
+		a.logger.Warn("RequireAuth called before initialization")
+		return next
+	}
+
+	// Create auth middleware using core configuration and security manager
+	mw := middlewares.NewAuthMiddleware(a.config, a.moduleDependencies.SecurityManager)
+	return mw.AuthMiddleware(next)
 }
 
 // GetModule retrieves a registered module by name
@@ -298,7 +322,7 @@ func (a *Auth) On(event types.EventType, handler types.EventHandler, opts ...int
 	a.moduleDependencies.Events.Subscribe(event, handler, opts...)
 }
 
-// // asyncBackendAdapter adapts config.AsyncBackend to events.AsyncBackend
+// asyncBackendAdapter adapts config.AsyncBackend to events.AsyncBackend
 type asyncBackendAdapter struct {
 	backend types.AsyncBackend
 }

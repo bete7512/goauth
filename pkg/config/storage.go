@@ -1,41 +1,24 @@
 package config
 
 import (
-	"context"
-
 	"github.com/bete7512/goauth/pkg/types"
 )
 
-// Storage defines the main storage interface that all storage backends must implement
-// This is storage-agnostic and doesn't know about any module-specific repositories
-type Storage interface {
-	// Initialize the storage backend
-	Initialize(ctx context.Context) error
+// Storage is an alias for types.Storage
+// Use storage/gorm.NewStorage() or storage.NewGormStorage() to create instances
+type Storage = types.Storage
 
-	// Close the storage connection
-	Close() error
+// CoreStorage is an alias for types.CoreStorage
+type CoreStorage = types.CoreStorage
 
-	// Migrate runs database migrations for the given models
-	Migrate(ctx context.Context, models []interface{}) error
+// SessionStorage is an alias for types.SessionStorage
+type SessionStorage = types.SessionStorage
 
-	// Get the underlying connection (e.g., *gorm.DB, *mongo.Client)
-	DB() interface{}
-
-	// GetRepository retrieves a module's repository by name
-	// Example: storage.GetRepository("core.user").(coreModels.UserRepository)
-	GetRepository(name string) interface{}
-}
-
-// Transaction defines transaction operations
-type Transaction interface {
-	Commit() error
-	Rollback() error
-
-	// GetRepository retrieves a module's repository within transaction context
-	GetRepository(name string) interface{}
-}
+// StatelessStorage is an alias for types.StatelessStorage
+type StatelessStorage = types.StatelessStorage
 
 // StorageConfig holds storage configuration
+// Deprecated: Use storage/gorm.Config directly instead
 type StorageConfig struct {
 	// Driver specifies the storage backend: "gorm", "mongo", "sqlc", "custom"
 	Driver types.DriverType
@@ -56,38 +39,4 @@ type StorageConfig struct {
 
 	// LogLevel for database operations
 	LogLevel string
-}
-
-// Helper functions for type-safe repository access
-
-// GetTypedRepository safely casts repositories to their expected type
-func GetTypedRepository[T any](storage Storage, name string) (T, error) {
-	var zero T
-	repo := storage.GetRepository(name)
-	if repo == nil {
-		return zero, ErrRepositoryNotFound(name)
-	}
-
-	typed, ok := repo.(T)
-	if !ok {
-		return zero, ErrRepositoryTypeMismatch(name)
-	}
-
-	return typed, nil
-}
-
-// GetTypedRepositoryFromTx is similar but for transactions
-func GetTypedRepositoryFromTx[T any](tx Transaction, name string) (T, error) {
-	var zero T
-	repo := tx.GetRepository(name)
-	if repo == nil {
-		return zero, ErrRepositoryNotFound(name)
-	}
-
-	typed, ok := repo.(T)
-	if !ok {
-		return zero, ErrRepositoryTypeMismatch(name)
-	}
-
-	return typed, nil
 }

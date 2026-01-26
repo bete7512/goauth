@@ -6,13 +6,12 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/bete7512/goauth/internal/modules/notification"
-	"github.com/bete7512/goauth/internal/modules/notification/services"
-	"github.com/bete7512/goauth/internal/modules/notification/services/senders"
+	"github.com/bete7512/goauth/internal/modules/session"
+	"github.com/bete7512/goauth/internal/modules/stateless"
 	"github.com/bete7512/goauth/pkg/auth"
 	"github.com/bete7512/goauth/pkg/config"
-	"github.com/bete7512/goauth/pkg/storage"
 	"github.com/bete7512/goauth/pkg/types"
+	"github.com/bete7512/goauth/storage"
 	"github.com/gin-gonic/gin"
 	"github.com/go-chi/chi/v5"
 	"github.com/gofiber/fiber/v2"
@@ -22,11 +21,9 @@ import (
 func main() {
 	// Create storage instance using factory
 	// Option 1: Use built-in GORM storage
-	store, err := storage.NewStorage(config.StorageConfig{
-		Driver:       "gorm",
-		Dialect:      "postgres",
+	store, err := storage.NewGormStorage(storage.GormConfig{
+		Dialect:      types.DialectTypePostgres,
 		DSN:          "host=localhost user=postgres password=password dbname=authdb1 port=5432 sslmode=disable",
-		AutoMigrate:  true,
 		LogLevel:     "warn",
 		MaxOpenConns: 25,
 		MaxIdleConns: 5,
@@ -74,34 +71,17 @@ func main() {
 		log.Fatalf("Failed to create auth: %v", err)
 	}
 
-	// Configure notification module with email verification support
-	authInstance.Use(notification.New(&notification.Config{
-		EmailSender: senders.NewSendGridEmailSender(&senders.SendGridConfig{
-			APIKey:          "your-sendgrid-api-key",
-			DefaultFrom:     "noreply@yourapp.com",
-			DefaultFromName: "Your App",
-		}),
-		ServiceConfig: &services.NotificationConfig{
-			AppName:      "Your App",
-			SupportEmail: "support@yourapp.com",
-			SupportLink:  "http://localhost:3000/support",
-		},
-		// Enable various notification types
-		EnableWelcomeEmail:        true,  // Send welcome email after signup (if no verification required)
-		EnablePasswordResetEmail:  true,  // Send password reset emails
-		EnablePasswordResetSMS:    false, // SMS for password reset (requires SMS sender)
-		EnableLoginAlerts:         true,  // Send login alerts (security feature)
-		EnablePasswordChangeAlert: true,  // Alert on password changes
-		Enable2FANotifications:    true,  // Send 2FA codes (requires phone verification)
-	}))
+	// --- Option 1: Session-based auth (uncomment to use) ---
+	authInstance.Use(session.New(&config.SessionModuleConfig{
+		EnableSessionManagement: true, // Enable session list/delete endpoints
 
+	}, nil))
 	// Register custom hooks (user-defined)
 	authInstance.On(types.EventBeforeSignup, func(ctx context.Context, e *types.Event) error {
-		log.Println("looooooooooooooooooooooooooo Handler error for before:signup", e.Type, e.Data)
-		time.Sleep(30 * time.Second)
-		log.Println("looooooooooooooooooooooooooo Handler error for before:signup", e.Type)
+		log.Println("Before signup event:", e.Type, e.Data)
 		return nil
 	})
+
 	// Initialize after all modules are registered
 	if err := authInstance.Initialize(context.Background()); err != nil {
 		log.Fatalf("Failed to initialize auth: %v", err)
@@ -113,7 +93,7 @@ func main() {
 			Title:       "GoAuth Docs",
 			Description: "GoAuth Documentation",
 			Version:     "1.0.0",
-			Path:        "/docs/v1",
+			Path:        "/api/v1/docs",
 			Servers: []types.SwaggerServer{
 				{URL: "http://localhost:8080", Description: "Development Server"},
 				{URL: "https://goauth.com", Description: "Production Server"},
@@ -140,6 +120,31 @@ func main() {
 	case "gin":
 		ginHandler(authInstance)
 	}
+}
+
+// Example: Stateless authentication setup
+func exampleStatelessSetup(store types.Storage) *auth.Auth {
+	authInstance, _ := auth.New(&config.Config{
+		Storage: store,
+		Security: types.SecurityConfig{
+			JwtSecretKey:  "your-secret-key",
+			EncryptionKey: "your-encryption-key",
+			Session: types.SessionConfig{
+				AccessTokenTTL:  15 * time.Minute,
+				RefreshTokenTTL: 7 * 24 * time.Hour,
+			},
+		},
+		AutoMigrate: true,
+		BasePath:    "/api/v1",
+	})
+
+	// Use stateless JWT authentication
+	authInstance.Use(stateless.New(&config.StatelessModuleConfig{
+		RefreshTokenRotation: true,
+	}, nil))
+
+	authInstance.Initialize(context.Background())
+	return authInstance
 }
 
 func fiberHandler(auth *auth.Auth) *fiber.App {

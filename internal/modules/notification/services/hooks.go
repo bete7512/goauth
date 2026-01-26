@@ -5,13 +5,12 @@ import (
 	"fmt"
 	"time"
 
-	coreModels "github.com/bete7512/goauth/internal/modules/core/models"
-	"github.com/bete7512/goauth/internal/modules/notification/models"
+	"github.com/bete7512/goauth/pkg/models"
 	"github.com/google/uuid"
 )
 
 // SendEmailVerificationWithToken sends email verification and creates a token
-func (s *NotificationService) SendEmailVerificationFromHook(ctx context.Context, user coreModels.User) error {
+func (s *NotificationService) SendEmailVerificationFromHook(ctx context.Context, user models.User) error {
 
 	// Generate verification token and code
 	token, err := s.deps.SecurityManager.GenerateRandomToken(32)
@@ -45,7 +44,7 @@ func (s *NotificationService) SendEmailVerificationFromHook(ctx context.Context,
 }
 
 // SendPhoneVerificationWithToken sends phone verification and creates a token
-func (s *NotificationService) SendPhoneVerificationFromHook(ctx context.Context, user coreModels.User) error {
+func (s *NotificationService) SendPhoneVerificationFromHook(ctx context.Context, user models.User) error {
 
 	// Generate verification code (6-digit for phone)
 	code, err := s.deps.SecurityManager.GenerateNumericOTP(6)
@@ -75,7 +74,7 @@ func (s *NotificationService) SendPhoneVerificationFromHook(ctx context.Context,
 	return s.sendPhoneVerification(ctx, user, code, "15 minutes")
 }
 
-func (s *NotificationService) SendWelcomeEmail(ctx context.Context, user coreModels.User) error {
+func (s *NotificationService) SendWelcomeEmail(ctx context.Context, user models.User) error {
 	tmpl, ok := s.templates["welcome"]
 	if !ok || !tmpl.Enabled {
 		return nil
@@ -89,7 +88,7 @@ func (s *NotificationService) SendWelcomeEmail(ctx context.Context, user coreMod
 	return s.sendTemplatedEmail(ctx, &tmpl, user.Email, data)
 }
 
-func (s *NotificationService) SendLoginAlert(ctx context.Context, user coreModels.User, metadata map[string]interface{}) error {
+func (s *NotificationService) SendLoginAlert(ctx context.Context, user models.User, metadata map[string]interface{}) error {
 	tmpl, ok := s.templates["login_alert"]
 	if !ok || !tmpl.Enabled {
 		return nil
@@ -104,7 +103,7 @@ func (s *NotificationService) SendLoginAlert(ctx context.Context, user coreModel
 	return s.sendTemplatedEmail(ctx, &tmpl, user.Email, data)
 }
 
-func (s *NotificationService) SendPasswordChangedAlert(ctx context.Context, user coreModels.User) error {
+func (s *NotificationService) SendPasswordChangedAlert(ctx context.Context, user models.User) error {
 	tmpl, ok := s.templates["password_changed"]
 	if !ok || !tmpl.Enabled {
 		return nil

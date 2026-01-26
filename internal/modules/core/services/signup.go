@@ -7,14 +7,14 @@ import (
 	"time"
 
 	"github.com/bete7512/goauth/internal/modules/core/handlers/dto"
-	"github.com/bete7512/goauth/internal/modules/core/models"
+	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
 	"github.com/google/uuid"
 )
 
 // Signup creates a new user account
+// Note: This only creates the user. Authentication (tokens/sessions) is handled by auth modules (session or stateless)
 func (s *CoreService) Signup(ctx context.Context, req *dto.SignupRequest) (*dto.AuthResponse, *types.GoAuthError) {
-	var authResponse *dto.AuthResponse
 	// Check if user already exists
 	if req.Email != "" {
 		existing, _ := s.UserRepository.FindByEmail(ctx, req.Email)
@@ -70,11 +70,14 @@ func (s *CoreService) Signup(ctx context.Context, req *dto.SignupRequest) (*dto.
 	if err := s.UserRepository.Create(ctx, user); err != nil {
 		return nil, types.NewInternalError(fmt.Sprintf("failed to create user: %v", err.Error()))
 	}
+
+	// Set extended attributes if provided
 	if req.ExtendedAttributes != nil {
 		for _, attr := range req.ExtendedAttributes {
 			_ = s.setAttribute(ctx, user.ID, attr.Name, attr.Value)
 		}
 	}
+
 	userDto := &dto.UserDTO{
 		ID:                  user.ID,
 		Email:               user.Email,
@@ -97,40 +100,9 @@ func (s *CoreService) Signup(ctx context.Context, req *dto.SignupRequest) (*dto.
 			return attrs
 		}(),
 	}
-	if !s.Config.RequireEmailVerification || !s.Config.RequirePhoneVerification {
-		accessToken, refreshToken, err := s.SecurityManager.GenerateTokens(user, map[string]interface{}{})
-		if err != nil {
-			return nil, types.NewInternalError(fmt.Sprintf("failed to generate tokens: %v", err.Error()))
-		}
 
-		session := &models.Session{
-			ID:                    uuid.New().String(),
-			UserID:                user.ID,
-			RefreshToken:          refreshToken,
-			RefreshTokenExpiresAt: time.Now().Add(s.Deps.Config.Security.Session.RefreshTokenTTL),
-			ExpiresAt:             time.Now().Add(s.Deps.Config.Security.Session.SessionTTL),
-			CreatedAt:             time.Now(),
-		}
-		if err := s.SessionRepository.Create(ctx, session); err != nil {
-			return nil, types.NewInternalError(fmt.Sprintf("failed to create session: %v", err.Error()))
-		}
-		authResponse = &dto.AuthResponse{
-			User:         userDto,
-			AccessToken:  &accessToken,
-			RefreshToken: &refreshToken,
-			ExpiresIn:    int64(s.Deps.Config.Security.Session.SessionTTL.Seconds()),
-			Message:      s.signupMessage(user),
-		}
-
-		authResponse.AccessToken = &accessToken
-		authResponse.RefreshToken = &refreshToken
-		authResponse.ExpiresIn = int64(s.Deps.Config.Security.Session.SessionTTL.Seconds())
-		authResponse.Message = s.signupMessage(user)
-		return authResponse, nil
-	}
-
-	// Initialize authResponse for verification required case
-	authResponse = &dto.AuthResponse{
+	// Return user data only - authentication is handled by auth modules (session or stateless)
+	authResponse := &dto.AuthResponse{
 		User:    userDto,
 		Message: s.signupMessage(user),
 	}
@@ -145,7 +117,7 @@ func (s *CoreService) signupMessage(user *models.User) string {
 	if s.Config.RequirePhoneVerification && user.PhoneNumber != "" && !user.PhoneNumberVerified {
 		return "Signup successful. Please verify your phone to continue."
 	}
-	return "Signup successful"
+	return "Signup successful. Please login to continue."
 }
 
 func (s *CoreService) generateRandomUsername(email string) string {

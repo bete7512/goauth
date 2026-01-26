@@ -1,7 +1,7 @@
 package services
 
 import (
-	coreModels "github.com/bete7512/goauth/internal/modules/core/models"
+	pkgmodels "github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/internal/modules/notification/models"
 	"github.com/bete7512/goauth/internal/modules/notification/templates"
 	"github.com/bete7512/goauth/pkg/config"
@@ -14,8 +14,8 @@ type NotificationService struct {
 	smsSender             models.SMSSender
 	templates             map[string]templates.NotificationTemplate
 	config                *NotificationConfig
-	verificationTokenRepo models.VerificationTokenRepository
-	userRepo              coreModels.UserRepository
+	verificationTokenRepo pkgmodels.VerificationTokenRepository
+	userRepo              pkgmodels.UserRepository
 }
 
 // NotificationConfig holds notification service configuration
@@ -32,8 +32,8 @@ func NewNotificationService(
 	emailSender models.EmailSender,
 	smsSender models.SMSSender,
 	cfg *NotificationConfig,
-	verificationTokenRepo models.VerificationTokenRepository,
-	userRepo coreModels.UserRepository,
+	verificationTokenRepo pkgmodels.VerificationTokenRepository,
+	userRepo pkgmodels.UserRepository,
 ) *NotificationService {
 	if cfg == nil {
 		cfg = &NotificationConfig{

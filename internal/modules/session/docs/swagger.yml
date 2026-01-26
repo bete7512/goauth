@@ -1,0 +1,214 @@
+paths:
+  /sessions:
+    get:
+      summary: Get all sessions
+      description: Get all sessions for the current user or a specific user (admin)
+      tags: [Session Module Docs]
+      parameters:
+        - name: user_id
+          in: query
+          required: false
+          description: User ID to get sessions for (admin only, defaults to current user)
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Sessions retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionsResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      summary: Revoke all sessions
+      description: Revoke all sessions for the current user or a specific user (admin)
+      tags: [Session Module Docs]
+      parameters:
+        - name: user_id
+          in: query
+          required: false
+          description: User ID to revoke all sessions for (admin only, defaults to current user)
+          schema:
+            type: string
+      responses:
+        '200':
+          description: All sessions revoked successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /sessions/{id}:
+    get:
+      summary: Get a session
+      description: Get a specific session by ID
+      tags: [Session Module Docs]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Session ID
+          schema:
+            type: string
+        - name: user_id
+          in: query
+          required: false
+          description: User ID who owns the session (admin only, defaults to current user)
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Session retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      summary: Revoke a session
+      description: Revoke a specific session by ID
+      tags: [Session Module Docs]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Session ID
+          schema:
+            type: string
+        - name: user_id
+          in: query
+          required: false
+          description: User ID who owns the session (admin only, defaults to current user)
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Session revoked successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    SessionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Session ID
+        user_id:
+          type: string
+          description: User ID
+        user_agent:
+          type: string
+          description: User agent string
+        ip_address:
+          type: string
+          description: IP address
+        created_at:
+          type: string
+          format: date-time
+          description: Session creation time
+        expires_at:
+          type: string
+          format: date-time
+          description: Session expiration time
+        current:
+          type: boolean
+          description: Whether this is the current session
+    SessionsResponse:
+      type: object
+      properties:
+        sessions:
+          type: array
+          items:
+            $ref: '#/components/schemas/SessionResponse'
+        total:
+          type: integer
+          description: Total number of sessions
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        success:
+          type: boolean
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        code:
+          type: integer

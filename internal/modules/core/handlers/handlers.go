@@ -20,25 +20,13 @@ func NewCoreHandler(coreService *core_services.CoreService, deps config.ModuleDe
 
 func (h *CoreHandler) GetRoutes() []config.RouteInfo {
 	routes := []config.RouteInfo{
-		// 📌 Core Auth Routes
+		// 📌 Core User Management Routes
+		// Note: Login/Logout/Refresh are now handled by session or stateless auth modules
 		{
 			Name:    string(types.RouteSignup),
 			Path:    "/signup",
 			Method:  "POST",
 			Handler: h.Signup,
-		},
-		{
-			Name:    string(types.RouteLogin),
-			Path:    "/login",
-			Method:  "POST",
-			Handler: h.Login,
-		},
-		{
-			Name:        string(types.RouteLogout),
-			Path:        "/logout",
-			Method:      "POST",
-			Handler:     h.Logout,
-			Middlewares: []string{string(types.MiddlewareAuth)},
 		},
 		{
 			Name:        string(types.RouteMe),

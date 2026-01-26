@@ -136,6 +136,18 @@ type CoreConfig struct {
 	UniquePhoneNumber        bool
 }
 
+// SessionModuleConfig holds configuration for session-based authentication module
+type SessionModuleConfig struct {
+	// EnableSessionManagement enables session management endpoints (list, delete sessions)
+	EnableSessionManagement bool
+}
+
+// StatelessModuleConfig holds configuration for stateless JWT authentication module
+type StatelessModuleConfig struct {
+	// RefreshTokenRotation enables refresh token rotation on each refresh
+	RefreshTokenRotation bool
+}
+
 // CORSConfig holds CORS configuration
 type CORSConfig struct {
 	Enabled          bool

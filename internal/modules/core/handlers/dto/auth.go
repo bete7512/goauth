@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bete7512/goauth/internal/modules/core/models"
+	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
 )
 
@@ -77,6 +77,18 @@ func (r *LoginRequest) Validate() error {
 	}
 	if r.Password == "" {
 		return fmt.Errorf("password is required")
+	}
+	return nil
+}
+
+// RefreshRequest represents token refresh request
+type RefreshRequest struct {
+	RefreshToken string `json:"refresh_token"`
+}
+
+func (r *RefreshRequest) Validate() error {
+	if r.RefreshToken == "" {
+		return fmt.Errorf("refresh_token is required")
 	}
 	return nil
 }
@@ -326,21 +338,21 @@ func (u *UserDTO) ToUser() *models.User {
 
 func (u *UserDTO) ToUserDTO() *UserDTO {
 	return &UserDTO{
-		ID:        u.ID,
-		FirstName: u.FirstName,
-		LastName:  u.LastName,
-		Name:      u.Name,
-		Email:     u.Email,
-		Username:  u.Username,
-		Avatar:    u.Avatar,
-		PhoneNumber: u.PhoneNumber,
-		Active:    u.Active,
-		EmailVerified: u.EmailVerified,
+		ID:                  u.ID,
+		FirstName:           u.FirstName,
+		LastName:            u.LastName,
+		Name:                u.Name,
+		Email:               u.Email,
+		Username:            u.Username,
+		Avatar:              u.Avatar,
+		PhoneNumber:         u.PhoneNumber,
+		Active:              u.Active,
+		EmailVerified:       u.EmailVerified,
 		PhoneNumberVerified: u.PhoneNumberVerified,
-		CreatedAt: u.CreatedAt,
-		UpdatedAt: u.UpdatedAt,
-		LastLoginAt: u.LastLoginAt,
-		ExtendedAttributes: u.ExtendedAttributes,
+		CreatedAt:           u.CreatedAt,
+		UpdatedAt:           u.UpdatedAt,
+		LastLoginAt:         u.LastLoginAt,
+		ExtendedAttributes:  u.ExtendedAttributes,
 	}
 }
 

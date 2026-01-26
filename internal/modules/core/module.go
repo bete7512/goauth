@@ -2,32 +2,24 @@ package core
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
 	_ "embed"
 
 	"github.com/bete7512/goauth/internal/modules/core/handlers"
 	"github.com/bete7512/goauth/internal/modules/core/middlewares"
-	"github.com/bete7512/goauth/internal/modules/core/models"
 	core_services "github.com/bete7512/goauth/internal/modules/core/services"
-	notification_models "github.com/bete7512/goauth/internal/modules/notification/models"
 	"github.com/bete7512/goauth/internal/security"
 	"github.com/bete7512/goauth/pkg/config"
+	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
 )
 
 type CoreModule struct {
-	deps               config.ModuleDependencies
-	handlers           *handlers.CoreHandler
-	customRepositories *CustomRepositories
-	config             *config.CoreConfig
-}
-type CustomRepositories struct {
-	UserRepository                  models.UserRepository
-	UserExtendedAttributeRepository models.ExtendedAttributeRepository
-	SessionRepository               models.SessionRepository
-	TokenRepository                 models.TokenRepository
-	VerificationTokenRepository     notification_models.VerificationTokenRepository
+	deps     config.ModuleDependencies
+	handlers *handlers.CoreHandler
+	config   *config.CoreConfig
+	customStorage types.CoreStorage
 }
 
 //go:embed docs/swagger.yml
@@ -35,43 +27,31 @@ var swaggerSpec []byte
 
 var _ config.Module = (*CoreModule)(nil)
 
-func New(cfg *config.CoreConfig, customRepositories *CustomRepositories) *CoreModule {
+// New creates a new CoreModule
+// customStorage is optional - if nil, storage will be obtained from deps.Storage.Core()
+func New(cfg *config.CoreConfig, customStorage types.CoreStorage) *CoreModule {
 	if cfg == nil {
 		cfg = &config.CoreConfig{}
 	}
 	return &CoreModule{
-		config:             cfg,
-		customRepositories: customRepositories,
+		config:        cfg,
+		customStorage: customStorage,
 	}
 }
 
 func (m *CoreModule) Init(ctx context.Context, deps config.ModuleDependencies) error {
 	m.deps = deps
 
-	// Resolve repositories
-	userRepo, err := m.resolveUserRepository()
-	if err != nil {
-		return err
+	// Get core storage - use custom if provided, otherwise from main storage
+	var coreStorage types.CoreStorage
+	if m.customStorage != nil {
+		coreStorage = m.customStorage
+	} else if deps.Storage != nil {
+		coreStorage = deps.Storage.Core()
 	}
 
-	sessionRepo, err := m.resolveSessionRepository()
-	if err != nil {
-		return err
-	}
-
-	tokenRepo, err := m.resolveTokenRepository()
-	if err != nil {
-		return err
-	}
-
-	verificationTokenRepo, err := m.resolveVerificationTokenRepository()
-	if err != nil {
-		return err
-	}
-
-	userAttrRepo, err := m.resolveUserAttributeRepository()
-	if err != nil {
-		return err
+	if coreStorage == nil {
+		return errors.New("core storage is required")
 	}
 
 	// Update config from dependencies if provided
@@ -82,14 +62,14 @@ func (m *CoreModule) Init(ctx context.Context, deps config.ModuleDependencies) e
 	m.deps.SecurityManager = securityManager
 
 	// Initialize handlers with all dependencies
+	// Repositories now use concrete types - no adapters needed
 	m.handlers = handlers.NewCoreHandler(
 		core_services.NewCoreService(
 			m.deps,
-			userRepo,
-			userAttrRepo,
-			sessionRepo,
-			tokenRepo,
-			verificationTokenRepo,
+			coreStorage.Users(),
+			coreStorage.ExtendedAttributes(),
+			coreStorage.Tokens(),
+			coreStorage.VerificationTokens(),
 			m.deps.Logger,
 			securityManager,
 			m.config,
@@ -99,6 +79,7 @@ func (m *CoreModule) Init(ctx context.Context, deps config.ModuleDependencies) e
 
 	return nil
 }
+
 func (m *CoreModule) SwaggerSpec() []byte {
 	return swaggerSpec
 }
@@ -128,95 +109,19 @@ func (m *CoreModule) Middlewares() []config.MiddlewareConfig {
 }
 
 func (m *CoreModule) Models() []interface{} {
-	models := []interface{}{
+	return []interface{}{
 		&models.User{},
 		&models.ExtendedAttributes{},
-		&models.Session{},
 		&models.Token{},
 	}
-	return models
 }
 
 func (m *CoreModule) RegisterHooks(events types.EventBus) error {
-	// register hooks here
 	return nil
 }
 
 func (m *CoreModule) Dependencies() []string {
 	return nil
-}
-
-// Private helper functions for repository resolution
-
-func (m *CoreModule) getRepositoryOrDefault(customRepo interface{}, repositoryKey string) (interface{}, error) {
-	if customRepo != nil {
-		return customRepo, nil
-	}
-	repo := m.deps.Storage.GetRepository(repositoryKey)
-	if repo == nil {
-		return nil, fmt.Errorf("%s repository not found", repositoryKey)
-	}
-	return repo, nil
-}
-
-func (m *CoreModule) resolveUserRepository() (models.UserRepository, error) {
-	repoRaw, err := m.getRepositoryOrDefault(m.customRepositories.UserRepository, string(types.CoreUserRepository))
-	if err != nil {
-		return nil, err
-	}
-	repo, ok := repoRaw.(models.UserRepository)
-	if !ok {
-		return nil, fmt.Errorf("user repository has invalid type")
-	}
-	return repo, nil
-}
-
-func (m *CoreModule) resolveSessionRepository() (models.SessionRepository, error) {
-	repoRaw, err := m.getRepositoryOrDefault(m.customRepositories.SessionRepository, string(types.CoreSessionRepository))
-	if err != nil {
-		return nil, err
-	}
-	repo, ok := repoRaw.(models.SessionRepository)
-	if !ok {
-		return nil, fmt.Errorf("session repository has invalid type")
-	}
-	return repo, nil
-}
-
-func (m *CoreModule) resolveTokenRepository() (models.TokenRepository, error) {
-	repoRaw, err := m.getRepositoryOrDefault(m.customRepositories.TokenRepository, string(types.CoreTokenRepository))
-	if err != nil {
-		return nil, err
-	}
-	repo, ok := repoRaw.(models.TokenRepository)
-	if !ok {
-		return nil, fmt.Errorf("token repository has invalid type")
-	}
-	return repo, nil
-}
-
-func (m *CoreModule) resolveVerificationTokenRepository() (notification_models.VerificationTokenRepository, error) {
-	repoRaw, err := m.getRepositoryOrDefault(m.customRepositories.VerificationTokenRepository, string(types.CoreVerificationTokenRepository))
-	if err != nil {
-		return nil, err
-	}
-	repo, ok := repoRaw.(notification_models.VerificationTokenRepository)
-	if !ok {
-		return nil, fmt.Errorf("verification token repository has invalid type")
-	}
-	return repo, nil
-}
-
-func (m *CoreModule) resolveUserAttributeRepository() (models.ExtendedAttributeRepository, error) {
-	repoRaw, err := m.getRepositoryOrDefault(m.customRepositories.UserExtendedAttributeRepository, string(types.CoreUserExtendedAttributeRepository))
-	if err != nil {
-		return nil, err
-	}
-	repo, ok := repoRaw.(models.ExtendedAttributeRepository)
-	if !ok {
-		return nil, fmt.Errorf("user attribute repository has invalid type")
-	}
-	return repo, nil
 }
 
 func (m *CoreModule) updateConfigFromDeps() {

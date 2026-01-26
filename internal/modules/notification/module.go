@@ -6,12 +6,12 @@ import (
 
 	_ "embed"
 
-	coreModels "github.com/bete7512/goauth/internal/modules/core/models"
 	"github.com/bete7512/goauth/internal/modules/notification/handlers"
 	"github.com/bete7512/goauth/internal/modules/notification/hooks"
 	"github.com/bete7512/goauth/internal/modules/notification/models"
 	"github.com/bete7512/goauth/internal/modules/notification/services"
 	"github.com/bete7512/goauth/pkg/config"
+	pkgmodels "github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
 )
 
@@ -20,8 +20,8 @@ type NotificationModule struct {
 	service               *services.NotificationService
 	handlers              *handlers.NotificationHandler
 	config                *Config
-	verificationTokenRepo models.VerificationTokenRepository
-	userRepo              coreModels.UserRepository
+	verificationTokenRepo pkgmodels.VerificationTokenRepository
+	userRepo              pkgmodels.UserRepository
 }
 
 // Config holds notification module configuration
@@ -34,10 +34,10 @@ type Config struct {
 	SMSSender models.SMSSender
 
 	// Verification token repository (optional - user can provide their own)
-	VerificationTokenRepository models.VerificationTokenRepository
+	VerificationTokenRepository pkgmodels.VerificationTokenRepository
 
 	// User repository (optional - user can provide their own)
-	UserRepository coreModels.UserRepository
+	UserRepository pkgmodels.UserRepository
 
 	// Service configuration
 	ServiceConfig *services.NotificationConfig
@@ -122,12 +122,11 @@ func (m *NotificationModule) Middlewares() []config.MiddlewareConfig {
 	return []config.MiddlewareConfig{}
 }
 
-func (m *NotificationModule) Models() []interface{} {
+func (m *NotificationModule) Models() []any {
 	// Notification module now includes verification token model
-	models := []interface{}{
-		&models.VerificationToken{},
+	return []any{
+		&pkgmodels.VerificationToken{},
 	}
-	return models
 }
 
 func (m *NotificationModule) RegisterHooks(events types.EventBus) error {
@@ -172,11 +171,11 @@ func (m *NotificationModule) resolveVerificationTokenRepository() {
 		return
 	}
 
-	// Try to get from storage
-	repo := m.deps.Storage.GetRepository(string(types.CoreVerificationTokenRepository))
-	if repo != nil {
-		if verificationRepo, ok := repo.(models.VerificationTokenRepository); ok {
-			m.verificationTokenRepo = verificationRepo
+	// Get from core storage
+	if m.deps.Storage != nil {
+		coreStorage := m.deps.Storage.Core()
+		if coreStorage != nil {
+			m.verificationTokenRepo = coreStorage.VerificationTokens()
 		}
 	}
 }
@@ -187,11 +186,11 @@ func (m *NotificationModule) resolveUserRepository() {
 		return
 	}
 
-	// Try to get from storage
-	repo := m.deps.Storage.GetRepository(string(types.CoreUserRepository))
-	if repo != nil {
-		if userRepo, ok := repo.(coreModels.UserRepository); ok {
-			m.userRepo = userRepo
+	// Get from core storage
+	if m.deps.Storage != nil {
+		coreStorage := m.deps.Storage.Core()
+		if coreStorage != nil {
+			m.userRepo = coreStorage.Users()
 		}
 	}
 }

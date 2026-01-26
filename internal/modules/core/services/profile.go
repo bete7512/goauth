@@ -45,7 +45,7 @@ func (s *CoreService) UpdateProfile(ctx context.Context, userID string, req *dto
 	user.UpdatedAt = &now
 
 	if err := s.UserRepository.Update(ctx, user); err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to update profile: %w", err))
+		return nil, types.NewInternalError(fmt.Sprintf("failed to update profile: %v", err))
 	}
 
 	return &dto.UserDTO{

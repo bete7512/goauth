@@ -7,7 +7,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/bete7512/goauth/internal/modules/core/models"
+	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
@@ -164,4 +164,29 @@ func (t *SecurityManager) Encrypt(data string) (string, error) {
 func (t *SecurityManager) Decrypt(data string) (string, error) {
 	//TODO: decryptedData, err := t.Config.Security.EncryptionKey.Decrypt([]byte(data))
 	return data, nil
+}
+
+// GenerateStatelessRefreshToken generates a JWT refresh token with a random JTI
+func (t *SecurityManager) GenerateStatelessRefreshToken(user *models.User) (string, string, error) {
+	// Generate JTI (nonce)
+	jti, err := t.GenerateRandomToken(32)
+	if err != nil {
+		return "", "", err
+	}
+
+	claims := jwt.MapClaims{
+		"user_id": user.ID,
+		"type":    "refresh",
+		"jti":     jti,
+		"exp":     time.Now().Add(t.Config.Session.RefreshTokenTTL).Unix(),
+		"iat":     time.Now().Unix(),
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenString, err := token.SignedString([]byte(t.Config.JwtSecretKey))
+	if err != nil {
+		return "", "", err
+	}
+
+	return tokenString, jti, nil
 }

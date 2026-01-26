@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/bete7512/goauth/internal/modules/core/models"
+	"github.com/bete7512/goauth/pkg/models"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -39,7 +39,16 @@ type SecurityConfig struct {
 	Session              SessionConfig
 	PasswordPolicy       PasswordPolicy
 	AuthMode             AuthMode // Authentication mode (cookie, bearer, both, custom)
+	AuthStrategy         AuthStrategy
 }
+
+// AuthStrategy determines the authentication strategy
+type AuthStrategy string
+
+const (
+	StrategySession   AuthStrategy = "session"   // Default stateful session
+	StrategyStateless AuthStrategy = "stateless" // JWT-only stateless
+)
 
 type PasswordPolicy struct {
 	MinLength        int

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/bete7512/goauth/internal/modules/core/handlers/dto"
-	"github.com/bete7512/goauth/internal/modules/core/models"
+	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
@@ -35,7 +35,6 @@ func (s *CoreService) ForgotPassword(ctx context.Context, req *dto.ForgotPasswor
 
 	// Generate token or code based on method
 	var token string
-	// var code string
 
 	if req.Email != "" {
 		// Email: generate token
@@ -43,17 +42,13 @@ func (s *CoreService) ForgotPassword(ctx context.Context, req *dto.ForgotPasswor
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate token: %w", err)
 		}
-	} else {
-		// Phone: generate 6-digit code
-		// code = fmt.Sprintf("%06d", rand.Intn(1000000))
 	}
 
 	// Create password reset record
 	resetToken := &models.Token{
-		ID:     uuid.New().String(),
-		UserID: user.ID,
-		Token:  token,
-		// Code:      code,
+		ID:        uuid.New().String(),
+		UserID:    user.ID,
+		Token:     token,
 		Type:      "password_reset",
 		ExpiresAt: time.Now().Add(1 * time.Hour), // 1 hour expiry
 		CreatedAt: time.Now(),
@@ -85,6 +80,7 @@ func (s *CoreService) ForgotPassword(ctx context.Context, req *dto.ForgotPasswor
 func (s *CoreService) ResetPassword(ctx context.Context, req *dto.ResetPasswordRequest) (*dto.MessageResponse, error) {
 	var resetToken *models.Token
 	var err error
+
 	// Find reset token
 	if req.Token != "" {
 		resetToken, err = s.TokenRepository.FindByToken(ctx, req.Token)
@@ -129,8 +125,8 @@ func (s *CoreService) ResetPassword(ctx context.Context, req *dto.ResetPasswordR
 	// Delete reset token
 	s.TokenRepository.Delete(ctx, resetToken.ID)
 
-	// Invalidate all sessions for security
-	s.SessionRepository.DeleteByUserID(ctx, user.ID)
+	// Note: Session invalidation is now handled by the auth modules (session or stateless)
+	// For security, users should re-login after password reset
 
 	// Emit event
 	s.Deps.Events.EmitAsync(ctx, types.EventAfterResetPassword, map[string]interface{}{

@@ -3,9 +3,9 @@ package hooks
 import (
 	"context"
 
-	coreModels "github.com/bete7512/goauth/internal/modules/core/models"
 	"github.com/bete7512/goauth/internal/modules/notification/services"
 	"github.com/bete7512/goauth/pkg/config"
+	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
 )
 
@@ -102,7 +102,7 @@ func (h *NotificationHooks) handleAfterSignup(ctx context.Context, event *types.
 		return nil
 	}
 
-	user, ok := data["user"].(coreModels.User)
+	user, ok := data["user"].(models.User)
 	if !ok {
 		h.deps.Logger.Warnf("notification: invalid user data for after:signup")
 		return nil
@@ -123,7 +123,7 @@ func (h *NotificationHooks) handleSendEmailVerification(ctx context.Context, eve
 		return nil
 	}
 
-	user, ok := data["user"].(coreModels.User)
+	user, ok := data["user"].(models.User)
 	if !ok {
 		h.deps.Logger.Warnf("notification: invalid user data for send:email-verification")
 		return nil
@@ -145,7 +145,7 @@ func (h *NotificationHooks) handleSendPhoneVerification(ctx context.Context, eve
 		return nil
 	}
 
-	user, ok := data["user"].(coreModels.User)
+	user, ok := data["user"].(models.User)
 	if !ok {
 		h.deps.Logger.Warnf("notification: invalid user data for send:phone-verification")
 		return nil
@@ -166,7 +166,7 @@ func (h *NotificationHooks) handlePasswordChanged(ctx context.Context, event *ty
 		return nil
 	}
 
-	user, ok := data["user"].(coreModels.User)
+	user, ok := data["user"].(models.User)
 	if !ok {
 		h.deps.Logger.Warnf("notification: invalid user data for password:changed")
 		return nil
@@ -193,7 +193,7 @@ func (h *NotificationHooks) handleLoginAlert(ctx context.Context, event *types.E
 		return nil
 	}
 
-	user, ok := data["user"].(coreModels.User)
+	user, ok := data["user"].(models.User)
 	if !ok {
 		h.deps.Logger.Warnf("notification: invalid user data for after:login")
 		return nil
@@ -212,7 +212,7 @@ func (h *NotificationHooks) handleAfterEmailVerified(ctx context.Context, event 
 	if !ok {
 		return nil
 	}
-	user, ok := data["user"].(coreModels.User)
+	user, ok := data["user"].(models.User)
 	if !ok {
 		h.deps.Logger.Warnf("notification: invalid user data for after:change-email-verification")
 		return nil

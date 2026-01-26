@@ -2,13 +2,14 @@ package admin
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/bete7512/goauth/internal/modules/admin/handlers"
 	"github.com/bete7512/goauth/internal/modules/admin/middlewares"
 	"github.com/bete7512/goauth/internal/modules/admin/models"
 	"github.com/bete7512/goauth/internal/modules/admin/services"
-	coreModels "github.com/bete7512/goauth/internal/modules/core/models"
 	"github.com/bete7512/goauth/pkg/config"
+	pkgmodels "github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
 )
 
@@ -21,7 +22,7 @@ type AdminModule struct {
 type Config struct {
 	AuditLogRepository models.AuditLogRepository
 	// You can optionally inject custom implementations
-	UserRepository coreModels.UserRepository
+	UserRepository pkgmodels.UserRepository
 }
 
 var _ config.Module = (*AdminModule)(nil)
@@ -43,30 +44,25 @@ func (m *AdminModule) Init(ctx context.Context, deps config.ModuleDependencies) 
 	if m.config.AuditLogRepository != nil {
 		auditLogRepo = m.config.AuditLogRepository
 	} else {
-		// Get from storage
-		var err error
-		auditLogRepo, err = config.GetTypedRepository[models.AuditLogRepository](
-			deps.Storage,
-			string(types.AdminAuditLogRepository),
-		)
-		if err != nil {
-			return err
-		}
+		// TODO: Admin module needs its own storage interface for AuditLog
+		// For now, this will fail if not provided via config
+		return fmt.Errorf("admin module: AuditLogRepository must be provided via config")
 	}
 
-	// Get User repository from core module (RECOMMENDED WAY)
-	var userRepo coreModels.UserRepository
+	// Get User repository from core module
+	var userRepo pkgmodels.UserRepository
 	if m.config.UserRepository != nil {
 		userRepo = m.config.UserRepository
 	} else {
-		// Access core module's user repository
-		var err error
-		userRepo, err = config.GetTypedRepository[coreModels.UserRepository](
-			deps.Storage,
-			string(types.CoreUserRepository),
-		)
-		if err != nil {
-			return err
+		// Get from core storage
+		if deps.Storage != nil {
+			coreStorage := deps.Storage.Core()
+			if coreStorage != nil {
+				userRepo = coreStorage.Users()
+			}
+		}
+		if userRepo == nil {
+			return fmt.Errorf("admin module: user repository not available")
 		}
 	}
 
@@ -102,8 +98,8 @@ func (m *AdminModule) Middlewares() []config.MiddlewareConfig {
 	}
 }
 
-func (m *AdminModule) Models() []interface{} {
-	return []interface{}{
+func (m *AdminModule) Models() []any {
+	return []any{
 		&models.AuditLog{},
 	}
 }

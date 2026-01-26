@@ -1,5 +1,12 @@
 package types
 
+import (
+	"context"
+
+	"github.com/bete7512/goauth/pkg/models"
+)
+
+// DriverType represents storage backend type
 type DriverType string
 
 const (
@@ -8,6 +15,7 @@ const (
 	DriverTypeSqlc  DriverType = "sqlc"
 )
 
+// DialectType represents database dialect for SQL databases
 type DialectType string
 
 const (
@@ -16,27 +24,53 @@ const (
 	DialectTypeSqlite   DialectType = "sqlite"
 )
 
-type RepositoryName string
+// Storage is the main storage interface
+// Internal implementations (gorm, mongodb) implement this fully
+// User passes this to auth.New(), each module gets its storage internally
+//
+// Usage:
+//
+//	store := gorm.NewStorage(db)
+//	auth.New(&Config{Storage: store})
+//	// Internally: coreModule uses store.Core(), sessionModule uses store.Session()
+type Storage interface {
+	// Core returns storage for the core module (users, tokens, etc.)
+	Core() CoreStorage
 
-// Repository name constants for type-safe access
-const (
-	// Core module repositories
-	CoreUserRepository                  RepositoryName = "core.user"
-	CoreSessionRepository               RepositoryName = "core.session"
-	CoreTokenRepository                 RepositoryName = "core.token"
-	CoreVerificationTokenRepository     RepositoryName = "core.verification_token"
-	CoreUserExtendedAttributeRepository RepositoryName = "core.user_attribute"
+	// Session returns storage for the session module
+	// Returns nil if session storage is not needed/available
+	Session() SessionStorage
 
-	// Admin module repositories
-	AdminAuditLogRepository RepositoryName = "admin.auditlog"
+	// Stateless returns storage for the stateless module
+	// Returns nil if using token version approach (no extra storage needed)
+	Stateless() StatelessStorage
 
-	// MagicLink module repositories
-	MagicLinkRepository RepositoryName = "magiclink.token"
+	// Migrate runs database migrations for all models
+	Migrate(ctx context.Context) error
 
-	// TwoFactor module repositories
-	TwoFactorRepository RepositoryName = "twofactor.secret"
+	// Close closes all storage connections
+	Close() error
 
-	// OAuth module repositories
-	OAuthProviderRepository RepositoryName = "oauth.provider"
-	OAuthTokenRepository    RepositoryName = "oauth.token"
-)
+	// DB returns the underlying database connection (for advanced use)
+	DB() interface{}
+}
+
+// CoreStorage defines storage interface for the core module
+type CoreStorage interface {
+	Users() models.UserRepository
+	Tokens() models.TokenRepository
+	VerificationTokens() models.VerificationTokenRepository
+	ExtendedAttributes() models.ExtendedAttributeRepository
+	WithTransaction(ctx context.Context, fn func(tx CoreStorage) error) error
+}
+
+// SessionStorage defines storage interface for the session module
+type SessionStorage interface {
+	Sessions() models.SessionRepository
+	WithTransaction(ctx context.Context, fn func(tx SessionStorage) error) error
+}
+
+// StatelessStorage defines storage interface for the stateless module (optional)
+type StatelessStorage interface {
+	Blacklist() models.BlacklistRepository
+}
