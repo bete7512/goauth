@@ -34,9 +34,13 @@ func (h *CoreHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	// Call service
 	response, err := h.CoreService.ChangePassword(ctx, userID, &req)
 	if err != nil {
-		http_utils.RespondError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		http_utils.RespondError(w, err.StatusCode, string(err.Code), err.Message)
 		return
 	}
+
+
+	// logout
+	
 
 	http_utils.RespondSuccess(w, response, nil)
 }

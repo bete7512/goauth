@@ -1,5 +1,7 @@
 package models
 
+//go:generate mockgen -destination=../../internal/mocks/mock_session_repository.go -package=mocks github.com/bete7512/goauth/pkg/models SessionRepository
+
 import (
 	"context"
 	"time"

@@ -1,16 +1,66 @@
 package types
 
+//go:generate mockgen -destination=../../internal/mocks/mock_events.go -package=mocks github.com/bete7512/goauth/pkg/types EventBus,AsyncBackend
+
 import (
 	"context"
+	"time"
 )
 
 type EventType string
 
+// Event represents an event with associated data, identity, and retry tracking.
 type Event struct {
-	Type    EventType
+	// ID uniquely identifies this event instance (for idempotency and tracking)
+	ID string
+
+	// Type is the event type (e.g. "after:signup")
+	Type EventType
+
+	// Context is the event context
 	Context context.Context
-	Data    interface{}
-	Error   error
+
+	// Data is the event payload. Use typed event data structs from event_data.go
+	// (e.g. *UserEventData, *LoginEventData) for type safety.
+	Data interface{}
+
+	// Error holds any error that occurred during event processing
+	Error error
+
+	// CreatedAt is when the event was created
+	CreatedAt time.Time
+
+	// RetryCount tracks how many times this event has been retried
+	RetryCount int
+
+	// MaxRetries is the maximum number of retries allowed for this event
+	MaxRetries int
+}
+
+// RetryPolicy configures retry behavior for event handlers.
+type RetryPolicy struct {
+	// MaxRetries is the maximum number of retry attempts (0 = no retry)
+	MaxRetries int
+
+	// InitialBackoff is the delay before the first retry
+	InitialBackoff time.Duration
+
+	// MaxBackoff caps the backoff duration
+	MaxBackoff time.Duration
+
+	// BackoffMultiplier multiplies the backoff after each retry (e.g. 2.0 for exponential)
+	BackoffMultiplier float64
+}
+
+// DefaultRetryPolicy returns a sensible default retry policy.
+// 3 retries with exponential backoff: 1s → 2s → 4s
+func DefaultRetryPolicy() RetryPolicy {
+	return RetryPolicy{
+		MaxRetries:        3,
+		InitialBackoff:    1 * time.Second,
+		MaxBackoff:        30 * time.Second,
+		BackoffMultiplier: 2.0,
+	}
 }
 
 // EventBus interface for event handling

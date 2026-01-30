@@ -49,11 +49,6 @@ func (m *StatelessModule) Init(ctx context.Context, deps config.ModuleDependenci
 	if coreStorage == nil {
 		return errors.New("core storage is required for stateless module")
 	}
-
-	// Create repository adapters
-	// userRepo := &userRepositoryAdapter{repo: coreStorage.Users()}
-	// tokenRepo := &tokenRepositoryAdapter{repo: coreStorage.Tokens()}
-
 	// Initialize security manager
 	securityManager := security.NewSecurityManager(m.deps.Config.Security)
 	m.deps.SecurityManager = securityManager

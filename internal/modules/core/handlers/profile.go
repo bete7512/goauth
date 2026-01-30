@@ -33,9 +33,9 @@ func (h *CoreHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	// 3. Save to database
 	// 4. Return updated user
 
-	h.deps.Events.EmitAsync(ctx, types.EventAfterChangeProfile, map[string]interface{}{
-		"user_id": "user-123",
-		"fields":  []string{"name", "phone", "avatar"},
+	h.deps.Events.EmitAsync(ctx, types.EventAfterChangeProfile, &types.ProfileChangedData{
+		UserID: "user-123",
+		Fields: []string{"name", "phone", "avatar"},
 	})
 
 	http_utils.RespondSuccess(w, dto.MessageResponse{

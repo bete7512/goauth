@@ -4,9 +4,9 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"regexp"
 	"time"
 
-	"github.com/bete7512/goauth/internal/modules/session"
 	"github.com/bete7512/goauth/internal/modules/stateless"
 	"github.com/bete7512/goauth/pkg/auth"
 	"github.com/bete7512/goauth/pkg/config"
@@ -17,6 +17,14 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
 )
+
+// pathParamRegex matches Go 1.22+ / Chi-style path parameters like {id}
+var pathParamRegex = regexp.MustCompile(`\{(\w+)\}`)
+
+// toColonParams converts {param} to :param for Gin and Fiber routers
+func toColonParams(path string) string {
+	return pathParamRegex.ReplaceAllString(path, ":$1")
+}
 
 func main() {
 	// Create storage instance using factory
@@ -45,6 +53,12 @@ func main() {
 				AccessTokenTTL:  15 * time.Minute,
 				RefreshTokenTTL: 7 * 24 * time.Hour,
 			},
+			PasswordPolicy: types.PasswordPolicy{
+				MinLength:        4,
+				MaxLength:        16,
+				RequireUppercase: false,
+				RequireSpecial:   false,
+			},
 		},
 		AutoMigrate: true,
 		BasePath:    "/api/v1",
@@ -72,10 +86,13 @@ func main() {
 	}
 
 	// --- Option 1: Session-based auth (uncomment to use) ---
-	authInstance.Use(session.New(&config.SessionModuleConfig{
-		EnableSessionManagement: true, // Enable session list/delete endpoints
+	// authInstance.Use(session.New(&config.SessionModuleConfig{
+	// 	EnableSessionManagement: true, // Enable session list/delete endpoints
 
-	}, nil))
+	// }, nil))
+
+	
+
 	// Register custom hooks (user-defined)
 	authInstance.On(types.EventBeforeSignup, func(ctx context.Context, e *types.Event) error {
 		log.Println("Before signup event:", e.Type, e.Data)
@@ -109,7 +126,9 @@ func main() {
 	case "http":
 		mux := http.NewServeMux()
 		for _, route := range authInstance.Routes() {
-			mux.Handle(route.Path, route.Handler)
+			// Go 1.22+ ServeMux: "METHOD /path" for method-specific routing
+			pattern := route.Method + " " + route.Path
+			mux.HandleFunc(pattern, route.Handler)
 		}
 		log.Println("Server running on :8080")
 		http.ListenAndServe(":8080", mux)
@@ -150,19 +169,21 @@ func exampleStatelessSetup(store types.Storage) *auth.Auth {
 func fiberHandler(auth *auth.Auth) *fiber.App {
 	fiber := fiber.New()
 	for _, route := range auth.Routes() {
+		// Fiber uses :param syntax, convert from {param}
+		path := toColonParams(route.Path)
 		switch route.Method {
 		case http.MethodGet:
-			fiber.Get(route.Path, adaptor.HTTPHandler(route.Handler))
+			fiber.Get(path, adaptor.HTTPHandler(route.Handler))
 		case http.MethodPost:
-			fiber.Post(route.Path, adaptor.HTTPHandler(route.Handler))
+			fiber.Post(path, adaptor.HTTPHandler(route.Handler))
 		case http.MethodPut:
-			fiber.Put(route.Path, adaptor.HTTPHandler(route.Handler))
+			fiber.Put(path, adaptor.HTTPHandler(route.Handler))
 		case http.MethodDelete:
-			fiber.Delete(route.Path, adaptor.HTTPHandler(route.Handler))
+			fiber.Delete(path, adaptor.HTTPHandler(route.Handler))
 		case http.MethodPatch:
-			fiber.Patch(route.Path, adaptor.HTTPHandler(route.Handler))
+			fiber.Patch(path, adaptor.HTTPHandler(route.Handler))
 		case http.MethodOptions:
-			fiber.Options(route.Path, adaptor.HTTPHandler(route.Handler))
+			fiber.Options(path, adaptor.HTTPHandler(route.Handler))
 		}
 	}
 	fiber.Use(auth.RequireAuth)
@@ -199,19 +220,21 @@ func chiHandler(auth *auth.Auth) *chi.Mux {
 func ginHandler(auth *auth.Auth) *gin.Engine {
 	r := gin.Default()
 	for _, route := range auth.Routes() {
+		// Gin uses :param syntax, convert from {param}
+		path := toColonParams(route.Path)
 		switch route.Method {
 		case http.MethodGet:
-			r.GET(route.Path, gin.WrapF(route.Handler))
+			r.GET(path, gin.WrapF(route.Handler))
 		case http.MethodPost:
-			r.POST(route.Path, gin.WrapF(route.Handler))
+			r.POST(path, gin.WrapF(route.Handler))
 		case http.MethodPut:
-			r.PUT(route.Path, gin.WrapF(route.Handler))
+			r.PUT(path, gin.WrapF(route.Handler))
 		case http.MethodDelete:
-			r.DELETE(route.Path, gin.WrapF(route.Handler))
+			r.DELETE(path, gin.WrapF(route.Handler))
 		case http.MethodPatch:
-			r.PATCH(route.Path, gin.WrapF(route.Handler))
+			r.PATCH(path, gin.WrapF(route.Handler))
 		case http.MethodOptions:
-			r.OPTIONS(route.Path, gin.WrapF(route.Handler))
+			r.OPTIONS(path, gin.WrapF(route.Handler))
 		}
 	}
 	r.Run(":8080")

@@ -1,5 +1,7 @@
 package logger
 
+//go:generate mockgen -destination=../../mocks/mock_logger.go -package=mocks github.com/bete7512/goauth/internal/utils/logger Logger
+
 // Logger is the unified interface for logging across the entire application.
 // Users can implement this interface to provide their own logger
 // (e.g., logrus, zap, zerolog, or any custom implementation).

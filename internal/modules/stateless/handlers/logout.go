@@ -26,8 +26,8 @@ func (h *StatelessHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	// Clear cookies
 	h.clearTokenCookies(w)
 
-	if emitErr := h.deps.Events.EmitAsync(ctx, types.EventAfterLogout, map[string]interface{}{
-		"user_id": userID,
+	if emitErr := h.deps.Events.EmitAsync(ctx, types.EventAfterLogout, &types.LogoutEventData{
+		UserID: userID,
 	}); emitErr != nil {
 		h.deps.Logger.Errorf("stateless: failed to emit after logout event: %v", emitErr)
 	}
