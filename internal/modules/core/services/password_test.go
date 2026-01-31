@@ -131,7 +131,6 @@ func (s *PasswordServiceSuite) TestChangePassword() {
 			} else {
 				s.Nil(goauthErr)
 				s.NotNil(resp)
-				s.True(resp.Success)
 				if tt.wantMsg != "" {
 					s.Equal(tt.wantMsg, resp.Message)
 				}
@@ -193,7 +192,6 @@ func (s *PasswordServiceSuite) TestForgotPassword() {
 			} else {
 				s.Nil(goauthErr)
 				s.NotNil(resp)
-				s.True(resp.Success)
 			}
 		})
 	}
@@ -281,7 +279,6 @@ func (s *PasswordServiceSuite) TestResetPassword() {
 			} else {
 				s.Nil(goauthErr)
 				s.NotNil(resp)
-				s.True(resp.Success)
 			}
 		})
 	}

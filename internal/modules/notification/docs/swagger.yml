@@ -5,6 +5,8 @@ paths:
       summary: Send email verification
       description: Send verification email to user's email address
       tags: [Notification Module Docs]
+      security:
+        - csrfToken: []
       requestBody:
         required: true
         content:
@@ -65,6 +67,8 @@ paths:
       summary: Resend email verification
       description: Resend verification email to user's email address
       tags: [Notification Module Docs]
+      security:
+        - csrfToken: []
       requestBody:
         required: true
         content:
@@ -97,6 +101,8 @@ paths:
       summary: Send phone verification
       description: Send verification SMS to user's phone number
       tags: [Notification Module Docs]
+      security:
+        - csrfToken: []
       requestBody:
         required: true
         content:
@@ -128,6 +134,8 @@ paths:
       summary: Verify phone number
       description: Verify phone number using SMS verification code
       tags: [Notification Module Docs]
+      security:
+        - csrfToken: []
       requestBody:
         required: true
         content:
@@ -159,6 +167,8 @@ paths:
       summary: Resend phone verification
       description: Resend verification SMS to user's phone number
       tags: [Notification Module Docs]
+      security:
+        - csrfToken: []
       requestBody:
         required: true
         content:
@@ -191,6 +201,8 @@ paths:
       summary: Request password reset
       description: Send password reset link/code via email or SMS
       tags: [Notification Module Docs]
+      security:
+        - csrfToken: []
       requestBody:
         required: true
         content:

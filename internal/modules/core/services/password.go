@@ -28,7 +28,6 @@ func (s *CoreService) ForgotPassword(ctx context.Context, req *dto.ForgotPasswor
 		// Don't reveal if user exists for security
 		return &dto.MessageResponse{
 			Message: "If an account exists, password reset instructions have been sent",
-			Success: true,
 		}, nil
 	}
 
@@ -71,7 +70,6 @@ func (s *CoreService) ForgotPassword(ctx context.Context, req *dto.ForgotPasswor
 
 	return &dto.MessageResponse{
 		Message: "If an account exists, password reset instructions have been sent",
-		Success: true,
 	}, nil
 }
 
@@ -137,7 +135,6 @@ func (s *CoreService) ResetPassword(ctx context.Context, req *dto.ResetPasswordR
 
 	return &dto.MessageResponse{
 		Message: "Password reset successfully. Please login with your new password.",
-		Success: true,
 	}, nil
 }
 
@@ -179,6 +176,5 @@ func (s *CoreService) ChangePassword(ctx context.Context, userID string, req *dt
 
 	return &dto.MessageResponse{
 		Message: "Password changed successfully",
-		Success: true,
 	}, nil
 }

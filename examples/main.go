@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/bete7512/goauth/internal/modules/csrf"
+	"github.com/bete7512/goauth/internal/modules/session"
 	"github.com/bete7512/goauth/internal/modules/stateless"
 	"github.com/bete7512/goauth/pkg/auth"
 	"github.com/bete7512/goauth/pkg/config"
@@ -86,12 +88,26 @@ func main() {
 	}
 
 	// --- Option 1: Session-based auth (uncomment to use) ---
-	// authInstance.Use(session.New(&config.SessionModuleConfig{
-	// 	EnableSessionManagement: true, // Enable session list/delete endpoints
+	authInstance.Use(session.New(&config.SessionModuleConfig{
+		EnableSessionManagement: true, // Enable session list/delete endpoints
 
-	// }, nil))
+	}, nil))
 
-	
+	// csrf (HMAC-based double-submit cookie pattern)
+	authInstance.Use(csrf.New(&config.CSRFModuleConfig{
+		TokenExpiry: 2 * time.Hour,
+		Secure:      false, // set true in production
+		SameSite:    http.SameSiteLaxMode,
+	}))
+
+	// Captcha protection (uncomment and configure with your provider keys)
+	// authInstance.Use(captcha.New(&config.CaptchaModuleConfig{
+	// 	Provider:       "google",                                        // or "cloudflare"
+	// 	SiteKey:        "your-recaptcha-site-key",                       // public key for frontend widget
+	// 	SecretKey:      "your-recaptcha-secret-key",                     // server-side verification key
+	// 	ScoreThreshold: 0.5,                                             // Google reCAPTCHA v3 score threshold
+	// 	ApplyToRoutes:  []string{"core.signup", "core.login"},           // protect signup and login
+	// }))
 
 	// Register custom hooks (user-defined)
 	authInstance.On(types.EventBeforeSignup, func(ctx context.Context, e *types.Event) error {

@@ -148,6 +148,70 @@ type StatelessModuleConfig struct {
 	RefreshTokenRotation bool
 }
 
+// CSRFModuleConfig holds configuration for CSRF protection module
+type CSRFModuleConfig struct {
+	// TokenExpiry is how long CSRF tokens remain valid (default: 1 hour)
+	TokenExpiry time.Duration
+
+	// CookieName is the name of the CSRF cookie (default: "__goauth_csrf")
+	CookieName string
+
+	// HeaderName is the HTTP header clients send the token in (default: "X-CSRF-Token")
+	HeaderName string
+
+	// FormFieldName is the form field name for the token (default: "csrf_token")
+	FormFieldName string
+
+	// Secure sets the Secure flag on the CSRF cookie (default: true)
+	Secure bool
+
+	// SameSite sets the SameSite attribute on the CSRF cookie (default: Lax)
+	SameSite http.SameSite
+
+	// CookiePath sets the Path attribute on the CSRF cookie (default: "/")
+	CookiePath string
+
+	// CookieDomain sets the Domain attribute on the CSRF cookie (default: "")
+	CookieDomain string
+
+	// ExcludePaths are URL path prefixes that skip CSRF validation
+	ExcludePaths []string
+
+	// ProtectedMethods are HTTP methods that require CSRF validation (default: POST, PUT, DELETE, PATCH)
+	ProtectedMethods []string
+}
+
+// CaptchaModuleConfig holds configuration for CAPTCHA verification module
+type CaptchaModuleConfig struct {
+	// Provider is the captcha provider: "google" (reCAPTCHA v3), "cloudflare" (Turnstile), or "" (disabled)
+	Provider string
+
+	// SiteKey is the public site key from the provider (used by frontend widget)
+	SiteKey string
+
+	// SecretKey is the server-side secret key from the provider
+	SecretKey string
+
+	// ScoreThreshold is the minimum score for Google reCAPTCHA v3 (0.0-1.0, default: 0.5)
+	// Ignored for Cloudflare Turnstile which uses binary pass/fail
+	ScoreThreshold float64
+
+	// VerifyTimeout is the HTTP timeout for provider API calls (default: 10s)
+	VerifyTimeout time.Duration
+
+	// HeaderName is the HTTP header to read the captcha token from (default: "X-Captcha-Token")
+	HeaderName string
+
+	// FormFieldName is the form field fallback for the captcha token (default: "captcha_token")
+	FormFieldName string
+
+	// ApplyToRoutes are route names or patterns that require captcha (e.g. "core.signup", "core.login")
+	ApplyToRoutes []string
+
+	// ExcludeRoutes are route names or patterns to exclude from captcha
+	ExcludeRoutes []string
+}
+
 // CORSConfig holds CORS configuration
 type CORSConfig struct {
 	Enabled          bool

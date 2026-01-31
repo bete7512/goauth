@@ -1,146 +1,177 @@
 package services
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"time"
 )
 
-// CaptchaService manages captcha verification
-type CaptchaService struct {
-	provider CaptchaProvider
-}
+const (
+	googleVerifyURL     = "https://www.google.com/recaptcha/api/siteverify"
+	cloudflareVerifyURL = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+	defaultTimeout      = 10 * time.Second
+	defaultThreshold    = 0.5
+)
 
-// CaptchaProvider interface for different captcha providers
+// CaptchaProvider verifies a captcha token with an external provider.
 type CaptchaProvider interface {
 	Verify(ctx context.Context, token, remoteIP string) (bool, error)
 }
 
-func NewCaptchaService() *CaptchaService {
-	return &CaptchaService{}
+// CaptchaService delegates captcha verification to the configured provider.
+type CaptchaService struct {
+	provider CaptchaProvider
 }
 
-func (s *CaptchaService) SetProvider(provider CaptchaProvider) {
-	s.provider = provider
+// NewCaptchaService creates a captcha service with the given provider.
+// If provider is nil, Verify will always return an error.
+func NewCaptchaService(provider CaptchaProvider) *CaptchaService {
+	return &CaptchaService{provider: provider}
 }
 
-func (s *CaptchaService) GetProvider() CaptchaProvider {
-	return s.provider
-}
-
-// Verify verifies a captcha token using the configured provider
+// Verify delegates to the configured provider.
 func (s *CaptchaService) Verify(ctx context.Context, token, remoteIP string) (bool, error) {
 	if s.provider == nil {
-		return false, fmt.Errorf("no captcha provider configured")
+		return false, fmt.Errorf("captcha: no provider configured")
 	}
 	return s.provider.Verify(ctx, token, remoteIP)
 }
 
-// GoogleRecaptchaProvider implements Google reCAPTCHA v3 verification
-type GoogleRecaptchaProvider struct {
-	SecretKey string
-	Threshold float64
+// Provider returns the configured provider (may be nil).
+func (s *CaptchaService) Provider() CaptchaProvider {
+	return s.provider
+}
+
+// GoogleProvider implements Google reCAPTCHA v3 verification.
+type GoogleProvider struct {
+	secretKey string
+	threshold float64
+	client    *http.Client
+	verifyURL string // overridable for testing
+}
+
+// NewGoogleProvider creates a Google reCAPTCHA v3 provider.
+func NewGoogleProvider(secretKey string, threshold float64, timeout time.Duration) *GoogleProvider {
+	if threshold <= 0 {
+		threshold = defaultThreshold
+	}
+	if timeout <= 0 {
+		timeout = defaultTimeout
+	}
+	return &GoogleProvider{
+		secretKey: secretKey,
+		threshold: threshold,
+		client:    &http.Client{Timeout: timeout},
+		verifyURL: googleVerifyURL,
+	}
 }
 
 type recaptchaResponse struct {
-	Success     bool      `json:"success"`
-	Score       float64   `json:"score"`
-	Action      string    `json:"action"`
-	ChallengeTS time.Time `json:"challenge_ts"`
-	Hostname    string    `json:"hostname"`
-	ErrorCodes  []string  `json:"error-codes"`
+	Success    bool     `json:"success"`
+	Score      float64  `json:"score"`
+	Action     string   `json:"action"`
+	Hostname   string   `json:"hostname"`
+	ErrorCodes []string `json:"error-codes"`
 }
 
-func (p *GoogleRecaptchaProvider) Verify(ctx context.Context, token, remoteIP string) (bool, error) {
-	reqBody, err := json.Marshal(map[string]string{
-		"secret":   p.SecretKey,
-		"response": token,
-		"remoteip": remoteIP,
-	})
-	if err != nil {
-		return false, err
+func (p *GoogleProvider) Verify(ctx context.Context, token, remoteIP string) (bool, error) {
+	form := url.Values{
+		"secret":   {p.secretKey},
+		"response": {token},
+		"remoteip": {remoteIP},
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST",
-		"https://www.google.com/recaptcha/api/siteverify",
-		bytes.NewBuffer(reqBody))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.verifyURL, nil)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("captcha: failed to create request: %w", err)
 	}
+	req.URL.RawQuery = form.Encode()
 
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := p.client.Do(req)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("captcha: google verification request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	var result recaptchaResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return false, err
+		return false, fmt.Errorf("captcha: failed to decode google response: %w", err)
 	}
 
 	if !result.Success {
-		return false, fmt.Errorf("recaptcha verification failed: %v", result.ErrorCodes)
+		return false, fmt.Errorf("captcha: google verification failed: %v", result.ErrorCodes)
 	}
 
-	// Check score against threshold
-	return result.Score >= p.Threshold, nil
+	if result.Score < p.threshold {
+		return false, nil
+	}
+
+	return true, nil
 }
 
-// CloudflareTurnstileProvider implements Cloudflare Turnstile verification
-type CloudflareTurnstileProvider struct {
-	SecretKey string
+// SetVerifyURL overrides the verification endpoint (for testing).
+func (p *GoogleProvider) SetVerifyURL(url string) { p.verifyURL = url }
+
+// CloudflareProvider implements Cloudflare Turnstile verification.
+type CloudflareProvider struct {
+	secretKey string
+	client    *http.Client
+	verifyURL string // overridable for testing
+}
+
+// NewCloudflareProvider creates a Cloudflare Turnstile provider.
+func NewCloudflareProvider(secretKey string, timeout time.Duration) *CloudflareProvider {
+	if timeout <= 0 {
+		timeout = defaultTimeout
+	}
+	return &CloudflareProvider{
+		secretKey: secretKey,
+		client:    &http.Client{Timeout: timeout},
+		verifyURL: cloudflareVerifyURL,
+	}
 }
 
 type turnstileResponse struct {
-	Success     bool      `json:"success"`
-	ChallengeTS time.Time `json:"challenge_ts"`
-	Hostname    string    `json:"hostname"`
-	ErrorCodes  []string  `json:"error-codes"`
-	Action      string    `json:"action"`
-	CData       string    `json:"cdata"`
+	Success    bool     `json:"success"`
+	Hostname   string   `json:"hostname"`
+	ErrorCodes []string `json:"error-codes"`
+	Action     string   `json:"action"`
+	CData      string   `json:"cdata"`
 }
 
-func (p *CloudflareTurnstileProvider) Verify(ctx context.Context, token, remoteIP string) (bool, error) {
-	reqBody, err := json.Marshal(map[string]string{
-		"secret":   p.SecretKey,
-		"response": token,
-		"remoteip": remoteIP,
-	})
-	if err != nil {
-		return false, err
+func (p *CloudflareProvider) Verify(ctx context.Context, token, remoteIP string) (bool, error) {
+	form := url.Values{
+		"secret":   {p.secretKey},
+		"response": {token},
+		"remoteip": {remoteIP},
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST",
-		"https://challenges.cloudflare.com/turnstile/v0/siteverify",
-		bytes.NewBuffer(reqBody))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.verifyURL, nil)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("captcha: failed to create request: %w", err)
 	}
+	req.URL.RawQuery = form.Encode()
 
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := p.client.Do(req)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("captcha: cloudflare verification request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	var result turnstileResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return false, err
+		return false, fmt.Errorf("captcha: failed to decode cloudflare response: %w", err)
 	}
 
 	if !result.Success {
-		return false, fmt.Errorf("turnstile verification failed: %v", result.ErrorCodes)
+		return false, fmt.Errorf("captcha: cloudflare verification failed: %v", result.ErrorCodes)
 	}
 
 	return true, nil
 }
+
+// SetVerifyURL overrides the verification endpoint (for testing).
+func (p *CloudflareProvider) SetVerifyURL(url string) { p.verifyURL = url }

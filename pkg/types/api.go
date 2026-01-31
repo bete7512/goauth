@@ -1,15 +1,10 @@
 package types
 
-import "time"
-
 // Standard API response wrapper
 type APIResponse[T any] struct {
-	Success   bool         `json:"success"`
-	Data      T            `json:"data,omitempty"`
-	Error     *GoAuthError `json:"error,omitempty"`
-	Message   *string      `json:"message,omitempty"`
-	Timestamp time.Time    `json:"timestamp"`
-	// RequestID string       `json:"request_id,omitempty"`
+	Data    T            `json:"data,omitempty"`
+	Error   *GoAuthError `json:"error,omitempty"`
+	Message *string      `json:"message,omitempty"`
 }
 
 // Pagination metadata

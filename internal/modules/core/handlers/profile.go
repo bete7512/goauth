@@ -40,6 +40,5 @@ func (h *CoreHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 
 	http_utils.RespondSuccess(w, dto.MessageResponse{
 		Message: "Profile updated successfully",
-		Success: true,
 	}, nil)
 }

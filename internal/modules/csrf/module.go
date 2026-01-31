@@ -2,68 +2,38 @@ package csrf
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 
 	_ "embed"
+
 	"github.com/bete7512/goauth/internal/modules/csrf/middlewares"
 	"github.com/bete7512/goauth/internal/modules/csrf/services"
+	http_utils "github.com/bete7512/goauth/internal/utils/http"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/types"
 )
 
-type CSRFModule struct {
-	deps    config.ModuleDependencies
-	service *services.CSRFService
-	config  *CSRFConfig
-}
-
-type CSRFConfig struct {
-	// Token settings
-	TokenLength   int
-	TokenExpiry   int // in seconds
-	CookieName    string
-	HeaderName    string
-	FormFieldName string
-
-	// Cookie settings
-	Secure   bool
-	HTTPOnly bool
-	SameSite http.SameSite
-
-	// Paths to exclude from CSRF protection
-	ExcludePaths []string
-	OnlyToPaths  []string
-
-	// Methods that require CSRF protection
-	ProtectedMethods []string
-}
 //go:embed docs/swagger.yml
 var swaggerSpec []byte
 
+// CSRFModule provides CSRF protection using the HMAC-based double-submit cookie pattern.
+// Tokens are stateless — no server-side storage is required.
+type CSRFModule struct {
+	deps    config.ModuleDependencies
+	service *services.CSRFService
+	config  *config.CSRFModuleConfig
+}
+
 var _ config.Module = (*CSRFModule)(nil)
 
-func New(cfg ...*CSRFConfig) *CSRFModule {
-	var moduleConfig *CSRFConfig
-	if len(cfg) > 0 && cfg[0] != nil {
-		moduleConfig = cfg[0]
-	} else {
-		moduleConfig = &CSRFConfig{
-			TokenLength:      32,
-			TokenExpiry:      3600, // 1 hour
-			CookieName:       "csrf_token",
-			HeaderName:       "X-CSRF-Token",
-			FormFieldName:    "csrf_token",
-			Secure:           true,
-			HTTPOnly:         true,
-			SameSite:         http.SameSiteStrictMode,
-			ExcludePaths:     []string{},
-			ProtectedMethods: []string{"POST", "PUT", "DELETE", "PATCH"},
-		}
+// New creates a new CSRF module with the given configuration.
+// If cfg is nil, defaults are used.
+func New(cfg *config.CSRFModuleConfig) *CSRFModule {
+	if cfg == nil {
+		cfg = &config.CSRFModuleConfig{}
 	}
-
 	return &CSRFModule{
-		config: moduleConfig,
+		config: cfg,
 	}
 }
 
@@ -71,23 +41,13 @@ func (m *CSRFModule) Name() string {
 	return "csrf"
 }
 
-func (m *CSRFModule) Init(ctx context.Context, deps config.ModuleDependencies) error {
+func (m *CSRFModule) Init(_ context.Context, deps config.ModuleDependencies) error {
 	m.deps = deps
-
-	// Initialize CSRF service
-	m.service = services.NewCSRFService(
-		m.config.TokenLength,
-		m.config.TokenExpiry,
-		m.config.CookieName,
-		m.config.HeaderName,
-		m.config.FormFieldName,
-	)
-
+	m.service = services.NewCSRFService(deps.Config.Security.JwtSecretKey, m.config)
 	return nil
 }
 
 func (m *CSRFModule) Routes() []config.RouteInfo {
-	// Provide an endpoint to get CSRF token
 	return []config.RouteInfo{
 		{
 			Name:    "csrf.token",
@@ -104,20 +64,16 @@ func (m *CSRFModule) Middlewares() []config.MiddlewareConfig {
 			Name:       "csrf.protect",
 			Middleware: middlewares.NewCSRFMiddleware(m.service, m.config),
 			Priority:   85,
-			Global:     true, // Apply to all routes
+			Global:     true,
 		},
 	}
 }
 
 func (m *CSRFModule) Models() []interface{} {
-	return nil // No models needed (uses in-memory or session storage)
+	return nil
 }
 
-func (m *CSRFModule) RegisterHooks(events types.EventBus) error {
-	events.Subscribe(types.EventAfterLogin, types.EventHandler(func(ctx context.Context, event *types.Event) error {
-
-		return nil
-	}))
+func (m *CSRFModule) RegisterHooks(_ types.EventBus) error {
 	return nil
 }
 
@@ -125,31 +81,36 @@ func (m *CSRFModule) Dependencies() []string {
 	return nil
 }
 
-// handleGetToken returns a CSRF token
+func (m *CSRFModule) SwaggerSpec() []byte {
+	return swaggerSpec
+}
+
+// handleGetToken generates a CSRF token, sets it as a cookie, and returns it in the response.
+// The cookie is NOT HttpOnly so that client-side JavaScript can read it
+// and include it in the X-CSRF-Token header on subsequent requests.
 func (m *CSRFModule) handleGetToken(w http.ResponseWriter, r *http.Request) {
 	token, err := m.service.GenerateToken()
 	if err != nil {
-		http.Error(w, "Failed to generate token", http.StatusInternalServerError)
+		http_utils.RespondError(w, http.StatusInternalServerError, string(types.ErrInternalError), "Failed to generate CSRF token")
 		return
 	}
 
-	// Set cookie
-	cookie := &http.Cookie{
-		Name:     m.config.CookieName,
-		Value:    token,
-		Path:     "/",
-		MaxAge:   m.config.TokenExpiry,
-		Secure:   m.config.Secure,
-		HttpOnly: m.config.HTTPOnly,
-		SameSite: m.config.SameSite,
+	secure := m.config.Secure
+	sameSite := m.config.SameSite
+	if sameSite == 0 {
+		sameSite = http.SameSiteLaxMode
 	}
-	http.SetCookie(w, cookie)
 
-	// Return token in response
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"csrf_token": token})
-}
+	http.SetCookie(w, &http.Cookie{
+		Name:     m.service.CookieName(),
+		Value:    token,
+		Path:     m.service.CookiePath(),
+		Domain:   m.service.CookieDomain(),
+		MaxAge:   int(m.service.TokenExpiry().Seconds()),
+		Secure:   secure,
+		HttpOnly: false, // Client JS must read this cookie for double-submit
+		SameSite: sameSite,
+	})
 
-func (m *CSRFModule) SwaggerSpec() []byte {
-	return swaggerSpec
+	http_utils.RespondSuccess(w, map[string]string{"csrf_token": token}, nil)
 }

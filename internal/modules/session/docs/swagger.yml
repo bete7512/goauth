@@ -34,6 +34,11 @@ paths:
       summary: Revoke all sessions
       description: Revoke all sessions for the current user or a specific user (admin)
       tags: [Session Module Docs]
+      security:
+        - cookieAuth: []
+          csrfToken: []
+        - bearerAuth: []
+          csrfToken: []
       parameters:
         - name: user_id
           in: query
@@ -119,6 +124,11 @@ paths:
       summary: Revoke a session
       description: Revoke a specific session by ID
       tags: [Session Module Docs]
+      security:
+        - cookieAuth: []
+          csrfToken: []
+        - bearerAuth: []
+          csrfToken: []
       parameters:
         - name: id
           in: path

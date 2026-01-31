@@ -3,7 +3,6 @@ package http_utils
 import (
 	"encoding/json"
 	"net/http"
-	"time"
 
 	"github.com/bete7512/goauth/pkg/types"
 )
@@ -11,10 +10,8 @@ import (
 // Success response
 func RespondSuccess[T any](w http.ResponseWriter, data T, message *string) {
 	response := types.APIResponse[T]{
-		Success:   true,
-		Data:      data,
-		Message:   message,
-		Timestamp: time.Now(),
+		Data:    data,
+		Message: message,
 	}
 	writeJSON(w, http.StatusOK, response)
 }
@@ -22,13 +19,11 @@ func RespondSuccess[T any](w http.ResponseWriter, data T, message *string) {
 // Error response
 func RespondError(w http.ResponseWriter, statusCode int, code, message string) {
 	response := types.APIResponse[interface{}]{
-		Success: false,
 		Error: &types.GoAuthError{
 			StatusCode: statusCode,
 			Code:       types.ErrorCode(code),
 			Message:    message,
 		},
-		Timestamp: time.Now(),
 	}
 	writeJSON(w, statusCode, response)
 }
@@ -36,13 +31,11 @@ func RespondError(w http.ResponseWriter, statusCode int, code, message string) {
 // Paginated response
 func RespondPaginated[T any](w http.ResponseWriter, data []T, pagination types.PaginationMeta, message *string) {
 	response := types.APIResponse[types.PaginatedResponse[T]]{
-		Success: true,
 		Data: types.PaginatedResponse[T]{
 			Data:       data,
 			Pagination: pagination,
 		},
-		Message:   message,
-		Timestamp: time.Now(),
+		Message: message,
 	}
 	writeJSON(w, http.StatusOK, response)
 }

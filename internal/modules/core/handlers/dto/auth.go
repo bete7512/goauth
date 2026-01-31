@@ -359,7 +359,6 @@ func (u *UserDTO) ToUserDTO() *UserDTO {
 // MessageResponse represents a simple message response
 type MessageResponse struct {
 	Message string `json:"message"`
-	Success bool   `json:"success"`
 }
 
 // ErrorResponse represents an error response
