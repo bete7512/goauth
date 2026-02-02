@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GoAuth Captcha Test</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace; background: #0d1117; color: #c9d1d9; padding: 2rem; }
+        h1 { color: #58a6ff; margin-bottom: 0.5rem; font-size: 1.4rem; }
+        .subtitle { color: #8b949e; margin-bottom: 2rem; font-size: 0.85rem; }
+
+        .config-bar { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 1rem; margin-bottom: 1.5rem; display: flex; gap: 1rem; align-items: end; flex-wrap: wrap; }
+        .config-bar label { display: block; color: #8b949e; font-size: 0.75rem; margin-bottom: 0.25rem; }
+        .config-bar select, .config-bar input { background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; padding: 0.4rem 0.6rem; border-radius: 4px; font-size: 0.85rem; }
+        .config-bar select { min-width: 180px; }
+        .config-bar input { min-width: 320px; }
+        .config-bar .key-group { display: flex; gap: 0.5rem; align-items: end; }
+
+        .container { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+        @media (max-width: 800px) { .container { grid-template-columns: 1fr; } }
+
+        .card { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 1.25rem; }
+        .card h2 { color: #c9d1d9; font-size: 1rem; margin-bottom: 1rem; }
+
+        .form-group { margin-bottom: 0.75rem; }
+        .form-group label { display: block; color: #8b949e; font-size: 0.75rem; margin-bottom: 0.25rem; }
+        .form-group input { width: 100%; background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; padding: 0.5rem; border-radius: 4px; font-size: 0.85rem; }
+
+        .captcha-box { background: #0d1117; border: 1px solid #30363d; border-radius: 4px; padding: 1rem; margin: 0.75rem 0; min-height: 80px; display: flex; align-items: center; justify-content: center; }
+        .captcha-box.empty { color: #484f58; font-size: 0.8rem; }
+
+        button[type="submit"] { width: 100%; background: #238636; border: none; color: #fff; padding: 0.6rem; border-radius: 4px; font-size: 0.85rem; cursor: pointer; font-weight: 600; }
+        button[type="submit"]:hover { background: #2ea043; }
+        button[type="submit"]:disabled { background: #21262d; color: #484f58; cursor: not-allowed; }
+
+        .response { margin-top: 1rem; }
+        .response-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+        .response-header span { font-size: 0.75rem; color: #8b949e; }
+        .status { font-weight: 600; padding: 0.15rem 0.5rem; border-radius: 3px; font-size: 0.75rem; }
+        .status.ok { background: #0d2818; color: #3fb950; }
+        .status.err { background: #2d0a0a; color: #f85149; }
+        pre { background: #0d1117; border: 1px solid #30363d; border-radius: 4px; padding: 0.75rem; font-size: 0.75rem; overflow-x: auto; max-height: 300px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; }
+
+        .test-keys { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 1rem; margin-bottom: 1.5rem; font-size: 0.8rem; }
+        .test-keys summary { color: #58a6ff; cursor: pointer; font-weight: 600; }
+        .test-keys table { margin-top: 0.5rem; border-collapse: collapse; width: 100%; }
+        .test-keys td, .test-keys th { text-align: left; padding: 0.3rem 0.5rem; border-bottom: 1px solid #21262d; }
+        .test-keys th { color: #8b949e; font-weight: 400; }
+        .test-keys code { background: #21262d; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.75rem; }
+
+        .api-url { font-size: 0.75rem; color: #8b949e; margin-bottom: 1.5rem; }
+        .api-url input { background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; padding: 0.3rem 0.5rem; border-radius: 4px; font-size: 0.8rem; width: 280px; }
+    </style>
+</head>
+<body>
+    <h1>GoAuth Captcha Test</h1>
+    <p class="subtitle">Test Cloudflare Turnstile and Google reCAPTCHA v3 integration with go-auth</p>
+
+    <div id="file-warning" style="display:none; background:#2d0a0a; border:1px solid #f85149; border-radius:6px; padding:0.75rem; margin-bottom:1rem; font-size:0.85rem; color:#f85149;">
+        You opened this file directly (file://). Captcha widgets require HTTP.<br>
+        Run: <code style="background:#21262d; padding:0.1rem 0.3rem; border-radius:3px;">cd examples && go run .</code> then open <a href="http://localhost:8080/captcha-test" style="color:#58a6ff;">http://localhost:8080/captcha-test</a>
+    </div>
+    <script>if (location.protocol === 'file:') document.getElementById('file-warning').style.display = 'block';</script>
+
+    <div class="api-url">
+        <label>API Base URL: </label>
+        <input type="text" id="apiUrl" value="http://localhost:8080/api/v1">
+    </div>
+
+    <details class="test-keys" open>
+        <summary>Cloudflare Turnstile Test Keys (no account needed)</summary>
+        <table>
+            <tr><th>Scenario</th><th>Site Key</th><th>Secret Key (for server)</th></tr>
+            <tr><td>Always passes</td><td><code>1x00000000000000000000AA</code></td><td><code>1x0000000000000000000000000000000AA</code></td></tr>
+            <tr><td>Always fails</td><td><code>2x00000000000000000000AB</code></td><td><code>2x0000000000000000000000000000000AB</code></td></tr>
+            <tr><td>Interactive challenge</td><td><code>3x00000000000000000000FF</code></td><td><code>3x0000000000000000000000000000000FF</code></td></tr>
+        </table>
+    </details>
+
+    <!-- Provider Config -->
+    <div class="config-bar">
+        <div>
+            <label>Provider</label>
+            <select id="provider" onchange="switchProvider()">
+                <option value="cloudflare">Cloudflare Turnstile</option>
+                <option value="google">Google reCAPTCHA v3</option>
+            </select>
+        </div>
+        <div>
+            <label>Site Key</label>
+            <input type="text" id="siteKey" value="1x00000000000000000000AA" onchange="reloadCaptcha()">
+        </div>
+    </div>
+
+    <!-- Forms -->
+    <div class="container">
+        <!-- Signup -->
+        <div class="card">
+            <h2>Signup</h2>
+            <form id="signupForm" onsubmit="return handleSubmit(event, 'signup')">
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" name="email" required placeholder="test@example.com">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" name="password" required placeholder="min 4 chars" minlength="4">
+                </div>
+                <div class="captcha-box" id="captcha-signup"></div>
+                <button type="submit">Sign Up</button>
+                <div class="response" id="response-signup"></div>
+            </form>
+        </div>
+
+        <!-- Login -->
+        <div class="card">
+            <h2>Login</h2>
+            <form id="loginForm" onsubmit="return handleSubmit(event, 'login')">
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" name="email" required placeholder="test@example.com">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" name="password" required placeholder="password">
+                </div>
+                <div class="captcha-box" id="captcha-login"></div>
+                <button type="submit">Log In</button>
+                <div class="response" id="response-login"></div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let captchaWidgets = { signup: null, login: null };
+        let captchaTokens = { signup: '', login: '' };
+        let currentProvider = 'cloudflare';
+
+        // --- Provider Switching ---
+
+        function switchProvider() {
+            const provider = document.getElementById('provider').value;
+            currentProvider = provider;
+
+            // Set default site key
+            const siteKeyInput = document.getElementById('siteKey');
+            if (provider === 'cloudflare') {
+                siteKeyInput.value = '1x00000000000000000000AA';
+            } else {
+                siteKeyInput.value = siteKeyInput.value.startsWith('1x') ? '' : siteKeyInput.value;
+                if (!siteKeyInput.value) siteKeyInput.placeholder = 'Paste your reCAPTCHA v3 site key';
+            }
+
+            reloadCaptcha();
+        }
+
+        function reloadCaptcha() {
+            captchaTokens = { signup: '', login: '' };
+
+            // Clear existing widgets
+            document.getElementById('captcha-signup').innerHTML = '';
+            document.getElementById('captcha-login').innerHTML = '';
+
+            const siteKey = document.getElementById('siteKey').value.trim();
+            if (!siteKey) {
+                document.getElementById('captcha-signup').innerHTML = '<span style="color:#484f58">Enter a site key above</span>';
+                document.getElementById('captcha-login').innerHTML = '<span style="color:#484f58">Enter a site key above</span>';
+                return;
+            }
+
+            if (currentProvider === 'cloudflare') {
+                loadTurnstile(siteKey);
+            } else {
+                loadRecaptcha(siteKey);
+            }
+        }
+
+        // --- Cloudflare Turnstile ---
+
+        function loadTurnstile(siteKey) {
+            // Remove old script if present
+            const old = document.getElementById('cf-script');
+            if (old) old.remove();
+
+            // Reset turnstile global if it exists
+            if (window.turnstile) {
+                try { window.turnstile.remove('#captcha-signup'); } catch(e) {}
+                try { window.turnstile.remove('#captcha-login'); } catch(e) {}
+            }
+
+            const script = document.createElement('script');
+            script.id = 'cf-script';
+            script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad&render=explicit';
+            script.async = true;
+            document.head.appendChild(script);
+
+            window.onTurnstileLoad = function() {
+                renderTurnstile(siteKey);
+            };
+
+            // If already loaded, render immediately
+            if (window.turnstile && window.turnstile.render) {
+                renderTurnstile(siteKey);
+            }
+        }
+
+        function renderTurnstile(siteKey) {
+            if (!window.turnstile) return;
+
+            ['signup', 'login'].forEach(form => {
+                const container = document.getElementById('captcha-' + form);
+                container.innerHTML = '';
+                try {
+                    window.turnstile.render('#captcha-' + form, {
+                        sitekey: siteKey,
+                        theme: 'dark',
+                        callback: function(token) {
+                            captchaTokens[form] = token;
+                        },
+                        'error-callback': function() {
+                            captchaTokens[form] = '';
+                        }
+                    });
+                } catch(e) {
+                    container.innerHTML = '<span style="color:#f85149">Failed to render: ' + e.message + '</span>';
+                }
+            });
+        }
+
+        // --- Google reCAPTCHA v3 ---
+
+        function loadRecaptcha(siteKey) {
+            const old = document.getElementById('gr-script');
+            if (old) old.remove();
+
+            const script = document.createElement('script');
+            script.id = 'gr-script';
+            script.src = 'https://www.google.com/recaptcha/api.js?render=' + siteKey;
+            script.async = true;
+            script.onload = function() {
+                if (window.grecaptcha) {
+                    window.grecaptcha.ready(function() {
+                        ['signup', 'login'].forEach(form => {
+                            const container = document.getElementById('captcha-' + form);
+                            container.innerHTML = '<span style="color:#3fb950">reCAPTCHA v3 loaded (invisible). Token generated on submit.</span>';
+                        });
+                    });
+                }
+            };
+            document.head.appendChild(script);
+        }
+
+        async function getRecaptchaToken(action) {
+            const siteKey = document.getElementById('siteKey').value.trim();
+            if (!window.grecaptcha || !siteKey) return '';
+            try {
+                return await window.grecaptcha.execute(siteKey, { action: action });
+            } catch(e) {
+                console.error('reCAPTCHA execute failed:', e);
+                return '';
+            }
+        }
+
+        // --- Form Submission ---
+
+        async function handleSubmit(event, formType) {
+            event.preventDefault();
+            const form = event.target;
+            const btn = form.querySelector('button[type="submit"]');
+            const responseDiv = document.getElementById('response-' + formType);
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+
+            btn.disabled = true;
+            btn.textContent = 'Sending...';
+            responseDiv.innerHTML = '';
+
+            try {
+                // Get captcha token
+                let token = captchaTokens[formType];
+
+                // For Google reCAPTCHA v3, generate token on submit (it's invisible)
+                if (currentProvider === 'google') {
+                    token = await getRecaptchaToken(formType);
+                }
+
+                // Build request body
+                const body = {
+                    email: form.email.value,
+                    password: form.password.value,
+                };
+
+                // Choose endpoint
+                const endpoint = formType === 'signup' ? '/signup' : '/login';
+
+                // Build headers
+                const headers = {
+                    'Content-Type': 'application/json',
+                };
+                if (token) {
+                    headers['X-Captcha-Token'] = token;
+                }
+
+                const res = await fetch(apiUrl + endpoint, {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(body),
+                });
+
+                const data = await res.json();
+                const isOk = res.ok;
+
+                responseDiv.innerHTML = `
+                    <div class="response-header">
+                        <span>Response</span>
+                        <span class="status ${isOk ? 'ok' : 'err'}">${res.status} ${res.statusText}</span>
+                    </div>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+
+            } catch (err) {
+                responseDiv.innerHTML = `
+                    <div class="response-header">
+                        <span>Error</span>
+                        <span class="status err">Network Error</span>
+                    </div>
+                    <pre>${err.message}\n\nIs the Go server running at ${apiUrl}?</pre>
+                `;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = formType === 'signup' ? 'Sign Up' : 'Log In';
+
+                // Reset Turnstile widget for next attempt
+                if (currentProvider === 'cloudflare' && window.turnstile) {
+                    try {
+                        const container = document.getElementById('captcha-' + formType);
+                        const iframe = container.querySelector('iframe');
+                        if (iframe) {
+                            window.turnstile.reset('#captcha-' + formType);
+                        }
+                    } catch(e) {}
+                }
+            }
+
+            return false;
+        }
+
+        // --- Init ---
+        reloadCaptcha();
+    </script>
+</body>
+</html>

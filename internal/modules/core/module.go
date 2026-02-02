@@ -102,7 +102,7 @@ func (m *CoreModule) Middlewares() []config.MiddlewareConfig {
 			Name:       string(types.MiddlewareAuth),
 			Middleware: authMiddleware.AuthMiddleware,
 			Priority:   50,
-			ApplyTo:    []string{},
+			ApplyTo:    []types.RouteName{},
 			Global:     false,
 		},
 	}

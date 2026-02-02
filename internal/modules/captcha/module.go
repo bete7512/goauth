@@ -45,14 +45,14 @@ func (m *CaptchaModule) Init(_ context.Context, deps config.ModuleDependencies) 
 	var provider services.CaptchaProvider
 
 	switch m.config.Provider {
-	case "google":
+	case types.CaptchaProviderGoogle:
 		provider = services.NewGoogleProvider(
 			m.config.SecretKey,
 			m.config.ScoreThreshold,
 			m.config.VerifyTimeout,
 		)
 		deps.Logger.Info("Captcha module initialized", "provider", "google")
-	case "cloudflare":
+	case types.CaptchaProviderCloudflare:
 		provider = services.NewCloudflareProvider(
 			m.config.SecretKey,
 			m.config.VerifyTimeout,
@@ -71,7 +71,7 @@ func (m *CaptchaModule) Routes() []config.RouteInfo {
 }
 
 func (m *CaptchaModule) Middlewares() []config.MiddlewareConfig {
-	if m.config.Provider == "" || m.config.Provider == "none" {
+	if m.config.Provider == "" {
 		return nil
 	}
 	if len(m.config.ApplyToRoutes) == 0 {
@@ -111,7 +111,7 @@ func (m *CaptchaModule) GetSiteKey() string {
 	return m.config.SiteKey
 }
 
-// GetProvider returns the configured provider name.
-func (m *CaptchaModule) GetProvider() string {
+// GetProvider returns the configured provider.
+func (m *CaptchaModule) GetProvider() types.CaptchaProvider {
 	return m.config.Provider
 }

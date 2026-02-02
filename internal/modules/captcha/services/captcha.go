@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -84,11 +85,11 @@ func (p *GoogleProvider) Verify(ctx context.Context, token, remoteIP string) (bo
 		"remoteip": {remoteIP},
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.verifyURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.verifyURL, strings.NewReader(form.Encode()))
 	if err != nil {
 		return false, fmt.Errorf("captcha: failed to create request: %w", err)
 	}
-	req.URL.RawQuery = form.Encode()
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	resp, err := p.client.Do(req)
 	if err != nil {
@@ -149,11 +150,11 @@ func (p *CloudflareProvider) Verify(ctx context.Context, token, remoteIP string)
 		"remoteip": {remoteIP},
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.verifyURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.verifyURL, strings.NewReader(form.Encode()))
 	if err != nil {
 		return false, fmt.Errorf("captcha: failed to create request: %w", err)
 	}
-	req.URL.RawQuery = form.Encode()
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	resp, err := p.client.Do(req)
 	if err != nil {

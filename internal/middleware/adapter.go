@@ -2,6 +2,8 @@ package middleware
 
 import (
 	"net/http"
+
+	"github.com/bete7512/goauth/pkg/types"
 )
 
 // ConfigMiddlewareConfig represents middleware config from config package
@@ -9,8 +11,8 @@ type ConfigMiddlewareConfig struct {
 	Name        string
 	Middleware  func(http.Handler) http.Handler
 	Priority    int
-	ApplyTo     []string
-	ExcludeFrom []string
+	ApplyTo     []types.RouteName
+	ExcludeFrom []types.RouteName
 	Global      bool
 }
 

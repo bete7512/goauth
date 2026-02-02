@@ -16,3 +16,11 @@ const (
 	ReportModule       ModuleName = "report"
 	NotificationModule ModuleName = "notification"
 )
+
+// CaptchaProvider represents a supported captcha provider.
+type CaptchaProvider string
+
+const (
+	CaptchaProviderGoogle     CaptchaProvider = "google"
+	CaptchaProviderCloudflare CaptchaProvider = "cloudflare"
+)

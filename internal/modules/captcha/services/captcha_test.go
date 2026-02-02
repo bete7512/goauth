@@ -95,11 +95,12 @@ func (s *CaptchaServiceSuite) TestGoogleProvider() {
 	for _, tt := range tests {
 		s.Run(tt.name, func() {
 			srv, provider := s.googleServer(func(w http.ResponseWriter, r *http.Request) {
-				// Verify the request uses query parameters (form-encoded)
 				s.Equal(http.MethodPost, r.Method)
-				s.Equal("test-secret", r.URL.Query().Get("secret"))
-				s.Equal("test-token", r.URL.Query().Get("response"))
-				s.Equal("1.2.3.4", r.URL.Query().Get("remoteip"))
+				s.Equal("application/x-www-form-urlencoded", r.Header.Get("Content-Type"))
+				s.NoError(r.ParseForm())
+				s.Equal("test-secret", r.PostFormValue("secret"))
+				s.Equal("test-token", r.PostFormValue("response"))
+				s.Equal("1.2.3.4", r.PostFormValue("remoteip"))
 
 				w.Header().Set("Content-Type", "application/json")
 				json.NewEncoder(w).Encode(tt.response)
@@ -177,8 +178,10 @@ func (s *CaptchaServiceSuite) TestCloudflareProvider() {
 		s.Run(tt.name, func() {
 			srv, provider := s.cloudflareServer(func(w http.ResponseWriter, r *http.Request) {
 				s.Equal(http.MethodPost, r.Method)
-				s.Equal("test-secret", r.URL.Query().Get("secret"))
-				s.Equal("test-token", r.URL.Query().Get("response"))
+				s.Equal("application/x-www-form-urlencoded", r.Header.Get("Content-Type"))
+				s.NoError(r.ParseForm())
+				s.Equal("test-secret", r.PostFormValue("secret"))
+				s.Equal("test-token", r.PostFormValue("response"))
 
 				w.Header().Set("Content-Type", "application/json")
 				json.NewEncoder(w).Encode(tt.response)

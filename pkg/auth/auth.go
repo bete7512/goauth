@@ -67,7 +67,7 @@ func New(cfg *config.Config) (*Auth, error) {
 	if cfg.CORS != nil && cfg.CORS.Enabled {
 		middlewareManager.Register(middleware.MiddlewareConfig{
 			Name:       "cors",
-			Middleware: middleware.CORS(cfg.CORS.AllowedOrigins, cfg.CORS.AllowedMethods),
+			Middleware: middleware.CORS(cfg.CORS.AllowedOrigins, cfg.CORS.AllowedMethods, cfg.CORS.AllowedHeaders),
 			Priority:   100,
 			Global:     true,
 		})

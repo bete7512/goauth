@@ -92,7 +92,7 @@ func (m *AdminModule) Middlewares() []config.MiddlewareConfig {
 			Name:       string(types.MiddlewareAdminAuth),
 			Middleware: middlewares.AdminAuthMiddleware,
 			Priority:   40,
-			ApplyTo:    []string{}, // Routes now declare which middlewares they need via RouteInfo.Middlewares
+			ApplyTo:    []types.RouteName{}, // Routes now declare which middlewares they need via RouteInfo.Middlewares
 			Global:     false,
 		},
 	}

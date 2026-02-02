@@ -84,8 +84,8 @@ func (m *TwoFactorModule) Middlewares() []config.MiddlewareConfig {
 			Name:        "twofactor.verify",
 			Middleware:  m.verify2FAMiddleware,
 			Priority:    40,
-			ApplyTo:     []string{"core.*", "admin.*"},
-			ExcludeFrom: []string{"core.login", "core.signup", "twofactor.*"},
+			ApplyTo:     []types.RouteName{"core.*", "admin.*"},
+			ExcludeFrom: []types.RouteName{types.RouteLogin, types.RouteSignup, "twofactor.*"},
 			Global:      false,
 		},
 	}

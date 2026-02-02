@@ -67,9 +67,9 @@ type MiddlewareConfig struct {
 	Name        string
 	Middleware  func(http.Handler) http.Handler
 	Priority    int
-	ApplyTo     []string // Route names or patterns
-	ExcludeFrom []string // Route names or patterns to exclude
-	Global      bool     // Apply to all routes
+	ApplyTo     []types.RouteName // Route names or patterns (e.g. types.RouteSignup, "core.*")
+	ExcludeFrom []types.RouteName // Route names or patterns to exclude
+	Global      bool              // Apply to all routes
 }
 
 // MiddlewareManager manages middleware application
@@ -183,8 +183,8 @@ type CSRFModuleConfig struct {
 
 // CaptchaModuleConfig holds configuration for CAPTCHA verification module
 type CaptchaModuleConfig struct {
-	// Provider is the captcha provider: "google" (reCAPTCHA v3), "cloudflare" (Turnstile), or "" (disabled)
-	Provider string
+	// Provider is the captcha provider: types.CaptchaProviderGoogle or types.CaptchaProviderCloudflare
+	Provider types.CaptchaProvider
 
 	// SiteKey is the public site key from the provider (used by frontend widget)
 	SiteKey string
@@ -205,11 +205,11 @@ type CaptchaModuleConfig struct {
 	// FormFieldName is the form field fallback for the captcha token (default: "captcha_token")
 	FormFieldName string
 
-	// ApplyToRoutes are route names or patterns that require captcha (e.g. "core.signup", "core.login")
-	ApplyToRoutes []string
+	// ApplyToRoutes are route names or patterns that require captcha (e.g. types.RouteSignup, types.RouteLogin)
+	ApplyToRoutes []types.RouteName
 
 	// ExcludeRoutes are route names or patterns to exclude from captcha
-	ExcludeRoutes []string
+	ExcludeRoutes []types.RouteName
 }
 
 // CORSConfig holds CORS configuration

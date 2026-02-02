@@ -5,9 +5,9 @@ import (
 	"log"
 	"net/http"
 	"regexp"
+	"strings"
 	"time"
 
-	"github.com/bete7512/goauth/internal/modules/csrf"
 	"github.com/bete7512/goauth/internal/modules/session"
 	"github.com/bete7512/goauth/internal/modules/stateless"
 	"github.com/bete7512/goauth/pkg/auth"
@@ -71,6 +71,14 @@ func main() {
 			RequirePhoneNumber:       false, // Phone number is optional
 			UniquePhoneNumber:        true,  // Phone numbers must be unique
 		},
+		// CORS: enable for captcha-test.html (standalone frontend)
+		// In production, replace "*" with your actual frontend origin
+		CORS: &config.CORSConfig{
+			Enabled:        true,
+			AllowedOrigins: []string{"*"},
+			AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+			AllowedHeaders: []string{"Content-Type", "Authorization", "X-Captcha-Token", "X-CSRF-Token"},
+		},
 		FrontendConfig: &config.FrontendConfig{
 			URL:                     "http://localhost:3000",
 			Domain:                  "localhost",
@@ -93,25 +101,28 @@ func main() {
 
 	}, nil))
 
-	// csrf (HMAC-based double-submit cookie pattern)
-	authInstance.Use(csrf.New(&config.CSRFModuleConfig{
-		TokenExpiry: 2 * time.Hour,
-		Secure:      false, // set true in production
-		SameSite:    http.SameSiteLaxMode,
-	}))
+	// // csrf (HMAC-based double-submit cookie pattern)
+	// authInstance.Use(csrf.New(&config.CSRFModuleConfig{
+	// 	TokenExpiry: 2 * time.Hour,
+	// 	Secure:      false, // set true in production
+	// 	SameSite:    http.SameSiteLaxMode,
+	// }))
 
-	// Captcha protection (uncomment and configure with your provider keys)
+	// Captcha protection using Cloudflare Turnstile test keys (always passes)
+	// To test failure: change SiteKey to "2x00000000000000000000AB" and SecretKey to "2x0000000000000000000000000000000AB"
+	// To use Google reCAPTCHA v3: set Provider to types.CaptchaProviderGoogle, add your keys, and set ScoreThreshold
+	
 	// authInstance.Use(captcha.New(&config.CaptchaModuleConfig{
-	// 	Provider:       "google",                                        // or "cloudflare"
-	// 	SiteKey:        "your-recaptcha-site-key",                       // public key for frontend widget
-	// 	SecretKey:      "your-recaptcha-secret-key",                     // server-side verification key
-	// 	ScoreThreshold: 0.5,                                             // Google reCAPTCHA v3 score threshold
-	// 	ApplyToRoutes:  []string{"core.signup", "core.login"},           // protect signup and login
+	// 	Provider:      types.CaptchaProviderCloudflare,
+	// 	SiteKey:       "1x00000000000000000000AA",            // Cloudflare test key (always passes)
+	// 	SecretKey:     "1x0000000000000000000000000000000AA",  // Cloudflare test secret (always passes)
+	// 	ApplyToRoutes: []types.RouteName{types.RouteSignup, types.RouteLogin},
 	// }))
 
 	// Register custom hooks (user-defined)
-	authInstance.On(types.EventBeforeSignup, func(ctx context.Context, e *types.Event) error {
-		log.Println("Before signup event:", e.Type, e.Data)
+	authInstance.On(types.EventAfterLogin, func(ctx context.Context, e *types.Event) error {
+		
+		log.Println("Before login event:", e.Type, e.Data)
 		return nil
 	})
 
@@ -235,6 +246,27 @@ func chiHandler(auth *auth.Auth) *chi.Mux {
 
 func ginHandler(auth *auth.Auth) *gin.Engine {
 	r := gin.Default()
+
+	// Handle CORS preflight at the Gin router level.
+	// GoAuth's CORS middleware wraps route handlers, but Gin's method-based routing
+	// returns 404 for OPTIONS requests before the handler (and its middleware) runs.
+	// This middleware intercepts OPTIONS before route matching.
+	corsConfig := auth.Config().CORS
+	if corsConfig != nil && corsConfig.Enabled {
+		r.Use(func(c *gin.Context) {
+			if c.Request.Method == http.MethodOptions {
+				origin := c.GetHeader("Origin")
+				c.Header("Access-Control-Allow-Origin", origin)
+				c.Header("Access-Control-Allow-Methods", strings.Join(corsConfig.AllowedMethods, ", "))
+				c.Header("Access-Control-Allow-Headers", strings.Join(corsConfig.AllowedHeaders, ", "))
+				c.Header("Access-Control-Allow-Credentials", "true")
+				c.AbortWithStatus(http.StatusNoContent)
+				return
+			}
+			c.Next()
+		})
+	}
+
 	for _, route := range auth.Routes() {
 		// Gin uses :param syntax, convert from {param}
 		path := toColonParams(route.Path)
@@ -253,6 +285,11 @@ func ginHandler(auth *auth.Auth) *gin.Engine {
 			r.OPTIONS(path, gin.WrapF(route.Handler))
 		}
 	}
+
+	// Serve captcha test page at /captcha-test
+	r.StaticFile("/captcha-test", "./captcha-test.html")
+
+	log.Println("Captcha test page: http://localhost:8080/captcha-test")
 	r.Run(":8080")
 	return r
 }

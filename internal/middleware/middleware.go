@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/bete7512/goauth/pkg/types"
 	"github.com/google/uuid"
 )
 
@@ -15,9 +16,9 @@ type MiddlewareConfig struct {
 	Name        string
 	Middleware  MiddlewareFunc
 	Priority    int
-	ApplyTo     []string // Route names or patterns
-	ExcludeFrom []string // Route names or patterns to exclude
-	Global      bool     // Apply to all routes
+	ApplyTo     []types.RouteName // Route names or patterns (e.g. types.RouteSignup, "core.*")
+	ExcludeFrom []types.RouteName // Route names or patterns to exclude
+	Global      bool              // Apply to all routes
 }
 
 // Manager manages and applies middlewares
@@ -75,6 +76,7 @@ func (m *Manager) ApplyWithRouteMiddlewares(routeName string, handler http.Handl
 		// Apply middleware if:
 		// 1. It's global and not excluded
 		// 2. It's in the route's middleware list
+		// 3. Its ApplyTo patterns match this route name
 		shouldApply := false
 
 		if mw.Global {
@@ -90,6 +92,23 @@ func (m *Manager) ApplyWithRouteMiddlewares(routeName string, handler http.Handl
 		} else if requiredMiddlewares[mw.Name] {
 			// Route explicitly requires this middleware
 			shouldApply = true
+		} else if len(mw.ApplyTo) > 0 {
+			// Check if middleware's ApplyTo patterns match this route
+			for _, pattern := range mw.ApplyTo {
+				if matchPattern(pattern, routeName) {
+					shouldApply = true
+					break
+				}
+			}
+			// Check exclusions
+			if shouldApply {
+				for _, exclude := range mw.ExcludeFrom {
+					if matchPattern(exclude, routeName) {
+						shouldApply = false
+						break
+					}
+				}
+			}
 		}
 
 		if shouldApply {
@@ -157,22 +176,21 @@ func (m *Manager) shouldApply(mw MiddlewareConfig, routeName string) bool {
 
 // matchPattern matches a route name against a pattern
 // Supports wildcards: * (any characters), ? (single character)
-func matchPattern(pattern, routeName string) bool {
-	if pattern == "*" {
+func matchPattern(pattern types.RouteName, routeName string) bool {
+	p := string(pattern)
+	if p == "*" {
 		return true
 	}
 
-	if pattern == routeName {
+	if p == routeName {
 		return true
 	}
 
 	// Simple wildcard matching
-	if strings.Contains(pattern, "*") {
-		parts := strings.Split(pattern, "*")
+	if strings.Contains(p, "*") {
+		parts := strings.Split(p, "*")
 		if len(parts) == 2 {
-			prefix := parts[0]
-			suffix := parts[1]
-			return strings.HasPrefix(routeName, prefix) && strings.HasSuffix(routeName, suffix)
+			return strings.HasPrefix(routeName, parts[0]) && strings.HasSuffix(routeName, parts[1])
 		}
 	}
 
@@ -182,7 +200,13 @@ func matchPattern(pattern, routeName string) bool {
 // Common middleware helpers
 
 // CORS creates a CORS middleware
-func CORS(allowedOrigins []string, allowedMethods []string) MiddlewareFunc {
+func CORS(allowedOrigins []string, allowedMethods []string, allowedHeaders []string) MiddlewareFunc {
+	// Default headers if none provided
+	headers := "Content-Type, Authorization"
+	if len(allowedHeaders) > 0 {
+		headers = strings.Join(allowedHeaders, ", ")
+	}
+
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			origin := r.Header.Get("Origin")
@@ -199,7 +223,7 @@ func CORS(allowedOrigins []string, allowedMethods []string) MiddlewareFunc {
 			if allowed {
 				w.Header().Set("Access-Control-Allow-Origin", origin)
 				w.Header().Set("Access-Control-Allow-Methods", strings.Join(allowedMethods, ", "))
-				w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+				w.Header().Set("Access-Control-Allow-Headers", headers)
 				w.Header().Set("Access-Control-Allow-Credentials", "true")
 			}
 
