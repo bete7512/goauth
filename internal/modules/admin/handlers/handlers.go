@@ -30,35 +30,28 @@ func (h *AdminHandler) GetRoutes() []config.RouteInfo {
 			Path:        "/admin/users",
 			Method:      http.MethodGet,
 			Handler:     h.ListUsers,
-			Middlewares: []string{string(types.MiddlewareAdminAuth)},
+			Middlewares: []string{string(types.MiddlewareAuth), string(types.MiddlewareAdminAuth)},
 		},
 		{
 			Name:        string(types.RouteAdminGetUser),
 			Path:        "/admin/users/{id}",
 			Method:      http.MethodGet,
 			Handler:     h.GetUser,
-			Middlewares: []string{string(types.MiddlewareAdminAuth)},
+			Middlewares: []string{string(types.MiddlewareAuth), string(types.MiddlewareAdminAuth)},
 		},
 		{
 			Name:        string(types.RouteAdminUpdateUser),
 			Path:        "/admin/users/{id}",
 			Method:      http.MethodPut,
 			Handler:     h.UpdateUser,
-			Middlewares: []string{string(types.MiddlewareAdminAuth)},
+			Middlewares: []string{string(types.MiddlewareAuth), string(types.MiddlewareAdminAuth)},
 		},
 		{
 			Name:        string(types.RouteAdminDeleteUser),
 			Path:        "/admin/users/{id}",
 			Method:      http.MethodDelete,
 			Handler:     h.DeleteUser,
-			Middlewares: []string{string(types.MiddlewareAdminAuth)},
-		},
-		{
-			Name:        string(types.RouteAdminUserAuditLogs),
-			Path:        "/admin/users/{id}/audit",
-			Method:      http.MethodGet,
-			Handler:     h.GetUserAuditLogs,
-			Middlewares: []string{string(types.MiddlewareAdminAuth)},
+			Middlewares: []string{string(types.MiddlewareAuth), string(types.MiddlewareAdminAuth)},
 		},
 	}
 }
@@ -141,25 +134,5 @@ func (h *AdminHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// GetUserAuditLogs handles GET /admin/users/{id}/audit
-func (h *AdminHandler) GetUserAuditLogs(w http.ResponseWriter, r *http.Request) {
-	userID := r.PathValue("id")
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
-
-	if limit == 0 {
-		limit = 50
-	}
-
-	logs, err := h.service.GetUserAuditLogs(r.Context(), userID, limit, offset)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"logs":  logs,
-		"count": len(logs),
-	})
-}
+// Note: GetUserAuditLogs has been moved to the audit module
+// Use /admin/audit/users/{id} endpoint instead

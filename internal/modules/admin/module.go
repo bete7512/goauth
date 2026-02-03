@@ -2,27 +2,31 @@ package admin
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 
 	"github.com/bete7512/goauth/internal/modules/admin/handlers"
 	"github.com/bete7512/goauth/internal/modules/admin/middlewares"
-	"github.com/bete7512/goauth/internal/modules/admin/models"
 	"github.com/bete7512/goauth/internal/modules/admin/services"
 	"github.com/bete7512/goauth/pkg/config"
-	pkgmodels "github.com/bete7512/goauth/pkg/models"
+	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
 )
 
+//go:embed docs/swagger.yml
+var swaggerSpec []byte
+
 type AdminModule struct {
-	deps     config.ModuleDependencies
-	handlers *handlers.AdminHandler
-	config   *Config
+	deps       config.ModuleDependencies
+	handlers   *handlers.AdminHandler
+	config     *Config
+	middleware *middlewares.AdminAuthMiddleware
 }
 
 type Config struct {
+	// Optional custom repositories for testing
 	AuditLogRepository models.AuditLogRepository
-	// You can optionally inject custom implementations
-	UserRepository pkgmodels.UserRepository
+	UserRepository     models.UserRepository
 }
 
 var _ config.Module = (*AdminModule)(nil)
@@ -39,18 +43,25 @@ func New(cfg *Config) *AdminModule {
 func (m *AdminModule) Init(ctx context.Context, deps config.ModuleDependencies) error {
 	m.deps = deps
 
-	// Get AuditLog repository (admin's own repository)
+	// Get AuditLog repository from AdminStorage
 	var auditLogRepo models.AuditLogRepository
 	if m.config.AuditLogRepository != nil {
 		auditLogRepo = m.config.AuditLogRepository
 	} else {
-		// TODO: Admin module needs its own storage interface for AuditLog
-		// For now, this will fail if not provided via config
-		return fmt.Errorf("admin module: AuditLogRepository must be provided via config")
+		// Get from admin storage
+		if deps.Storage != nil {
+			adminStorage := deps.Storage.Admin()
+			if adminStorage != nil {
+				auditLogRepo = adminStorage.AuditLogs()
+			}
+		}
+		if auditLogRepo == nil {
+			return fmt.Errorf("admin module: audit log repository not available - ensure AdminStorage is configured")
+		}
 	}
 
 	// Get User repository from core module
-	var userRepo pkgmodels.UserRepository
+	var userRepo models.UserRepository
 	if m.config.UserRepository != nil {
 		userRepo = m.config.UserRepository
 	} else {
@@ -65,6 +76,9 @@ func (m *AdminModule) Init(ctx context.Context, deps config.ModuleDependencies) 
 			return fmt.Errorf("admin module: user repository not available")
 		}
 	}
+
+	// Initialize middleware
+	m.middleware = middlewares.NewAdminAuthMiddleware(deps)
 
 	// Initialize services with both repositories
 	adminService := services.NewAdminService(deps, auditLogRepo, userRepo)
@@ -90,9 +104,9 @@ func (m *AdminModule) Middlewares() []config.MiddlewareConfig {
 	return []config.MiddlewareConfig{
 		{
 			Name:       string(types.MiddlewareAdminAuth),
-			Middleware: middlewares.AdminAuthMiddleware,
+			Middleware: m.middleware.Middleware,
 			Priority:   40,
-			ApplyTo:    []types.RouteName{}, // Routes now declare which middlewares they need via RouteInfo.Middlewares
+			ApplyTo:    []types.RouteName{}, // Routes declare which middlewares they need via RouteInfo.Middlewares
 			Global:     false,
 		},
 	}
@@ -105,19 +119,19 @@ func (m *AdminModule) Models() []any {
 }
 
 func (m *AdminModule) RegisterHooks(events types.EventBus) error {
-	// Log admin actions
+	// Log admin actions via event bus
 	events.Subscribe(types.EventAdminAction, types.EventHandler(func(ctx context.Context, event *types.Event) error {
-		// Handle admin action logging
+		// Handle admin action logging asynchronously
 		return nil
 	}))
 	return nil
 }
 
 func (m *AdminModule) Dependencies() []string {
-	// Admin module depends on core module
+	// Admin module depends on core module for authentication
 	return []string{string(types.CoreModule)}
 }
 
 func (m *AdminModule) SwaggerSpec() []byte {
-	return nil
+	return swaggerSpec
 }

@@ -7,6 +7,7 @@ import (
 
 	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
+	"github.com/bete7512/goauth/storage/gorm/admin"
 	"github.com/bete7512/goauth/storage/gorm/core"
 	"github.com/bete7512/goauth/storage/gorm/session"
 	"gorm.io/driver/mysql"
@@ -47,6 +48,7 @@ type GormStorage struct {
 	db             *gorm.DB
 	coreStorage    *core.GormCoreStorage
 	sessionStorage *session.GormSessionStorage
+	adminStorage   *admin.GormAdminStorage
 }
 
 // NewStorage creates a new GORM storage from configuration
@@ -114,6 +116,7 @@ func NewStorageFromDB(db *gorm.DB) *GormStorage {
 		db:             db,
 		coreStorage:    core.NewCoreStorage(db),
 		sessionStorage: session.NewSessionStorage(db),
+		adminStorage:   admin.NewAdminStorage(db),
 	}
 }
 
@@ -133,6 +136,11 @@ func (s *GormStorage) Stateless() types.StatelessStorage {
 	return nil
 }
 
+// Admin returns storage for the admin module
+func (s *GormStorage) Admin() types.AdminStorage {
+	return s.adminStorage
+}
+
 // Migrate runs database migrations for all models
 func (s *GormStorage) Migrate(ctx context.Context) error {
 	allModels := []any{
@@ -143,6 +151,8 @@ func (s *GormStorage) Migrate(ctx context.Context) error {
 		&models.VerificationToken{},
 		// Session models
 		&models.Session{},
+		// Admin models
+		&models.AuditLog{},
 	}
 
 	return s.db.WithContext(ctx).AutoMigrate(allModels...)

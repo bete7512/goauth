@@ -10,6 +10,7 @@ const (
 	OAuthModule        ModuleName = "oauth"
 	MagicLinkModule    ModuleName = "magiclink"
 	AdminModule        ModuleName = "admin"
+	AuditModule        ModuleName = "audit"
 	CSRFModule         ModuleName = "csrf"
 	RateLimiterModule  ModuleName = "ratelimiter"
 	CaptchaModule      ModuleName = "captcha"

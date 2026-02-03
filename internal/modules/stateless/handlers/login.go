@@ -65,6 +65,17 @@ func (h *StatelessHandler) Login(w http.ResponseWriter, r *http.Request) {
 		h.deps.Logger.Errorf("stateless: failed to emit after login event: %v", emitErr)
 	}
 
+	// Emit audit event for login success
+	if err := h.deps.Events.EmitAsync(ctx, types.EventAuthLoginSuccess, map[string]interface{}{
+		"actor_id":   response.User.ID,
+		"user_id":    response.User.ID,
+		"ip":         metadata.IPAddress,
+		"user_agent": metadata.UserAgent,
+		"details":    "User logged in successfully",
+	}); err != nil {
+		h.deps.Logger.Errorf("stateless: failed to emit audit login event: %v", err)
+	}
+
 	http_utils.RespondSuccess(w, response, nil)
 }
 

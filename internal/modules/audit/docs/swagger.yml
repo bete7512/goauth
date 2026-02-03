@@ -1,0 +1,353 @@
+openapi: 3.0.0
+info:
+  title: GoAuth Audit Module API
+  version: 1.0.0
+  description: Audit logging module for tracking system activity and user actions
+
+servers:
+  - url: /
+
+tags:
+  - name: User Audit
+    description: User self-service audit log endpoints
+  - name: Admin Audit
+    description: Admin audit log management endpoints
+
+paths:
+  /me/audit:
+    get:
+      tags:
+        - User Audit
+      summary: Get my audit logs
+      description: Retrieve audit logs for the current user (both as actor and target)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 100
+          description: Number of logs to return
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+          description: Number of logs to skip
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  logs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AuditLog'
+                  count:
+                    type: integer
+        '401':
+          description: Unauthorized - authentication required
+
+  /me/audit/logins:
+    get:
+      tags:
+        - User Audit
+      summary: Get my login history
+      description: Retrieve login history for the current user
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  logs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AuditLog'
+                  count:
+                    type: integer
+        '401':
+          description: Unauthorized
+
+  /me/audit/changes:
+    get:
+      tags:
+        - User Audit
+      summary: Get my profile changes
+      description: Retrieve profile change history for the current user
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  logs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AuditLog'
+                  count:
+                    type: integer
+
+  /me/audit/security:
+    get:
+      tags:
+        - User Audit
+      summary: Get my security events
+      description: Retrieve security-related events for the current user
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  logs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AuditLog'
+                  count:
+                    type: integer
+
+  /admin/audit:
+    get:
+      tags:
+        - Admin Audit
+      summary: List all audit logs
+      description: Retrieve all audit logs (admin only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  logs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AuditLog'
+                  count:
+                    type: integer
+        '403':
+          description: Forbidden - super admin access required
+
+  /admin/audit/users/{id}:
+    get:
+      tags:
+        - Admin Audit
+      summary: Get user audit logs
+      description: Retrieve audit logs for a specific user (admin only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: User ID
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user_id:
+                    type: string
+                  logs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AuditLog'
+                  count:
+                    type: integer
+        '403':
+          description: Forbidden - super admin access required
+
+  /admin/audit/actions/{action}:
+    get:
+      tags:
+        - Admin Audit
+      summary: Get audit logs by action
+      description: Retrieve audit logs filtered by action type (admin only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: action
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Action type (e.g., "auth.login.success", "admin.user.delete")
+          example: "auth.login.success"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  action:
+                    type: string
+                  logs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AuditLog'
+                  count:
+                    type: integer
+        '403':
+          description: Forbidden - super admin access required
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    AuditLog:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        action:
+          type: string
+          description: Action type
+          example: "auth.login.success"
+        actor_id:
+          type: string
+          format: uuid
+          description: User who performed the action
+        actor_type:
+          type: string
+          enum: [user, admin, system]
+          default: user
+        target_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Resource affected by the action
+        target_type:
+          type: string
+          nullable: true
+          description: Type of resource affected
+          example: "user"
+        organization_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Organization context (future use)
+        details:
+          type: string
+          description: Human-readable description
+        metadata:
+          type: string
+          description: JSON metadata
+          example: '{"ip": "192.168.1.1", "user_agent": "Mozilla/5.0..."}'
+        severity:
+          type: string
+          enum: [info, warning, critical]
+          default: info
+        ip_address:
+          type: string
+          example: "192.168.1.1"
+        user_agent:
+          type: string
+          example: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)..."
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - action
+        - actor_id
+        - created_at

@@ -20,6 +20,7 @@ type User struct {
 	Active              bool                 `json:"active" gorm:"default:true"`
 	EmailVerified       bool                 `json:"email_verified" gorm:"default:false"`
 	PhoneNumberVerified bool                 `json:"phone_number_verified" gorm:"default:false"`
+	IsSuperAdmin        bool                 `json:"is_super_admin" gorm:"default:false;not null;index"`
 	// TokenVersion is used for stateless token revocation
 	// Incrementing this value invalidates all existing tokens for the user
 	TokenVersion       int                  `json:"-" gorm:"default:0;not null"`

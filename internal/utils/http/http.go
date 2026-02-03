@@ -19,7 +19,7 @@ func RespondSuccess[T any](w http.ResponseWriter, data T, message *string) {
 // Error response
 func RespondError(w http.ResponseWriter, statusCode int, code, message string) {
 	response := types.APIResponse[interface{}]{
-		Error: &types.GoAuthError{
+		Data: &types.GoAuthError{
 			StatusCode: statusCode,
 			Code:       types.ErrorCode(code),
 			Message:    message,

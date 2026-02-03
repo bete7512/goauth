@@ -1,0 +1,220 @@
+openapi: 3.0.0
+info:
+  title: GoAuth Admin Module API
+  version: 1.0.0
+  description: Admin module for user management and system administration
+
+servers:
+  - url: /
+
+tags:
+  - name: Users
+    description: User management endpoints
+
+paths:
+  /admin/users:
+    get:
+      tags:
+        - Users
+      summary: List all users
+      description: Retrieve a paginated list of all users (admin only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+          description: Number of users to return
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+          description: Number of users to skip
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  users:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+                  count:
+                    type: integer
+        '401':
+          description: Unauthorized - authentication required
+        '403':
+          description: Forbidden - super admin access required
+
+  /admin/users/{id}:
+    get:
+      tags:
+        - Users
+      summary: Get user by ID
+      description: Retrieve a specific user's details (admin only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: User ID
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: User not found
+        '403':
+          description: Forbidden - super admin access required
+
+    put:
+      tags:
+        - Users
+      summary: Update user
+      description: Update a user's information (admin only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdate'
+      responses:
+        '200':
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/User'
+        '404':
+          description: User not found
+        '403':
+          description: Forbidden - super admin access required
+
+    delete:
+      tags:
+        - Users
+      summary: Delete user
+      description: Permanently delete a user (admin only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: User deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '404':
+          description: User not found
+        '403':
+          description: Forbidden - super admin access required
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: string
+          format: email
+        username:
+          type: string
+        avatar:
+          type: string
+        phone_number:
+          type: string
+        active:
+          type: boolean
+        email_verified:
+          type: boolean
+        phone_number_verified:
+          type: boolean
+        is_super_admin:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        last_login_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    UserUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: string
+          format: email
+        username:
+          type: string
+        avatar:
+          type: string
+        phone_number:
+          type: string
+        active:
+          type: boolean
+        is_super_admin:
+          type: boolean

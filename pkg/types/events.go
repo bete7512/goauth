@@ -127,6 +127,35 @@ const (
 	EventAfterChangeAvatarVerification    EventType = "after:change-avatar-verification"
 	EventAdminAction                      EventType = "admin:action"
 
+	// Authentication Events (for audit logging)
+	EventAuthLoginSuccess    EventType = "auth:login:success"
+	EventAuthLoginFailed     EventType = "auth:login:failed"
+	EventAuthLogout          EventType = "auth:logout"
+	EventAuthPasswordChanged EventType = "auth:password:changed"
+	EventAuth2FAEnabled      EventType = "auth:2fa:enabled"
+	EventAuth2FADisabled     EventType = "auth:2fa:disabled"
+
+	// User Profile Events (for audit logging)
+	EventUserProfileUpdated EventType = "user:profile:updated"
+	EventUserEmailChanged   EventType = "user:email:changed"
+	EventUserEmailVerified  EventType = "user:email:verified"
+	EventUserPhoneChanged   EventType = "user:phone:changed"
+	EventUserAvatarUpdated  EventType = "user:avatar:updated"
+
+	// Admin Events (for audit logging)
+	EventAdminUserCreated   EventType = "admin:user:created"
+	EventAdminUserUpdated   EventType = "admin:user:updated"
+	EventAdminUserDeleted   EventType = "admin:user:deleted"
+	EventAdminUserSuspended EventType = "admin:user:suspended"
+	EventAdminRoleAssigned  EventType = "admin:role:assigned"
+	EventAdminRoleRevoked   EventType = "admin:role:revoked"
+
+	// Security Events (for audit logging)
+	EventSecuritySuspiciousLogin EventType = "security:suspicious:login"
+	EventSecurityAccountLocked   EventType = "security:account:locked"
+	EventSecuritySessionRevoked  EventType = "security:session:revoked"
+	EventSecurityTokenInvalidated EventType = "security:token:invalidated"
+
 	// Action Events
 	EventSendEmailVerification  EventType = "send:email-verification"
 	EventSendPhoneVerification  EventType = "send:phone-verification"

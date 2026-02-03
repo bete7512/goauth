@@ -1,6 +1,6 @@
 package types
 
-//go:generate mockgen -destination=../../internal/mocks/mock_storage.go -package=mocks github.com/bete7512/goauth/pkg/types Storage,CoreStorage,SessionStorage,StatelessStorage
+//go:generate mockgen -destination=../../internal/mocks/mock_storage.go -package=mocks github.com/bete7512/goauth/pkg/types Storage,CoreStorage,SessionStorage,StatelessStorage,AdminStorage
 
 import (
 	"context"
@@ -38,6 +38,10 @@ type Storage interface {
 	// Returns nil if using token version approach (no extra storage needed)
 	Stateless() StatelessStorage
 
+	// Admin returns storage for the admin module
+	// Returns nil if admin storage is not needed/available
+	Admin() AdminStorage
+
 	// Migrate runs database migrations for all models
 	Migrate(ctx context.Context) error
 
@@ -66,4 +70,10 @@ type SessionStorage interface {
 // StatelessStorage defines storage interface for the stateless module (optional)
 type StatelessStorage interface {
 	Blacklist() models.BlacklistRepository
+}
+
+// AdminStorage defines storage interface for the admin module
+type AdminStorage interface {
+	AuditLogs() models.AuditLogRepository
+	WithTransaction(ctx context.Context, fn func(tx AdminStorage) error) error
 }

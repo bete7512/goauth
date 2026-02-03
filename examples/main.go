@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bete7512/goauth/internal/modules/admin"
+	"github.com/bete7512/goauth/internal/modules/audit"
 	"github.com/bete7512/goauth/internal/modules/session"
 	"github.com/bete7512/goauth/internal/modules/stateless"
 	"github.com/bete7512/goauth/pkg/auth"
@@ -111,18 +113,28 @@ func main() {
 	// Captcha protection using Cloudflare Turnstile test keys (always passes)
 	// To test failure: change SiteKey to "2x00000000000000000000AB" and SecretKey to "2x0000000000000000000000000000000AB"
 	// To use Google reCAPTCHA v3: set Provider to types.CaptchaProviderGoogle, add your keys, and set ScoreThreshold
-	
+
 	// authInstance.Use(captcha.New(&config.CaptchaModuleConfig{
 	// 	Provider:      types.CaptchaProviderCloudflare,
 	// 	SiteKey:       "1x00000000000000000000AA",            // Cloudflare test key (always passes)
 	// 	SecretKey:     "1x0000000000000000000000000000000AA",  // Cloudflare test secret (always passes)
 	// 	ApplyToRoutes: []types.RouteName{types.RouteSignup, types.RouteLogin},
 	// }))
+	authInstance.Use(admin.New(&admin.Config{}))
+	// Pass nil to use default config which enables all event tracking
+	authInstance.Use(audit.New(nil))
 
 	// Register custom hooks (user-defined)
 	authInstance.On(types.EventAfterLogin, func(ctx context.Context, e *types.Event) error {
-		
-		log.Println("Before login event:", e.Type, e.Data)
+		log.Println("✅ EventAfterLogin:", e.Type, e.Data)
+		return nil
+	})
+
+	// Debug: Track audit login events
+	authInstance.On(types.EventAuthLoginSuccess, func(ctx context.Context, e *types.Event) error {
+		log.Printf("🔔 DEBUG: EventAuthLoginSuccess received!")
+		log.Printf("   Event Type: %s", e.Type)
+		log.Printf("   Event Data: %+v", e.Data)
 		return nil
 	})
 
