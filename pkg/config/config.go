@@ -16,7 +16,7 @@ type RouteInfo struct {
 	Method      string
 	Path        string
 	Handler     http.HandlerFunc
-	Middlewares []string
+	Middlewares []types.MiddlewareName
 }
 
 type ModuleMigration struct {
@@ -64,7 +64,7 @@ type ModuleDependencies struct {
 
 // MiddlewareConfig for modules to define middleware application
 type MiddlewareConfig struct {
-	Name        string
+	Name        types.MiddlewareName
 	Middleware  func(http.Handler) http.Handler
 	Priority    int
 	ApplyTo     []types.RouteName // Route names or patterns (e.g. types.RouteSignup, "core.*")

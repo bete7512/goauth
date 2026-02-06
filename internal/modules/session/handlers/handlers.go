@@ -31,7 +31,7 @@ func (h *SessionHandler) GetRoutes() []config.RouteInfo {
 			Path:        "/logout",
 			Method:      "POST",
 			Handler:     h.Logout,
-			Middlewares: []string{string(types.MiddlewareAuth)},
+			Middlewares: []types.MiddlewareName{(types.MiddlewareAuth)},
 		},
 		{
 			Name:    string(types.RouteRefreshToken),
@@ -45,28 +45,28 @@ func (h *SessionHandler) GetRoutes() []config.RouteInfo {
 			Path:        "/sessions",
 			Method:      "GET",
 			Handler:     h.ListSessions,
-			Middlewares: []string{string(types.MiddlewareAuth)},
+			Middlewares: []types.MiddlewareName{(types.MiddlewareAuth)},
 		},
 		{
 			Name:        "session.get",
 			Path:        "/sessions/{id}",
 			Method:      "GET",
 			Handler:     h.GetSession,
-			Middlewares: []string{string(types.MiddlewareAuth)},
+			Middlewares: []types.MiddlewareName{(types.MiddlewareAuth)},
 		},
 		{
 			Name:        "session.delete",
 			Path:        "/sessions/{id}",
 			Method:      "DELETE",
 			Handler:     h.DeleteSession,
-			Middlewares: []string{string(types.MiddlewareAuth)},
+			Middlewares: []types.MiddlewareName{(types.MiddlewareAuth)},
 		},
 		{
 			Name:        "session.deleteAll",
 			Path:        "/sessions",
 			Method:      "DELETE",
 			Handler:     h.DeleteAllSessions,
-			Middlewares: []string{string(types.MiddlewareAuth)},
+			Middlewares: []types.MiddlewareName{(types.MiddlewareAuth)},
 		},
 	}
 	return routes

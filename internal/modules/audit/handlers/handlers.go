@@ -31,28 +31,28 @@ func (h *AuditHandler) GetRoutes() []config.RouteInfo {
 			Path:        "/me/audit",
 			Method:      http.MethodGet,
 			Handler:     h.GetMyAuditLogs,
-			Middlewares: []string{string(types.MiddlewareAuth)}, // Requires authentication
+			Middlewares: []types.MiddlewareName{types.MiddlewareAuth}, // Requires authentication
 		},
 		{
 			Name:        string(types.RouteAuditMyLogins),
 			Path:        "/me/audit/logins",
 			Method:      http.MethodGet,
 			Handler:     h.GetMyLogins,
-			Middlewares: []string{string(types.MiddlewareAuth)},
+			Middlewares: []types.MiddlewareName{types.MiddlewareAuth},
 		},
 		{
 			Name:        string(types.RouteAuditMyChanges),
 			Path:        "/me/audit/changes",
 			Method:      http.MethodGet,
 			Handler:     h.GetMyChanges,
-			Middlewares: []string{string(types.MiddlewareAuth)},
+			Middlewares: []types.MiddlewareName{types.MiddlewareAuth},
 		},
 		{
 			Name:        string(types.RouteAuditMySecurity),
 			Path:        "/me/audit/security",
 			Method:      http.MethodGet,
 			Handler:     h.GetMySecurity,
-			Middlewares: []string{string(types.MiddlewareAuth)},
+			Middlewares: []types.MiddlewareName{types.MiddlewareAuth},
 		},
 
 		// Admin routes
@@ -61,21 +61,21 @@ func (h *AuditHandler) GetRoutes() []config.RouteInfo {
 			Path:        "/admin/audit",
 			Method:      http.MethodGet,
 			Handler:     h.AdminListAuditLogs,
-			Middlewares: []string{string(types.MiddlewareAuth), string(types.MiddlewareAdminAuth)},
+			Middlewares: []types.MiddlewareName{types.MiddlewareAuth, types.MiddlewareAdminAuth},
 		},
 		{
 			Name:        string(types.RouteAdminGetUserAudit),
 			Path:        "/admin/audit/users/{id}",
 			Method:      http.MethodGet,
 			Handler:     h.AdminGetUserAudit,
-			Middlewares: []string{string(types.MiddlewareAuth), string(types.MiddlewareAdminAuth)},
+			Middlewares: []types.MiddlewareName{types.MiddlewareAuth, types.MiddlewareAdminAuth},
 		},
 		{
 			Name:        string(types.RouteAdminGetActionAudit),
 			Path:        "/admin/audit/actions/{action}",
 			Method:      http.MethodGet,
 			Handler:     h.AdminGetActionAudit,
-			Middlewares: []string{string(types.MiddlewareAuth), string(types.MiddlewareAdminAuth)},
+			Middlewares: []types.MiddlewareName{types.MiddlewareAuth, types.MiddlewareAdminAuth},
 		},
 	}
 }

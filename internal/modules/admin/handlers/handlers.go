@@ -32,28 +32,28 @@ func (h *AdminHandler) GetRoutes() []config.RouteInfo {
 			Path:        "/admin/users",
 			Method:      http.MethodGet,
 			Handler:     h.ListUsers,
-			Middlewares: []string{string(types.MiddlewareAuth), string(types.MiddlewareAdminAuth)},
+			Middlewares: []types.MiddlewareName{types.MiddlewareAuth, types.MiddlewareAdminAuth},
 		},
 		{
 			Name:        string(types.RouteAdminGetUser),
 			Path:        "/admin/users/{id}",
 			Method:      http.MethodGet,
 			Handler:     h.GetUser,
-			Middlewares: []string{string(types.MiddlewareAuth), string(types.MiddlewareAdminAuth)},
+			Middlewares: []types.MiddlewareName{types.MiddlewareAuth, types.MiddlewareAdminAuth},
 		},
 		{
 			Name:        string(types.RouteAdminUpdateUser),
 			Path:        "/admin/users/{id}",
 			Method:      http.MethodPut,
 			Handler:     h.UpdateUser,
-			Middlewares: []string{string(types.MiddlewareAuth), string(types.MiddlewareAdminAuth)},
+			Middlewares: []types.MiddlewareName{types.MiddlewareAuth, types.MiddlewareAdminAuth},
 		},
 		{
 			Name:        string(types.RouteAdminDeleteUser),
 			Path:        "/admin/users/{id}",
 			Method:      http.MethodDelete,
 			Handler:     h.DeleteUser,
-			Middlewares: []string{string(types.MiddlewareAuth), string(types.MiddlewareAdminAuth)},
+			Middlewares: []types.MiddlewareName{types.MiddlewareAuth, types.MiddlewareAdminAuth},
 		},
 	}
 }

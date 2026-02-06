@@ -9,13 +9,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// // Re-export types for convenience
-// type (
-// 	Storage        = types.Storage
-// 	CoreStorage    = types.CoreStorage
-// 	SessionStorage = types.SessionStorage
-// )
-
 func NewGormStorage(config storage_gorm.Config) (types.Storage, error) {
 	return storage_gorm.NewStorage(config)
 }

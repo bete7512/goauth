@@ -26,9 +26,9 @@ type RateLimitTier struct {
 
 // RateLimiterConfig defines rate limiting configuration
 type RateLimiterConfig struct {
-	Default *RateLimitTier              // Default tier for all routes
-	Tiers   map[string]*RateLimitTier   // Named tiers
-	Routes  map[types.RouteName]string  // Route name → tier name
+	Default *RateLimitTier             // Default tier for all routes
+	Tiers   map[string]*RateLimitTier  // Named tiers
+	Routes  map[types.RouteName]string // Route name → tier name
 }
 
 var _ config.Module = (*RateLimiterModule)(nil)
@@ -123,8 +123,9 @@ func (m *RateLimiterModule) Middlewares() []config.MiddlewareConfig {
 
 		strategy := middlewares.StrategyFromNames(tier.IdentifyBy)
 
+		name := "ratelimiter." + tierName
 		middlewareConfigs = append(middlewareConfigs, config.MiddlewareConfig{
-			Name:       "ratelimiter." + tierName,
+			Name:       types.MiddlewareName(name),
 			Middleware: middlewares.NewRateLimitMiddlewareWithStrategy(service, strategy),
 			Priority:   80,
 			ApplyTo:    routes,

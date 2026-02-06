@@ -80,7 +80,7 @@ func (m *CaptchaModule) Middlewares() []config.MiddlewareConfig {
 
 	return []config.MiddlewareConfig{
 		{
-			Name:        string(types.MiddlewareCaptcha),
+			Name:        (types.MiddlewareCaptcha),
 			Middleware:  middlewares.NewCaptchaMiddleware(m.service, m.config),
 			Priority:    70,
 			ApplyTo:     m.config.ApplyToRoutes,

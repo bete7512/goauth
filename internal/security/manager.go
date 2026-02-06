@@ -21,10 +21,10 @@ func NewSecurityManager(config types.SecurityConfig) *SecurityManager {
 	return &SecurityManager{Config: config}
 }
 
-func (t *SecurityManager) GenerateAccessToken(user models.User, claims map[string]interface{}, duration time.Duration, secretKey string) (string, error) {
+func (t *SecurityManager) GenerateAccessToken(user models.User, claims map[string]interface{}) (string, error) {
 	claimsMap := jwt.MapClaims{
 		"user_id": user.ID,
-		"exp":     time.Now().Add(duration).Unix(),
+		"exp":     time.Now().Add(t.Config.Session.AccessTokenTTL).Unix(),
 	}
 	if t.Config.CustomClaimsProvider != nil {
 		customClaims, err := t.Config.CustomClaimsProvider.GetClaims(&user)
@@ -40,7 +40,7 @@ func (t *SecurityManager) GenerateAccessToken(user models.User, claims map[strin
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claimsMap)
-	return token.SignedString([]byte(secretKey))
+	return token.SignedString([]byte(t.Config.JwtSecretKey))
 }
 
 // HashPassword creates a bcrypt hash of the password

@@ -8,7 +8,7 @@ import (
 
 // ConfigMiddlewareConfig represents middleware config from config package
 type ConfigMiddlewareConfig struct {
-	Name        string
+	Name        types.MiddlewareName
 	Middleware  func(http.Handler) http.Handler
 	Priority    int
 	ApplyTo     []types.RouteName

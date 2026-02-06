@@ -31,7 +31,7 @@ func (h *StatelessHandler) GetRoutes() []config.RouteInfo {
 			Path:        "/logout",
 			Method:      "POST",
 			Handler:     h.Logout,
-			Middlewares: []string{string(types.MiddlewareAuth)},
+			Middlewares: []types.MiddlewareName{(types.MiddlewareAuth)},
 		},
 		{
 			Name:    string(types.RouteRefreshToken),

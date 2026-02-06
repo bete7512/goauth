@@ -13,7 +13,7 @@ type MiddlewareFunc func(http.Handler) http.Handler
 
 // MiddlewareConfig defines middleware configuration
 type MiddlewareConfig struct {
-	Name        string
+	Name        types.MiddlewareName
 	Middleware  MiddlewareFunc
 	Priority    int
 	ApplyTo     []types.RouteName // Route names or patterns (e.g. types.RouteSignup, "core.*")
@@ -62,9 +62,9 @@ func (m *Manager) Apply(routeName string, handler http.Handler) http.Handler {
 
 // ApplyWithRouteMiddlewares applies middlewares to a handler based on route's middleware list
 // This method considers both global middlewares and route-specific middlewares
-func (m *Manager) ApplyWithRouteMiddlewares(routeName string, handler http.Handler, routeMiddlewares []string) http.Handler {
+func (m *Manager) ApplyWithRouteMiddlewares(routeName string, handler http.Handler, routeMiddlewares []types.MiddlewareName) http.Handler {
 	// Create a map of route-required middlewares for fast lookup
-	requiredMiddlewares := make(map[string]bool)
+	requiredMiddlewares := make(map[types.MiddlewareName]bool)
 	for _, mwName := range routeMiddlewares {
 		requiredMiddlewares[mwName] = true
 	}
