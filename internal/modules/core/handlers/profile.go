@@ -13,8 +13,12 @@ import (
 func (h *CoreHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	// TODO: Get user ID from context (set by auth middleware)
-	// userID := ctx.Value("user_id").(string)
+	// Get user ID from context (set by auth middleware)
+	userID, ok := ctx.Value(types.UserIDKey).(string)
+	if !ok || userID == "" {
+		http_utils.RespondError(w, http.StatusUnauthorized, string(types.ErrUnauthorized), "User not authenticated")
+		return
+	}
 
 	var req dto.UpdateProfileRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -27,18 +31,30 @@ func (h *CoreHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: Implement update profile logic
-	// 1. Get user from database
-	// 2. Update allowed fields
-	// 3. Save to database
-	// 4. Return updated user
+	// Update profile via service
+	userDTO, authErr := h.CoreService.UpdateProfile(ctx, userID, &req)
+	if authErr != nil {
+		http_utils.RespondError(w, authErr.StatusCode, string(authErr.Code), authErr.Message)
+		return
+	}
 
+	// Collect updated fields for event
+	var updatedFields []string
+	if req.Name != "" {
+		updatedFields = append(updatedFields, "name")
+	}
+	if req.Phone != "" {
+		updatedFields = append(updatedFields, "phone")
+	}
+	if req.Avatar != "" {
+		updatedFields = append(updatedFields, "avatar")
+	}
+
+	// Emit profile change event
 	h.deps.Events.EmitAsync(ctx, types.EventAfterChangeProfile, &types.ProfileChangedData{
-		UserID: "user-123",
-		Fields: []string{"name", "phone", "avatar"},
+		UserID: userID,
+		Fields: updatedFields,
 	})
 
-	http_utils.RespondSuccess(w, dto.MessageResponse{
-		Message: "Profile updated successfully",
-	}, nil)
+	http_utils.RespondSuccess(w, userDTO, nil)
 }

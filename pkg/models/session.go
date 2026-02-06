@@ -28,7 +28,7 @@ type SessionRepository interface {
 	Create(ctx context.Context, session *Session) error
 	FindByID(ctx context.Context, id string) (*Session, error)
 	FindByToken(ctx context.Context, token string) (*Session, error)
-	FindByUserID(ctx context.Context, userID string) ([]*Session, error)
+	FindByUserID(ctx context.Context, userID string, opts SessionListOpts) ([]*Session, int64, error)
 	Update(ctx context.Context, session *Session) error
 	Delete(ctx context.Context, id string) error
 	DeleteByToken(ctx context.Context, token string) error

@@ -143,18 +143,19 @@ func (mr *MockSessionRepositoryMockRecorder) FindByToken(ctx, token any) *gomock
 }
 
 // FindByUserID mocks base method.
-func (m *MockSessionRepository) FindByUserID(ctx context.Context, userID string) ([]*models.Session, error) {
+func (m *MockSessionRepository) FindByUserID(ctx context.Context, userID string, opts models.SessionListOpts) ([]*models.Session, int64, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindByUserID", ctx, userID)
+	ret := m.ctrl.Call(m, "FindByUserID", ctx, userID, opts)
 	ret0, _ := ret[0].([]*models.Session)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(int64)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // FindByUserID indicates an expected call of FindByUserID.
-func (mr *MockSessionRepositoryMockRecorder) FindByUserID(ctx, userID any) *gomock.Call {
+func (mr *MockSessionRepositoryMockRecorder) FindByUserID(ctx, userID, opts any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindByUserID", reflect.TypeOf((*MockSessionRepository)(nil).FindByUserID), ctx, userID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindByUserID", reflect.TypeOf((*MockSessionRepository)(nil).FindByUserID), ctx, userID, opts)
 }
 
 // Update mocks base method.

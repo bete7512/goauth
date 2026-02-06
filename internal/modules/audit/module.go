@@ -74,7 +74,7 @@ func (m *AuditModule) Init(ctx context.Context, deps config.ModuleDependencies) 
 	} else {
 		// Get from admin storage (audit logs stored there)
 		if deps.Storage != nil {
-			adminStorage := deps.Storage.Admin()
+			adminStorage := deps.Storage.AuditLog()
 			if adminStorage != nil {
 				auditLogRepo = adminStorage.AuditLogs()
 			}

@@ -3,10 +3,12 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
 
+	"github.com/bete7512/goauth/internal/modules/admin/handlers/dto"
 	"github.com/bete7512/goauth/internal/modules/admin/services"
+	http_utils "github.com/bete7512/goauth/internal/utils/http"
 	"github.com/bete7512/goauth/pkg/config"
+	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
 )
 
@@ -58,24 +60,20 @@ func (h *AdminHandler) GetRoutes() []config.RouteInfo {
 
 // ListUsers handles GET /admin/users
 func (h *AdminHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
-
-	if limit == 0 {
-		limit = 20
+	opts := models.UserListOpts{
+		ListingOpts: http_utils.ParseListingOpts(r),
+		Query:       r.URL.Query().Get("query"),
 	}
+	opts.Normalize(100)
 
-	users, err := h.service.ListUsers(r.Context(), limit, offset)
+	users, total, err := h.service.ListUsers(r.Context(), opts)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http_utils.RespondError(w, http.StatusInternalServerError, "internal_error", err.Error())
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"users": users,
-		"count": len(users),
-	})
+	userDTOs := dto.UsersToAdminDTO(users)
+	http_utils.RespondList(w, userDTOs, total, opts.SortField, opts.SortDir)
 }
 
 // GetUser handles GET /admin/users/{id}
@@ -84,12 +82,12 @@ func (h *AdminHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.service.GetUser(r.Context(), userID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+		http_utils.RespondError(w, http.StatusNotFound, "user_not_found", err.Error())
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(user)
+	userDTO := dto.UserToAdminDTO(user)
+	http_utils.RespondSuccess(w, userDTO, nil)
 }
 
 // UpdateUser handles PUT /admin/users/{id}
@@ -98,25 +96,31 @@ func (h *AdminHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.service.GetUser(r.Context(), userID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+		http_utils.RespondError(w, http.StatusNotFound, "user_not_found", err.Error())
 		return
 	}
 
-	if err := json.NewDecoder(r.Body).Decode(user); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	var req dto.UpdateUserRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http_utils.RespondError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
+
+	if err := req.Validate(); err != nil {
+		http_utils.RespondError(w, http.StatusBadRequest, "validation_error", err.Error())
+		return
+	}
+
+	req.ApplyTo(user)
 
 	if err := h.service.UpdateUser(r.Context(), user); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http_utils.RespondError(w, http.StatusInternalServerError, "internal_error", err.Error())
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"message": "User updated successfully",
-		"user":    user,
-	})
+	userDTO := dto.UserToAdminDTO(user)
+	msg := "User updated successfully"
+	http_utils.RespondSuccess(w, userDTO, &msg)
 }
 
 // DeleteUser handles DELETE /admin/users/{id}
@@ -124,15 +128,9 @@ func (h *AdminHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	userID := r.PathValue("id")
 
 	if err := h.service.DeleteUser(r.Context(), userID); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http_utils.RespondError(w, http.StatusInternalServerError, "internal_error", err.Error())
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"message": "User deleted successfully",
-	})
+	http_utils.RespondSuccess(w, dto.MessageResponse{Message: "User deleted successfully"}, nil)
 }
-
-// Note: GetUserAuditLogs has been moved to the audit module
-// Use /admin/audit/users/{id} endpoint instead

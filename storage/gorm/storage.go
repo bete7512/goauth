@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
-	"github.com/bete7512/goauth/storage/gorm/admin"
+	"github.com/bete7512/goauth/storage/gorm/auditlog"
 	"github.com/bete7512/goauth/storage/gorm/core"
 	"github.com/bete7512/goauth/storage/gorm/session"
 	"gorm.io/driver/mysql"
@@ -45,10 +44,10 @@ type Config struct {
 //	store, _ := gorm.NewStorage(gorm.Config{...})
 //	auth.New(&config.Config{Storage: store})
 type GormStorage struct {
-	db             *gorm.DB
-	coreStorage    *core.GormCoreStorage
-	sessionStorage *session.GormSessionStorage
-	adminStorage   *admin.GormAdminStorage
+	db               *gorm.DB
+	coreStorage      *core.GormCoreStorage
+	sessionStorage   *session.GormSessionStorage
+	auditLogStoarage *auditlog.GormAuditLogStorage
 }
 
 // NewStorage creates a new GORM storage from configuration
@@ -113,10 +112,10 @@ func NewStorage(config Config) (*GormStorage, error) {
 // Use this if you already have a database connection
 func NewStorageFromDB(db *gorm.DB) *GormStorage {
 	return &GormStorage{
-		db:             db,
-		coreStorage:    core.NewCoreStorage(db),
-		sessionStorage: session.NewSessionStorage(db),
-		adminStorage:   admin.NewAdminStorage(db),
+		db:               db,
+		coreStorage:      core.NewCoreStorage(db),
+		sessionStorage:   session.NewSessionStorage(db),
+		auditLogStoarage: auditlog.NewAuditLogStorage(db),
 	}
 }
 
@@ -136,26 +135,23 @@ func (s *GormStorage) Stateless() types.StatelessStorage {
 	return nil
 }
 
-// Admin returns storage for the admin module
-func (s *GormStorage) Admin() types.AdminStorage {
-	return s.adminStorage
+// Audit Log returns storage for the Auditlog module
+func (s *GormStorage) AuditLog() types.AuditLogStorage {
+	return s.auditLogStoarage
 }
 
-// Migrate runs database migrations for all models
-func (s *GormStorage) Migrate(ctx context.Context) error {
-	allModels := []any{
-		// Core models
-		&models.User{},
-		&models.ExtendedAttributes{},
-		&models.Token{},
-		&models.VerificationToken{},
-		// Session models
-		&models.Session{},
-		// Admin models
-		&models.AuditLog{},
-	}
+// Admin returns storage for the admin module
+func (s *GormStorage) Admin() types.AdminStorage {
+	return nil
+}
 
-	return s.db.WithContext(ctx).AutoMigrate(allModels...)
+// Migrate runs database migrations for the provided models
+// Models are collected from registered modules via their Models() method
+func (s *GormStorage) Migrate(ctx context.Context, models []interface{}) error {
+	if len(models) == 0 {
+		return nil
+	}
+	return s.db.WithContext(ctx).AutoMigrate(models...)
 }
 
 // Close closes the database connection

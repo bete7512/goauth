@@ -45,7 +45,7 @@ type UserRepository interface {
 	FindByUsername(ctx context.Context, username string) (*User, error)
 	FindByPhoneNumber(ctx context.Context, phoneNumber string) (*User, error)
 	FindByEmailOrUsername(ctx context.Context, emailOrUsername string) (*User, error)
-	List(ctx context.Context, limit, offset int) ([]*User, error)
+	List(ctx context.Context, opts UserListOpts) ([]*User, int64, error)
 	FindByID(ctx context.Context, id string) (*User, error)
 	Update(ctx context.Context, user *User) error
 	Delete(ctx context.Context, id string) error

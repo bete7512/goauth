@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/bete7512/goauth/pkg/models"
+	"github.com/bete7512/goauth/storage/gorm/helpers"
 	"gorm.io/gorm"
 )
 
@@ -60,10 +61,24 @@ func (r *UserRepository) FindByEmailOrUsername(ctx context.Context, emailOrUsern
 	return &user, err
 }
 
-func (r *UserRepository) List(ctx context.Context, limit, offset int) ([]*models.User, error) {
+func (r *UserRepository) List(ctx context.Context, opts models.UserListOpts) ([]*models.User, int64, error) {
+	query := r.db.WithContext(ctx).Model(&models.User{})
+
+	if opts.Query != "" {
+		search := "%" + opts.Query + "%"
+		query = query.Where("name ILIKE ? OR email ILIKE ? OR username ILIKE ?", search, search, search)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
 	var users []*models.User
-	err := r.db.WithContext(ctx).Limit(limit).Offset(offset).Find(&users).Error
-	return users, err
+	if err := helpers.ApplyListingOpts(query, opts.ListingOpts).Find(&users).Error; err != nil {
+		return nil, 0, err
+	}
+	return users, total, nil
 }
 
 func (r *UserRepository) Update(ctx context.Context, user *models.User) error {

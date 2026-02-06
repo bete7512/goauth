@@ -53,6 +53,9 @@ func (s *SessionsServiceSuite) TestListSessions() {
 	session1 := testutil.TestSession(testUser.ID)
 	session2 := testutil.TestSession(testUser.ID)
 
+	opts := models.SessionListOpts{}
+	opts.Normalize(100)
+
 	tests := []struct {
 		name             string
 		userID           string
@@ -67,7 +70,7 @@ func (s *SessionsServiceSuite) TestListSessions() {
 			userID:           testUser.ID,
 			currentSessionID: session1.ID,
 			setup: func(sr *mocks.MockSessionRepository) {
-				sr.EXPECT().FindByUserID(gomock.Any(), testUser.ID).Return([]*models.Session{session1, session2}, nil)
+				sr.EXPECT().FindByUserID(gomock.Any(), testUser.ID, gomock.Any()).Return([]*models.Session{session1, session2}, int64(2), nil)
 			},
 			wantCount: 2,
 		},
@@ -75,7 +78,7 @@ func (s *SessionsServiceSuite) TestListSessions() {
 			name:   "empty sessions",
 			userID: testUser.ID,
 			setup: func(sr *mocks.MockSessionRepository) {
-				sr.EXPECT().FindByUserID(gomock.Any(), testUser.ID).Return([]*models.Session{}, nil)
+				sr.EXPECT().FindByUserID(gomock.Any(), testUser.ID, gomock.Any()).Return([]*models.Session{}, int64(0), nil)
 			},
 			wantCount: 0,
 		},
@@ -83,7 +86,7 @@ func (s *SessionsServiceSuite) TestListSessions() {
 			name:   "db error",
 			userID: testUser.ID,
 			setup: func(sr *mocks.MockSessionRepository) {
-				sr.EXPECT().FindByUserID(gomock.Any(), testUser.ID).Return(nil, errors.New("db error"))
+				sr.EXPECT().FindByUserID(gomock.Any(), testUser.ID, gomock.Any()).Return(nil, int64(0), errors.New("db error"))
 			},
 			wantErr: true,
 			errCode: types.ErrInternalError,
@@ -95,16 +98,16 @@ func (s *SessionsServiceSuite) TestListSessions() {
 			svc, mockSessionRepo := s.setupService()
 			tt.setup(mockSessionRepo)
 
-			resp, goauthErr := svc.ListSessions(context.Background(), tt.userID, tt.currentSessionID)
+			sessions, total, goauthErr := svc.ListSessions(context.Background(), tt.userID, tt.currentSessionID, opts)
 
 			if tt.wantErr {
-				s.Nil(resp)
+				s.Nil(sessions)
 				s.NotNil(goauthErr)
 				s.Equal(tt.errCode, goauthErr.Code)
 			} else {
 				s.Nil(goauthErr)
-				s.NotNil(resp)
-				s.Equal(tt.wantCount, resp.Total)
+				s.Equal(tt.wantCount, len(sessions))
+				s.Equal(int64(tt.wantCount), total)
 			}
 		})
 	}

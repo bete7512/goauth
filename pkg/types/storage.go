@@ -42,8 +42,14 @@ type Storage interface {
 	// Returns nil if admin storage is not needed/available
 	Admin() AdminStorage
 
-	// Migrate runs database migrations for all models
-	Migrate(ctx context.Context) error
+
+	// Audit Log
+
+	AuditLog() AuditLogStorage
+
+	// Migrate runs database migrations for the provided models
+	// Models should be collected from registered modules via their Models() method
+	Migrate(ctx context.Context, models []interface{}) error
 
 	// Close closes all storage connections
 	Close() error
@@ -74,6 +80,10 @@ type StatelessStorage interface {
 
 // AdminStorage defines storage interface for the admin module
 type AdminStorage interface {
+}
+
+
+type AuditLogStorage interface {
 	AuditLogs() models.AuditLogRepository
-	WithTransaction(ctx context.Context, fn func(tx AdminStorage) error) error
+	WithTransaction(ctx context.Context, fn func(tx AuditLogStorage) error) error
 }

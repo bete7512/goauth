@@ -33,7 +33,6 @@ func (h *SessionHandler) Logout(w http.ResponseWriter, r *http.Request) {
 
 	http_utils.RespondSuccess(w, map[string]interface{}{
 		"message": "Logged out successfully",
-		"success": true,
 	}, nil)
 }
 

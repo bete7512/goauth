@@ -43,22 +43,22 @@ func New(cfg *Config) *AdminModule {
 func (m *AdminModule) Init(ctx context.Context, deps config.ModuleDependencies) error {
 	m.deps = deps
 
-	// Get AuditLog repository from AdminStorage
-	var auditLogRepo models.AuditLogRepository
-	if m.config.AuditLogRepository != nil {
-		auditLogRepo = m.config.AuditLogRepository
-	} else {
-		// Get from admin storage
-		if deps.Storage != nil {
-			adminStorage := deps.Storage.Admin()
-			if adminStorage != nil {
-				auditLogRepo = adminStorage.AuditLogs()
-			}
-		}
-		if auditLogRepo == nil {
-			return fmt.Errorf("admin module: audit log repository not available - ensure AdminStorage is configured")
-		}
-	}
+	// // Get AuditLog repository from AdminStorage
+	// var auditLogRepo models.AuditLogRepository
+	// if m.config.AuditLogRepository != nil {
+	// 	auditLogRepo = m.config.AuditLogRepository
+	// } else {
+	// 	// Get from admin storage
+	// 	if deps.Storage != nil {
+	// 		adminStorage := deps.Storage.Admin()
+	// 		if adminStorage != nil {
+	// 			auditLogRepo = adminStorage.AuditLogs()
+	// 		}
+	// 	}
+	// 	if auditLogRepo == nil {
+	// 		return fmt.Errorf("admin module: audit log repository not available - ensure AdminStorage is configured")
+	// 	}
+	// }
 
 	// Get User repository from core module
 	var userRepo models.UserRepository
@@ -81,7 +81,7 @@ func (m *AdminModule) Init(ctx context.Context, deps config.ModuleDependencies) 
 	m.middleware = middlewares.NewAdminAuthMiddleware(deps)
 
 	// Initialize services with both repositories
-	adminService := services.NewAdminService(deps, auditLogRepo, userRepo)
+	adminService := services.NewAdminService(deps, userRepo)
 
 	// Initialize handlers
 	m.handlers = handlers.NewAdminHandler(deps, adminService)
@@ -106,20 +106,18 @@ func (m *AdminModule) Middlewares() []config.MiddlewareConfig {
 			Name:       string(types.MiddlewareAdminAuth),
 			Middleware: m.middleware.Middleware,
 			Priority:   40,
-			ApplyTo:    []types.RouteName{}, // Routes declare which middlewares they need via RouteInfo.Middlewares
+			ApplyTo:    []types.RouteName{}, //TODO: add Routes which needs admin auth middleware
 			Global:     false,
 		},
 	}
 }
 
 func (m *AdminModule) Models() []any {
-	return []any{
-		&models.AuditLog{},
-	}
+	return []any{}
 }
 
 func (m *AdminModule) RegisterHooks(events types.EventBus) error {
-	// Log admin actions via event bus
+	// register subscriptions here
 	events.Subscribe(types.EventAdminAction, types.EventHandler(func(ctx context.Context, event *types.Event) error {
 		// Handle admin action logging asynchronously
 		return nil

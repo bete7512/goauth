@@ -16,7 +16,6 @@ type AdminService struct {
 
 func NewAdminService(
 	deps config.ModuleDependencies,
-	_ models.AuditLogRepository, // Deprecated: audit logs now via events
 	userRepo models.UserRepository,
 ) *AdminService {
 	return &AdminService{
@@ -25,36 +24,13 @@ func NewAdminService(
 	}
 }
 
-// emitAuditEvent emits an audit event to the event bus
-// The audit module will pick it up and create the log entry
-func (s *AdminService) emitAuditEvent(ctx context.Context, eventType types.EventType, actorID, targetID, targetEmail, details string) {
-	// Extract admin user from context (set by AdminAuthMiddleware)
-	user, ok := ctx.Value(types.UserKey).(*models.User)
-	if !ok || user == nil {
-		return
-	}
-
-	// Emit event asynchronously
-	_ = s.deps.Events.EmitAsync(ctx, eventType, map[string]interface{}{
-		"actor_id":     actorID,
-		"target_id":    targetID,
-		"target_type":  "user",
-		"target_email": targetEmail,
-		"details":      details,
-	})
-}
-
 // ListUsers lists all users with pagination
-func (s *AdminService) ListUsers(ctx context.Context, limit, offset int) ([]*models.User, error) {
-	users, err := s.userRepository.List(ctx, limit, offset)
+func (s *AdminService) ListUsers(ctx context.Context, opts models.UserListOpts) ([]*models.User, int64, error) {
+	users, total, err := s.userRepository.List(ctx, opts)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list users: %w", err)
+		return nil, 0, fmt.Errorf("failed to list users: %w", err)
 	}
-
-	// Note: We don't emit event for list operations to avoid spam
-	// If needed, this can be enabled with a config flag
-
-	return users, nil
+	return users, total, nil
 }
 
 // GetUser retrieves a user by ID
@@ -63,14 +39,11 @@ func (s *AdminService) GetUser(ctx context.Context, userID string) (*models.User
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
-
-	// Note: We don't emit event for read operations to avoid spam
 	return user, nil
 }
 
 // UpdateUser updates a user's information
 func (s *AdminService) UpdateUser(ctx context.Context, user *models.User) error {
-	// Get admin user for actor_id
 	adminUser, ok := ctx.Value(types.UserKey).(*models.User)
 	if !ok || adminUser == nil {
 		return fmt.Errorf("admin user not found in context")
@@ -124,10 +97,21 @@ func (s *AdminService) DeleteUser(ctx context.Context, userID string) error {
 	return nil
 }
 
-// GetUserAuditLogs is deprecated - use audit module's endpoints instead
-// Keeping for backward compatibility
-func (s *AdminService) GetUserAuditLogs(ctx context.Context, userID string, limit, offset int) ([]*models.AuditLog, error) {
-	// This method is now deprecated
-	// Users should use the audit module's GetUserAuditLogs service directly
-	return nil, fmt.Errorf("deprecated: use audit module's GetUserAuditLogs endpoint")
+// emitAuditEvent emits an audit event to the event bus
+// The audit module will pick it up and create the log entry
+func (s *AdminService) emitAuditEvent(ctx context.Context, eventType types.EventType, actorID, targetID, targetEmail, details string) {
+	// Extract admin user from context (set by AdminAuthMiddleware)
+	user, ok := ctx.Value(types.UserKey).(*models.User)
+	if !ok || user == nil {
+		return
+	}
+
+	// Emit event asynchronously
+	_ = s.deps.Events.EmitAsync(ctx, eventType, map[string]interface{}{
+		"actor_id":     actorID,
+		"target_id":    targetID,
+		"target_type":  "user",
+		"target_email": targetEmail,
+		"details":      details,
+	})
 }

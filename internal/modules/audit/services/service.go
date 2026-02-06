@@ -34,29 +34,34 @@ func (s *AuditService) CreateAuditLog(ctx context.Context, log *models.AuditLog)
 }
 
 // GetMyAuditLogs retrieves audit logs for the current user (both as actor and target)
-func (s *AuditService) GetMyAuditLogs(ctx context.Context, userID string, limit, offset int) ([]*models.AuditLog, error) {
+func (s *AuditService) GetMyAuditLogs(ctx context.Context, userID string, opts models.AuditLogListOpts) ([]*models.AuditLog, int64, error) {
 	// Get logs where user is the actor
-	actorLogs, err := s.auditLogRepo.FindByActorID(ctx, userID, limit, offset)
+	actorLogs, _, err := s.auditLogRepo.FindByActorID(ctx, userID, opts)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get actor logs: %w", err)
+		return nil, 0, fmt.Errorf("failed to get actor logs: %w", err)
 	}
 
 	// Get logs where user is the target
-	targetLogs, err := s.auditLogRepo.FindByTargetID(ctx, userID, limit/2, 0)
+	targetOpts := opts
+	targetOpts.Limit = opts.Limit / 2
+	targetOpts.Offset = 0
+	targetLogs, _, err := s.auditLogRepo.FindByTargetID(ctx, userID, targetOpts)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get target logs: %w", err)
+		return nil, 0, fmt.Errorf("failed to get target logs: %w", err)
 	}
 
 	// Merge and deduplicate
-	merged := mergeLogs(actorLogs, targetLogs, limit)
-	return merged, nil
+	merged := mergeLogs(actorLogs, targetLogs, opts.Limit)
+	return merged, int64(len(merged)), nil
 }
 
 // GetMyLogins retrieves login history for the current user
-func (s *AuditService) GetMyLogins(ctx context.Context, userID string, limit, offset int) ([]*models.AuditLog, error) {
-	allLogs, err := s.auditLogRepo.FindByActorID(ctx, userID, limit*2, offset)
+func (s *AuditService) GetMyLogins(ctx context.Context, userID string, opts models.AuditLogListOpts) ([]*models.AuditLog, int64, error) {
+	fetchOpts := opts
+	fetchOpts.Limit = opts.Limit * 2
+	allLogs, _, err := s.auditLogRepo.FindByActorID(ctx, userID, fetchOpts)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get logs: %w", err)
+		return nil, 0, fmt.Errorf("failed to get logs: %w", err)
 	}
 
 	// Filter for login-related actions
@@ -64,20 +69,22 @@ func (s *AuditService) GetMyLogins(ctx context.Context, userID string, limit, of
 	for _, log := range allLogs {
 		if strings.HasPrefix(log.Action, "auth.login") {
 			loginLogs = append(loginLogs, log)
-			if len(loginLogs) >= limit {
+			if len(loginLogs) >= opts.Limit {
 				break
 			}
 		}
 	}
 
-	return loginLogs, nil
+	return loginLogs, int64(len(loginLogs)), nil
 }
 
 // GetMyChanges retrieves profile change history for the current user
-func (s *AuditService) GetMyChanges(ctx context.Context, userID string, limit, offset int) ([]*models.AuditLog, error) {
-	allLogs, err := s.auditLogRepo.FindByActorID(ctx, userID, limit*2, offset)
+func (s *AuditService) GetMyChanges(ctx context.Context, userID string, opts models.AuditLogListOpts) ([]*models.AuditLog, int64, error) {
+	fetchOpts := opts
+	fetchOpts.Limit = opts.Limit * 2
+	allLogs, _, err := s.auditLogRepo.FindByActorID(ctx, userID, fetchOpts)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get logs: %w", err)
+		return nil, 0, fmt.Errorf("failed to get logs: %w", err)
 	}
 
 	// Filter for profile change actions
@@ -85,20 +92,22 @@ func (s *AuditService) GetMyChanges(ctx context.Context, userID string, limit, o
 	for _, log := range allLogs {
 		if strings.HasPrefix(log.Action, "user.") || strings.HasPrefix(log.Action, "auth.password") {
 			changeLogs = append(changeLogs, log)
-			if len(changeLogs) >= limit {
+			if len(changeLogs) >= opts.Limit {
 				break
 			}
 		}
 	}
 
-	return changeLogs, nil
+	return changeLogs, int64(len(changeLogs)), nil
 }
 
 // GetMySecurity retrieves security events for the current user
-func (s *AuditService) GetMySecurity(ctx context.Context, userID string, limit, offset int) ([]*models.AuditLog, error) {
-	allLogs, err := s.auditLogRepo.FindByActorID(ctx, userID, limit*2, offset)
+func (s *AuditService) GetMySecurity(ctx context.Context, userID string, opts models.AuditLogListOpts) ([]*models.AuditLog, int64, error) {
+	fetchOpts := opts
+	fetchOpts.Limit = opts.Limit * 2
+	allLogs, _, err := s.auditLogRepo.FindByActorID(ctx, userID, fetchOpts)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get logs: %w", err)
+		return nil, 0, fmt.Errorf("failed to get logs: %w", err)
 	}
 
 	// Filter for security events
@@ -106,49 +115,52 @@ func (s *AuditService) GetMySecurity(ctx context.Context, userID string, limit, 
 	for _, log := range allLogs {
 		if strings.HasPrefix(log.Action, "security.") || strings.HasPrefix(log.Action, "auth.2fa") {
 			securityLogs = append(securityLogs, log)
-			if len(securityLogs) >= limit {
+			if len(securityLogs) >= opts.Limit {
 				break
 			}
 		}
 	}
 
-	return securityLogs, nil
+	return securityLogs, int64(len(securityLogs)), nil
 }
 
 // Admin methods
 
 // ListAllAuditLogs retrieves all audit logs (admin only)
-func (s *AuditService) ListAllAuditLogs(ctx context.Context, limit, offset int) ([]*models.AuditLog, error) {
-	return s.auditLogRepo.List(ctx, limit, offset)
+func (s *AuditService) ListAllAuditLogs(ctx context.Context, opts models.AuditLogListOpts) ([]*models.AuditLog, int64, error) {
+	return s.auditLogRepo.List(ctx, opts)
 }
 
 // GetUserAuditLogs retrieves audit logs for a specific user (admin only)
-func (s *AuditService) GetUserAuditLogs(ctx context.Context, userID string, limit, offset int) ([]*models.AuditLog, error) {
+func (s *AuditService) GetUserAuditLogs(ctx context.Context, userID string, opts models.AuditLogListOpts) ([]*models.AuditLog, int64, error) {
 	// Get logs where user is the actor
-	actorLogs, err := s.auditLogRepo.FindByActorID(ctx, userID, limit, offset)
+	actorLogs, _, err := s.auditLogRepo.FindByActorID(ctx, userID, opts)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get actor logs: %w", err)
+		return nil, 0, fmt.Errorf("failed to get actor logs: %w", err)
 	}
 
 	// Get logs where user is the target
-	targetLogs, err := s.auditLogRepo.FindByTargetID(ctx, userID, limit/2, 0)
+	targetOpts := opts
+	targetOpts.Limit = opts.Limit / 2
+	targetOpts.Offset = 0
+	targetLogs, _, err := s.auditLogRepo.FindByTargetID(ctx, userID, targetOpts)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get target logs: %w", err)
+		return nil, 0, fmt.Errorf("failed to get target logs: %w", err)
 	}
 
 	// Merge
-	merged := mergeLogs(actorLogs, targetLogs, limit)
-	return merged, nil
+	merged := mergeLogs(actorLogs, targetLogs, opts.Limit)
+	return merged, int64(len(merged)), nil
 }
 
 // GetAuditLogsByAction retrieves audit logs by action type (admin only)
-func (s *AuditService) GetAuditLogsByAction(ctx context.Context, action string, limit, offset int) ([]*models.AuditLog, error) {
-	return s.auditLogRepo.FindByAction(ctx, action, limit, offset)
+func (s *AuditService) GetAuditLogsByAction(ctx context.Context, action string, opts models.AuditLogListOpts) ([]*models.AuditLog, int64, error) {
+	return s.auditLogRepo.FindByAction(ctx, action, opts)
 }
 
 // GetSecurityAuditLogs retrieves security-related audit logs (admin only)
-func (s *AuditService) GetSecurityAuditLogs(ctx context.Context, limit, offset int) ([]*models.AuditLog, error) {
-	return s.auditLogRepo.FindBySeverity(ctx, "critical", limit, offset)
+func (s *AuditService) GetSecurityAuditLogs(ctx context.Context, opts models.AuditLogListOpts) ([]*models.AuditLog, int64, error) {
+	return s.auditLogRepo.FindBySeverity(ctx, "critical", opts)
 }
 
 // CleanupOldLogs deletes old audit logs based on retention policies

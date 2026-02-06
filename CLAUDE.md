@@ -76,6 +76,149 @@ types.Storage
 - Logging: logrus with structured fields: `logger.Info("msg", "key", value)`
 - Supported frameworks: net/http, Gin, Chi, Fiber (adapters in `internal/middleware/adapter.go`)
 
+## Rate Limiting
+
+**Status:** 🚧 In Development - API may change
+
+Multi-tier rate limiting with token bucket algorithm for burst protection.
+
+### Configuration
+
+```go
+ratelimiter.New(&ratelimiter.RateLimiterConfig{
+    Default: &ratelimiter.RateLimitTier{
+        RequestsPerMinute: 60,
+        RequestsPerHour:   1000,
+        BurstSize:         10,    // Token bucket capacity
+        IdentifyBy:        []string{"ip"},
+    },
+    Tiers: map[string]*ratelimiter.RateLimitTier{
+        "auth": {
+            Name:              "auth",
+            RequestsPerMinute: 10,  // Stricter for auth endpoints
+            BurstSize:         3,   // Low burst = brute-force protection
+            IdentifyBy:        []string{"ip"},
+        },
+        "admin": {
+            Name:              "admin",
+            RequestsPerMinute: 30,
+            BurstSize:         5,
+            IdentifyBy:        []string{"ip", "user_id"}, // Combined
+        },
+    },
+    Routes: map[types.RouteName]string{
+        types.RouteLogin:          "auth",
+        types.RouteSignup:         "auth",
+        types.RouteForgotPassword: "auth",
+    },
+})
+```
+
+### Tier Hierarchy
+
+Tier-specific middleware runs **before** default (higher priority). Requests match in order:
+1. Route-specific tier (via `Routes` map) — priority 80
+2. Default tier (global) — priority 79
+
+### Identification Strategies
+
+- `ip` — Rate limit by IP address (X-Forwarded-For → X-Real-IP → RemoteAddr)
+- `user_id` — Rate limit by authenticated user ID (from context `types.UserIDKey`)
+- `["ip", "user_id"]` — Combined (user:123:1.2.3.4) for stricter limits on authenticated routes
+
+### Error Response
+
+Returns HTTP 429 with structured JSON + headers:
+```json
+{
+  "error": {
+    "code": "RATE_LIMIT_EXCEEDED",
+    "message": "Rate limit exceeded. Try again in 30 seconds. Limit: 10/min, 100/hour"
+  }
+}
+```
+Headers: `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`
+
+### Token Bucket Algorithm
+
+- Tokens refill at `RequestsPerMinute / 60` per second
+- `BurstSize` = max tokens (initial capacity)
+- Each request consumes 1 token
+- If tokens < 1, request denied (prevents bursts exceeding configured rate)
+- Separate sliding window counters enforce per-minute and per-hour hard limits
+
+### Default Configuration
+
+If no config provided, defaults to:
+```go
+Default: &RateLimitTier{
+    Name:              "default",
+    RequestsPerMinute: 60,
+    RequestsPerHour:   1000,
+    BurstSize:         10,
+    IdentifyBy:        []string{"ip"},
+}
+```
+
+## Listing Endpoints
+
+All listing/pagination endpoints follow the same pattern. When adding a new listing endpoint, follow these rules exactly:
+
+### Response Format
+Every listing endpoint returns `types.APIResponse[types.ListResponse[T]]`:
+```json
+{
+  "data": {
+    "list": [],
+    "sort_field": "created_at",
+    "sort_dir": "desc",
+    "total": 0
+  },
+  "message": ""
+}
+```
+Use `http_utils.RespondList(w, items, total, opts.SortField, opts.SortDir)` — never hand-build listing responses.
+
+### Query Parameters
+Every listing endpoint accepts these 4 query params: `offset`, `limit`, `sort_field`, `sort_dir`.
+
+### Per-Entity Opts (Composition Pattern)
+Each entity has its own opts struct embedding `ListingOpts` in `pkg/models/listing.go`:
+```
+ListingOpts (base)            ← offset, limit, sort_field, sort_dir
+    ├── UserListOpts           ← + Query
+    ├── SessionListOpts        ← (future: IPAddress, etc.)
+    └── AuditLogListOpts       ← (future: DateRange, etc.)
+```
+- **Never add entity-specific fields to the base `ListingOpts`.** Create/extend the entity opts struct instead.
+- Sort field allowlists are unexported maps in `listing.go` — add new allowed fields there.
+
+### Handler Pattern
+```go
+opts := models.XxxListOpts{
+    ListingOpts: http_utils.ParseListingOpts(r),
+    // entity-specific fields from query params:
+    Query: r.URL.Query().Get("query"),
+}
+opts.Normalize(100) // maxLimit
+items, total, err := h.service.ListXxx(r.Context(), opts)
+http_utils.RespondList(w, items, total, opts.SortField, opts.SortDir)
+```
+
+### Adding a New Listing Endpoint (Checklist)
+1. Define `XxxListOpts` in `pkg/models/listing.go` (embed `ListingOpts`, add sort field allowlist, add `Normalize(maxLimit)`)
+2. Repository interface: accept `XxxListOpts`, return `([]T, int64, error)`
+3. GORM repo: apply entity filters, then `helpers.ApplyListingOpts(db, opts.ListingOpts)`
+4. Service: accept `XxxListOpts`, pass through to repo
+5. Handler: `ParseListingOpts(r)` → build entity opts → `Normalize(maxLimit)` → call service → `RespondList`
+6. Swagger: add `offset`, `limit`, `sort_field`, `sort_dir` params + standard `ListResponse` schema
+7. Tests: test `Normalize` in `listing_test.go`, update mock expectations for new signature
+
+### Allowed Sort Fields (per entity)
+- **Users:** `created_at`, `email`, `username`, `name`
+- **Sessions:** `created_at`, `expires_at`, `ip_address`
+- **Audit Logs:** `created_at`, `action`, `severity`, `actor_id`
+
 ## Testing
 
 - Framework: testify/suite + uber/mock (mockgen)

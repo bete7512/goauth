@@ -133,12 +133,6 @@ type SessionDTO struct {
 	Current   bool      `json:"current"` // Is this the current session?
 }
 
-// SessionsListResponse represents list of sessions response
-type SessionsListResponse struct {
-	Sessions []SessionDTO `json:"sessions"`
-	Total    int          `json:"total"`
-}
-
 // MessageResponse represents a simple message response
 type MessageResponse struct {
 	Message string `json:"message"`

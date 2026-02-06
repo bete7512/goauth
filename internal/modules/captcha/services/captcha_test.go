@@ -8,6 +8,9 @@ import (
 	"testing"
 	"time"
 
+
+
+	
 	"github.com/bete7512/goauth/internal/modules/captcha/services"
 	"github.com/stretchr/testify/suite"
 )
@@ -57,7 +60,7 @@ func (s *CaptchaServiceSuite) TestGoogleProvider() {
 		{
 			name: "valid token with high score",
 			response: map[string]interface{}{
-				"success": true,
+				
 				"score":   0.9,
 			},
 			wantValid: true,
@@ -66,7 +69,7 @@ func (s *CaptchaServiceSuite) TestGoogleProvider() {
 		{
 			name: "valid token at threshold",
 			response: map[string]interface{}{
-				"success": true,
+				
 				"score":   0.5,
 			},
 			wantValid: true,
@@ -75,7 +78,7 @@ func (s *CaptchaServiceSuite) TestGoogleProvider() {
 		{
 			name: "score below threshold",
 			response: map[string]interface{}{
-				"success": true,
+				
 				"score":   0.3,
 			},
 			wantValid: false,
@@ -158,7 +161,7 @@ func (s *CaptchaServiceSuite) TestCloudflareProvider() {
 		{
 			name: "valid token",
 			response: map[string]interface{}{
-				"success": true,
+				
 			},
 			wantValid: true,
 			wantErr:   false,

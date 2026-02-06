@@ -38,6 +38,9 @@ func (s *CoreService) UpdateProfile(ctx context.Context, userID string, req *dto
 	if req.Name != "" {
 		user.Name = req.Name
 	}
+	if req.Phone != "" {
+		user.PhoneNumber = req.Phone
+	}
 	if req.Avatar != "" {
 		user.Avatar = req.Avatar
 	}
@@ -49,10 +52,12 @@ func (s *CoreService) UpdateProfile(ctx context.Context, userID string, req *dto
 	}
 
 	return &dto.UserDTO{
-		ID:        user.ID,
-		Email:     user.Email,
-		Name:      user.Name,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
+		ID:          user.ID,
+		Email:       user.Email,
+		Name:        user.Name,
+		PhoneNumber: user.PhoneNumber,
+		Avatar:      user.Avatar,
+		CreatedAt:   user.CreatedAt,
+		UpdatedAt:   user.UpdatedAt,
 	}, nil
 }

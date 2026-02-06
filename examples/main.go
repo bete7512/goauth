@@ -73,7 +73,6 @@ func main() {
 			RequirePhoneNumber:       false, // Phone number is optional
 			UniquePhoneNumber:        true,  // Phone numbers must be unique
 		},
-		// CORS: enable for captcha-test.html (standalone frontend)
 		// In production, replace "*" with your actual frontend origin
 		CORS: &config.CORSConfig{
 			Enabled:        true,
@@ -130,11 +129,7 @@ func main() {
 		return nil
 	})
 
-	// Debug: Track audit login events
 	authInstance.On(types.EventAuthLoginSuccess, func(ctx context.Context, e *types.Event) error {
-		log.Printf("🔔 DEBUG: EventAuthLoginSuccess received!")
-		log.Printf("   Event Type: %s", e.Type)
-		log.Printf("   Event Data: %+v", e.Data)
 		return nil
 	})
 

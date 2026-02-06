@@ -33,8 +33,8 @@ func (s *sessionRepository) FindByToken(ctx context.Context, token string) (*mod
 	return nil, nil
 }
 
-func (s *sessionRepository) FindByUserID(ctx context.Context, userID string) ([]*models.Session, error) {
-	return nil, nil
+func (s *sessionRepository) FindByUserID(ctx context.Context, userID string, opts models.SessionListOpts) ([]*models.Session, int64, error) {
+	return nil, 0, nil
 }
 
 func (s *sessionRepository) Update(ctx context.Context, session *models.Session) error {

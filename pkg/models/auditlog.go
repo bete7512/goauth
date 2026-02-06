@@ -35,22 +35,22 @@ type AuditLogRepository interface {
 	Create(ctx context.Context, log *AuditLog) error
 
 	// FindByActorID finds audit logs by the user who performed actions
-	FindByActorID(ctx context.Context, actorID string, limit, offset int) ([]*AuditLog, error)
+	FindByActorID(ctx context.Context, actorID string, opts AuditLogListOpts) ([]*AuditLog, int64, error)
 
 	// FindByTargetID finds audit logs where the user was the target of actions
-	FindByTargetID(ctx context.Context, targetID string, limit, offset int) ([]*AuditLog, error)
+	FindByTargetID(ctx context.Context, targetID string, opts AuditLogListOpts) ([]*AuditLog, int64, error)
 
 	// FindByAction finds audit logs by action type
-	FindByAction(ctx context.Context, action string, limit, offset int) ([]*AuditLog, error)
+	FindByAction(ctx context.Context, action string, opts AuditLogListOpts) ([]*AuditLog, int64, error)
 
 	// FindBySeverity finds audit logs by severity level
-	FindBySeverity(ctx context.Context, severity string, limit, offset int) ([]*AuditLog, error)
+	FindBySeverity(ctx context.Context, severity string, opts AuditLogListOpts) ([]*AuditLog, int64, error)
 
 	// FindByOrganizationID finds audit logs for an organization (future)
-	FindByOrganizationID(ctx context.Context, orgID string, limit, offset int) ([]*AuditLog, error)
+	FindByOrganizationID(ctx context.Context, orgID string, opts AuditLogListOpts) ([]*AuditLog, int64, error)
 
 	// List retrieves all audit logs with pagination
-	List(ctx context.Context, limit, offset int) ([]*AuditLog, error)
+	List(ctx context.Context, opts AuditLogListOpts) ([]*AuditLog, int64, error)
 
 	// DeleteOlderThan deletes audit logs older than the specified time
 	DeleteOlderThan(ctx context.Context, before time.Time) error
