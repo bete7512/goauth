@@ -34,7 +34,7 @@ func (m *AdminAuthMiddleware) Middleware(next http.Handler) http.Handler {
 		// Fetch user from storage
 		coreStorage := m.deps.Storage.Core()
 		if coreStorage == nil {
-			http_utils.RespondError(w, http.StatusInternalServerError, "internal_error", "storage not available")
+			http_utils.RespondError(w, http.StatusInternalServerError, string(types.ErrInternalError), "core storage not available")
 			return
 		}
 

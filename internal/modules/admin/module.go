@@ -43,23 +43,6 @@ func New(cfg *Config) *AdminModule {
 func (m *AdminModule) Init(ctx context.Context, deps config.ModuleDependencies) error {
 	m.deps = deps
 
-	// // Get AuditLog repository from AdminStorage
-	// var auditLogRepo models.AuditLogRepository
-	// if m.config.AuditLogRepository != nil {
-	// 	auditLogRepo = m.config.AuditLogRepository
-	// } else {
-	// 	// Get from admin storage
-	// 	if deps.Storage != nil {
-	// 		adminStorage := deps.Storage.Admin()
-	// 		if adminStorage != nil {
-	// 			auditLogRepo = adminStorage.AuditLogs()
-	// 		}
-	// 	}
-	// 	if auditLogRepo == nil {
-	// 		return fmt.Errorf("admin module: audit log repository not available - ensure AdminStorage is configured")
-	// 	}
-	// }
-
 	// Get User repository from core module
 	var userRepo models.UserRepository
 	if m.config.UserRepository != nil {
@@ -106,7 +89,7 @@ func (m *AdminModule) Middlewares() []config.MiddlewareConfig {
 			Name:       (types.MiddlewareAdminAuth),
 			Middleware: m.middleware.Middleware,
 			Priority:   40,
-			ApplyTo:    []types.RouteName{}, //TODO: add Routes which needs admin auth middleware
+			ApplyTo:    []types.RouteName{},
 			Global:     false,
 		},
 	}

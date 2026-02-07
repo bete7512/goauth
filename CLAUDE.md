@@ -38,6 +38,42 @@ Required patterns:
 
 Reference implementation: `internal/modules/core/module.go`
 
+### Service Pattern
+
+Every module's service layer uses the **exported interface / unexported struct** pattern:
+
+```go
+// Exported interface — handlers and tests depend on this
+type AdminService interface {
+    ListUsers(ctx context.Context, opts models.UserListOpts) ([]*models.User, int64, *types.GoAuthError)
+    GetUser(ctx context.Context, userID string) (*models.User, *types.GoAuthError)
+    UpdateUser(ctx context.Context, user *models.User) *types.GoAuthError
+    DeleteUser(ctx context.Context, userID string) *types.GoAuthError
+}
+
+// Unexported struct — the real implementation
+type adminService struct {
+    deps           config.ModuleDependencies
+    userRepository models.UserRepository
+}
+
+// Constructor returns the unexported struct (satisfies the interface)
+func NewAdminService(deps config.ModuleDependencies, userRepo models.UserRepository) *adminService {
+    return &adminService{deps: deps, userRepository: userRepo}
+}
+```
+
+Rules:
+- **Interface name** = exported, clean name: `AdminService`, `CoreService`, `AuditService`
+- **Struct name** = unexported (lowercase): `adminService`, `coreService`, `auditService`
+- **Handlers depend on the interface**, never the concrete struct: `service services.AdminService`
+- **Service methods return `*types.GoAuthError`**, not `error`. Use typed constructors (`types.NewInternalError()`, `types.NewUserNotFoundError()`, `types.NewUnauthorizedError()`, etc.). Handlers read `authErr.StatusCode`, `string(authErr.Code)`, `authErr.Message` directly — no manual mapping.
+- **Mock generation** via `//go:generate mockgen` directive on the service file, targeting the interface
+- **`//go:generate` line** goes at top of the service file: `//go:generate mockgen -destination=../../../mocks/mock_<name>_service.go -package=mocks <module-path>/services <ServiceInterface>`
+- **Testing with `*types.GoAuthError`**: Use `s.Nil(authErr)` / `s.NotNil(authErr)`, never `s.NoError()` / `s.Error()`. Go's nil interface gotcha means a nil `*GoAuthError` passed as `error` is non-nil at the interface level.
+
+Reference implementation: `internal/modules/admin/services/users.go`
+
 ## Storage
 
 Interface hierarchy:
@@ -58,6 +94,16 @@ types.Storage
 - Config errors: `config.ErrConfig("message")`, check with `config.IsConfigErr(err)`
 - Always wrap: `fmt.Errorf("context: %w", err)`
 - Module init errors must be descriptive - they surface directly to the library user
+- **HTTP error codes must use `types.Err*` constants**, never raw strings:
+  ```go
+  // Correct
+  http_utils.RespondError(w, http.StatusNotFound, string(types.ErrUserNotFound), err.Error())
+  http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidRequestBody), err.Error())
+
+  // Wrong — never do this
+  http_utils.RespondError(w, http.StatusNotFound, "user_not_found", err.Error())
+  http_utils.RespondError(w, http.StatusInternalServerError, "internal_error", err.Error())
+  ```
 
 ## Events
 

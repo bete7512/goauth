@@ -361,31 +361,3 @@ func NewMockAdminStorage(ctrl *gomock.Controller) *MockAdminStorage {
 func (m *MockAdminStorage) EXPECT() *MockAdminStorageMockRecorder {
 	return m.recorder
 }
-
-// AuditLogs mocks base method.
-func (m *MockAdminStorage) AuditLogs() models.AuditLogRepository {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AuditLogs")
-	ret0, _ := ret[0].(models.AuditLogRepository)
-	return ret0
-}
-
-// AuditLogs indicates an expected call of AuditLogs.
-func (mr *MockAdminStorageMockRecorder) AuditLogs() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AuditLogs", reflect.TypeOf((*MockAdminStorage)(nil).AuditLogs))
-}
-
-// WithTransaction mocks base method.
-func (m *MockAdminStorage) WithTransaction(ctx context.Context, fn func(types.AdminStorage) error) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WithTransaction", ctx, fn)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// WithTransaction indicates an expected call of WithTransaction.
-func (mr *MockAdminStorageMockRecorder) WithTransaction(ctx, fn any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithTransaction", reflect.TypeOf((*MockAdminStorage)(nil).WithTransaction), ctx, fn)
-}

@@ -252,10 +252,7 @@ func (c *Config) Validate() error {
 	if c.CORS == nil {
 		c.CORS = &CORSConfig{
 			Enabled:          false,
-			AllowedOrigins:   []string{"*"},
-			AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"},
-			AllowedHeaders:   []string{"Content-Type", "Authorization"},
-			AllowCredentials: true,
+			
 		}
 	}
 

@@ -1,5 +1,7 @@
 package services
 
+//go:generate mockgen -destination=../../../mocks/mock_admin_service.go -package=mocks github.com/bete7512/goauth/internal/modules/admin/services AdminService
+
 import (
 	"context"
 	"fmt"
@@ -9,7 +11,14 @@ import (
 	"github.com/bete7512/goauth/pkg/types"
 )
 
-type AdminService struct {
+type AdminService interface {
+	ListUsers(ctx context.Context, opts models.UserListOpts) ([]*models.User, int64, *types.GoAuthError)
+	GetUser(ctx context.Context, userID string) (*models.User, *types.GoAuthError)
+	UpdateUser(ctx context.Context, user *models.User) *types.GoAuthError
+	DeleteUser(ctx context.Context, userID string) *types.GoAuthError
+}
+
+type adminService struct {
 	deps           config.ModuleDependencies
 	userRepository models.UserRepository
 }
@@ -17,40 +26,42 @@ type AdminService struct {
 func NewAdminService(
 	deps config.ModuleDependencies,
 	userRepo models.UserRepository,
-) *AdminService {
-	return &AdminService{
+) *adminService {
+	return &adminService{
 		deps:           deps,
 		userRepository: userRepo,
 	}
 }
 
 // ListUsers lists all users with pagination
-func (s *AdminService) ListUsers(ctx context.Context, opts models.UserListOpts) ([]*models.User, int64, error) {
+func (s *adminService) ListUsers(ctx context.Context, opts models.UserListOpts) ([]*models.User, int64, *types.GoAuthError) {
 	users, total, err := s.userRepository.List(ctx, opts)
 	if err != nil {
-		return nil, 0, fmt.Errorf("failed to list users: %w", err)
+		return nil, 0, types.NewInternalError(fmt.Sprintf("failed to list users: %v", err))
 	}
 	return users, total, nil
 }
 
 // GetUser retrieves a user by ID
-func (s *AdminService) GetUser(ctx context.Context, userID string) (*models.User, error) {
+func (s *adminService) GetUser(ctx context.Context, userID string) (*models.User, *types.GoAuthError) {
 	user, err := s.userRepository.FindByID(ctx, userID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get user: %w", err)
+		// FIXME check it first if user not found 
+		// but this depends on storage provider mercy unless different orm returns the same error for not found
+		return nil, types.NewInternalError("failed to get user")
 	}
 	return user, nil
 }
 
 // UpdateUser updates a user's information
-func (s *AdminService) UpdateUser(ctx context.Context, user *models.User) error {
+func (s *adminService) UpdateUser(ctx context.Context, user *models.User) *types.GoAuthError {
 	adminUser, ok := ctx.Value(types.UserKey).(*models.User)
 	if !ok || adminUser == nil {
-		return fmt.Errorf("admin user not found in context")
+		return types.NewUnauthorizedError()
 	}
 
 	if err := s.userRepository.Update(ctx, user); err != nil {
-		return fmt.Errorf("failed to update user: %w", err)
+		return types.NewInternalError(fmt.Sprintf("failed to update user: %v", err))
 	}
 
 	// Emit audit event
@@ -67,21 +78,21 @@ func (s *AdminService) UpdateUser(ctx context.Context, user *models.User) error 
 }
 
 // DeleteUser deletes a user by ID
-func (s *AdminService) DeleteUser(ctx context.Context, userID string) error {
+func (s *adminService) DeleteUser(ctx context.Context, userID string) *types.GoAuthError {
 	// Get admin user for actor_id
 	adminUser, ok := ctx.Value(types.UserKey).(*models.User)
 	if !ok || adminUser == nil {
-		return fmt.Errorf("admin user not found in context")
+		return types.NewUnauthorizedError()
 	}
 
 	// Get user info before deletion for logging
 	user, err := s.userRepository.FindByID(ctx, userID)
 	if err != nil {
-		return fmt.Errorf("failed to get user before deletion: %w", err)
+		return types.NewUserNotFoundError()
 	}
 
 	if err := s.userRepository.Delete(ctx, userID); err != nil {
-		return fmt.Errorf("failed to delete user: %w", err)
+		return types.NewInternalError(fmt.Sprintf("failed to delete user: %v", err))
 	}
 
 	// Emit audit event
@@ -99,7 +110,7 @@ func (s *AdminService) DeleteUser(ctx context.Context, userID string) error {
 
 // emitAuditEvent emits an audit event to the event bus
 // The audit module will pick it up and create the log entry
-func (s *AdminService) emitAuditEvent(ctx context.Context, eventType types.EventType, actorID, targetID, targetEmail, details string) {
+func (s *adminService) emitAuditEvent(ctx context.Context, eventType types.EventType, actorID, targetID, targetEmail, details string) {
 	// Extract admin user from context (set by AdminAuthMiddleware)
 	user, ok := ctx.Value(types.UserKey).(*models.User)
 	if !ok || user == nil {

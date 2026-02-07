@@ -17,3 +17,4 @@ node_modules
 .env.production.local
 .next
 .output
+SCRATCHPAD.md
