@@ -99,10 +99,10 @@ func (m *CoreModule) Middlewares() []config.MiddlewareConfig {
 	authMiddleware := middlewares.NewAuthMiddleware(m.deps.Config, m.deps.SecurityManager)
 	return []config.MiddlewareConfig{
 		{
-			Name:       string(types.MiddlewareAuth),
+			Name:       (types.MiddlewareAuth),
 			Middleware: authMiddleware.AuthMiddleware,
 			Priority:   50,
-			ApplyTo:    []string{},
+			ApplyTo:    []types.RouteName{},
 			Global:     false,
 		},
 	}

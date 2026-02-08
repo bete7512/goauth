@@ -5,20 +5,19 @@ import (
 	"fmt"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/bete7512/goauth/internal/utils/logger"
 	"github.com/bete7512/goauth/pkg/types"
+	"github.com/google/uuid"
 )
 
-// Event represents an event with associated data
-
-// Handler is a function that handles an event
-
-// handlerWithPriority wraps a handler with priority
+// handlerWithPriority wraps a handler with priority and retry config
 type handlerWithPriority struct {
-	handler  types.EventHandler
-	priority int
-	async    bool
+	handler     types.EventHandler
+	priority    int
+	async       bool
+	retryPolicy *types.RetryPolicy
 }
 
 // EventBus manages event handlers and dispatches events
@@ -84,8 +83,8 @@ func (eb *EventBus) Subscribe(eventType types.EventType, handler types.EventHand
 	})
 }
 
-// Emit dispatches an event to all registered handlers
-// Sync handlers execute immediately, async handlers use the backend
+// EmitAsync dispatches an event asynchronously to all registered handlers.
+// Events are assigned a unique ID and timestamp for tracking.
 func (eb *EventBus) EmitAsync(_ context.Context, eventType types.EventType, data interface{}) error {
 	eb.mu.RLock()
 	handlers := eb.handlers[eventType]
@@ -97,30 +96,32 @@ func (eb *EventBus) EmitAsync(_ context.Context, eventType types.EventType, data
 
 	bgCtx := context.Background()
 	event := &types.Event{
-		Type:    eventType,
-		Data:    data,
-		Context: bgCtx,
+		ID:        uuid.New().String(),
+		Type:      eventType,
+		Data:      data,
+		Context:   bgCtx,
+		CreatedAt: time.Now(),
 	}
 
 	go func() {
 		for _, h := range handlers {
 			if defaultBackend, ok := eb.asyncBackend.(*DefaultAsyncBackend); ok {
-				if err := defaultBackend.SubmitJob(bgCtx, h.handler, event); err != nil && eb.logger != nil {
-					eb.logger.Errorf("Failed to submit async job: %v", err)
+				if err := defaultBackend.SubmitJob(bgCtx, h.handler, event, h.retryPolicy); err != nil && eb.logger != nil {
+					eb.logger.Errorf("Failed to submit async job (event=%s, id=%s): %v", eventType, event.ID, err)
 				}
 			} else {
 				if err := eb.asyncBackend.Publish(bgCtx, eventType, event); err != nil && eb.logger != nil {
-					eb.logger.Error("Failed to publish to async backend", "event", eventType, "error", err)
+					eb.logger.Errorf("Failed to publish to async backend (event=%s, id=%s): %v", eventType, event.ID, err)
 				}
 			}
-
 		}
 	}()
 
 	return nil
 }
 
-// EmitSync dispatches an event synchronously to all handlers
+// EmitSync dispatches an event synchronously to all handlers.
+// Events are assigned a unique ID and timestamp for tracking.
 func (eb *EventBus) EmitSync(ctx context.Context, eventType types.EventType, data interface{}) error {
 	eb.mu.RLock()
 	handlers := eb.handlers[eventType]
@@ -131,9 +132,11 @@ func (eb *EventBus) EmitSync(ctx context.Context, eventType types.EventType, dat
 	}
 
 	event := &types.Event{
-		Type:    eventType,
-		Data:    data,
-		Context: ctx,
+		ID:        uuid.New().String(),
+		Type:      eventType,
+		Data:      data,
+		Context:   ctx,
+		CreatedAt: time.Now(),
 	}
 
 	for _, h := range handlers {
@@ -159,6 +162,15 @@ func (eb *EventBus) HasHandlers(eventType types.EventType) bool {
 	return len(eb.handlers[eventType]) > 0
 }
 
+// DLQ returns the dead letter queue if the default backend is used.
+// Returns nil for custom async backends.
+func (eb *EventBus) DLQ() *DeadLetterQueue {
+	if defaultBackend, ok := eb.asyncBackend.(*DefaultAsyncBackend); ok {
+		return defaultBackend.DLQ()
+	}
+	return nil
+}
+
 // SubscribeOption configures handler subscription
 type SubscribeOption func(*handlerWithPriority)
 
@@ -174,5 +186,14 @@ func WithPriority(priority int) SubscribeOption {
 func WithAsync() SubscribeOption {
 	return func(h *handlerWithPriority) {
 		h.async = true
+	}
+}
+
+// WithRetry configures retry behavior for this handler.
+// Failed events will be retried with exponential backoff.
+// After all retries are exhausted, the event is sent to the dead letter queue.
+func WithRetry(policy types.RetryPolicy) SubscribeOption {
+	return func(h *handlerWithPriority) {
+		h.retryPolicy = &policy
 	}
 }

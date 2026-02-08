@@ -3,12 +3,15 @@ package services
 import (
 	"context"
 
+	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
 )
 
 // Logout invalidates user session(s)
 func (s *SessionService) Logout(ctx context.Context, userID string) *types.GoAuthError {
-	sessions, err := s.SessionRepository.FindByUserID(ctx, userID)
+	sessions, _, err := s.SessionRepository.FindByUserID(ctx, userID, models.SessionListOpts{
+		ListingOpts: models.ListingOpts{Limit: 1},
+	})
 	if err != nil || len(sessions) == 0 {
 		return types.NewSessionNotFoundError()
 	}

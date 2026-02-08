@@ -2,6 +2,7 @@ package hooks
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/bete7512/goauth/internal/modules/notification/services"
 	"github.com/bete7512/goauth/pkg/config"
@@ -94,21 +95,15 @@ type EventHook struct {
 	Handler types.EventHandler
 }
 
-// Handler implementations
+// Handler implementations — using typed event data (no map[string]interface{} assertions)
 
 func (h *NotificationHooks) handleAfterSignup(ctx context.Context, event *types.Event) error {
-	data, ok := event.Data.(map[string]interface{})
+	data, ok := types.EventDataAs[*types.UserEventData](event)
 	if !ok {
-		return nil
+		return fmt.Errorf("notification: unexpected event data type for %s (id=%s)", event.Type, event.ID)
 	}
 
-	user, ok := data["user"].(models.User)
-	if !ok {
-		h.deps.Logger.Warnf("notification: invalid user data for after:signup")
-		return nil
-	}
-
-	if err := h.service.SendWelcomeEmail(ctx, user); err != nil {
+	if err := h.service.SendWelcomeEmail(ctx, *data.User); err != nil {
 		h.deps.Logger.Errorf("notification: failed to send welcome email: %v", err)
 		return err
 	}
@@ -117,59 +112,46 @@ func (h *NotificationHooks) handleAfterSignup(ctx context.Context, event *types.
 }
 
 func (h *NotificationHooks) handleSendEmailVerification(ctx context.Context, event *types.Event) error {
-	data, ok := event.Data.(map[string]interface{})
+	data, ok := types.EventDataAs[*types.UserEventData](event)
 	if !ok {
-		h.deps.Logger.Warnf("notification: invalid event data for send:email-verification")
-		return nil
+		return fmt.Errorf("notification: unexpected event data type for %s (id=%s)", event.Type, event.ID)
 	}
 
-	user, ok := data["user"].(models.User)
-	if !ok {
-		h.deps.Logger.Warnf("notification: invalid user data for send:email-verification")
-		return nil
-	}
-
-	if err := h.service.SendEmailVerificationFromHook(ctx, user); err != nil {
+	if err := h.service.SendEmailVerificationFromHook(ctx, *data.User); err != nil {
 		h.deps.Logger.Errorf("notification: failed to send email verification: %v", err)
 		return err
 	}
 
-	h.deps.Logger.Infof("notification: sent email verification to %s", user.Email)
+	h.deps.Logger.Infof("notification: sent email verification to %s", data.User.Email)
 	return nil
 }
 
 func (h *NotificationHooks) handleSendPhoneVerification(ctx context.Context, event *types.Event) error {
-	data, ok := event.Data.(map[string]interface{})
+	data, ok := types.EventDataAs[*types.UserEventData](event)
 	if !ok {
-		h.deps.Logger.Warnf("notification: invalid event data for send:phone-verification")
-		return nil
+		return fmt.Errorf("notification: unexpected event data type for %s (id=%s)", event.Type, event.ID)
 	}
 
-	user, ok := data["user"].(models.User)
-	if !ok {
-		h.deps.Logger.Warnf("notification: invalid user data for send:phone-verification")
-		return nil
-	}
-
-	if err := h.service.SendPhoneVerificationFromHook(ctx, user); err != nil {
+	if err := h.service.SendPhoneVerificationFromHook(ctx, *data.User); err != nil {
 		h.deps.Logger.Errorf("notification: failed to send phone verification: %v", err)
 		return err
 	}
 
-	h.deps.Logger.Infof("notification: sent phone verification to %s", user.PhoneNumber)
+	h.deps.Logger.Infof("notification: sent phone verification to %s", data.User.PhoneNumber)
 	return nil
 }
 
 func (h *NotificationHooks) handlePasswordChanged(ctx context.Context, event *types.Event) error {
-	data, ok := event.Data.(map[string]interface{})
+	data, ok := types.EventDataAs[*types.PasswordChangedData](event)
 	if !ok {
-		return nil
+		return fmt.Errorf("notification: unexpected event data type for %s (id=%s)", event.Type, event.ID)
 	}
 
-	user, ok := data["user"].(models.User)
-	if !ok {
-		h.deps.Logger.Warnf("notification: invalid user data for password:changed")
-		return nil
+	// Construct a minimal user for the notification service
+	user := models.User{
+		ID:    data.UserID,
+		Email: data.Email,
+		Name:  data.Name,
 	}
 
 	if err := h.service.SendPasswordChangedAlert(ctx, user); err != nil {
@@ -181,25 +163,21 @@ func (h *NotificationHooks) handlePasswordChanged(ctx context.Context, event *ty
 }
 
 func (h *NotificationHooks) handleLoginAlert(ctx context.Context, event *types.Event) error {
-	data, ok := event.Data.(map[string]interface{})
+	data, ok := types.EventDataAs[*types.LoginEventData](event)
 	if !ok {
-		h.deps.Logger.Warnf("notification: invalid event data for after:login")
-		return nil
+		return fmt.Errorf("notification: unexpected event data type for %s (id=%s)", event.Type, event.ID)
 	}
 
-	metadata, ok := data["metadata"].(map[string]interface{})
-	if !ok {
-		h.deps.Logger.Warnf("notification: invalid metadata data for after:login")
-		return nil
+	// Convert typed metadata to map for the notification service
+	metadataMap := map[string]interface{}{}
+	if data.Metadata != nil {
+		metadataMap["ip_address"] = data.Metadata.IPAddress
+		metadataMap["user_agent"] = data.Metadata.UserAgent
+		metadataMap["timestamp"] = data.Metadata.Timestamp
+		metadataMap["device_fingerprint"] = data.Metadata.DeviceFingerprint
 	}
 
-	user, ok := data["user"].(models.User)
-	if !ok {
-		h.deps.Logger.Warnf("notification: invalid user data for after:login")
-		return nil
-	}
-
-	if err := h.service.SendLoginAlert(ctx, user, metadata); err != nil {
+	if err := h.service.SendLoginAlert(ctx, *data.User, metadataMap); err != nil {
 		h.deps.Logger.Errorf("notification: failed to send login alert: %v", err)
 		return err
 	}
@@ -208,17 +186,12 @@ func (h *NotificationHooks) handleLoginAlert(ctx context.Context, event *types.E
 }
 
 func (h *NotificationHooks) handleAfterEmailVerified(ctx context.Context, event *types.Event) error {
-	data, ok := event.Data.(map[string]interface{})
+	data, ok := types.EventDataAs[*types.UserEventData](event)
 	if !ok {
-		return nil
-	}
-	user, ok := data["user"].(models.User)
-	if !ok {
-		h.deps.Logger.Warnf("notification: invalid user data for after:change-email-verification")
-		return nil
+		return fmt.Errorf("notification: unexpected event data type for %s (id=%s)", event.Type, event.ID)
 	}
 
-	if err := h.service.SendWelcomeEmail(ctx, user); err != nil {
+	if err := h.service.SendWelcomeEmail(ctx, *data.User); err != nil {
 		h.deps.Logger.Errorf("notification: failed to send welcome after verification: %v", err)
 	}
 

@@ -5,103 +5,73 @@ import (
 	"strings"
 
 	"github.com/bete7512/goauth/internal/modules/csrf/services"
+	http_utils "github.com/bete7512/goauth/internal/utils/http"
+	"github.com/bete7512/goauth/pkg/config"
+	"github.com/bete7512/goauth/pkg/types"
 )
 
-type CSRFConfig struct {
-	ApplyToOnlyRoutes []string
-	ExcludePaths      []string
-	ProtectedMethods  []string
-}
-
-// NewCSRFMiddleware creates a CSRF protection middleware
-func NewCSRFMiddleware(service *services.CSRFService, config interface{}) func(http.Handler) http.Handler {
-	// Extract config
-	var applyToOnlyRoutes []string
-	var excludePaths []string
-	var protectedMethods []string
-
-	// Try to extract config values using type assertion
-	type csrfConfig interface {
-		GetApplyToOnlyRoutes() []string
-		GetExcludePaths() []string
-		GetProtectedMethods() []string
-	}
-
-	// Use reflection-free approach
-	switch cfg := config.(type) {
-	case *CSRFConfig:
-		applyToOnlyRoutes = cfg.ApplyToOnlyRoutes
-		excludePaths = cfg.ExcludePaths
-		protectedMethods = cfg.ProtectedMethods
-	case CSRFConfig:
-		applyToOnlyRoutes = cfg.ApplyToOnlyRoutes
-		excludePaths = cfg.ExcludePaths
-		protectedMethods = cfg.ProtectedMethods
-	}
-
-	// Default protected methods
+// NewCSRFMiddleware creates a CSRF protection middleware using the double-submit cookie pattern.
+//
+// Validation requires BOTH:
+//  1. A token in the cookie (sent automatically by the browser)
+//  2. The same token in a header or form field (must be set explicitly by the client)
+//
+// An attacker can trigger the browser to send the cookie on a cross-origin request,
+// but cannot read the cookie value to include it in the header. This is the defense.
+func NewCSRFMiddleware(service *services.CSRFService, cfg *config.CSRFModuleConfig) func(http.Handler) http.Handler {
+	protectedMethods := cfg.ProtectedMethods
 	if len(protectedMethods) == 0 {
 		protectedMethods = []string{"POST", "PUT", "DELETE", "PATCH"}
 	}
 
+	protectedSet := make(map[string]bool, len(protectedMethods))
+	for _, m := range protectedMethods {
+		protectedSet[m] = true
+	}
+
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Check if path is apply to only routes
-			if len(applyToOnlyRoutes) > 0 {
-				found := false
-				for _, path := range applyToOnlyRoutes {
-					if strings.HasPrefix(r.URL.Path, path) {
-						found = true
-						break
-					}
-				}
-				if !found {
-					next.ServeHTTP(w, r)
-					return
-				}
+			// Skip safe methods
+			if !protectedSet[r.Method] {
+				next.ServeHTTP(w, r)
+				return
 			}
 
-			// Check if path is excluded
-			for _, path := range excludePaths {
+			// Skip excluded paths
+			for _, path := range cfg.ExcludePaths {
 				if strings.HasPrefix(r.URL.Path, path) {
 					next.ServeHTTP(w, r)
 					return
 				}
 			}
 
-			// Check if method requires protection
-			needsProtection := false
-			for _, method := range protectedMethods {
-				if r.Method == method {
-					needsProtection = true
-					break
-				}
+			// Get token from cookie (sent automatically by browser)
+			cookieToken := ""
+			if cookie, err := r.Cookie(service.CookieName()); err == nil {
+				cookieToken = cookie.Value
 			}
 
-			if !needsProtection {
-				next.ServeHTTP(w, r)
+			// Get token from header or form field (must be set explicitly by client)
+			submittedToken := r.Header.Get(service.HeaderName())
+			if submittedToken == "" {
+				submittedToken = r.FormValue(service.FormFieldName())
+			}
+			
+			// Both must be present
+			if cookieToken == "" || submittedToken == "" {
+				http_utils.RespondError(w, http.StatusForbidden, string(types.ErrInvalidCSRF), "CSRF token missing")
 				return
 			}
 
-			// Get token from header
-			token := r.Header.Get(service.GetHeaderName())
-
-			// If not in header, try form field
-			if token == "" {
-				token = r.FormValue(service.GetFormFieldName())
+			// Both must match (constant-time comparison)
+			if !service.TokensMatch(cookieToken, submittedToken) {
+				http_utils.RespondError(w, http.StatusForbidden, string(types.ErrInvalidCSRF), "CSRF token mismatch")
+				return
 			}
 
-			// If not in form, try cookie
-			if token == "" {
-				cookie, err := r.Cookie(service.GetCookieName())
-				if err == nil {
-					token = cookie.Value
-				}
-			}
-
-			// Validate token
-			if !service.ValidateToken(token) {
-				http.Error(w, "CSRF token validation failed", http.StatusForbidden)
+			// HMAC signature must be valid and token must not be expired
+			if !service.ValidateToken(cookieToken) {
+				http_utils.RespondError(w, http.StatusForbidden, string(types.ErrInvalidCSRF), "Invalid CSRF token")
 				return
 			}
 

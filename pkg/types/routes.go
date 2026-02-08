@@ -54,12 +54,21 @@ const (
 	RouteTwoFactorAuthEmail RouteName = "twofactor.auth.email"
 
 	// Admin Routes
-	RouteAdminListUsers     RouteName = "admin.users.list"
-	RouteAdminGetUser       RouteName = "admin.users.get"
-	RouteAdminCreateUser    RouteName = "admin.users.create"
-	RouteAdminUpdateUser    RouteName = "admin.users.update"
-	RouteAdminDeleteUser    RouteName = "admin.users.delete"
-	RouteAdminUserAuditLogs RouteName = "admin.users.audit"
+	RouteAdminListUsers      RouteName = "admin.users.list"
+	RouteAdminGetUser        RouteName = "admin.users.get"
+	RouteAdminCreateUser     RouteName = "admin.users.create"
+	RouteAdminUpdateUser     RouteName = "admin.users.update"
+	RouteAdminDeleteUser     RouteName = "admin.users.delete"
+	RouteAdminListAuditLogs  RouteName = "admin.audit.list"
+	RouteAdminGetUserAudit   RouteName = "admin.audit.user"
+	RouteAdminGetActionAudit RouteName = "admin.audit.action"
+	RouteAdminExportAudit    RouteName = "admin.audit.export"
+
+	// Audit Routes (user self-service)
+	RouteAuditMyLogs     RouteName = "audit.my.logs"
+	RouteAuditMyLogins   RouteName = "audit.my.logins"
+	RouteAuditMyChanges  RouteName = "audit.my.changes"
+	RouteAuditMySecurity RouteName = "audit.my.security"
 
 	// CSRF Routes
 	RouteCSRFToken RouteName = "csrf.get_token"

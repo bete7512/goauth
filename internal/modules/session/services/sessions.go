@@ -4,14 +4,15 @@ import (
 	"context"
 
 	"github.com/bete7512/goauth/internal/modules/session/handlers/dto"
+	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
 )
 
 // ListSessions returns all active sessions for a user
-func (s *SessionService) ListSessions(ctx context.Context, userID string, currentSessionID string) (*dto.SessionsListResponse, *types.GoAuthError) {
-	sessions, err := s.SessionRepository.FindByUserID(ctx, userID)
+func (s *SessionService) ListSessions(ctx context.Context, userID string, currentSessionID string, opts models.SessionListOpts) ([]dto.SessionDTO, int64, *types.GoAuthError) {
+	sessions, total, err := s.SessionRepository.FindByUserID(ctx, userID, opts)
 	if err != nil {
-		return nil, types.NewInternalError("Failed to fetch sessions")
+		return nil, 0, types.NewInternalError("Failed to fetch sessions")
 	}
 
 	sessionDTOs := make([]dto.SessionDTO, len(sessions))
@@ -26,10 +27,7 @@ func (s *SessionService) ListSessions(ctx context.Context, userID string, curren
 		}
 	}
 
-	return &dto.SessionsListResponse{
-		Sessions: sessionDTOs,
-		Total:    len(sessionDTOs),
-	}, nil
+	return sessionDTOs, total, nil
 }
 
 // GetSession returns a specific session by ID

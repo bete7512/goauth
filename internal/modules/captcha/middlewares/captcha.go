@@ -5,41 +5,57 @@ import (
 	"strings"
 
 	"github.com/bete7512/goauth/internal/modules/captcha/services"
+	http_utils "github.com/bete7512/goauth/internal/utils/http"
+	"github.com/bete7512/goauth/pkg/config"
+	"github.com/bete7512/goauth/pkg/types"
 )
 
-// NewCaptchaMiddleware creates a captcha verification middleware
-func NewCaptchaMiddleware(service *services.CaptchaService) func(http.Handler) http.Handler {
+const (
+	defaultHeaderName    = "X-Captcha-Token"
+	defaultFormFieldName = "captcha_token"
+)
+
+// NewCaptchaMiddleware creates a middleware that verifies captcha tokens
+// using the configured provider before allowing the request through.
+func NewCaptchaMiddleware(service *services.CaptchaService, cfg *config.CaptchaModuleConfig) func(http.Handler) http.Handler {
+	headerName := cfg.HeaderName
+	if headerName == "" {
+		headerName = defaultHeaderName
+	}
+	formFieldName := cfg.FormFieldName
+	if formFieldName == "" {
+		formFieldName = defaultFormFieldName
+	}
+
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			provider := service.GetProvider()
-			if provider == nil {
-				// No captcha provider configured, skip verification
+			// If no provider is configured, skip verification
+			if service.Provider() == nil {
 				next.ServeHTTP(w, r)
 				return
 			}
 
-			// Get captcha token from header or form
-			token := r.Header.Get("X-Captcha-Token")
+			// Extract captcha token from header, then form fields
+			token := r.Header.Get(headerName)
 			if token == "" {
-				token = r.FormValue("captcha_token")
+				token = r.FormValue(formFieldName)
 			}
 			if token == "" {
-				token = r.FormValue("cf-turnstile-response") // Cloudflare's default field
+				token = r.FormValue("cf-turnstile-response")
 			}
 			if token == "" {
-				token = r.FormValue("g-recaptcha-response") // Google's default field
+				token = r.FormValue("g-recaptcha-response")
 			}
 
 			if token == "" {
-				http.Error(w, "Captcha token required", http.StatusBadRequest)
+				http_utils.RespondError(w, http.StatusForbidden, string(types.ErrCaptchaRequired), "Captcha token required")
 				return
 			}
 
-			// Verify captcha
 			clientIP := getClientIP(r)
 			valid, err := service.Verify(r.Context(), token, clientIP)
 			if err != nil || !valid {
-				http.Error(w, "Captcha verification failed", http.StatusUnauthorized)
+				http_utils.RespondError(w, http.StatusForbidden, string(types.ErrCaptchaFailed), "Captcha verification failed")
 				return
 			}
 
@@ -48,28 +64,21 @@ func NewCaptchaMiddleware(service *services.CaptchaService) func(http.Handler) h
 	}
 }
 
-// getClientIP extracts the client IP from the request
+// getClientIP extracts the client IP from the request,
+// checking proxy headers before falling back to RemoteAddr.
 func getClientIP(r *http.Request) string {
-	// Check X-Forwarded-For header
-	xff := r.Header.Get("X-Forwarded-For")
-	if xff != "" {
-		// Take the first IP
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
 		ips := strings.Split(xff, ",")
 		return strings.TrimSpace(ips[0])
 	}
 
-	// Check X-Real-IP header
-	xri := r.Header.Get("X-Real-IP")
-	if xri != "" {
+	if xri := r.Header.Get("X-Real-IP"); xri != "" {
 		return xri
 	}
 
-	// Fall back to RemoteAddr
 	ip := r.RemoteAddr
-	// Remove port if present
 	if idx := strings.LastIndex(ip, ":"); idx != -1 {
 		ip = ip[:idx]
 	}
-
 	return ip
 }

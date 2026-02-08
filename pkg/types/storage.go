@@ -1,18 +1,11 @@
 package types
 
+//go:generate mockgen -destination=../../internal/mocks/mock_storage.go -package=mocks github.com/bete7512/goauth/pkg/types Storage,CoreStorage,SessionStorage,StatelessStorage,AdminStorage
+
 import (
 	"context"
 
 	"github.com/bete7512/goauth/pkg/models"
-)
-
-// DriverType represents storage backend type
-type DriverType string
-
-const (
-	DriverTypeGorm  DriverType = "gorm"
-	DriverTypeMongo DriverType = "mongo"
-	DriverTypeSqlc  DriverType = "sqlc"
 )
 
 // DialectType represents database dialect for SQL databases
@@ -24,15 +17,15 @@ const (
 	DialectTypeSqlite   DialectType = "sqlite"
 )
 
-// Storage is the main storage interface
-// Internal implementations (gorm, mongodb) implement this fully
-// User passes this to auth.New(), each module gets its storage internally
-//
-// Usage:
-//
-//	store := gorm.NewStorage(db)
-//	auth.New(&Config{Storage: store})
-//	// Internally: coreModule uses store.Core(), sessionModule uses store.Session()
+// DriverType represents storage backend type
+type DriverType string
+
+const (
+	DriverTypeGorm  DriverType = "gorm"
+	DriverTypeMongo DriverType = "mongo"
+	DriverTypeSqlc  DriverType = "sqlc"
+)
+
 type Storage interface {
 	// Core returns storage for the core module (users, tokens, etc.)
 	Core() CoreStorage
@@ -45,8 +38,18 @@ type Storage interface {
 	// Returns nil if using token version approach (no extra storage needed)
 	Stateless() StatelessStorage
 
-	// Migrate runs database migrations for all models
-	Migrate(ctx context.Context) error
+	// Admin returns storage for the admin module
+	// Returns nil if admin storage is not needed/available
+	Admin() AdminStorage
+
+
+	// Audit Log
+
+	AuditLog() AuditLogStorage
+
+	// Migrate runs database migrations for the provided models
+	// Models should be collected from registered modules via their Models() method
+	Migrate(ctx context.Context, models []interface{}) error
 
 	// Close closes all storage connections
 	Close() error
@@ -73,4 +76,14 @@ type SessionStorage interface {
 // StatelessStorage defines storage interface for the stateless module (optional)
 type StatelessStorage interface {
 	Blacklist() models.BlacklistRepository
+}
+
+// AdminStorage defines storage interface for the admin module
+type AdminStorage interface {
+}
+
+
+type AuditLogStorage interface {
+	AuditLogs() models.AuditLogRepository
+	WithTransaction(ctx context.Context, fn func(tx AuditLogStorage) error) error
 }

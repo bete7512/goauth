@@ -4,8 +4,12 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"regexp"
+	"strings"
 	"time"
 
+	"github.com/bete7512/goauth/internal/modules/admin"
+	"github.com/bete7512/goauth/internal/modules/audit"
 	"github.com/bete7512/goauth/internal/modules/session"
 	"github.com/bete7512/goauth/internal/modules/stateless"
 	"github.com/bete7512/goauth/pkg/auth"
@@ -17,6 +21,14 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
 )
+
+// pathParamRegex matches Go 1.22+ / Chi-style path parameters like {id}
+var pathParamRegex = regexp.MustCompile(`\{(\w+)\}`)
+
+// toColonParams converts {param} to :param for Gin and Fiber routers
+func toColonParams(path string) string {
+	return pathParamRegex.ReplaceAllString(path, ":$1")
+}
 
 func main() {
 	// Create storage instance using factory
@@ -45,6 +57,12 @@ func main() {
 				AccessTokenTTL:  15 * time.Minute,
 				RefreshTokenTTL: 7 * 24 * time.Hour,
 			},
+			PasswordPolicy: types.PasswordPolicy{
+				MinLength:        4,
+				MaxLength:        16,
+				RequireUppercase: false,
+				RequireSpecial:   false,
+			},
 		},
 		AutoMigrate: true,
 		BasePath:    "/api/v1",
@@ -54,6 +72,13 @@ func main() {
 			RequireUserName:          false, // Username is optional
 			RequirePhoneNumber:       false, // Phone number is optional
 			UniquePhoneNumber:        true,  // Phone numbers must be unique
+		},
+		// In production, replace "*" with your actual frontend origin
+		CORS: &config.CORSConfig{
+			Enabled:        true,
+			AllowedOrigins: []string{"*"},
+			AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+			AllowedHeaders: []string{"Content-Type", "Authorization", "X-Captcha-Token", "X-CSRF-Token"},
 		},
 		FrontendConfig: &config.FrontendConfig{
 			URL:                     "http://localhost:3000",
@@ -76,9 +101,35 @@ func main() {
 		EnableSessionManagement: true, // Enable session list/delete endpoints
 
 	}, nil))
+
+	// // csrf (HMAC-based double-submit cookie pattern)
+	// authInstance.Use(csrf.New(&config.CSRFModuleConfig{
+	// 	TokenExpiry: 2 * time.Hour,
+	// 	Secure:      false, // set true in production
+	// 	SameSite:    http.SameSiteLaxMode,
+	// }))
+
+	// Captcha protection using Cloudflare Turnstile test keys (always passes)
+	// To test failure: change SiteKey to "2x00000000000000000000AB" and SecretKey to "2x0000000000000000000000000000000AB"
+	// To use Google reCAPTCHA v3: set Provider to types.CaptchaProviderGoogle, add your keys, and set ScoreThreshold
+
+	// authInstance.Use(captcha.New(&config.CaptchaModuleConfig{
+	// 	Provider:      types.CaptchaProviderCloudflare,
+	// 	SiteKey:       "1x00000000000000000000AA",            // Cloudflare test key (always passes)
+	// 	SecretKey:     "1x0000000000000000000000000000000AA",  // Cloudflare test secret (always passes)
+	// 	ApplyToRoutes: []types.RouteName{types.RouteSignup, types.RouteLogin},
+	// }))
+	authInstance.Use(admin.New(&admin.Config{}))
+	// Pass nil to use default config which enables all event tracking
+	authInstance.Use(audit.New(nil))
+
 	// Register custom hooks (user-defined)
-	authInstance.On(types.EventBeforeSignup, func(ctx context.Context, e *types.Event) error {
-		log.Println("Before signup event:", e.Type, e.Data)
+	authInstance.On(types.EventAfterLogin, func(ctx context.Context, e *types.Event) error {
+		log.Println("✅ EventAfterLogin:", e.Type, e.Data)
+		return nil
+	})
+
+	authInstance.On(types.EventAuthLoginSuccess, func(ctx context.Context, e *types.Event) error {
 		return nil
 	})
 
@@ -109,7 +160,9 @@ func main() {
 	case "http":
 		mux := http.NewServeMux()
 		for _, route := range authInstance.Routes() {
-			mux.Handle(route.Path, route.Handler)
+			// Go 1.22+ ServeMux: "METHOD /path" for method-specific routing
+			pattern := route.Method + " " + route.Path
+			mux.HandleFunc(pattern, route.Handler)
 		}
 		log.Println("Server running on :8080")
 		http.ListenAndServe(":8080", mux)
@@ -150,19 +203,21 @@ func exampleStatelessSetup(store types.Storage) *auth.Auth {
 func fiberHandler(auth *auth.Auth) *fiber.App {
 	fiber := fiber.New()
 	for _, route := range auth.Routes() {
+		// Fiber uses :param syntax, convert from {param}
+		path := toColonParams(route.Path)
 		switch route.Method {
 		case http.MethodGet:
-			fiber.Get(route.Path, adaptor.HTTPHandler(route.Handler))
+			fiber.Get(path, adaptor.HTTPHandler(route.Handler))
 		case http.MethodPost:
-			fiber.Post(route.Path, adaptor.HTTPHandler(route.Handler))
+			fiber.Post(path, adaptor.HTTPHandler(route.Handler))
 		case http.MethodPut:
-			fiber.Put(route.Path, adaptor.HTTPHandler(route.Handler))
+			fiber.Put(path, adaptor.HTTPHandler(route.Handler))
 		case http.MethodDelete:
-			fiber.Delete(route.Path, adaptor.HTTPHandler(route.Handler))
+			fiber.Delete(path, adaptor.HTTPHandler(route.Handler))
 		case http.MethodPatch:
-			fiber.Patch(route.Path, adaptor.HTTPHandler(route.Handler))
+			fiber.Patch(path, adaptor.HTTPHandler(route.Handler))
 		case http.MethodOptions:
-			fiber.Options(route.Path, adaptor.HTTPHandler(route.Handler))
+			fiber.Options(path, adaptor.HTTPHandler(route.Handler))
 		}
 	}
 	fiber.Use(auth.RequireAuth)
@@ -198,22 +253,50 @@ func chiHandler(auth *auth.Auth) *chi.Mux {
 
 func ginHandler(auth *auth.Auth) *gin.Engine {
 	r := gin.Default()
+
+	// Handle CORS preflight at the Gin router level.
+	// GoAuth's CORS middleware wraps route handlers, but Gin's method-based routing
+	// returns 404 for OPTIONS requests before the handler (and its middleware) runs.
+	// This middleware intercepts OPTIONS before route matching.
+	corsConfig := auth.Config().CORS
+	if corsConfig != nil && corsConfig.Enabled {
+		r.Use(func(c *gin.Context) {
+			if c.Request.Method == http.MethodOptions {
+				origin := c.GetHeader("Origin")
+				c.Header("Access-Control-Allow-Origin", origin)
+				c.Header("Access-Control-Allow-Methods", strings.Join(corsConfig.AllowedMethods, ", "))
+				c.Header("Access-Control-Allow-Headers", strings.Join(corsConfig.AllowedHeaders, ", "))
+				c.Header("Access-Control-Allow-Credentials", "true")
+				c.AbortWithStatus(http.StatusNoContent)
+				return
+			}
+			c.Next()
+		})
+	}
+
 	for _, route := range auth.Routes() {
+		// Gin uses :param syntax, convert from {param}
+		path := toColonParams(route.Path)
 		switch route.Method {
 		case http.MethodGet:
-			r.GET(route.Path, gin.WrapF(route.Handler))
+			r.GET(path, gin.WrapF(route.Handler))
 		case http.MethodPost:
-			r.POST(route.Path, gin.WrapF(route.Handler))
+			r.POST(path, gin.WrapF(route.Handler))
 		case http.MethodPut:
-			r.PUT(route.Path, gin.WrapF(route.Handler))
+			r.PUT(path, gin.WrapF(route.Handler))
 		case http.MethodDelete:
-			r.DELETE(route.Path, gin.WrapF(route.Handler))
+			r.DELETE(path, gin.WrapF(route.Handler))
 		case http.MethodPatch:
-			r.PATCH(route.Path, gin.WrapF(route.Handler))
+			r.PATCH(path, gin.WrapF(route.Handler))
 		case http.MethodOptions:
-			r.OPTIONS(route.Path, gin.WrapF(route.Handler))
+			r.OPTIONS(path, gin.WrapF(route.Handler))
 		}
 	}
+
+	// Serve captcha test page at /captcha-test
+	r.StaticFile("/captcha-test", "./captcha-test.html")
+
+	log.Println("Captcha test page: http://localhost:8080/captcha-test")
 	r.Run(":8080")
 	return r
 }

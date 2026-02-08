@@ -9,9 +9,7 @@ import (
 	"github.com/bete7512/goauth/pkg/types"
 )
 
-// check email availability
 func (h *CoreHandler) CheckEmailAvailability(w http.ResponseWriter, r *http.Request) {
-
 	var req dto.CheckAvailabilityRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidRequestBody), "Invalid request body")
@@ -23,18 +21,16 @@ func (h *CoreHandler) CheckEmailAvailability(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	available, err := h.CoreService.CheckEmailAvailability(r.Context(), req.Email)
-	if err != nil {
-		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidRequestBody), err.Error())
+	resp, goauthErr := h.coreService.CheckEmailAvailability(r.Context(), req.Email)
+	if goauthErr != nil {
+		http_utils.RespondError(w, goauthErr.StatusCode, string(goauthErr.Code), goauthErr.Message)
 		return
 	}
 
-	http_utils.RespondSuccess(w, map[string]bool{"is_available": available}, nil)
-
+	http_utils.RespondSuccess(w, resp, nil)
 }
 
 func (h *CoreHandler) CheckUsernameAvailability(w http.ResponseWriter, r *http.Request) {
-
 	var req dto.CheckAvailabilityRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidRequestBody), "Invalid request body")
@@ -46,17 +42,16 @@ func (h *CoreHandler) CheckUsernameAvailability(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	available, err := h.CoreService.CheckUsernameAvailability(r.Context(), req.Username)
-	if err != nil {
-		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidRequestBody), err.Error())
+	resp, goauthErr := h.coreService.CheckUsernameAvailability(r.Context(), req.Username)
+	if goauthErr != nil {
+		http_utils.RespondError(w, goauthErr.StatusCode, string(goauthErr.Code), goauthErr.Message)
 		return
 	}
 
-	http_utils.RespondSuccess(w, map[string]bool{"is_available": available}, nil)
+	http_utils.RespondSuccess(w, resp, nil)
 }
 
 func (h *CoreHandler) CheckPhoneAvailability(w http.ResponseWriter, r *http.Request) {
-
 	var req dto.CheckAvailabilityRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidRequestBody), "Invalid request body")
@@ -68,11 +63,11 @@ func (h *CoreHandler) CheckPhoneAvailability(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	available, err := h.CoreService.CheckPhoneAvailability(r.Context(), req.Phone)
-	if err != nil {
-		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidRequestBody), err.Error())
+	resp, goauthErr := h.coreService.CheckPhoneAvailability(r.Context(), req.Phone)
+	if goauthErr != nil {
+		http_utils.RespondError(w, goauthErr.StatusCode, string(goauthErr.Code), goauthErr.Message)
 		return
 	}
 
-	http_utils.RespondSuccess(w, map[string]bool{"is_available": available}, nil)
+	http_utils.RespondSuccess(w, resp, nil)
 }

@@ -67,7 +67,7 @@ func New(cfg *config.Config) (*Auth, error) {
 	if cfg.CORS != nil && cfg.CORS.Enabled {
 		middlewareManager.Register(middleware.MiddlewareConfig{
 			Name:       "cors",
-			Middleware: middleware.CORS(cfg.CORS.AllowedOrigins, cfg.CORS.AllowedMethods),
+			Middleware: middleware.CORS(cfg.CORS.AllowedOrigins, cfg.CORS.AllowedMethods, cfg.CORS.AllowedHeaders),
 			Priority:   100,
 			Global:     true,
 		})
@@ -221,11 +221,24 @@ func (a *Auth) Initialize(ctx context.Context) error {
 	}
 
 	// Run migrations if enabled
-	// Storage implementations handle their own models internally
+	// Collect models from registered modules
 	if a.config.AutoMigrate && a.storage != nil {
-		a.logger.Info("Running auto-migrations")
-		if err := a.storage.Migrate(ctx); err != nil {
-			return fmt.Errorf("failed to run migrations: %w", err)
+		var allModels []interface{}
+		for name, module := range a.modules {
+			moduleModels := module.Models()
+			if len(moduleModels) > 0 {
+				a.logger.Debug("Collecting models from module", "module", name, "count", len(moduleModels))
+				allModels = append(allModels, moduleModels...)
+			}
+		}
+
+		if len(allModels) > 0 {
+			a.logger.Info("Running auto-migrations", "models", len(allModels))
+			if err := a.storage.Migrate(ctx, allModels); err != nil {
+				return fmt.Errorf("failed to run migrations: %w", err)
+			}
+		} else {
+			a.logger.Warn("Auto-migrate enabled but no models found from registered modules")
 		}
 	}
 

@@ -8,7 +8,7 @@ import (
 )
 
 // GetCurrentUser retrieves user by user ID (from JWT claims)
-func (s *CoreService) GetCurrentUser(ctx context.Context, userID string) (*dto.UserDTO, *types.GoAuthError) {
+func (s *coreService) GetCurrentUser(ctx context.Context, userID string) (*dto.UserDTO, *types.GoAuthError) {
 	user, err := s.UserRepository.FindByID(ctx, userID)
 	if err != nil || user == nil {
 		return nil, types.NewUserNotFoundError()

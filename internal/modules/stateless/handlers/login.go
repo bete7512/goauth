@@ -15,16 +15,15 @@ func (h *StatelessHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 
 	var req dto.LoginRequest
-	metadata := map[string]interface{}{
-		"ip_address":         r.RemoteAddr,
-		"forwarded_for":      r.Header.Get("X-Forwarded-For"),
-		"user_agent":         r.UserAgent(),
-		"referer":            r.Referer(),
-		"host":               r.Host,
-		"timestamp":          time.Now(),
-		"user_id":            r.Context().Value(types.UserIDKey),
-		"request_id":         r.Header.Get("X-Request-ID"),
-		"device_fingerprint": r.Header.Get("X-Device-Fingerprint"),
+	metadata := &types.RequestMetadata{
+		IPAddress:         r.RemoteAddr,
+		ForwardedFor:      r.Header.Get("X-Forwarded-For"),
+		UserAgent:         r.UserAgent(),
+		Referer:           r.Referer(),
+		Host:              r.Host,
+		Timestamp:         time.Now(),
+		RequestID:         r.Header.Get("X-Request-ID"),
+		DeviceFingerprint: r.Header.Get("X-Device-Fingerprint"),
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -37,11 +36,10 @@ func (h *StatelessHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	loginData := map[string]interface{}{
-		"body":     req,
-		"metadata": metadata,
-	}
-	if err := h.deps.Events.EmitSync(ctx, "before:login", loginData); err != nil {
+	if err := h.deps.Events.EmitSync(ctx, types.EventBeforeLogin, &types.BeforeHookData{
+		Body:     req,
+		Metadata: metadata,
+	}); err != nil {
 		http_utils.RespondError(w, http.StatusForbidden, string(types.ErrForbidden), "Login blocked: "+err.Error())
 		return
 	}
@@ -60,11 +58,22 @@ func (h *StatelessHandler) Login(w http.ResponseWriter, r *http.Request) {
 	// Set cookies for convenience (clients can also use Bearer tokens)
 	h.setTokenCookies(w, &response)
 
-	if emitErr := h.deps.Events.EmitAsync(ctx, types.EventAfterLogin, map[string]interface{}{
-		"user":     response.User.ToUser(),
-		"metadata": metadata,
+	if emitErr := h.deps.Events.EmitAsync(ctx, types.EventAfterLogin, &types.LoginEventData{
+		User:     response.User.ToUser(),
+		Metadata: metadata,
 	}); emitErr != nil {
 		h.deps.Logger.Errorf("stateless: failed to emit after login event: %v", emitErr)
+	}
+
+	// Emit audit event for login success
+	if err := h.deps.Events.EmitAsync(ctx, types.EventAuthLoginSuccess, map[string]interface{}{
+		"actor_id":   response.User.ID,
+		"user_id":    response.User.ID,
+		"ip":         metadata.IPAddress,
+		"user_agent": metadata.UserAgent,
+		"details":    "User logged in successfully",
+	}); err != nil {
+		h.deps.Logger.Errorf("stateless: failed to emit audit login event: %v", err)
 	}
 
 	http_utils.RespondSuccess(w, response, nil)

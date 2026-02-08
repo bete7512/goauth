@@ -16,7 +16,7 @@ func (h *CoreHandler) Me(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.CoreService.GetProfile(ctx, userID)
+	user, err := h.coreService.GetProfile(ctx, userID)
 	if err != nil {
 		http_utils.RespondError(w, err.StatusCode, string(err.Code), err.Message)
 		return

@@ -58,8 +58,6 @@ func (s *StatelessService) Refresh(ctx context.Context, req *dto.RefreshRequest)
 	accessToken, err := s.SecurityManager.GenerateAccessToken(
 		*user,
 		map[string]interface{}{},
-		s.Deps.Config.Security.Session.AccessTokenTTL,
-		s.Deps.Config.Security.JwtSecretKey,
 	)
 	if err != nil {
 		return dto.AuthResponse{}, types.NewInternalError(fmt.Sprintf("failed to generate access token: %s", err.Error()))

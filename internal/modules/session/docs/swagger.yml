@@ -2,22 +2,40 @@ paths:
   /sessions:
     get:
       summary: Get all sessions
-      description: Get all sessions for the current user or a specific user (admin)
+      description: Get all active sessions for the current user
       tags: [Session Module Docs]
       parameters:
-        - name: user_id
-          in: query
-          required: false
-          description: User ID to get sessions for (admin only, defaults to current user)
-          schema:
-            type: string
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+        - $ref: '#/components/parameters/SortField'
+        - $ref: '#/components/parameters/SortDir'
       responses:
         '200':
           description: Sessions retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SessionsResponse'
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      list:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/SessionResponse'
+                      sort_field:
+                        type: string
+                        example: created_at
+                      sort_dir:
+                        type: string
+                        enum: [asc, desc]
+                        example: desc
+                      total:
+                        type: integer
+                  message:
+                    type: string
+                    nullable: true
         '401':
           description: Unauthorized
           content:
@@ -34,6 +52,11 @@ paths:
       summary: Revoke all sessions
       description: Revoke all sessions for the current user or a specific user (admin)
       tags: [Session Module Docs]
+      security:
+        - cookieAuth: []
+          csrfToken: []
+        - bearerAuth: []
+          csrfToken: []
       parameters:
         - name: user_id
           in: query
@@ -119,6 +142,11 @@ paths:
       summary: Revoke a session
       description: Revoke a specific session by ID
       tags: [Session Module Docs]
+      security:
+        - cookieAuth: []
+          csrfToken: []
+        - bearerAuth: []
+          csrfToken: []
       parameters:
         - name: id
           in: path
@@ -159,6 +187,40 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
 
 components:
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        default: 20
+        maximum: 100
+      description: Maximum number of items to return
+    Offset:
+      name: offset
+      in: query
+      schema:
+        type: integer
+        default: 0
+        minimum: 0
+      description: Number of items to skip
+    SortField:
+      name: sort_field
+      in: query
+      schema:
+        type: string
+        default: created_at
+        enum: [created_at, expires_at, ip_address]
+      description: Field to sort results by
+    SortDir:
+      name: sort_dir
+      in: query
+      schema:
+        type: string
+        default: desc
+        enum: [asc, desc]
+      description: Sort direction
+
   schemas:
     SessionResponse:
       type: object
@@ -166,9 +228,6 @@ components:
         id:
           type: string
           description: Session ID
-        user_id:
-          type: string
-          description: User ID
         user_agent:
           type: string
           description: User agent string
@@ -186,16 +245,6 @@ components:
         current:
           type: boolean
           description: Whether this is the current session
-    SessionsResponse:
-      type: object
-      properties:
-        sessions:
-          type: array
-          items:
-            $ref: '#/components/schemas/SessionResponse'
-        total:
-          type: integer
-          description: Total number of sessions
     MessageResponse:
       type: object
       properties:

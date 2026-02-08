@@ -1,5 +1,7 @@
 package models
 
+//go:generate mockgen -destination=../../internal/mocks/mock_user_repository.go -package=mocks github.com/bete7512/goauth/pkg/models UserRepository,ExtendedAttributeRepository
+
 import (
 	"context"
 	"time"
@@ -18,6 +20,7 @@ type User struct {
 	Active              bool                 `json:"active" gorm:"default:true"`
 	EmailVerified       bool                 `json:"email_verified" gorm:"default:false"`
 	PhoneNumberVerified bool                 `json:"phone_number_verified" gorm:"default:false"`
+	IsSuperAdmin        bool                 `json:"is_super_admin" gorm:"default:false;not null;index"`
 	// TokenVersion is used for stateless token revocation
 	// Incrementing this value invalidates all existing tokens for the user
 	TokenVersion       int                  `json:"-" gorm:"default:0;not null"`
@@ -42,7 +45,7 @@ type UserRepository interface {
 	FindByUsername(ctx context.Context, username string) (*User, error)
 	FindByPhoneNumber(ctx context.Context, phoneNumber string) (*User, error)
 	FindByEmailOrUsername(ctx context.Context, emailOrUsername string) (*User, error)
-	List(ctx context.Context, limit, offset int) ([]*User, error)
+	List(ctx context.Context, opts UserListOpts) ([]*User, int64, error)
 	FindByID(ctx context.Context, id string) (*User, error)
 	Update(ctx context.Context, user *User) error
 	Delete(ctx context.Context, id string) error

@@ -7,13 +7,13 @@ import (
 )
 
 type CoreHandler struct {
-	CoreService *core_services.CoreService
+	coreService core_services.CoreService
 	deps        config.ModuleDependencies
 }
 
-func NewCoreHandler(coreService *core_services.CoreService, deps config.ModuleDependencies) *CoreHandler {
+func NewCoreHandler(coreService core_services.CoreService, deps config.ModuleDependencies) *CoreHandler {
 	return &CoreHandler{
-		CoreService: coreService,
+		coreService: coreService,
 		deps:        deps,
 	}
 }
@@ -33,21 +33,21 @@ func (h *CoreHandler) GetRoutes() []config.RouteInfo {
 			Path:        "/me",
 			Method:      "GET",
 			Handler:     h.Me,
-			Middlewares: []string{string(types.MiddlewareAuth)},
+			Middlewares: []types.MiddlewareName{(types.MiddlewareAuth)},
 		},
 		{
 			Name:        string(types.RouteUpdateProfile),
 			Path:        "/profile",
 			Method:      "PUT",
 			Handler:     h.UpdateProfile,
-			Middlewares: []string{string(types.MiddlewareAuth)},
+			Middlewares: []types.MiddlewareName{(types.MiddlewareAuth)},
 		},
 		{
 			Name:        string(types.RouteChangePassword),
 			Path:        "/change-password",
 			Method:      "PUT",
 			Handler:     h.ChangePassword,
-			Middlewares: []string{string(types.MiddlewareAuth)},
+			Middlewares: []types.MiddlewareName{(types.MiddlewareAuth)},
 		},
 		{
 			Name:    string(types.RouteCheckAvailability),

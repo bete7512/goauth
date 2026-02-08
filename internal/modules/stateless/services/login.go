@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/internal/modules/stateless/handlers/dto"
+	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
@@ -35,8 +35,6 @@ func (s *StatelessService) Login(ctx context.Context, req *dto.LoginRequest) (dt
 	accessToken, err := s.SecurityManager.GenerateAccessToken(
 		*user,
 		map[string]interface{}{},
-		s.Deps.Config.Security.Session.AccessTokenTTL,
-		s.Deps.Config.Security.JwtSecretKey,
 	)
 	if err != nil {
 		return dto.AuthResponse{}, types.NewInternalError(fmt.Sprintf("failed to generate access token: %s", err.Error()))

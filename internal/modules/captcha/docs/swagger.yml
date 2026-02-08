@@ -1,0 +1,9 @@
+components:
+  securitySchemes:
+    captchaToken:
+      type: apiKey
+      in: header
+      name: X-Captcha-Token
+      description: >
+        Captcha verification token from a client-side widget (Google reCAPTCHA v3 or Cloudflare Turnstile).
+        Required on routes configured with captcha protection (typically signup and login).

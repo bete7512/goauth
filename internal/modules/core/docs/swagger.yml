@@ -5,6 +5,8 @@ paths:
       summary: Register a new user
       description: Create a new user account with email/password
       tags: [Core Authentication Module Docs]
+      security:
+        - csrfToken: []
       requestBody:
         required: true
         content:
@@ -36,6 +38,8 @@ paths:
       summary: Login with credentials
       description: Authenticate user with email/username and password
       tags: [Core Authentication Module Docs]
+      security:
+        - csrfToken: []
       requestBody:
         required: true
         content:
@@ -75,7 +79,9 @@ paths:
       tags: [Core Authentication Module Docs]
       security:
         - cookieAuth: []
+          csrfToken: []
         - bearerAuth: []
+          csrfToken: []
       responses:
         '200':
           description: Logout successful
@@ -118,6 +124,8 @@ paths:
       summary: Reset password
       description: Reset password using token/code from email/SMS
       tags: [Core Authentication Module Docs]
+      security:
+        - csrfToken: []
       requestBody:
         required: true
         content:
@@ -149,10 +157,12 @@ paths:
     put:
       summary: Update user profile
       description: Update user profile information
-      tags: [Core Authentication Module Docs]        
+      tags: [Core Authentication Module Docs]
       security:
         - cookieAuth: []
+          csrfToken: []
         - bearerAuth: []
+          csrfToken: []
       requestBody:
         required: true
         content:
@@ -186,7 +196,9 @@ paths:
       tags: [Core Authentication Module Docs]
       security:
         - cookieAuth: []
+          csrfToken: []
         - bearerAuth: []
+          csrfToken: []
       requestBody:
         required: true
         content:
@@ -219,6 +231,8 @@ paths:
       summary: Check field availability
       description: Check if email, username, or phone is available
       tags: [Core Authentication Module Docs]
+      security:
+        - csrfToken: []
       requestBody:
         required: true
         content:
@@ -244,7 +258,8 @@ paths:
       summary: Check username availability
       description: Check if username is available
       tags: [Core Authentication Module Docs]
-
+      security:
+        - csrfToken: []
       requestBody:
         required: true
         content:
@@ -271,7 +286,8 @@ paths:
       summary: Check phone availability
       description: Check if phone is available
       tags: [Core Authentication Module Docs]
-
+      security:
+        - csrfToken: []
       requestBody:
         required: true
         content:

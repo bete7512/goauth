@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/bete7512/goauth/pkg/models"
+	"github.com/bete7512/goauth/storage/gorm/helpers"
 	"gorm.io/gorm"
 )
 
@@ -36,13 +37,20 @@ func (r *SessionRepository) FindByToken(ctx context.Context, refreshToken string
 	return &session, err
 }
 
-func (r *SessionRepository) FindByUserID(ctx context.Context, userID string) ([]*models.Session, error) {
+func (r *SessionRepository) FindByUserID(ctx context.Context, userID string, opts models.SessionListOpts) ([]*models.Session, int64, error) {
+	var total int64
+	baseQuery := r.db.WithContext(ctx).Model(&models.Session{}).
+		Where("user_id = ? AND expires_at > ?", userID, time.Now())
+
+	if err := baseQuery.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
 	var sessions []*models.Session
-	err := r.db.WithContext(ctx).
-		Where("user_id = ? AND expires_at > ?", userID, time.Now()).
-		Order("created_at DESC").
-		Find(&sessions).Error
-	return sessions, err
+	if err := helpers.ApplyListingOpts(baseQuery, opts.ListingOpts).Find(&sessions).Error; err != nil {
+		return nil, 0, err
+	}
+	return sessions, total, nil
 }
 
 func (r *SessionRepository) Update(ctx context.Context, session *models.Session) error {

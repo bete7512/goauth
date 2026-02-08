@@ -2,45 +2,59 @@ paths:
   /csrf-token:
     get:
       summary: Get CSRF token
-      description: Get CSRF token for the current session
+      description: |
+        Generates a new CSRF token using HMAC-based double-submit cookie pattern.
+        The token is returned in the response body and also set as a cookie.
+        Clients must include this token in the X-CSRF-Token header (or csrf_token form field)
+        on all state-changing requests (POST, PUT, DELETE, PATCH).
       tags: [CSRF Module Docs]
       responses:
         '200':
           description: CSRF token generated successfully
+          headers:
+            Set-Cookie:
+              description: CSRF cookie (non-HttpOnly so JS can read it)
+              schema:
+                type: string
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CSRFTokenResponse'  
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/CSRFTokenResponse'
         '500':
           description: CSRF token generation error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'  
+                $ref: '#/components/schemas/ErrorResponse'
 
 components:
+  securitySchemes:
+    csrfToken:
+      type: apiKey
+      in: header
+      name: X-CSRF-Token
+      description: >
+        CSRF token for state-changing requests. Obtain a token from GET /csrf-token,
+        then include it in the X-CSRF-Token header on POST/PUT/DELETE/PATCH requests.
   schemas:
     CSRFTokenResponse:
       type: object
       properties:
-        csrf_token:
-          type: string
-          example: abc123
-          description: CSRF token 
+        data:
+          type: object
+          properties:
+            csrf_token:
+              type: string
+              description: HMAC-signed CSRF token
     ErrorResponse:
       type: object
       properties:
         error:
-          type: string
-          example: Invalid CSRF token
-          description: Error message
-        status:
-          type: string
-          example: 400
-          description: Error status
+          type: object
+          properties:
+            code:
+              type: string
+              example: INTERNAL_ERROR
+            message:
+              type: string
+              example: Failed to generate CSRF token

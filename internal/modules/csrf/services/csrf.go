@@ -1,116 +1,167 @@
 package services
 
 import (
+	"crypto/hmac"
 	"crypto/rand"
+	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/base64"
-	"sync"
+	"fmt"
+	"strconv"
+	"strings"
 	"time"
+
+	"github.com/bete7512/goauth/pkg/config"
 )
 
+const (
+	defaultTokenExpiry   = 1 * time.Hour
+	defaultCookieName    = "__goauth_csrf"
+	defaultHeaderName    = "X-CSRF-Token"
+	defaultFormFieldName = "csrf_token"
+	defaultCookiePath    = "/"
+	nonceLength          = 32
+	tokenParts           = 3 // nonce:timestamp:signature
+)
+
+// CSRFService provides stateless HMAC-based CSRF token generation and validation.
+// Tokens are self-contained — no server-side storage is needed.
 type CSRFService struct {
-	tokenLength   int
-	tokenExpiry   int
+	secretKey     []byte
+	tokenExpiry   time.Duration
 	cookieName    string
 	headerName    string
 	formFieldName string
-	tokens        map[string]time.Time
-	mu            sync.RWMutex
+	cookiePath    string
+	cookieDomain  string
 }
 
-func NewCSRFService(tokenLength, tokenExpiry int, cookieName, headerName, formFieldName string) *CSRFService {
-	service := &CSRFService{
-		tokenLength:   tokenLength,
-		tokenExpiry:   tokenExpiry,
-		cookieName:    cookieName,
-		headerName:    headerName,
-		formFieldName: formFieldName,
-		tokens:        make(map[string]time.Time),
+// DeriveKey derives a CSRF-specific key from the JWT secret key using HMAC-SHA256.
+// This avoids using the raw JWT key directly for CSRF operations.
+func DeriveKey(jwtSecretKey string) []byte {
+	mac := hmac.New(sha256.New, []byte(jwtSecretKey))
+	mac.Write([]byte("goauth-csrf-key"))
+	return mac.Sum(nil)
+}
+
+// NewCSRFService creates a new CSRF service with HMAC-based token generation.
+func NewCSRFService(jwtSecretKey string, cfg *config.CSRFModuleConfig) *CSRFService {
+	s := &CSRFService{
+		secretKey:     DeriveKey(jwtSecretKey),
+		tokenExpiry:   defaultTokenExpiry,
+		cookieName:    defaultCookieName,
+		headerName:    defaultHeaderName,
+		formFieldName: defaultFormFieldName,
+		cookiePath:    defaultCookiePath,
 	}
 
-	// Start cleanup goroutine
-	go service.cleanup()
+	if cfg == nil {
+		return s
+	}
 
-	return service
+	if cfg.TokenExpiry > 0 {
+		s.tokenExpiry = cfg.TokenExpiry
+	}
+	if cfg.CookieName != "" {
+		s.cookieName = cfg.CookieName
+	}
+	if cfg.HeaderName != "" {
+		s.headerName = cfg.HeaderName
+	}
+	if cfg.FormFieldName != "" {
+		s.formFieldName = cfg.FormFieldName
+	}
+	if cfg.CookiePath != "" {
+		s.cookiePath = cfg.CookiePath
+	}
+	if cfg.CookieDomain != "" {
+		s.cookieDomain = cfg.CookieDomain
+	}
+
+	return s
 }
 
-// GenerateToken generates a new CSRF token
+// GenerateToken creates a new HMAC-signed CSRF token.
+// Format: base64(nonce):unix_timestamp:base64(hmac_signature)
 func (s *CSRFService) GenerateToken() (string, error) {
-	b := make([]byte, s.tokenLength)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
+	nonce := make([]byte, nonceLength)
+	if _, err := rand.Read(nonce); err != nil {
+		return "", fmt.Errorf("csrf: failed to generate nonce: %w", err)
 	}
 
-	token := base64.URLEncoding.EncodeToString(b)
+	nonceB64 := base64.RawURLEncoding.EncodeToString(nonce)
+	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
+	payload := nonceB64 + ":" + timestamp
 
-	// Store token with expiry
-	s.mu.Lock()
-	s.tokens[token] = time.Now().Add(time.Duration(s.tokenExpiry) * time.Second)
-	s.mu.Unlock()
+	sig := s.sign(payload)
+	sigB64 := base64.RawURLEncoding.EncodeToString(sig)
 
-	return token, nil
+	return payload + ":" + sigB64, nil
 }
 
-// ValidateToken validates a CSRF token
+// ValidateToken checks that a token has a valid HMAC signature and hasn't expired.
 func (s *CSRFService) ValidateToken(token string) bool {
 	if token == "" {
 		return false
 	}
 
-	s.mu.RLock()
-	expiry, exists := s.tokens[token]
-	s.mu.RUnlock()
-
-	if !exists {
+	parts := strings.SplitN(token, ":", tokenParts)
+	if len(parts) != tokenParts {
 		return false
 	}
 
-	// Check if token has expired
-	if time.Now().After(expiry) {
-		// Remove expired token
-		s.mu.Lock()
-		delete(s.tokens, token)
-		s.mu.Unlock()
+	nonceB64, timestampStr, sigB64 := parts[0], parts[1], parts[2]
+
+	// Check expiry
+	ts, err := strconv.ParseInt(timestampStr, 10, 64)
+	if err != nil {
+		return false
+	}
+	if time.Since(time.Unix(ts, 0)) > s.tokenExpiry {
 		return false
 	}
 
-	return true
-}
+	// Recompute HMAC and compare
+	payload := nonceB64 + ":" + timestampStr
+	expectedSig := s.sign(payload)
 
-// InvalidateToken removes a token (after use)
-func (s *CSRFService) InvalidateToken(token string) {
-	s.mu.Lock()
-	delete(s.tokens, token)
-	s.mu.Unlock()
-}
-
-// cleanup removes expired tokens
-func (s *CSRFService) cleanup() {
-	ticker := time.NewTicker(5 * time.Minute)
-	defer ticker.Stop()
-
-	for range ticker.C {
-		s.mu.Lock()
-		now := time.Now()
-		for token, expiry := range s.tokens {
-			if now.After(expiry) {
-				delete(s.tokens, token)
-			}
-		}
-		s.mu.Unlock()
+	actualSig, err := base64.RawURLEncoding.DecodeString(sigB64)
+	if err != nil {
+		return false
 	}
+
+	return subtle.ConstantTimeCompare(expectedSig, actualSig) == 1
 }
 
-// GetCookieName returns the CSRF cookie name
-func (s *CSRFService) GetCookieName() string {
-	return s.cookieName
+// TokensMatch compares two tokens using constant-time comparison.
+// Returns false if either token is empty.
+func (s *CSRFService) TokensMatch(a, b string) bool {
+	if a == "" || b == "" {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
 }
 
-// GetHeaderName returns the CSRF header name
-func (s *CSRFService) GetHeaderName() string {
-	return s.headerName
+func (s *CSRFService) sign(payload string) []byte {
+	mac := hmac.New(sha256.New, s.secretKey)
+	mac.Write([]byte(payload))
+	return mac.Sum(nil)
 }
 
-// GetFormFieldName returns the CSRF form field name
-func (s *CSRFService) GetFormFieldName() string {
-	return s.formFieldName
-}
+// CookieName returns the configured CSRF cookie name.
+func (s *CSRFService) CookieName() string { return s.cookieName }
+
+// HeaderName returns the configured CSRF header name.
+func (s *CSRFService) HeaderName() string { return s.headerName }
+
+// FormFieldName returns the configured CSRF form field name.
+func (s *CSRFService) FormFieldName() string { return s.formFieldName }
+
+// TokenExpiry returns the configured token expiry duration.
+func (s *CSRFService) TokenExpiry() time.Duration { return s.tokenExpiry }
+
+// CookiePath returns the configured cookie path.
+func (s *CSRFService) CookiePath() string { return s.cookiePath }
+
+// CookieDomain returns the configured cookie domain.
+func (s *CSRFService) CookieDomain() string { return s.cookieDomain }

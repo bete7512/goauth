@@ -56,7 +56,9 @@ const (
 	// Authorization errors
 	ErrUnauthorized ErrorCode = "UNAUTHORIZED"
 	ErrForbidden    ErrorCode = "FORBIDDEN"
-	ErrInvalidCSRF  ErrorCode = "INVALID_CSRF"
+	ErrInvalidCSRF     ErrorCode = "INVALID_CSRF"
+	ErrCaptchaRequired ErrorCode = "CAPTCHA_REQUIRED"
+	ErrCaptchaFailed   ErrorCode = "CAPTCHA_FAILED"
 
 	// Two-factor errors
 	ErrTwoFactorAlreadyEnabled ErrorCode = "TWO_FACTOR_ALREADY_ENABLED"
@@ -327,6 +329,22 @@ func NewInvalidCSRFError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrInvalidCSRF,
 		Message:    "Invalid CSRF token",
+		StatusCode: http.StatusForbidden,
+	}
+}
+
+func NewCaptchaRequiredError() *GoAuthError {
+	return &GoAuthError{
+		Code:       ErrCaptchaRequired,
+		Message:    "Captcha token required",
+		StatusCode: http.StatusForbidden,
+	}
+}
+
+func NewCaptchaFailedError() *GoAuthError {
+	return &GoAuthError{
+		Code:       ErrCaptchaFailed,
+		Message:    "Captcha verification failed",
 		StatusCode: http.StatusForbidden,
 	}
 }

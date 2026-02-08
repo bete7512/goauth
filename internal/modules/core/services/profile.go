@@ -10,7 +10,7 @@ import (
 )
 
 // GetProfile retrieves user profile
-func (s *CoreService) GetProfile(ctx context.Context, userID string) (*dto.UserDTO, *types.GoAuthError) {
+func (s *coreService) GetProfile(ctx context.Context, userID string) (*dto.UserDTO, *types.GoAuthError) {
 	user, err := s.UserRepository.FindByID(ctx, userID)
 	if err != nil || user == nil {
 		return nil, types.NewUserNotFoundError()
@@ -27,7 +27,7 @@ func (s *CoreService) GetProfile(ctx context.Context, userID string) (*dto.UserD
 }
 
 // UpdateProfile updates user profile
-func (s *CoreService) UpdateProfile(ctx context.Context, userID string, req *dto.UpdateProfileRequest) (*dto.UserDTO, *types.GoAuthError) {
+func (s *coreService) UpdateProfile(ctx context.Context, userID string, req *dto.UpdateProfileRequest) (*dto.UserDTO, *types.GoAuthError) {
 	// Find user
 	user, err := s.UserRepository.FindByID(ctx, userID)
 	if err != nil || user == nil {
@@ -37,6 +37,9 @@ func (s *CoreService) UpdateProfile(ctx context.Context, userID string, req *dto
 	// Update fields
 	if req.Name != "" {
 		user.Name = req.Name
+	}
+	if req.Phone != "" {
+		user.PhoneNumber = req.Phone
 	}
 	if req.Avatar != "" {
 		user.Avatar = req.Avatar
@@ -49,10 +52,12 @@ func (s *CoreService) UpdateProfile(ctx context.Context, userID string, req *dto
 	}
 
 	return &dto.UserDTO{
-		ID:        user.ID,
-		Email:     user.Email,
-		Name:      user.Name,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
+		ID:          user.ID,
+		Email:       user.Email,
+		Name:        user.Name,
+		PhoneNumber: user.PhoneNumber,
+		Avatar:      user.Avatar,
+		CreatedAt:   user.CreatedAt,
+		UpdatedAt:   user.UpdatedAt,
 	}, nil
 }

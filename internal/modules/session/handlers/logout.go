@@ -25,15 +25,14 @@ func (h *SessionHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	// Clear cookies
 	h.clearSessionCookies(w)
 
-	if emitErr := h.deps.Events.EmitAsync(ctx, types.EventAfterLogout, map[string]interface{}{
-		"user_id": userID,
+	if emitErr := h.deps.Events.EmitAsync(ctx, types.EventAfterLogout, &types.LogoutEventData{
+		UserID: userID,
 	}); emitErr != nil {
 		h.deps.Logger.Errorf("session: failed to emit after logout event: %v", emitErr)
 	}
 
 	http_utils.RespondSuccess(w, map[string]interface{}{
 		"message": "Logged out successfully",
-		"success": true,
 	}, nil)
 }
 

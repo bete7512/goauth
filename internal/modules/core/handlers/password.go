@@ -16,27 +16,31 @@ func (h *CoreHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context (set by auth middleware)
 	userID, ok := ctx.Value(types.UserIDKey).(string)
 	if !ok || userID == "" {
-		http_utils.RespondError(w, http.StatusUnauthorized, "UNAUTHORIZED", "User not authenticated")
+		http_utils.RespondError(w, http.StatusUnauthorized, string(types.ErrUnauthorized), "User not authenticated")
 		return
 	}
 
 	var req dto.ChangePasswordRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http_utils.RespondError(w, http.StatusBadRequest, "INVALID_REQUEST_BODY", "Invalid request body")
+		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidRequestBody), "Invalid request body")
 		return
 	}
 
 	if err := req.Validate(); err != nil {
-		http_utils.RespondError(w, http.StatusBadRequest, "INVALID_REQUEST_BODY", err.Error())
+		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidRequestBody), err.Error())
 		return
 	}
 
 	// Call service
-	response, err := h.CoreService.ChangePassword(ctx, userID, &req)
+	response, err := h.coreService.ChangePassword(ctx, userID, &req)
 	if err != nil {
-		http_utils.RespondError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		http_utils.RespondError(w, err.StatusCode, string(err.Code), err.Message)
 		return
 	}
+
+
+	// logout
+	
 
 	http_utils.RespondSuccess(w, response, nil)
 }
