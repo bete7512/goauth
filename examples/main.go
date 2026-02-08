@@ -10,6 +10,7 @@ import (
 
 	"github.com/bete7512/goauth/internal/modules/admin"
 	"github.com/bete7512/goauth/internal/modules/audit"
+	"github.com/bete7512/goauth/internal/modules/notification"
 	"github.com/bete7512/goauth/internal/modules/session"
 	"github.com/bete7512/goauth/internal/modules/stateless"
 	"github.com/bete7512/goauth/pkg/auth"
@@ -95,6 +96,13 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to create auth: %v", err)
 	}
+
+
+	authInstance.Use(notification.New(
+		&notification.Config{
+
+		},
+	))
 
 	// --- Option 1: Session-based auth (uncomment to use) ---
 	authInstance.Use(session.New(&config.SessionModuleConfig{

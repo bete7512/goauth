@@ -16,7 +16,6 @@ type GormCoreStorage struct {
 	db                 *gorm.DB
 	users              *UserRepository
 	tokens             *TokenRepository
-	verificationTokens *VerificationTokenRepository
 	extendedAttributes *ExtendedAttributeRepository
 }
 
@@ -26,7 +25,6 @@ func NewCoreStorage(db *gorm.DB) *GormCoreStorage {
 		db:                 db,
 		users:              &UserRepository{db: db},
 		tokens:             &TokenRepository{db: db},
-		verificationTokens: &VerificationTokenRepository{db: db},
 		extendedAttributes: &ExtendedAttributeRepository{db: db},
 	}
 }
@@ -37,10 +35,6 @@ func (s *GormCoreStorage) Users() models.UserRepository {
 
 func (s *GormCoreStorage) Tokens() models.TokenRepository {
 	return s.tokens
-}
-
-func (s *GormCoreStorage) VerificationTokens() models.VerificationTokenRepository {
-	return s.verificationTokens
 }
 
 func (s *GormCoreStorage) ExtendedAttributes() models.ExtendedAttributeRepository {

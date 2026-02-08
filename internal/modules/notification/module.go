@@ -6,40 +6,28 @@ import (
 
 	_ "embed"
 
-	"github.com/bete7512/goauth/internal/modules/notification/handlers"
 	"github.com/bete7512/goauth/internal/modules/notification/hooks"
 	"github.com/bete7512/goauth/internal/modules/notification/models"
 	"github.com/bete7512/goauth/internal/modules/notification/services"
 	"github.com/bete7512/goauth/pkg/config"
-	pkgmodels "github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
 )
 
 type NotificationModule struct {
-	deps                  config.ModuleDependencies
-	service               *services.NotificationService
-	handlers              *handlers.NotificationHandler
-	config                *Config
-	verificationTokenRepo pkgmodels.VerificationTokenRepository
-	userRepo              pkgmodels.UserRepository
+	deps    config.ModuleDependencies
+	service services.NotificationService
+	config  *Config
 }
 
-// Config holds notification module configuration
+// Config holds notification module configuration.
 type Config struct {
-
-	// Email sender implementation (optional - user can provide their own)
+	// Email sender implementation (optional)
 	EmailSender models.EmailSender
 
-	// SMS sender implementation (optional - user can provide their own)
+	// SMS sender implementation (optional)
 	SMSSender models.SMSSender
 
-	// Verification token repository (optional - user can provide their own)
-	VerificationTokenRepository pkgmodels.VerificationTokenRepository
-
-	// User repository (optional - user can provide their own)
-	UserRepository pkgmodels.UserRepository
-
-	// Service configuration
+	// Service configuration (templates, app name, etc.)
 	ServiceConfig *services.NotificationConfig
 
 	// Enable/disable specific notifications
@@ -56,7 +44,7 @@ var swaggerSpec []byte
 
 var _ config.Module = (*NotificationModule)(nil)
 
-// New creates a new notification module
+// New creates a new notification module.
 func New(cfg *Config) *NotificationModule {
 	if cfg == nil {
 		cfg = &Config{
@@ -81,56 +69,42 @@ func (m *NotificationModule) Name() string {
 func (m *NotificationModule) Init(ctx context.Context, deps config.ModuleDependencies) error {
 	m.deps = deps
 
-	// Resolve repositories
-	m.resolveVerificationTokenRepository()
-	m.resolveUserRepository()
-
 	// Validate sender configuration
-	m.validateSenderConfiguration()
+	if m.config.EmailSender == nil && m.config.SMSSender == nil {
+		m.deps.Logger.Warnf("notification module: no email or SMS sender configured, notifications will not be sent")
+	}
 
 	// Verify sender connections
 	if err := m.verifySenderConnections(ctx); err != nil {
 		return err
 	}
 
-	// Initialize service with resolved dependencies
+	// Initialize service (delivery only -- no repos, no DB)
 	m.service = services.NewNotificationService(
-		deps,
 		m.config.EmailSender,
 		m.config.SMSSender,
 		m.config.ServiceConfig,
-		m.verificationTokenRepo,
-		m.userRepo,
 	)
-
-	// Initialize handlers
-	m.handlers = handlers.NewNotificationHandler(m.service, deps)
 
 	return nil
 }
 
 func (m *NotificationModule) Routes() []config.RouteInfo {
-	if m.handlers == nil {
-		return nil
-	}
-	return m.handlers.GetRoutes()
+	// Notification module has no HTTP routes -- it's a pure delivery layer.
+	// Verification routes are now in the core module.
+	return nil
 }
 
 func (m *NotificationModule) Middlewares() []config.MiddlewareConfig {
-	// Notification module doesn't export any middlewares
-	// It uses the auth middleware from the core module via RouteInfo.Middlewares
 	return []config.MiddlewareConfig{}
 }
 
 func (m *NotificationModule) Models() []any {
-	// Notification module now includes verification token model
-	return []any{
-		&pkgmodels.VerificationToken{},
-	}
+	// No models -- tokens are owned by core module.
+	return []any{}
 }
 
 func (m *NotificationModule) RegisterHooks(events types.EventBus) error {
-	// Create hooks manager - clean configuration-driven approach
 	hookManager := hooks.NewNotificationHooks(m.service, m.deps, &hooks.HookConfig{
 		EnableWelcomeEmail:        m.config.EnableWelcomeEmail,
 		EnablePasswordResetEmail:  m.config.EnablePasswordResetEmail,
@@ -140,7 +114,6 @@ func (m *NotificationModule) RegisterHooks(events types.EventBus) error {
 		Enable2FANotifications:    m.config.Enable2FANotifications,
 	})
 
-	// Register all hooks - simple loop instead of 300+ lines!
 	for _, hook := range hookManager.GetHooks() {
 		events.Subscribe(hook.Event, hook.Handler)
 	}
@@ -150,59 +123,19 @@ func (m *NotificationModule) RegisterHooks(events types.EventBus) error {
 }
 
 func (m *NotificationModule) SwaggerSpec() []byte {
-	return swaggerSpec
+	return nil
 }
 
 func (m *NotificationModule) Dependencies() []string {
-	// Notification module depends on core for user events
 	return []string{string(types.CoreModule)}
 }
 
-// GetService returns the notification service for direct access
-func (m *NotificationModule) GetService() *services.NotificationService {
+// GetService returns the notification service for direct access by library users.
+func (m *NotificationModule) GetService() services.NotificationService {
 	return m.service
 }
 
-// Private helper functions for initialization
-
-func (m *NotificationModule) resolveVerificationTokenRepository() {
-	if m.config.VerificationTokenRepository != nil {
-		m.verificationTokenRepo = m.config.VerificationTokenRepository
-		return
-	}
-
-	// Get from core storage
-	if m.deps.Storage != nil {
-		coreStorage := m.deps.Storage.Core()
-		if coreStorage != nil {
-			m.verificationTokenRepo = coreStorage.VerificationTokens()
-		}
-	}
-}
-
-func (m *NotificationModule) resolveUserRepository() {
-	if m.config.UserRepository != nil {
-		m.userRepo = m.config.UserRepository
-		return
-	}
-
-	// Get from core storage
-	if m.deps.Storage != nil {
-		coreStorage := m.deps.Storage.Core()
-		if coreStorage != nil {
-			m.userRepo = coreStorage.Users()
-		}
-	}
-}
-
-func (m *NotificationModule) validateSenderConfiguration() {
-	if m.config.EmailSender == nil && m.config.SMSSender == nil {
-		m.deps.Logger.Warnf("notification module: no email or SMS sender configured, notifications will not be sent")
-	}
-}
-
 func (m *NotificationModule) verifySenderConnections(ctx context.Context) error {
-	// Verify email sender connection
 	if m.config.EmailSender != nil {
 		if err := m.config.EmailSender.VerifyConfig(ctx); err != nil {
 			return fmt.Errorf("notification: email sender verification failed: %w", err)
@@ -210,7 +143,6 @@ func (m *NotificationModule) verifySenderConnections(ctx context.Context) error 
 		m.deps.Logger.Info("notification module: email sender connected successfully")
 	}
 
-	// Verify SMS sender connection
 	if m.config.SMSSender != nil {
 		if err := m.config.SMSSender.VerifyConfig(ctx); err != nil {
 			return fmt.Errorf("notification: SMS sender verification failed: %w", err)

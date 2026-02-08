@@ -47,14 +47,30 @@ type LogoutEventData struct {
 	UserID string `json:"user_id"`
 }
 
-// PasswordResetRequestData is used for before:reset-password events.
+// EmailVerificationRequestData is used for send:email-verification events.
+// Carries the pre-built verification link so notification just renders + delivers.
+type EmailVerificationRequestData struct {
+	User             *models.User `json:"user"`
+	VerificationLink string       `json:"verification_link"`
+}
+
+// PhoneVerificationRequestData is used for send:phone-verification events.
+// Carries the OTP code so notification just renders + delivers.
+type PhoneVerificationRequestData struct {
+	User       *models.User `json:"user"`
+	Code       string       `json:"code"`
+	ExpiryTime string       `json:"expiry_time"`
+}
+
+// PasswordResetRequestData is used for send:password-reset-email events.
 // Contains the reset link and code for notification handlers.
 type PasswordResetRequestData struct {
-	UserID    string `json:"user_id"`
-	Email     string `json:"email"`
-	Name      string `json:"name"`
-	ResetLink string `json:"reset_link"`
-	Code      string `json:"code"`
+	UserID      string `json:"user_id"`
+	Email       string `json:"email"`
+	PhoneNumber string `json:"phone_number,omitempty"`
+	Name        string `json:"name"`
+	ResetLink   string `json:"reset_link"`
+	Code        string `json:"code"`
 }
 
 // PasswordChangedData is used for after:change-password and after:reset-password events.

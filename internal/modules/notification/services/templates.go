@@ -12,8 +12,7 @@ import (
 )
 
 // sendTemplatedEmail sends an email using a template
-func (s *NotificationService) sendTemplatedEmail(ctx context.Context, tmpl *templates.NotificationTemplate, to string, data map[string]interface{}) error {
-	// Parse and execute subject template
+func (s *notificationService) sendTemplatedEmail(ctx context.Context, tmpl *templates.NotificationTemplate, to string, data map[string]interface{}) error {
 	subjectTmpl, err := template.New("subject").Parse(tmpl.Subject)
 	if err != nil {
 		return fmt.Errorf("failed to parse subject template: %w", err)
@@ -24,7 +23,6 @@ func (s *NotificationService) sendTemplatedEmail(ctx context.Context, tmpl *temp
 		return fmt.Errorf("failed to execute subject template: %w", err)
 	}
 
-	// Parse and execute text body template
 	textTmpl, err := textTemplate.New("text").Parse(tmpl.TextBody)
 	if err != nil {
 		return fmt.Errorf("failed to parse text template: %w", err)
@@ -35,7 +33,6 @@ func (s *NotificationService) sendTemplatedEmail(ctx context.Context, tmpl *temp
 		return fmt.Errorf("failed to execute text template: %w", err)
 	}
 
-	// Parse and execute HTML body template
 	var htmlBuf bytes.Buffer
 	if tmpl.HTMLBody != "" {
 		htmlTmpl, err := template.New("html").Parse(tmpl.HTMLBody)
@@ -48,7 +45,6 @@ func (s *NotificationService) sendTemplatedEmail(ctx context.Context, tmpl *temp
 		}
 	}
 
-	// Send email
 	message := &models.EmailMessage{
 		To:       []string{to},
 		Subject:  subjectBuf.String(),
@@ -60,8 +56,7 @@ func (s *NotificationService) sendTemplatedEmail(ctx context.Context, tmpl *temp
 }
 
 // sendTemplatedSMS sends an SMS using a template
-func (s *NotificationService) sendTemplatedSMS(ctx context.Context, tmpl *templates.NotificationTemplate, to string, data map[string]interface{}) error {
-	// Parse and execute SMS body template
+func (s *notificationService) sendTemplatedSMS(ctx context.Context, tmpl *templates.NotificationTemplate, to string, data map[string]interface{}) error {
 	smsTmpl, err := textTemplate.New("sms").Parse(tmpl.SMSBody)
 	if err != nil {
 		return fmt.Errorf("failed to parse SMS template: %w", err)
@@ -72,7 +67,6 @@ func (s *NotificationService) sendTemplatedSMS(ctx context.Context, tmpl *templa
 		return fmt.Errorf("failed to execute SMS template: %w", err)
 	}
 
-	// Send SMS
 	message := &models.SMSMessage{
 		To:   to,
 		Body: smsBuf.String(),
@@ -81,16 +75,16 @@ func (s *NotificationService) sendTemplatedSMS(ctx context.Context, tmpl *templa
 	return s.smsSender.SendSMS(ctx, message)
 }
 
-// SendCustomEmail sends a custom email
-func (s *NotificationService) SendCustomEmail(ctx context.Context, message *models.EmailMessage) error {
+// SendCustomEmail sends a custom email bypassing templates.
+func (s *notificationService) SendCustomEmail(ctx context.Context, message *models.EmailMessage) error {
 	if s.emailSender == nil {
 		return fmt.Errorf("email sender not configured")
 	}
 	return s.emailSender.SendEmail(ctx, message)
 }
 
-// SendCustomSMS sends a custom SMS
-func (s *NotificationService) SendCustomSMS(ctx context.Context, message *models.SMSMessage) error {
+// SendCustomSMS sends a custom SMS bypassing templates.
+func (s *notificationService) SendCustomSMS(ctx context.Context, message *models.SMSMessage) error {
 	if s.smsSender == nil {
 		return fmt.Errorf("SMS sender not configured")
 	}

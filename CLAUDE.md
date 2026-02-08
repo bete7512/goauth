@@ -38,6 +38,16 @@ Required patterns:
 
 Reference implementation: `internal/modules/core/module.go`
 
+### Swagger Docs Rule
+
+**Whenever you add, modify, or remove a DTO or HTTP endpoint in any module, you MUST update that module's `docs/swagger.yml` to reflect the change.** This includes:
+- New routes → add path + request/response schemas
+- Modified DTOs → update the corresponding schema definitions
+- Removed endpoints → remove from swagger spec
+- Changed request/response shapes → update schemas accordingly
+
+Every module's swagger spec lives at `internal/modules/<name>/docs/swagger.yml` and is embedded via `//go:embed docs/swagger.yml`.
+
 ### Service Pattern
 
 Every module's service layer uses the **exported interface / unexported struct** pattern:

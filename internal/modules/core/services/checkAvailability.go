@@ -8,26 +8,27 @@ import (
 	"github.com/bete7512/goauth/pkg/types"
 )
 
-func (s *coreService) CheckEmailAvailability(ctx context.Context, email string) (*dto.CheckAvailabilityResponse, *types.GoAuthError) {
-	available, err := s.UserRepository.IsAvailable(ctx, "email", email)
-	if err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to check email availability: %v", err))
-	}
-	return &dto.CheckAvailabilityResponse{Available: available}, nil
-}
+func (s *coreService) CheckAvailability(ctx context.Context, req *dto.CheckAvailabilityRequest) (*dto.CheckAvailabilityResponse, *types.GoAuthError) {
+	var field, column, value string
 
-func (s *coreService) CheckUsernameAvailability(ctx context.Context, username string) (*dto.CheckAvailabilityResponse, *types.GoAuthError) {
-	available, err := s.UserRepository.IsAvailable(ctx, "username", username)
-	if err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to check username availability: %v", err))
+	switch {
+	case req.Email != "":
+		field, column, value = "email", "email", req.Email
+	case req.Username != "":
+		field, column, value = "username", "username", req.Username
+	case req.Phone != "":
+		field, column, value = "phone", "phone_number", req.Phone
+	default:
+		return nil, types.NewGoAuthError(types.ErrInvalidRequestBody, "email, username, or phone is required", 400)
 	}
-	return &dto.CheckAvailabilityResponse{Available: available}, nil
-}
 
-func (s *coreService) CheckPhoneAvailability(ctx context.Context, phone string) (*dto.CheckAvailabilityResponse, *types.GoAuthError) {
-	available, err := s.UserRepository.IsAvailable(ctx, "phone_number", phone)
+	available, err := s.UserRepository.IsAvailable(ctx, column, value)
 	if err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to check phone availability: %v", err))
+		return nil, types.NewInternalError(fmt.Sprintf("failed to check %s availability: %v", field, err))
 	}
-	return &dto.CheckAvailabilityResponse{Available: available}, nil
+
+	return &dto.CheckAvailabilityResponse{
+		Available: available,
+		Field:     field,
+	}, nil
 }

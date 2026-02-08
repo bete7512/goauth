@@ -1,24 +1,30 @@
 package services
 
+//go:generate mockgen -destination=../../../mocks/mock_notification_service.go -package=mocks github.com/bete7512/goauth/internal/modules/notification/services NotificationService
+
 import (
-	pkgmodels "github.com/bete7512/goauth/pkg/models"
+	"context"
+
 	"github.com/bete7512/goauth/internal/modules/notification/models"
 	"github.com/bete7512/goauth/internal/modules/notification/templates"
-	"github.com/bete7512/goauth/pkg/config"
+	pkgmodels "github.com/bete7512/goauth/pkg/models"
 )
 
-// NotificationService handles sending notifications
-type NotificationService struct {
-	deps                  config.ModuleDependencies
-	emailSender           models.EmailSender
-	smsSender             models.SMSSender
-	templates             map[string]templates.NotificationTemplate
-	config                *NotificationConfig
-	verificationTokenRepo pkgmodels.VerificationTokenRepository
-	userRepo              pkgmodels.UserRepository
+// NotificationService defines the notification delivery operations.
+// This is a pure delivery layer -- no database access, no user mutations.
+type NotificationService interface {
+	SendEmailVerification(ctx context.Context, email, userName, verificationLink string) error
+	SendPhoneVerification(ctx context.Context, phoneNumber, userName, code, expiryTime string) error
+	SendPasswordResetEmail(ctx context.Context, email, userName, resetLink, code, expiryTime string) error
+	SendPasswordResetSMS(ctx context.Context, phoneNumber, code, expiryTime string) error
+	SendWelcomeEmail(ctx context.Context, user pkgmodels.User) error
+	SendLoginAlert(ctx context.Context, user pkgmodels.User, metadata map[string]interface{}) error
+	SendPasswordChangedAlert(ctx context.Context, user pkgmodels.User) error
+	SendCustomEmail(ctx context.Context, message *models.EmailMessage) error
+	SendCustomSMS(ctx context.Context, message *models.SMSMessage) error
 }
 
-// NotificationConfig holds notification service configuration
+// NotificationConfig holds notification service configuration.
 type NotificationConfig struct {
 	AppName      string
 	SupportEmail string
@@ -26,15 +32,19 @@ type NotificationConfig struct {
 	Templates    map[string]templates.NotificationTemplate
 }
 
-// NewNotificationService creates a new notification service
+type notificationService struct {
+	emailSender models.EmailSender
+	smsSender   models.SMSSender
+	templates   map[string]templates.NotificationTemplate
+	config      *NotificationConfig
+}
+
+// NewNotificationService creates a new notification service (delivery only).
 func NewNotificationService(
-	deps config.ModuleDependencies,
 	emailSender models.EmailSender,
 	smsSender models.SMSSender,
 	cfg *NotificationConfig,
-	verificationTokenRepo pkgmodels.VerificationTokenRepository,
-	userRepo pkgmodels.UserRepository,
-) *NotificationService {
+) NotificationService {
 	if cfg == nil {
 		cfg = &NotificationConfig{
 			AppName:   "GoAuth",
@@ -42,8 +52,7 @@ func NewNotificationService(
 		}
 	}
 
-	// Initialize default templates
-	templates := map[string]templates.NotificationTemplate{
+	tmplMap := map[string]templates.NotificationTemplate{
 		"welcome":            templates.TemplateWelcome,
 		"password_reset":     templates.TemplatePasswordReset,
 		"email_verification": templates.TemplateEmailVerification,
@@ -52,18 +61,14 @@ func NewNotificationService(
 		"password_changed":   templates.TemplatePasswordChanged,
 	}
 
-	// Override with custom templates
 	for name, tmpl := range cfg.Templates {
-		templates[name] = tmpl
+		tmplMap[name] = tmpl
 	}
 
-	return &NotificationService{
-		deps:                  deps,
-		emailSender:           emailSender,
-		smsSender:             smsSender,
-		templates:             templates,
-		config:                cfg,
-		verificationTokenRepo: verificationTokenRepo,
-		userRepo:              userRepo,
+	return &notificationService{
+		emailSender: emailSender,
+		smsSender:   smsSender,
+		templates:   tmplMap,
+		config:      cfg,
 	}
 }

@@ -12,6 +12,7 @@ type NotificationTemplate struct {
 	SendSMS   bool
 }
 
+// TODO: instead of writing html temlate use embed to directly load to those variable below
 // Common notification templates
 var (
 	TemplateWelcome = NotificationTemplate{

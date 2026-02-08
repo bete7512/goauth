@@ -16,9 +16,9 @@ import (
 )
 
 type CoreModule struct {
-	deps     config.ModuleDependencies
-	handlers *handlers.CoreHandler
-	config   *config.CoreConfig
+	deps          config.ModuleDependencies
+	handlers      *handlers.CoreHandler
+	config        *config.CoreConfig
 	customStorage types.CoreStorage
 }
 
@@ -69,7 +69,6 @@ func (m *CoreModule) Init(ctx context.Context, deps config.ModuleDependencies) e
 			coreStorage.Users(),
 			coreStorage.ExtendedAttributes(),
 			coreStorage.Tokens(),
-			coreStorage.VerificationTokens(),
 			m.deps.Logger,
 			securityManager,
 			m.config,

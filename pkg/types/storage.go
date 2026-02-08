@@ -62,7 +62,6 @@ type Storage interface {
 type CoreStorage interface {
 	Users() models.UserRepository
 	Tokens() models.TokenRepository
-	VerificationTokens() models.VerificationTokenRepository
 	ExtendedAttributes() models.ExtendedAttributeRepository
 	WithTransaction(ctx context.Context, fn func(tx CoreStorage) error) error
 }

@@ -2,79 +2,13 @@ package services
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/bete7512/goauth/pkg/models"
-	"github.com/google/uuid"
 )
 
-// SendEmailVerificationWithToken sends email verification and creates a token
-func (s *NotificationService) SendEmailVerificationFromHook(ctx context.Context, user models.User) error {
-
-	// Generate verification token and code
-	token, err := s.deps.SecurityManager.GenerateRandomToken(32)
-	if err != nil {
-		return fmt.Errorf("failed to generate token: %w", err)
-	}
-
-	// Build verification link
-	verificationLink := s.buildVerificationLink(user.Email, token)
-	// Create verification token record
-	verificationToken := &models.VerificationToken{
-		ID:        uuid.New().String(),
-		UserID:    user.ID,
-		Token:     token,
-		Type:      models.TokenTypeEmailVerification,
-		Email:     user.Email,
-		ExpiresAt: time.Now().Add(24 * time.Hour), // 24 hours expiry
-		Used:      false,
-		CreatedAt: time.Now(),
-	}
-
-	// Store verification token
-	if err := s.verificationTokenRepo.Create(ctx, verificationToken); err != nil {
-		return fmt.Errorf("failed to create verification token: %w", err)
-	}
-
-	s.deps.Logger.Infof("notification: created verification token for email %s", user.Email)
-
-	// Send email verification
-	return s.sendEmailVerification(ctx, user.Email, "", verificationLink)
-}
-
-// SendPhoneVerificationWithToken sends phone verification and creates a token
-func (s *NotificationService) SendPhoneVerificationFromHook(ctx context.Context, user models.User) error {
-
-	// Generate verification code (6-digit for phone)
-	code, err := s.deps.SecurityManager.GenerateNumericOTP(6)
-	if err != nil {
-		return fmt.Errorf("failed to generate numeric OTP: %w", err)
-	}
-
-	// Create verification token record
-	verificationToken := &models.VerificationToken{
-		ID:          uuid.New().String(),
-		UserID:      user.ID,
-		Code:        code,
-		Type:        models.TokenTypePhoneVerification,
-		PhoneNumber: user.PhoneNumber,
-		ExpiresAt:   time.Now().Add(15 * time.Minute), // 15 minutes expiry for phone
-		Used:        false,
-		CreatedAt:   time.Now(),
-	}
-
-	// Store verification token
-	if err := s.verificationTokenRepo.Create(ctx, verificationToken); err != nil {
-		return fmt.Errorf("failed to create verification token: %w", err)
-	}
-
-	s.deps.Logger.Infof("notification: created phone verification token for phone number %s", user.PhoneNumber)
-
-	return s.sendPhoneVerification(ctx, user, code, "15 minutes")
-}
-
-func (s *NotificationService) SendWelcomeEmail(ctx context.Context, user models.User) error {
+// SendWelcomeEmail sends a welcome email to the user.
+func (s *notificationService) SendWelcomeEmail(ctx context.Context, user models.User) error {
 	tmpl, ok := s.templates["welcome"]
 	if !ok || !tmpl.Enabled {
 		return nil
@@ -88,7 +22,8 @@ func (s *NotificationService) SendWelcomeEmail(ctx context.Context, user models.
 	return s.sendTemplatedEmail(ctx, &tmpl, user.Email, data)
 }
 
-func (s *NotificationService) SendLoginAlert(ctx context.Context, user models.User, metadata map[string]interface{}) error {
+// SendLoginAlert sends a login alert email to the user.
+func (s *notificationService) SendLoginAlert(ctx context.Context, user models.User, metadata map[string]interface{}) error {
 	tmpl, ok := s.templates["login_alert"]
 	if !ok || !tmpl.Enabled {
 		return nil
@@ -96,14 +31,15 @@ func (s *NotificationService) SendLoginAlert(ctx context.Context, user models.Us
 
 	data := map[string]interface{}{
 		"UserName":  user.Username,
-		"IPAddress": metadata["ip_address"].(string),
-		"Timestamp": metadata["timestamp"].(string),
+		"IPAddress": metadata["ip_address"],
+		"Timestamp": metadata["timestamp"],
 	}
 
 	return s.sendTemplatedEmail(ctx, &tmpl, user.Email, data)
 }
 
-func (s *NotificationService) SendPasswordChangedAlert(ctx context.Context, user models.User) error {
+// SendPasswordChangedAlert sends a password changed alert email.
+func (s *notificationService) SendPasswordChangedAlert(ctx context.Context, user models.User) error {
 	tmpl, ok := s.templates["password_changed"]
 	if !ok || !tmpl.Enabled {
 		return nil

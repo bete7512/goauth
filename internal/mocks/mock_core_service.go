@@ -57,49 +57,19 @@ func (mr *MockCoreServiceMockRecorder) ChangePassword(ctx, userID, req any) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChangePassword", reflect.TypeOf((*MockCoreService)(nil).ChangePassword), ctx, userID, req)
 }
 
-// CheckEmailAvailability mocks base method.
-func (m *MockCoreService) CheckEmailAvailability(ctx context.Context, email string) (*dto.CheckAvailabilityResponse, *types.GoAuthError) {
+// CheckAvailability mocks base method.
+func (m *MockCoreService) CheckAvailability(ctx context.Context, req *dto.CheckAvailabilityRequest) (*dto.CheckAvailabilityResponse, *types.GoAuthError) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CheckEmailAvailability", ctx, email)
+	ret := m.ctrl.Call(m, "CheckAvailability", ctx, req)
 	ret0, _ := ret[0].(*dto.CheckAvailabilityResponse)
 	ret1, _ := ret[1].(*types.GoAuthError)
 	return ret0, ret1
 }
 
-// CheckEmailAvailability indicates an expected call of CheckEmailAvailability.
-func (mr *MockCoreServiceMockRecorder) CheckEmailAvailability(ctx, email any) *gomock.Call {
+// CheckAvailability indicates an expected call of CheckAvailability.
+func (mr *MockCoreServiceMockRecorder) CheckAvailability(ctx, req any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckEmailAvailability", reflect.TypeOf((*MockCoreService)(nil).CheckEmailAvailability), ctx, email)
-}
-
-// CheckPhoneAvailability mocks base method.
-func (m *MockCoreService) CheckPhoneAvailability(ctx context.Context, phone string) (*dto.CheckAvailabilityResponse, *types.GoAuthError) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CheckPhoneAvailability", ctx, phone)
-	ret0, _ := ret[0].(*dto.CheckAvailabilityResponse)
-	ret1, _ := ret[1].(*types.GoAuthError)
-	return ret0, ret1
-}
-
-// CheckPhoneAvailability indicates an expected call of CheckPhoneAvailability.
-func (mr *MockCoreServiceMockRecorder) CheckPhoneAvailability(ctx, phone any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckPhoneAvailability", reflect.TypeOf((*MockCoreService)(nil).CheckPhoneAvailability), ctx, phone)
-}
-
-// CheckUsernameAvailability mocks base method.
-func (m *MockCoreService) CheckUsernameAvailability(ctx context.Context, username string) (*dto.CheckAvailabilityResponse, *types.GoAuthError) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CheckUsernameAvailability", ctx, username)
-	ret0, _ := ret[0].(*dto.CheckAvailabilityResponse)
-	ret1, _ := ret[1].(*types.GoAuthError)
-	return ret0, ret1
-}
-
-// CheckUsernameAvailability indicates an expected call of CheckUsernameAvailability.
-func (mr *MockCoreServiceMockRecorder) CheckUsernameAvailability(ctx, username any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckUsernameAvailability", reflect.TypeOf((*MockCoreService)(nil).CheckUsernameAvailability), ctx, username)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckAvailability", reflect.TypeOf((*MockCoreService)(nil).CheckAvailability), ctx, req)
 }
 
 // ForgotPassword mocks base method.
@@ -147,6 +117,36 @@ func (mr *MockCoreServiceMockRecorder) GetProfile(ctx, userID any) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProfile", reflect.TypeOf((*MockCoreService)(nil).GetProfile), ctx, userID)
 }
 
+// ResendEmailVerification mocks base method.
+func (m *MockCoreService) ResendEmailVerification(ctx context.Context, email string) (*dto.MessageResponse, *types.GoAuthError) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ResendEmailVerification", ctx, email)
+	ret0, _ := ret[0].(*dto.MessageResponse)
+	ret1, _ := ret[1].(*types.GoAuthError)
+	return ret0, ret1
+}
+
+// ResendEmailVerification indicates an expected call of ResendEmailVerification.
+func (mr *MockCoreServiceMockRecorder) ResendEmailVerification(ctx, email any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResendEmailVerification", reflect.TypeOf((*MockCoreService)(nil).ResendEmailVerification), ctx, email)
+}
+
+// ResendPhoneVerification mocks base method.
+func (m *MockCoreService) ResendPhoneVerification(ctx context.Context, phone string) (*dto.MessageResponse, *types.GoAuthError) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ResendPhoneVerification", ctx, phone)
+	ret0, _ := ret[0].(*dto.MessageResponse)
+	ret1, _ := ret[1].(*types.GoAuthError)
+	return ret0, ret1
+}
+
+// ResendPhoneVerification indicates an expected call of ResendPhoneVerification.
+func (mr *MockCoreServiceMockRecorder) ResendPhoneVerification(ctx, phone any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResendPhoneVerification", reflect.TypeOf((*MockCoreService)(nil).ResendPhoneVerification), ctx, phone)
+}
+
 // ResetPassword mocks base method.
 func (m *MockCoreService) ResetPassword(ctx context.Context, req *dto.ResetPasswordRequest) (*dto.MessageResponse, *types.GoAuthError) {
 	m.ctrl.T.Helper()
@@ -160,6 +160,36 @@ func (m *MockCoreService) ResetPassword(ctx context.Context, req *dto.ResetPassw
 func (mr *MockCoreServiceMockRecorder) ResetPassword(ctx, req any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResetPassword", reflect.TypeOf((*MockCoreService)(nil).ResetPassword), ctx, req)
+}
+
+// SendEmailVerification mocks base method.
+func (m *MockCoreService) SendEmailVerification(ctx context.Context, email string) (*dto.MessageResponse, *types.GoAuthError) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SendEmailVerification", ctx, email)
+	ret0, _ := ret[0].(*dto.MessageResponse)
+	ret1, _ := ret[1].(*types.GoAuthError)
+	return ret0, ret1
+}
+
+// SendEmailVerification indicates an expected call of SendEmailVerification.
+func (mr *MockCoreServiceMockRecorder) SendEmailVerification(ctx, email any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendEmailVerification", reflect.TypeOf((*MockCoreService)(nil).SendEmailVerification), ctx, email)
+}
+
+// SendPhoneVerification mocks base method.
+func (m *MockCoreService) SendPhoneVerification(ctx context.Context, phone string) (*dto.MessageResponse, *types.GoAuthError) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SendPhoneVerification", ctx, phone)
+	ret0, _ := ret[0].(*dto.MessageResponse)
+	ret1, _ := ret[1].(*types.GoAuthError)
+	return ret0, ret1
+}
+
+// SendPhoneVerification indicates an expected call of SendPhoneVerification.
+func (mr *MockCoreServiceMockRecorder) SendPhoneVerification(ctx, phone any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendPhoneVerification", reflect.TypeOf((*MockCoreService)(nil).SendPhoneVerification), ctx, phone)
 }
 
 // Signup mocks base method.
@@ -190,4 +220,34 @@ func (m *MockCoreService) UpdateProfile(ctx context.Context, userID string, req 
 func (mr *MockCoreServiceMockRecorder) UpdateProfile(ctx, userID, req any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateProfile", reflect.TypeOf((*MockCoreService)(nil).UpdateProfile), ctx, userID, req)
+}
+
+// VerifyEmail mocks base method.
+func (m *MockCoreService) VerifyEmail(ctx context.Context, token string) (*dto.MessageResponse, *types.GoAuthError) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "VerifyEmail", ctx, token)
+	ret0, _ := ret[0].(*dto.MessageResponse)
+	ret1, _ := ret[1].(*types.GoAuthError)
+	return ret0, ret1
+}
+
+// VerifyEmail indicates an expected call of VerifyEmail.
+func (mr *MockCoreServiceMockRecorder) VerifyEmail(ctx, token any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VerifyEmail", reflect.TypeOf((*MockCoreService)(nil).VerifyEmail), ctx, token)
+}
+
+// VerifyPhone mocks base method.
+func (m *MockCoreService) VerifyPhone(ctx context.Context, code, phone string) (*dto.MessageResponse, *types.GoAuthError) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "VerifyPhone", ctx, code, phone)
+	ret0, _ := ret[0].(*dto.MessageResponse)
+	ret1, _ := ret[1].(*types.GoAuthError)
+	return ret0, ret1
+}
+
+// VerifyPhone indicates an expected call of VerifyPhone.
+func (mr *MockCoreServiceMockRecorder) VerifyPhone(ctx, code, phone any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VerifyPhone", reflect.TypeOf((*MockCoreService)(nil).VerifyPhone), ctx, code, phone)
 }

@@ -55,19 +55,16 @@ func (h *CoreHandler) Signup(w http.ResponseWriter, r *http.Request) {
 
 	user := response.User.ToUser()
 
+	// Send verification via core service (creates token + emits event for notification delivery)
 	if h.deps.Config.Core.RequireEmailVerification {
-		if emitErr := h.deps.Events.EmitAsync(ctx, types.EventSendEmailVerification, &types.UserEventData{
-			User: user,
-		}); emitErr != nil {
-			h.deps.Logger.Errorf("core: failed to send email verification: %v", emitErr)
+		if _, authErr := h.coreService.SendEmailVerification(ctx, user.Email); authErr != nil {
+			h.deps.Logger.Errorf("core: failed to send email verification: %v", authErr.Message)
 		}
 	}
 
 	if h.deps.Config.Core.RequirePhoneVerification {
-		if emitErr := h.deps.Events.EmitAsync(ctx, types.EventSendPhoneVerification, &types.UserEventData{
-			User: user,
-		}); emitErr != nil {
-			h.deps.Logger.Errorf("core: failed to send phone verification: %v", emitErr)
+		if _, authErr := h.coreService.SendPhoneVerification(ctx, user.PhoneNumber); authErr != nil {
+			h.deps.Logger.Errorf("core: failed to send phone verification: %v", authErr.Message)
 		}
 	}
 

@@ -2,12 +2,10 @@ package services
 
 import (
 	"context"
-
-	"github.com/bete7512/goauth/pkg/models"
 )
 
-// SendPasswordResetEmail sends password reset email
-func (s *NotificationService) sendPasswordResetEmail(ctx context.Context, email, userName, resetLink, code string, expiryTime string) error {
+// SendPasswordResetEmail renders the password reset template and delivers via email.
+func (s *notificationService) SendPasswordResetEmail(ctx context.Context, email, userName, resetLink, code, expiryTime string) error {
 	tmpl, ok := s.templates["password_reset"]
 	if !ok || !tmpl.Enabled {
 		return nil
@@ -28,8 +26,8 @@ func (s *NotificationService) sendPasswordResetEmail(ctx context.Context, email,
 	return nil
 }
 
-// SendPasswordResetSMS sends password reset SMS
-func (s *NotificationService) sendPasswordResetSMS(ctx context.Context, phoneNumber, code, expiryTime string) error {
+// SendPasswordResetSMS renders the password reset template and delivers via SMS.
+func (s *notificationService) SendPasswordResetSMS(ctx context.Context, phoneNumber, code, expiryTime string) error {
 	tmpl, ok := s.templates["password_reset"]
 	if !ok || !tmpl.Enabled || !tmpl.SendSMS {
 		return nil
@@ -48,8 +46,8 @@ func (s *NotificationService) sendPasswordResetSMS(ctx context.Context, phoneNum
 	return s.sendTemplatedSMS(ctx, &tmpl, phoneNumber, data)
 }
 
-// SendEmailVerification sends email verification
-func (s *NotificationService) sendEmailVerification(ctx context.Context, email, userName, verificationLink string) error {
+// SendEmailVerification renders the email verification template and delivers.
+func (s *notificationService) SendEmailVerification(ctx context.Context, email, userName, verificationLink string) error {
 	tmpl, ok := s.templates["email_verification"]
 	if !ok || !tmpl.Enabled {
 		return nil
@@ -68,7 +66,8 @@ func (s *NotificationService) sendEmailVerification(ctx context.Context, email, 
 	return nil
 }
 
-func (s *NotificationService) sendPhoneVerification(ctx context.Context, user models.User, code string, expiryTime string) error {
+// SendPhoneVerification renders the phone verification template and delivers via SMS.
+func (s *notificationService) SendPhoneVerification(ctx context.Context, phoneNumber, userName, code, expiryTime string) error {
 	tmpl, ok := s.templates["phone_verification"]
 	if !ok || !tmpl.Enabled {
 		return nil
@@ -76,13 +75,13 @@ func (s *NotificationService) sendPhoneVerification(ctx context.Context, user mo
 
 	data := map[string]interface{}{
 		"AppName":    s.config.AppName,
-		"UserName":   user.Name,
+		"UserName":   userName,
 		"Code":       code,
 		"ExpiryTime": expiryTime,
 	}
 
 	if tmpl.SendSMS && s.smsSender != nil {
-		return s.sendTemplatedSMS(ctx, &tmpl, user.PhoneNumber, data)
+		return s.sendTemplatedSMS(ctx, &tmpl, phoneNumber, data)
 	}
 
 	return nil

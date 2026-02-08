@@ -51,21 +51,61 @@ func (h *CoreHandler) GetRoutes() []config.RouteInfo {
 		},
 		{
 			Name:    string(types.RouteCheckAvailability),
-			Path:    "/availability/email",
+			Path:    "/is-available",
 			Method:  "POST",
-			Handler: h.CheckEmailAvailability,
+			Handler: h.CheckAvailability,
+		},
+
+		// Verification Routes
+		{
+			Name:    string(types.RouteSendVerificationEmail),
+			Path:    "/send-verification-email",
+			Method:  "POST",
+			Handler: h.SendVerificationEmail,
 		},
 		{
-			Name:    string(types.RouteCheckUsernameAvailability),
-			Path:    "/availability/username",
+			Name:    string(types.RouteResendVerificationEmail),
+			Path:    "/resend-verification-email",
 			Method:  "POST",
-			Handler: h.CheckUsernameAvailability,
+			Handler: h.ResendVerificationEmail,
 		},
 		{
-			Name:    string(types.RouteCheckPhoneAvailability),
-			Path:    "/availability/phone",
+			Name:    string(types.RouteSendVerificationPhone),
+			Path:    "/send-verification-phone",
 			Method:  "POST",
-			Handler: h.CheckPhoneAvailability,
+			Handler: h.SendVerificationPhone,
+		},
+		{
+			Name:    string(types.RouteResendVerificationPhone),
+			Path:    "/resend-verification-phone",
+			Method:  "POST",
+			Handler: h.ResendVerificationPhone,
+		},
+		{
+			Name:    string(types.RouteVerifyEmail),
+			Path:    "/verify-email",
+			Method:  "GET",
+			Handler: h.VerifyEmail,
+		},
+		{
+			Name:    string(types.RouteVerifyPhone),
+			Path:    "/verify-phone",
+			Method:  "POST",
+			Handler: h.VerifyPhone,
+		},
+
+		// Password Reset Routes
+		{
+			Name:    string(types.RouteForgotPassword),
+			Path:    "/forgot-password",
+			Method:  "POST",
+			Handler: h.ForgotPassword,
+		},
+		{
+			Name:    string(types.RouteResetPassword),
+			Path:    "/reset-password",
+			Method:  "POST",
+			Handler: h.ResetPassword,
 		},
 	}
 	return routes

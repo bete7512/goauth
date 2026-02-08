@@ -220,20 +220,6 @@ func (mr *MockCoreStorageMockRecorder) Users() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Users", reflect.TypeOf((*MockCoreStorage)(nil).Users))
 }
 
-// VerificationTokens mocks base method.
-func (m *MockCoreStorage) VerificationTokens() models.VerificationTokenRepository {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "VerificationTokens")
-	ret0, _ := ret[0].(models.VerificationTokenRepository)
-	return ret0
-}
-
-// VerificationTokens indicates an expected call of VerificationTokens.
-func (mr *MockCoreStorageMockRecorder) VerificationTokens() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VerificationTokens", reflect.TypeOf((*MockCoreStorage)(nil).VerificationTokens))
-}
-
 // WithTransaction mocks base method.
 func (m *MockCoreStorage) WithTransaction(ctx context.Context, fn func(types.CoreStorage) error) error {
 	m.ctrl.T.Helper()

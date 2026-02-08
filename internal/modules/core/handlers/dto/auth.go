@@ -241,36 +241,38 @@ func (r *ChangePasswordRequest) Validate() error {
 	return nil
 }
 
-// CheckAvailabilityRequest represents availability check request
+// CheckAvailabilityRequest represents availability check request.
+// Exactly one of email, username, or phone must be provided.
 type CheckAvailabilityRequest struct {
 	Email    string `json:"email,omitempty"`
 	Username string `json:"username,omitempty"`
 	Phone    string `json:"phone,omitempty"`
 }
 
-func (r *CheckAvailabilityRequest) ValidateEmail() error {
-	if r.Email == "" {
-		return fmt.Errorf("email is required")
+func (r *CheckAvailabilityRequest) Validate() error {
+	set := 0
+	if r.Email != "" {
+		set++
 	}
-	if !isValidEmail(r.Email) {
+	if r.Username != "" {
+		set++
+	}
+	if r.Phone != "" {
+		set++
+	}
+	if set == 0 {
+		return fmt.Errorf("email, username, or phone is required")
+	}
+	if set > 1 {
+		return fmt.Errorf("only one of email, username, or phone should be provided")
+	}
+	if r.Email != "" && !isValidEmail(r.Email) {
 		return fmt.Errorf("invalid email format")
 	}
-	return nil
-}
-func (r *CheckAvailabilityRequest) ValidateUsername() error {
-	if r.Username == "" {
-		return fmt.Errorf("username is required")
-	}
-	if !isValidUsername(r.Username) {
+	if r.Username != "" && !isValidUsername(r.Username) {
 		return fmt.Errorf("invalid username format")
 	}
-	return nil
-}
-func (r *CheckAvailabilityRequest) ValidatePhone() error {
-	if r.Phone == "" {
-		return fmt.Errorf("phone is required")
-	}
-	if !isValidPhone(r.Phone) {
+	if r.Phone != "" && !isValidPhone(r.Phone) {
 		return fmt.Errorf("invalid phone number format")
 	}
 	return nil

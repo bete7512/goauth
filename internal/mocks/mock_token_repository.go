@@ -69,6 +69,20 @@ func (mr *MockTokenRepositoryMockRecorder) Delete(ctx, token any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockTokenRepository)(nil).Delete), ctx, token)
 }
 
+// DeleteByIDAndType mocks base method.
+func (m *MockTokenRepository) DeleteByIDAndType(ctx context.Context, id, tokenType string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteByIDAndType", ctx, id, tokenType)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteByIDAndType indicates an expected call of DeleteByIDAndType.
+func (mr *MockTokenRepositoryMockRecorder) DeleteByIDAndType(ctx, id, tokenType any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteByIDAndType", reflect.TypeOf((*MockTokenRepository)(nil).DeleteByIDAndType), ctx, id, tokenType)
+}
+
 // DeleteByUserID mocks base method.
 func (m *MockTokenRepository) DeleteByUserID(ctx context.Context, userID string) error {
 	m.ctrl.T.Helper()
@@ -96,6 +110,51 @@ func (m *MockTokenRepository) DeleteExpired(ctx context.Context) (int64, error) 
 func (mr *MockTokenRepositoryMockRecorder) DeleteExpired(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteExpired", reflect.TypeOf((*MockTokenRepository)(nil).DeleteExpired), ctx)
+}
+
+// FindByCode mocks base method.
+func (m *MockTokenRepository) FindByCode(ctx context.Context, code, tokenType string) (*models.Token, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindByCode", ctx, code, tokenType)
+	ret0, _ := ret[0].(*models.Token)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindByCode indicates an expected call of FindByCode.
+func (mr *MockTokenRepositoryMockRecorder) FindByCode(ctx, code, tokenType any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindByCode", reflect.TypeOf((*MockTokenRepository)(nil).FindByCode), ctx, code, tokenType)
+}
+
+// FindByEmailAndType mocks base method.
+func (m *MockTokenRepository) FindByEmailAndType(ctx context.Context, email, tokenType string) (*models.Token, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindByEmailAndType", ctx, email, tokenType)
+	ret0, _ := ret[0].(*models.Token)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindByEmailAndType indicates an expected call of FindByEmailAndType.
+func (mr *MockTokenRepositoryMockRecorder) FindByEmailAndType(ctx, email, tokenType any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindByEmailAndType", reflect.TypeOf((*MockTokenRepository)(nil).FindByEmailAndType), ctx, email, tokenType)
+}
+
+// FindByPhoneAndType mocks base method.
+func (m *MockTokenRepository) FindByPhoneAndType(ctx context.Context, phone, tokenType string) (*models.Token, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindByPhoneAndType", ctx, phone, tokenType)
+	ret0, _ := ret[0].(*models.Token)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindByPhoneAndType indicates an expected call of FindByPhoneAndType.
+func (mr *MockTokenRepositoryMockRecorder) FindByPhoneAndType(ctx, phone, tokenType any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindByPhoneAndType", reflect.TypeOf((*MockTokenRepository)(nil).FindByPhoneAndType), ctx, phone, tokenType)
 }
 
 // FindByToken mocks base method.
@@ -126,4 +185,18 @@ func (m *MockTokenRepository) FindByUserID(ctx context.Context, userID string) (
 func (mr *MockTokenRepositoryMockRecorder) FindByUserID(ctx, userID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindByUserID", reflect.TypeOf((*MockTokenRepository)(nil).FindByUserID), ctx, userID)
+}
+
+// MarkAsUsed mocks base method.
+func (m *MockTokenRepository) MarkAsUsed(ctx context.Context, id string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MarkAsUsed", ctx, id)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// MarkAsUsed indicates an expected call of MarkAsUsed.
+func (mr *MockTokenRepositoryMockRecorder) MarkAsUsed(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkAsUsed", reflect.TypeOf((*MockTokenRepository)(nil).MarkAsUsed), ctx, id)
 }
