@@ -56,8 +56,7 @@ func NewCSRFMiddleware(service *services.CSRFService, cfg *config.CSRFModuleConf
 			if submittedToken == "" {
 				submittedToken = r.FormValue(service.FormFieldName())
 			}
-			// NEVER fall back to reading from cookie here — that defeats CSRF protection
-
+			
 			// Both must be present
 			if cookieToken == "" || submittedToken == "" {
 				http_utils.RespondError(w, http.StatusForbidden, string(types.ErrInvalidCSRF), "CSRF token missing")

@@ -26,7 +26,7 @@ func TestPasswordServiceSuite(t *testing.T) {
 }
 
 func (s *PasswordServiceSuite) setupService() (
-	*core_services.CoreService,
+	core_services.CoreService,
 	*mocks.MockUserRepository,
 	*mocks.MockTokenRepository,
 	*mocks.MockEventBus,

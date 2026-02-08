@@ -25,7 +25,7 @@ func TestSignupServiceSuite(t *testing.T) {
 }
 
 func (s *SignupServiceSuite) setupService(cfgOverride ...*config.CoreConfig) (
-	*core_services.CoreService,
+	core_services.CoreService,
 	*mocks.MockUserRepository,
 ) {
 	ctrl := gomock.NewController(s.T())
@@ -136,7 +136,7 @@ func (s *SignupServiceSuite) TestSignup() {
 
 	for _, tt := range tests {
 		s.Run(tt.name, func() {
-			var svc *core_services.CoreService
+			var svc core_services.CoreService
 			var mockUserRepo *mocks.MockUserRepository
 
 			if tt.cfg != nil {

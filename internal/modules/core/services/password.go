@@ -13,7 +13,7 @@ import (
 )
 
 // ForgotPassword initiates password reset process
-func (s *CoreService) ForgotPassword(ctx context.Context, req *dto.ForgotPasswordRequest) (*dto.MessageResponse, *types.GoAuthError) {
+func (s *coreService) ForgotPassword(ctx context.Context, req *dto.ForgotPasswordRequest) (*dto.MessageResponse, *types.GoAuthError) {
 	var user *models.User
 	var err error
 
@@ -74,7 +74,7 @@ func (s *CoreService) ForgotPassword(ctx context.Context, req *dto.ForgotPasswor
 }
 
 // ResetPassword resets password using token/code
-func (s *CoreService) ResetPassword(ctx context.Context, req *dto.ResetPasswordRequest) (*dto.MessageResponse, *types.GoAuthError) {
+func (s *coreService) ResetPassword(ctx context.Context, req *dto.ResetPasswordRequest) (*dto.MessageResponse, *types.GoAuthError) {
 	var resetToken *models.Token
 	var err error
 
@@ -139,7 +139,7 @@ func (s *CoreService) ResetPassword(ctx context.Context, req *dto.ResetPasswordR
 }
 
 // ChangePassword changes password (requires old password)
-func (s *CoreService) ChangePassword(ctx context.Context, userID string, req *dto.ChangePasswordRequest) (*dto.MessageResponse, *types.GoAuthError) {
+func (s *coreService) ChangePassword(ctx context.Context, userID string, req *dto.ChangePasswordRequest) (*dto.MessageResponse, *types.GoAuthError) {
 	// Find user
 	user, err := s.UserRepository.FindByID(ctx, userID)
 	if err != nil || user == nil {

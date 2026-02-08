@@ -10,7 +10,7 @@ import (
 )
 
 // GetProfile retrieves user profile
-func (s *CoreService) GetProfile(ctx context.Context, userID string) (*dto.UserDTO, *types.GoAuthError) {
+func (s *coreService) GetProfile(ctx context.Context, userID string) (*dto.UserDTO, *types.GoAuthError) {
 	user, err := s.UserRepository.FindByID(ctx, userID)
 	if err != nil || user == nil {
 		return nil, types.NewUserNotFoundError()
@@ -27,7 +27,7 @@ func (s *CoreService) GetProfile(ctx context.Context, userID string) (*dto.UserD
 }
 
 // UpdateProfile updates user profile
-func (s *CoreService) UpdateProfile(ctx context.Context, userID string, req *dto.UpdateProfileRequest) (*dto.UserDTO, *types.GoAuthError) {
+func (s *coreService) UpdateProfile(ctx context.Context, userID string, req *dto.UpdateProfileRequest) (*dto.UserDTO, *types.GoAuthError) {
 	// Find user
 	user, err := s.UserRepository.FindByID(ctx, userID)
 	if err != nil || user == nil {

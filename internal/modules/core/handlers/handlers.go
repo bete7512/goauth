@@ -7,13 +7,13 @@ import (
 )
 
 type CoreHandler struct {
-	CoreService *core_services.CoreService
+	coreService core_services.CoreService
 	deps        config.ModuleDependencies
 }
 
-func NewCoreHandler(coreService *core_services.CoreService, deps config.ModuleDependencies) *CoreHandler {
+func NewCoreHandler(coreService core_services.CoreService, deps config.ModuleDependencies) *CoreHandler {
 	return &CoreHandler{
-		CoreService: coreService,
+		coreService: coreService,
 		deps:        deps,
 	}
 }

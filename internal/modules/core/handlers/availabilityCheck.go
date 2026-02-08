@@ -21,7 +21,7 @@ func (h *CoreHandler) CheckEmailAvailability(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	resp, goauthErr := h.CoreService.CheckEmailAvailability(r.Context(), req.Email)
+	resp, goauthErr := h.coreService.CheckEmailAvailability(r.Context(), req.Email)
 	if goauthErr != nil {
 		http_utils.RespondError(w, goauthErr.StatusCode, string(goauthErr.Code), goauthErr.Message)
 		return
@@ -42,7 +42,7 @@ func (h *CoreHandler) CheckUsernameAvailability(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	resp, goauthErr := h.CoreService.CheckUsernameAvailability(r.Context(), req.Username)
+	resp, goauthErr := h.coreService.CheckUsernameAvailability(r.Context(), req.Username)
 	if goauthErr != nil {
 		http_utils.RespondError(w, goauthErr.StatusCode, string(goauthErr.Code), goauthErr.Message)
 		return
@@ -63,7 +63,7 @@ func (h *CoreHandler) CheckPhoneAvailability(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	resp, goauthErr := h.CoreService.CheckPhoneAvailability(r.Context(), req.Phone)
+	resp, goauthErr := h.coreService.CheckPhoneAvailability(r.Context(), req.Phone)
 	if goauthErr != nil {
 		http_utils.RespondError(w, goauthErr.StatusCode, string(goauthErr.Code), goauthErr.Message)
 		return

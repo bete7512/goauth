@@ -14,7 +14,7 @@ import (
 
 // Signup creates a new user account
 // Note: This only creates the user. Authentication (tokens/sessions) is handled by auth modules (session or stateless)
-func (s *CoreService) Signup(ctx context.Context, req *dto.SignupRequest) (*dto.AuthResponse, *types.GoAuthError) {
+func (s *coreService) Signup(ctx context.Context, req *dto.SignupRequest) (*dto.AuthResponse, *types.GoAuthError) {
 	// Check if user already exists
 	if req.Email != "" {
 		existing, _ := s.UserRepository.FindByEmail(ctx, req.Email)
@@ -110,7 +110,7 @@ func (s *CoreService) Signup(ctx context.Context, req *dto.SignupRequest) (*dto.
 	return authResponse, nil
 }
 
-func (s *CoreService) signupMessage(user *models.User) string {
+func (s *coreService) signupMessage(user *models.User) string {
 	if s.Config.RequireEmailVerification && user.Email != "" && !user.EmailVerified {
 		return "Signup successful. Please verify your email to continue."
 	}
@@ -120,7 +120,7 @@ func (s *CoreService) signupMessage(user *models.User) string {
 	return "Signup successful. Please login to continue."
 }
 
-func (s *CoreService) generateRandomUsername(email string) string {
+func (s *coreService) generateRandomUsername(email string) string {
 	parts := strings.Split(email, "@")
 	if len(parts) > 0 && parts[0] != "" {
 		return parts[0] + "-" + uuid.New().String()[:8]

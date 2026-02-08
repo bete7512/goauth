@@ -47,7 +47,7 @@ func (h *CoreHandler) Signup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response, err := h.CoreService.Signup(ctx, &req)
+	response, err := h.coreService.Signup(ctx, &req)
 	if err != nil {
 		http_utils.RespondError(w, err.StatusCode, string(err.Code), err.Message)
 		return
@@ -78,7 +78,7 @@ func (h *CoreHandler) Signup(w http.ResponseWriter, r *http.Request) {
 		h.deps.Logger.Errorf("core: failed to emit after signup event: %v", emitErr)
 	}
 
-	// Note: Tokens are no longer generated on signup
+	// Note: Tokens like accesstoken and refreshtoken aren't being generated on signup
 	// User should login using session or stateless auth module after signup
 	w.WriteHeader(http.StatusCreated)
 	http_utils.RespondSuccess(w, response, nil)

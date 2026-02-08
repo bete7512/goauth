@@ -32,7 +32,7 @@ func (h *CoreHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update profile via service
-	userDTO, authErr := h.CoreService.UpdateProfile(ctx, userID, &req)
+	userDTO, authErr := h.coreService.UpdateProfile(ctx, userID, &req)
 	if authErr != nil {
 		http_utils.RespondError(w, authErr.StatusCode, string(authErr.Code), authErr.Message)
 		return
