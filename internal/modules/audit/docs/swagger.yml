@@ -17,7 +17,7 @@ paths:
   /me/audit:
     get:
       tags:
-        - User Audit
+        - Audit Logs
       summary: Get my audit logs
       description: Retrieve audit logs for the current user (both as actor and target)
       security:

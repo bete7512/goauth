@@ -20,7 +20,7 @@ var swaggerSpec []byte
 type AuditModule struct {
 	deps     config.ModuleDependencies
 	handlers *handlers.AuditHandler
-	service  *services.AuditService
+	service  services.AuditService
 	config   *Config
 }
 
@@ -287,7 +287,10 @@ func (m *AuditModule) createAuditLog(ctx context.Context, event *types.Event, ac
 		auditLog.TargetType = &targetType
 	}
 
-	return m.service.CreateAuditLog(ctx, auditLog)
+	if authErr := m.service.CreateAuditLog(ctx, auditLog); authErr != nil {
+		return authErr
+	}
+	return nil
 }
 
 func (m *AuditModule) Dependencies() []string {

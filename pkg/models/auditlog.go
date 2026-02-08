@@ -10,19 +10,18 @@ import (
 // AuditLog represents an audit log entry for tracking all system actions
 // This is a cross-cutting concern used by all modules (core, admin, audit, org, etc.)
 type AuditLog struct {
-	ID             string     `json:"id" gorm:"primaryKey"`
-	Action         string     `json:"action" gorm:"not null;index"`           // e.g., "auth.login", "admin.user.delete"
-	ActorID        string     `json:"actor_id" gorm:"not null;index"`         // User who performed the action
-	ActorType      string     `json:"actor_type" gorm:"default:'user'"`       // "user", "admin", "system"
-	TargetID       *string    `json:"target_id,omitempty" gorm:"index"`       // Resource affected (optional)
-	TargetType     *string    `json:"target_type,omitempty"`                  // "user", "organization", "resource"
-	OrganizationID *string    `json:"organization_id,omitempty" gorm:"index"` // For multi-tenant context (future)
-	Details        string     `json:"details" gorm:"type:text"`               // Human-readable description
-	Metadata       string     `json:"metadata,omitempty" gorm:"type:jsonb"`   // JSON: {ip, user_agent, device, location}
-	Severity       string     `json:"severity" gorm:"default:'info';index"`   // "info", "warning", "critical"
-	IPAddress      string     `json:"ip_address"`
-	UserAgent      string     `json:"user_agent"`
-	CreatedAt      time.Time  `json:"created_at" gorm:"index"`
+	ID         string    `json:"id" gorm:"primaryKey"`
+	Action     string    `json:"action" gorm:"not null;index"`         // e.g., "auth.login", "admin.user.delete"
+	ActorID    string    `json:"actor_id" gorm:"not null;index"`       // User who performed the action
+	ActorType  string    `json:"actor_type" gorm:"default:'user'"`     // "user", "admin", "system"
+	TargetID   *string   `json:"target_id,omitempty" gorm:"index"`     // Resource affected (optional)
+	TargetType *string   `json:"target_type,omitempty"`                // "user", "organization", "resource"
+	Details    string    `json:"details" gorm:"type:text"`             // Human-readable description
+	Metadata   string    `json:"metadata,omitempty" gorm:"type:jsonb"` // JSON: {ip, user_agent, device, location}
+	Severity   string    `json:"severity" gorm:"default:'info';index"` // "info", "warning", "critical"
+	IPAddress  string    `json:"ip_address"`
+	UserAgent  string    `json:"user_agent"`
+	CreatedAt  time.Time `json:"created_at" gorm:"index"`
 }
 
 func (AuditLog) TableName() string {
