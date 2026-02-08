@@ -117,11 +117,11 @@ func (s *CaptchaMiddlewareSuite) TestMissingTokenErrorFormat() {
 	var body map[string]interface{}
 	err := json.NewDecoder(rr.Body).Decode(&body)
 	s.NoError(err)
-	s.Contains(body, "error")
+	s.Contains(body, "data")
 
-	errObj, ok := body["error"].(map[string]interface{})
+	dataObj, ok := body["data"].(map[string]interface{})
 	s.True(ok)
-	s.Equal("CAPTCHA_REQUIRED", errObj["code"])
+	s.Equal("CAPTCHA_REQUIRED", dataObj["code"])
 }
 
 func (s *CaptchaMiddlewareSuite) TestVerificationFailed() {
@@ -139,9 +139,9 @@ func (s *CaptchaMiddlewareSuite) TestVerificationFailed() {
 	err := json.NewDecoder(rr.Body).Decode(&body)
 	s.NoError(err)
 
-	errObj, ok := body["error"].(map[string]interface{})
+	dataObj, ok := body["data"].(map[string]interface{})
 	s.True(ok)
-	s.Equal("CAPTCHA_FAILED", errObj["code"])
+	s.Equal("CAPTCHA_FAILED", dataObj["code"])
 }
 
 func (s *CaptchaMiddlewareSuite) TestScoreBelowThreshold() {
