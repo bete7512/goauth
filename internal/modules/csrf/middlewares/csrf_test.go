@@ -20,11 +20,11 @@ func TestCSRFMiddlewareSuite(t *testing.T) {
 	suite.Run(t, new(CSRFMiddlewareSuite))
 }
 
-func (s *CSRFMiddlewareSuite) newService(cfg *config.CSRFModuleConfig) *services.CSRFService {
+func (s *CSRFMiddlewareSuite) newService(cfg *config.CSRFModuleConfig) services.CSRFService {
 	return services.NewCSRFService("test-jwt-secret-key", cfg)
 }
 
-func (s *CSRFMiddlewareSuite) setup(cfg *config.CSRFModuleConfig) (*services.CSRFService, func(http.Handler) http.Handler) {
+func (s *CSRFMiddlewareSuite) setup(cfg *config.CSRFModuleConfig) (services.CSRFService, func(http.Handler) http.Handler) {
 	if cfg == nil {
 		cfg = &config.CSRFModuleConfig{}
 	}

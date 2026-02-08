@@ -18,7 +18,7 @@ func TestCSRFServiceSuite(t *testing.T) {
 	suite.Run(t, new(CSRFServiceSuite))
 }
 
-func (s *CSRFServiceSuite) newService(cfg *config.CSRFModuleConfig) *services.CSRFService {
+func (s *CSRFServiceSuite) newService(cfg *config.CSRFModuleConfig) services.CSRFService {
 	return services.NewCSRFService("test-jwt-secret-key", cfg)
 }
 
@@ -61,12 +61,12 @@ func (s *CSRFServiceSuite) TestGenerateTokenUniqueness() {
 func (s *CSRFServiceSuite) TestValidateToken() {
 	tests := []struct {
 		name    string
-		token   func(*services.CSRFService) string
+		token   func(services.CSRFService) string
 		want    bool
 	}{
 		{
 			name: "valid token",
-			token: func(svc *services.CSRFService) string {
+			token: func(svc services.CSRFService) string {
 				t, _ := svc.GenerateToken()
 				return t
 			},
@@ -74,22 +74,22 @@ func (s *CSRFServiceSuite) TestValidateToken() {
 		},
 		{
 			name:  "empty token",
-			token: func(_ *services.CSRFService) string { return "" },
+			token: func(_ services.CSRFService) string { return "" },
 			want:  false,
 		},
 		{
 			name:  "garbage token",
-			token: func(_ *services.CSRFService) string { return "not-a-valid-token" },
+			token: func(_ services.CSRFService) string { return "not-a-valid-token" },
 			want:  false,
 		},
 		{
 			name:  "wrong number of parts",
-			token: func(_ *services.CSRFService) string { return "part1:part2" },
+			token: func(_ services.CSRFService) string { return "part1:part2" },
 			want:  false,
 		},
 		{
 			name: "tampered signature",
-			token: func(svc *services.CSRFService) string {
+			token: func(svc services.CSRFService) string {
 				t, _ := svc.GenerateToken()
 				parts := strings.SplitN(t, ":", 3)
 				return parts[0] + ":" + parts[1] + ":tampered"
@@ -98,7 +98,7 @@ func (s *CSRFServiceSuite) TestValidateToken() {
 		},
 		{
 			name: "tampered nonce",
-			token: func(svc *services.CSRFService) string {
+			token: func(svc services.CSRFService) string {
 				t, _ := svc.GenerateToken()
 				parts := strings.SplitN(t, ":", 3)
 				return "tampered:" + parts[1] + ":" + parts[2]
@@ -107,7 +107,7 @@ func (s *CSRFServiceSuite) TestValidateToken() {
 		},
 		{
 			name: "tampered timestamp",
-			token: func(svc *services.CSRFService) string {
+			token: func(svc services.CSRFService) string {
 				t, _ := svc.GenerateToken()
 				parts := strings.SplitN(t, ":", 3)
 				return parts[0] + ":9999999999:" + parts[2]
@@ -116,7 +116,7 @@ func (s *CSRFServiceSuite) TestValidateToken() {
 		},
 		{
 			name:  "non-numeric timestamp",
-			token: func(_ *services.CSRFService) string { return "nonce:notanumber:sig" },
+			token: func(_ services.CSRFService) string { return "nonce:notanumber:sig" },
 			want:  false,
 		},
 	}

@@ -2,13 +2,12 @@ package csrf
 
 import (
 	"context"
-	"net/http"
 
 	_ "embed"
 
+	csrf_handlers "github.com/bete7512/goauth/internal/modules/csrf/handlers"
 	"github.com/bete7512/goauth/internal/modules/csrf/middlewares"
 	"github.com/bete7512/goauth/internal/modules/csrf/services"
-	http_utils "github.com/bete7512/goauth/internal/utils/http"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/types"
 )
@@ -20,7 +19,8 @@ var swaggerSpec []byte
 // Tokens are stateless — no server-side storage is required.
 type CSRFModule struct {
 	deps    config.ModuleDependencies
-	service *services.CSRFService
+	service services.CSRFService
+	handler *csrf_handlers.CSRFHandler
 	config  *config.CSRFModuleConfig
 }
 
@@ -44,18 +44,12 @@ func (m *CSRFModule) Name() string {
 func (m *CSRFModule) Init(_ context.Context, deps config.ModuleDependencies) error {
 	m.deps = deps
 	m.service = services.NewCSRFService(deps.Config.Security.JwtSecretKey, m.config)
+	m.handler = csrf_handlers.NewCSRFHandler(m.service, m.config)
 	return nil
 }
 
 func (m *CSRFModule) Routes() []config.RouteInfo {
-	return []config.RouteInfo{
-		{
-			Name:    "csrf.token",
-			Path:    "/csrf-token",
-			Method:  "GET",
-			Handler: m.handleGetToken,
-		},
-	}
+	return m.handler.GetRoutes()
 }
 
 func (m *CSRFModule) Middlewares() []config.MiddlewareConfig {
@@ -83,34 +77,4 @@ func (m *CSRFModule) Dependencies() []string {
 
 func (m *CSRFModule) SwaggerSpec() []byte {
 	return swaggerSpec
-}
-
-// handleGetToken generates a CSRF token, sets it as a cookie, and returns it in the response.
-// The cookie is NOT HttpOnly so that client-side JavaScript can read it
-// and include it in the X-CSRF-Token header on subsequent requests.
-func (m *CSRFModule) handleGetToken(w http.ResponseWriter, r *http.Request) {
-	token, err := m.service.GenerateToken()
-	if err != nil {
-		http_utils.RespondError(w, http.StatusInternalServerError, string(types.ErrInternalError), "Failed to generate CSRF token")
-		return
-	}
-
-	secure := m.config.Secure
-	sameSite := m.config.SameSite
-	if sameSite == 0 {
-		sameSite = http.SameSiteLaxMode
-	}
-
-	http.SetCookie(w, &http.Cookie{
-		Name:     m.service.CookieName(),
-		Value:    token,
-		Path:     m.service.CookiePath(),
-		Domain:   m.service.CookieDomain(),
-		MaxAge:   int(m.service.TokenExpiry().Seconds()),
-		Secure:   secure,
-		HttpOnly: false, // Client JS must read this cookie for double-submit
-		SameSite: sameSite,
-	})
-
-	http_utils.RespondSuccess(w, map[string]string{"csrf_token": token}, nil)
 }

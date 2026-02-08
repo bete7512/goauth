@@ -18,7 +18,7 @@ import (
 //
 // An attacker can trigger the browser to send the cookie on a cross-origin request,
 // but cannot read the cookie value to include it in the header. This is the defense.
-func NewCSRFMiddleware(service *services.CSRFService, cfg *config.CSRFModuleConfig) func(http.Handler) http.Handler {
+func NewCSRFMiddleware(service services.CSRFService, cfg *config.CSRFModuleConfig) func(http.Handler) http.Handler {
 	protectedMethods := cfg.ProtectedMethods
 	if len(protectedMethods) == 0 {
 		protectedMethods = []string{"POST", "PUT", "DELETE", "PATCH"}
