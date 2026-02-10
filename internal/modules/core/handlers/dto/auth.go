@@ -196,9 +196,6 @@ func (r *ResetPasswordRequest) Validate() error {
 	if r.NewPassword == "" {
 		return fmt.Errorf("new password is required")
 	}
-	if len(r.NewPassword) < 8 {
-		return fmt.Errorf("password must be at least 8 characters")
-	}
 	return nil
 }
 

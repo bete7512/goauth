@@ -26,17 +26,24 @@ type NotificationService interface {
 
 // NotificationConfig holds notification service configuration.
 type NotificationConfig struct {
-	AppName      string
-	SupportEmail string
-	SupportLink  string
-	Templates    map[string]templates.NotificationTemplate
+	// Branding injected into every template (logo, colors, company name, etc.).
+	// If nil, defaults to GoAuth branding.
+	Branding *templates.Branding
+
+	// EmailTemplates overrides individual email templates by name.
+	EmailTemplates map[string]templates.EmailTemplate
+
+	// SMSTemplates overrides individual SMS templates by name.
+	SMSTemplates map[string]templates.SMSTemplate
 }
 
 type notificationService struct {
-	emailSender models.EmailSender
-	smsSender   models.SMSSender
-	templates   map[string]templates.NotificationTemplate
-	config      *NotificationConfig
+	emailSender    models.EmailSender
+	smsSender      models.SMSSender
+	emailTemplates map[string]templates.EmailTemplate
+	smsTemplates   map[string]templates.SMSTemplate
+	baseHTML       string
+	branding       *templates.Branding
 }
 
 // NewNotificationService creates a new notification service (delivery only).
@@ -46,29 +53,34 @@ func NewNotificationService(
 	cfg *NotificationConfig,
 ) NotificationService {
 	if cfg == nil {
-		cfg = &NotificationConfig{
-			AppName:   "GoAuth",
-			Templates: make(map[string]templates.NotificationTemplate),
-		}
+		cfg = &NotificationConfig{}
 	}
 
-	tmplMap := map[string]templates.NotificationTemplate{
-		"welcome":            templates.TemplateWelcome,
-		"password_reset":     templates.TemplatePasswordReset,
-		"email_verification": templates.TemplateEmailVerification,
-		"two_factor_code":    templates.TemplateTwoFactorCode,
-		"login_alert":        templates.TemplateLoginAlert,
-		"password_changed":   templates.TemplatePasswordChanged,
+	// Resolve branding
+	branding := cfg.Branding
+	if branding == nil {
+		branding = templates.DefaultBranding()
 	}
 
-	for name, tmpl := range cfg.Templates {
-		tmplMap[name] = tmpl
+	// Load base layout and default templates from embedded FS
+	baseHTML := templates.LoadBaseHTML()
+	emailTmplMap := templates.DefaultEmailTemplates()
+	smsTmplMap := templates.DefaultSMSTemplates()
+
+	// Apply per-template overrides (most specific wins)
+	for name, tmpl := range cfg.EmailTemplates {
+		emailTmplMap[name] = tmpl
+	}
+	for name, tmpl := range cfg.SMSTemplates {
+		smsTmplMap[name] = tmpl
 	}
 
 	return &notificationService{
-		emailSender: emailSender,
-		smsSender:   smsSender,
-		templates:   tmplMap,
-		config:      cfg,
+		emailSender:    emailSender,
+		smsSender:      smsSender,
+		emailTemplates: emailTmplMap,
+		smsTemplates:   smsTmplMap,
+		baseHTML:       baseHTML,
+		branding:       branding,
 	}
 }

@@ -11,35 +11,57 @@ import (
 	"github.com/bete7512/goauth/internal/modules/notification/templates"
 )
 
-// sendTemplatedEmail sends an email using a template
-func (s *notificationService) sendTemplatedEmail(ctx context.Context, tmpl *templates.NotificationTemplate, to string, data map[string]interface{}) error {
+// injectBranding adds Brand data to the template data map.
+// Called once per send — every template gets branding automatically.
+func (s *notificationService) injectBranding(data map[string]interface{}) map[string]interface{} {
+	data["Brand"] = s.branding.BrandingData()
+	return data
+}
+
+// sendTemplatedEmail renders base layout + content template and sends an email.
+func (s *notificationService) sendTemplatedEmail(ctx context.Context, tmpl *templates.EmailTemplate, to string, data map[string]interface{}) error {
+	data = s.injectBranding(data)
+
+	// Subject
 	subjectTmpl, err := template.New("subject").Parse(tmpl.Subject)
 	if err != nil {
 		return fmt.Errorf("failed to parse subject template: %w", err)
 	}
-
 	var subjectBuf bytes.Buffer
 	if err := subjectTmpl.Execute(&subjectBuf, data); err != nil {
 		return fmt.Errorf("failed to execute subject template: %w", err)
 	}
 
+	// Plain text (no base layout — just content)
 	textTmpl, err := textTemplate.New("text").Parse(tmpl.TextBody)
 	if err != nil {
 		return fmt.Errorf("failed to parse text template: %w", err)
 	}
-
 	var textBuf bytes.Buffer
 	if err := textTmpl.Execute(&textBuf, data); err != nil {
 		return fmt.Errorf("failed to execute text template: %w", err)
 	}
 
+	// HTML (base layout wraps content template)
 	var htmlBuf bytes.Buffer
-	if tmpl.HTMLBody != "" {
+	if tmpl.HTMLBody != "" && s.baseHTML != "" {
+		// Parse base layout first, then add content block
+		htmlTmpl, err := template.New("base").Parse(s.baseHTML)
+		if err != nil {
+			return fmt.Errorf("failed to parse base HTML template: %w", err)
+		}
+		if _, err := htmlTmpl.Parse(tmpl.HTMLBody); err != nil {
+			return fmt.Errorf("failed to parse content HTML template: %w", err)
+		}
+		if err := htmlTmpl.Execute(&htmlBuf, data); err != nil {
+			return fmt.Errorf("failed to execute HTML template: %w", err)
+		}
+	} else if tmpl.HTMLBody != "" {
+		// No base layout — render content directly
 		htmlTmpl, err := template.New("html").Parse(tmpl.HTMLBody)
 		if err != nil {
 			return fmt.Errorf("failed to parse HTML template: %w", err)
 		}
-
 		if err := htmlTmpl.Execute(&htmlBuf, data); err != nil {
 			return fmt.Errorf("failed to execute HTML template: %w", err)
 		}
@@ -55,9 +77,11 @@ func (s *notificationService) sendTemplatedEmail(ctx context.Context, tmpl *temp
 	return s.emailSender.SendEmail(ctx, message)
 }
 
-// sendTemplatedSMS sends an SMS using a template
-func (s *notificationService) sendTemplatedSMS(ctx context.Context, tmpl *templates.NotificationTemplate, to string, data map[string]interface{}) error {
-	smsTmpl, err := textTemplate.New("sms").Parse(tmpl.SMSBody)
+// sendTemplatedSMS renders an SMS template and sends it.
+func (s *notificationService) sendTemplatedSMS(ctx context.Context, tmpl *templates.SMSTemplate, to string, data map[string]interface{}) error {
+	data = s.injectBranding(data)
+
+	smsTmpl, err := textTemplate.New("sms").Parse(tmpl.Body)
 	if err != nil {
 		return fmt.Errorf("failed to parse SMS template: %w", err)
 	}

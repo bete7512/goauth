@@ -292,6 +292,10 @@ http_utils.RespondList(w, items, total, opts.SortField, opts.SortDir)
 - Clean: `make clean`
 - Always run `make build` to catch compilation errors before committing.
 
+## Before You Build Anything
+**When asked to implement or change something, STOP and think through these before writing code:**
+**Surface this thinking to the user before coding.** Say what the change enables, what it costs, and what adjacent concerns it raises. Then discuss then build.
+
 ## Current State
 
-Branch: `feat/storage-architecture-update`. Active work on storage architecture, CSRF, and captcha modules. See `SCRATCHPAD.md` for session-persistent progress notes.
+Branch: `mvp-cleaning`. Active work on notification module refactor and template system. See `SCRATCHPAD.md` for session-persistent progress notes.

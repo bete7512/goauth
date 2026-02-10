@@ -28,7 +28,7 @@ func (s *coreService) SendEmailVerification(ctx context.Context, email string) (
 		return nil, types.NewInternalError(fmt.Sprintf("failed to generate token: %v", err))
 	}
 
-	verificationLink := s.buildVerificationLink(email, token)
+	verificationLink := s.buildVerificationLink(token)
 
 	verificationToken := &models.Token{
 		ID:        uuid.New().String(),
@@ -75,7 +75,7 @@ func (s *coreService) ResendEmailVerification(ctx context.Context, email string)
 		return nil, types.NewInternalError(fmt.Sprintf("failed to generate token: %v", err))
 	}
 
-	verificationLink := s.buildVerificationLink(email, token)
+	verificationLink := s.buildVerificationLink(token)
 
 	verificationToken := &models.Token{
 		ID:        uuid.New().String(),
@@ -97,7 +97,7 @@ func (s *coreService) ResendEmailVerification(ctx context.Context, email string)
 		VerificationLink: verificationLink,
 	})
 
-	return &dto.MessageResponse{Message: "Verification email resent successfully"}, nil
+	return &dto.MessageResponse{Message: "Verification will be email resent"}, nil
 }
 
 // SendPhoneVerification creates an OTP and emits an event for notification delivery.
@@ -189,7 +189,7 @@ func (s *coreService) ResendPhoneVerification(ctx context.Context, phone string)
 // VerifyEmail validates a token, marks the user's email as verified, and emits EventAfterEmailVerified.
 func (s *coreService) VerifyEmail(ctx context.Context, token string) (*dto.MessageResponse, *types.GoAuthError) {
 	verification, err := s.TokenRepository.FindByToken(ctx, token)
-	if err != nil {
+	if err != nil || verification == nil {
 		return nil, types.NewGoAuthError(types.ErrInvalidToken, "invalid verification token", 400)
 	}
 
@@ -233,7 +233,7 @@ func (s *coreService) VerifyEmail(ctx context.Context, token string) (*dto.Messa
 // VerifyPhone validates an OTP code, marks the user's phone as verified.
 func (s *coreService) VerifyPhone(ctx context.Context, code string, phone string) (*dto.MessageResponse, *types.GoAuthError) {
 	verification, err := s.TokenRepository.FindByCode(ctx, code, models.TokenTypePhoneVerification)
-	if err != nil {
+	if err != nil || verification == nil {
 		return nil, types.NewGoAuthError(types.ErrInvalidToken, "invalid verification code", 400)
 	}
 
@@ -269,18 +269,18 @@ func (s *coreService) VerifyPhone(ctx context.Context, code string, phone string
 	return &dto.MessageResponse{Message: "Phone verified successfully"}, nil
 }
 
-// buildVerificationLink builds a verification link using frontend config.
-func (s *coreService) buildVerificationLink(email, token string) string {
-	if s.Deps.Config.FrontendConfig == nil {
+// buildVerificationLink builds a verification link that points to the backend verify-email endpoint.
+// The backend verifies the token and redirects to the frontend callback path.
+func (s *coreService) buildVerificationLink(token string) string {
+	if s.Deps.Config.APIURL == "" {
 		return ""
 	}
 	apiURL := s.Deps.Config.APIURL + s.Deps.Config.BasePath
-	redirectURL := fmt.Sprintf("%s%s", s.Deps.Config.FrontendConfig.URL, s.Deps.Config.FrontendConfig.VerifyEmailCallbackPath)
-	return fmt.Sprintf("%s%s?token=%s&redirect_url=%s", apiURL, s.Deps.Config.FrontendConfig.VerifyEmailCallbackPath, token, redirectURL)
+	return fmt.Sprintf("%s/verify-email?token=%s", apiURL, token)
 }
 
 // buildPasswordResetLink builds a password reset link using frontend config.
-func (s *coreService) buildPasswordResetLink(email, token string) string {
+func (s *coreService) buildPasswordResetLink(token string) string {
 	if s.Deps.Config.FrontendConfig == nil || s.Deps.Config.FrontendConfig.ResetPasswordPath == "" {
 		return ""
 	}
@@ -289,5 +289,5 @@ func (s *coreService) buildPasswordResetLink(email, token string) string {
 		return ""
 	}
 	resetPath := s.Deps.Config.FrontendConfig.ResetPasswordPath
-	return fmt.Sprintf("%s%s?email=%s&code=%s", baseURL, resetPath, email, token)
+	return fmt.Sprintf("%s%s?token=%s", baseURL, resetPath, token)
 }

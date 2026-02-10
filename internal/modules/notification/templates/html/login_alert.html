@@ -1,0 +1,10 @@
+{{define "content"}}
+<h2 style="margin: 0 0 16px 0; color: {{.Brand.TextColor}};">New Login Detected</h2>
+<p>Hi {{.UserName}},</p>
+<p>A new login to your account was detected:</p>
+<table style="border-collapse: collapse; margin: 20px 0; width: 100%;">
+  <tr><td style="padding: 8px 12px; color: #666; border-bottom: 1px solid #eee;">IP Address</td><td style="padding: 8px 12px; border-bottom: 1px solid #eee;"><strong>{{.IPAddress}}</strong></td></tr>
+  <tr><td style="padding: 8px 12px; color: #666;">Time</td><td style="padding: 8px 12px;"><strong>{{.Timestamp}}</strong></td></tr>
+</table>
+<p style="color: #666; font-size: 14px;">If this wasn't you, please change your password immediately.</p>
+{{end}}

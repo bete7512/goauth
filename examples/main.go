@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -11,6 +12,8 @@ import (
 	"github.com/bete7512/goauth/internal/modules/admin"
 	"github.com/bete7512/goauth/internal/modules/audit"
 	"github.com/bete7512/goauth/internal/modules/notification"
+	"github.com/bete7512/goauth/internal/modules/notification/services/senders"
+	"github.com/bete7512/goauth/internal/modules/notification/templates"
 	"github.com/bete7512/goauth/internal/modules/session"
 	"github.com/bete7512/goauth/internal/modules/stateless"
 	"github.com/bete7512/goauth/pkg/auth"
@@ -21,6 +24,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
+	"github.com/joho/godotenv"
 )
 
 // pathParamRegex matches Go 1.22+ / Chi-style path parameters like {id}
@@ -66,6 +70,7 @@ func main() {
 			},
 		},
 		AutoMigrate: true,
+		APIURL:      "http://localhost:8080",
 		BasePath:    "/api/v1",
 		Core: &config.CoreConfig{
 			RequireEmailVerification: true,  // Enable email verification
@@ -97,10 +102,35 @@ func main() {
 		log.Fatalf("Failed to create auth: %v", err)
 	}
 
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found, relying on environment variables")
+	}
 
+	resendAPIKey := os.Getenv("RESEND_API_KEY")
+	if resendAPIKey == "" {
+		log.Fatal("RESEND_API_KEY is not set")
+	}
 	authInstance.Use(notification.New(
 		&notification.Config{
-
+			EnableWelcomeEmail:        true,
+			EnablePasswordResetEmail:  true,
+			EnableLoginAlerts:         true,
+			EnablePasswordChangeAlert: true,
+			EmailSender: senders.NewResendEmailSender(
+				&senders.ResendConfig{
+					APIKey:          resendAPIKey,
+					DefaultFrom:     "goauth@beteg.dev",
+					DefaultFromName: "Goauth",
+				},
+			),
+			Branding: &templates.Branding{
+				AppName:      "Go Auth",
+				LogoURL:      "https://lab20101.nodeum.io/assets/ng/assets/logo-nodeum-white.svg",
+				PrimaryColor: "#006266",
+				TextColor:    "#000",
+				ContactEmail: "bete@goauth.io",
+				DomainName:   "goauth.io",
+			},
 		},
 	))
 

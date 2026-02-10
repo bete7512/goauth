@@ -16,6 +16,7 @@ import (
 func (s *coreService) ForgotPassword(ctx context.Context, req *dto.ForgotPasswordRequest) (*dto.MessageResponse, *types.GoAuthError) {
 	var user *models.User
 	var err error
+	var token, code string
 
 	if req.Email != "" {
 		user, err = s.UserRepository.FindByEmail(ctx, req.Email)
@@ -26,24 +27,27 @@ func (s *coreService) ForgotPassword(ctx context.Context, req *dto.ForgotPasswor
 	}
 
 	if err != nil || user == nil {
-		// Don't reveal if user exists for security
 		return &dto.MessageResponse{
 			Message: "If an account exists, password reset instructions have been sent",
 		}, nil
 	}
 
 	// Generate token and OTP code
-	token, err := s.Deps.SecurityManager.GenerateRandomToken(32)
-	if err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to generate token: %v", err))
+	if req.Email != "" {
+		token, err = s.Deps.SecurityManager.GenerateRandomToken(32)
+		if err != nil {
+			return nil, types.NewInternalError(fmt.Sprintf("failed to generate token: %v", err))
+		}
 	}
 
-	code, err := s.Deps.SecurityManager.GenerateNumericOTP(6)
-	if err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to generate OTP: %v", err))
+	if req.Phone != "" {
+		code, err = s.Deps.SecurityManager.GenerateNumericOTP(6)
+		if err != nil {
+			return nil, types.NewInternalError(fmt.Sprintf("failed to generate OTP: %v", err))
+		}
 	}
 
-	resetLink := s.buildPasswordResetLink(user.Email, token)
+	resetLink := s.buildPasswordResetLink(token)
 
 	// Create password reset token
 	verificationToken := &models.Token{
@@ -86,12 +90,12 @@ func (s *coreService) ResetPassword(ctx context.Context, req *dto.ResetPasswordR
 	// Find reset token
 	if req.Token != "" {
 		verification, err = s.TokenRepository.FindByToken(ctx, req.Token)
-		if err != nil {
+		if err != nil || verification == nil {
 			return nil, types.NewInvalidTokenError()
 		}
 	} else if req.Code != "" {
 		verification, err = s.TokenRepository.FindByCode(ctx, req.Code, models.TokenTypePasswordReset)
-		if err != nil {
+		if err != nil || verification == nil {
 			return nil, types.NewInvalidTokenError()
 		}
 	} else {

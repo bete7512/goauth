@@ -4,11 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	_ "embed"
-
 	"github.com/bete7512/goauth/internal/modules/notification/hooks"
 	"github.com/bete7512/goauth/internal/modules/notification/models"
 	"github.com/bete7512/goauth/internal/modules/notification/services"
+	"github.com/bete7512/goauth/internal/modules/notification/templates"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/types"
 )
@@ -27,8 +26,16 @@ type Config struct {
 	// SMS sender implementation (optional)
 	SMSSender models.SMSSender
 
-	// Service configuration (templates, app name, etc.)
-	ServiceConfig *services.NotificationConfig
+	// Branding injected into every email/SMS template.
+	// Controls logo, colors, company name, footer, etc.
+	// If nil, defaults to GoAuth branding.
+	Branding *templates.Branding
+
+	// EmailTemplates overrides individual email templates by name.
+	EmailTemplates map[string]templates.EmailTemplate
+
+	// SMSTemplates overrides individual SMS templates by name.
+	SMSTemplates map[string]templates.SMSTemplate
 
 	// Enable/disable specific notifications
 	EnableWelcomeEmail        bool
@@ -38,9 +45,6 @@ type Config struct {
 	EnablePasswordChangeAlert bool
 	Enable2FANotifications    bool
 }
-
-//go:embed docs/swagger.yml
-var swaggerSpec []byte
 
 var _ config.Module = (*NotificationModule)(nil)
 
@@ -79,11 +83,15 @@ func (m *NotificationModule) Init(ctx context.Context, deps config.ModuleDepende
 		return err
 	}
 
-	// Initialize service (delivery only -- no repos, no DB)
+	// Initialize service with branding, template FS, and overrides
 	m.service = services.NewNotificationService(
 		m.config.EmailSender,
 		m.config.SMSSender,
-		m.config.ServiceConfig,
+		&services.NotificationConfig{
+			Branding:       m.config.Branding,
+			EmailTemplates: m.config.EmailTemplates,
+			SMSTemplates:   m.config.SMSTemplates,
+		},
 	)
 
 	return nil

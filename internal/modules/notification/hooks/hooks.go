@@ -40,8 +40,8 @@ func NewNotificationHooks(service services.NotificationService, deps config.Modu
 func (h *NotificationHooks) GetHooks() []EventHook {
 	hooks := []EventHook{}
 
-	// Welcome email after signup (only if email verification NOT required)
-	if h.config.EnableWelcomeEmail && !h.deps.Config.Core.RequireEmailVerification {
+	// Welcome email after signup
+	if h.config.EnableWelcomeEmail {
 		hooks = append(hooks, EventHook{
 			Event:   types.EventAfterSignup,
 			Handler: h.handleAfterSignup,
@@ -70,10 +70,14 @@ func (h *NotificationHooks) GetHooks() []EventHook {
 		})
 	}
 
-	// Password changed alert
+	// Password changed alert (fires for both change-password and reset-password)
 	if h.config.EnablePasswordChangeAlert {
 		hooks = append(hooks, EventHook{
 			Event:   types.EventAfterChangePassword,
+			Handler: h.handlePasswordChanged,
+		})
+		hooks = append(hooks, EventHook{
+			Event:   types.EventAfterResetPassword,
 			Handler: h.handlePasswordChanged,
 		})
 	}
@@ -83,14 +87,6 @@ func (h *NotificationHooks) GetHooks() []EventHook {
 		hooks = append(hooks, EventHook{
 			Event:   types.EventAfterLogin,
 			Handler: h.handleLoginAlert,
-		})
-	}
-
-	// Email verified -> send welcome email
-	if h.config.EnableWelcomeEmail {
-		hooks = append(hooks, EventHook{
-			Event:   types.EventAfterEmailVerified,
-			Handler: h.handleAfterEmailVerified,
 		})
 	}
 
@@ -216,15 +212,3 @@ func (h *NotificationHooks) handleLoginAlert(ctx context.Context, event *types.E
 	return nil
 }
 
-func (h *NotificationHooks) handleAfterEmailVerified(ctx context.Context, event *types.Event) error {
-	data, ok := types.EventDataAs[*types.UserEventData](event)
-	if !ok {
-		return fmt.Errorf("notification: unexpected event data type for %s (id=%s)", event.Type, event.ID)
-	}
-
-	if err := h.service.SendWelcomeEmail(ctx, *data.User); err != nil {
-		h.deps.Logger.Errorf("notification: failed to send welcome after verification: %v", err)
-	}
-
-	return nil
-}

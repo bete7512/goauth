@@ -9,13 +9,16 @@ import (
 
 // SendWelcomeEmail sends a welcome email to the user.
 func (s *notificationService) SendWelcomeEmail(ctx context.Context, user models.User) error {
-	tmpl, ok := s.templates["welcome"]
-	if !ok || !tmpl.Enabled {
+	tmpl, ok := s.emailTemplates["welcome"]
+	if !ok {
+		return nil
+	}
+
+	if s.emailSender == nil {
 		return nil
 	}
 
 	data := map[string]interface{}{
-		"AppName":  s.config.AppName,
 		"UserName": user.Username,
 	}
 
@@ -24,8 +27,12 @@ func (s *notificationService) SendWelcomeEmail(ctx context.Context, user models.
 
 // SendLoginAlert sends a login alert email to the user.
 func (s *notificationService) SendLoginAlert(ctx context.Context, user models.User, metadata map[string]interface{}) error {
-	tmpl, ok := s.templates["login_alert"]
-	if !ok || !tmpl.Enabled {
+	tmpl, ok := s.emailTemplates["login_alert"]
+	if !ok {
+		return nil
+	}
+
+	if s.emailSender == nil {
 		return nil
 	}
 
@@ -40,15 +47,18 @@ func (s *notificationService) SendLoginAlert(ctx context.Context, user models.Us
 
 // SendPasswordChangedAlert sends a password changed alert email.
 func (s *notificationService) SendPasswordChangedAlert(ctx context.Context, user models.User) error {
-	tmpl, ok := s.templates["password_changed"]
-	if !ok || !tmpl.Enabled {
+	tmpl, ok := s.emailTemplates["password_changed"]
+	if !ok {
+		return nil
+	}
+
+	if s.emailSender == nil {
 		return nil
 	}
 
 	data := map[string]interface{}{
-		"UserName":    user.Username,
-		"Timestamp":   time.Now().Format("2006-01-02 15:04:05"),
-		"SupportLink": s.config.SupportLink,
+		"UserName":  user.Username,
+		"Timestamp": time.Now().Format("2006-01-02 15:04:05"),
 	}
 
 	return s.sendTemplatedEmail(ctx, &tmpl, user.Email, data)
