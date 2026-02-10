@@ -9,27 +9,23 @@ import (
 	"github.com/bete7512/goauth/pkg/types"
 )
 
-// WorkerPool manages a pool of workers for async event handling
-// with retry logic and dead letter queue support.
+// WorkerPool manages a pool of workers for async event processing.
+// Events are pulled from a buffered channel and dispatched via the
+// registered EventDispatcher callback.
 type WorkerPool struct {
-	workers  int
-	jobQueue chan *job
-	wg       sync.WaitGroup
-	stopOnce sync.Once
-	stopChan chan struct{}
-	logger   logger.Logger
-	dlq      *DeadLetterQueue
-}
-
-type job struct {
-	ctx         context.Context
-	handler     types.EventHandler
-	event       *types.Event
-	retryPolicy *types.RetryPolicy
+	workers    int
+	eventQueue chan *types.Event
+	dispatcher types.EventDispatcher
+	wg         sync.WaitGroup
+	stopOnce   sync.Once
+	stopChan   chan struct{}
+	logger     logger.Logger
+	dlq        *DeadLetterQueue
 }
 
 // NewWorkerPool creates a worker pool with specified number of workers.
 // The DLQ parameter is optional — pass nil to disable dead letter queue.
+// Workers start immediately but won't process events until SetDispatcher is called.
 func NewWorkerPool(workers int, queueSize int, log logger.Logger, dlq *DeadLetterQueue) *WorkerPool {
 	if workers <= 0 {
 		workers = 10 // Default
@@ -39,11 +35,11 @@ func NewWorkerPool(workers int, queueSize int, log logger.Logger, dlq *DeadLette
 	}
 
 	wp := &WorkerPool{
-		workers:  workers,
-		jobQueue: make(chan *job, queueSize),
-		stopChan: make(chan struct{}),
-		logger:   log,
-		dlq:      dlq,
+		workers:    workers,
+		eventQueue: make(chan *types.Event, queueSize),
+		stopChan:   make(chan struct{}),
+		logger:     log,
+		dlq:        dlq,
 	}
 
 	// Start workers
@@ -55,7 +51,13 @@ func NewWorkerPool(workers int, queueSize int, log logger.Logger, dlq *DeadLette
 	return wp
 }
 
-// worker processes jobs from the queue
+// SetDispatcher sets the callback invoked for each event.
+// Must be called before events are submitted (called by DefaultAsyncBackend.Subscribe).
+func (wp *WorkerPool) SetDispatcher(dispatcher types.EventDispatcher) {
+	wp.dispatcher = dispatcher
+}
+
+// worker processes events from the queue
 func (wp *WorkerPool) worker(id int) {
 	defer wp.wg.Done()
 
@@ -63,45 +65,20 @@ func (wp *WorkerPool) worker(id int) {
 		select {
 		case <-wp.stopChan:
 			return
-		case j := <-wp.jobQueue:
-			if j == nil {
+		case event := <-wp.eventQueue:
+			if event == nil || wp.dispatcher == nil {
 				continue
 			}
-
-			if j.retryPolicy != nil && j.retryPolicy.MaxRetries > 0 {
-				// Process with retry logic
-				processWithRetry(j.ctx, j.handler, j.event, *j.retryPolicy, wp.dlq, wp.logger)
-			} else {
-				// No retry — execute once, send to DLQ on failure
-				if err := j.handler(j.ctx, j.event); err != nil {
-					if wp.logger != nil {
-						wp.logger.Errorf("Worker %d: handler error (event=%s, id=%s): %v", id, j.event.Type, j.event.ID, err)
-					}
-					if wp.dlq != nil {
-						wp.dlq.Add(j.event, err)
-					}
-				}
-			}
+			wp.dispatcher(context.Background(), event)
 		}
 	}
 }
 
-// Submit adds a job to the queue (non-blocking with timeout).
-// Pass a retryPolicy to enable retries for this specific job.
-func (wp *WorkerPool) Submit(ctx context.Context, handler types.EventHandler, event *types.Event, retryPolicy *types.RetryPolicy) error {
-	// Use background context for async job execution
-	// This prevents context cancellation when HTTP request completes
-	backgroundCtx := context.Background()
-
-	j := &job{
-		ctx:         backgroundCtx,
-		handler:     handler,
-		event:       event,
-		retryPolicy: retryPolicy,
-	}
-
+// Submit adds an event to the queue (non-blocking).
+// Returns ErrQueueFull if the queue is at capacity — the event is sent to the DLQ.
+func (wp *WorkerPool) Submit(ctx context.Context, event *types.Event) error {
 	select {
-	case wp.jobQueue <- j:
+	case wp.eventQueue <- event:
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
@@ -122,18 +99,18 @@ func (wp *WorkerPool) Stop() {
 	wp.stopOnce.Do(func() {
 		close(wp.stopChan)
 		wp.wg.Wait()
-		close(wp.jobQueue)
+		close(wp.eventQueue)
 	})
 }
 
 // QueueLength returns current queue length
 func (wp *WorkerPool) QueueLength() int {
-	return len(wp.jobQueue)
+	return len(wp.eventQueue)
 }
 
 // QueueCapacity returns queue capacity
 func (wp *WorkerPool) QueueCapacity() int {
-	return cap(wp.jobQueue)
+	return cap(wp.eventQueue)
 }
 
 // DLQ returns the dead letter queue (may be nil if not configured)

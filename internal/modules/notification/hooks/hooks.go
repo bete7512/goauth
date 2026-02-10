@@ -44,7 +44,7 @@ func (h *NotificationHooks) GetHooks() []EventHook {
 	if h.config.EnableWelcomeEmail {
 		hooks = append(hooks, EventHook{
 			Event:   types.EventAfterSignup,
-			Handler: h.handleAfterSignup,
+			Handler: h.sendWelcomeEmail,
 		})
 	}
 
@@ -101,7 +101,7 @@ type EventHook struct {
 
 // --- Handler implementations ---
 
-func (h *NotificationHooks) handleAfterSignup(ctx context.Context, event *types.Event) error {
+func (h *NotificationHooks) sendWelcomeEmail(ctx context.Context, event *types.Event) error {
 	data, ok := types.EventDataAs[*types.UserEventData](event)
 	if !ok {
 		return fmt.Errorf("notification: unexpected event data type for %s (id=%s)", event.Type, event.ID)
@@ -111,6 +111,8 @@ func (h *NotificationHooks) handleAfterSignup(ctx context.Context, event *types.
 		h.deps.Logger.Errorf("notification: failed to send welcome email: %v", err)
 		return err
 	}
+
+	h.deps.Logger.Infof("notification: Welcome Email sent to %s", data.User.Email)
 
 	return nil
 }
@@ -211,4 +213,3 @@ func (h *NotificationHooks) handleLoginAlert(ctx context.Context, event *types.E
 
 	return nil
 }
-

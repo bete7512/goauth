@@ -146,7 +146,11 @@ func (s *EventBusSuite) TestEmitAsync() {
 		return nil
 	})
 
-	err := eb.EmitAsync(context.Background(), types.EventAfterLogin, nil)
+	// Start must be called after Subscribe to register the dispatcher
+	err := eb.Start(context.Background())
+	s.NoError(err)
+
+	err = eb.EmitAsync(context.Background(), types.EventAfterLogin, nil)
 	s.NoError(err)
 
 	select {

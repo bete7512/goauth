@@ -52,6 +52,13 @@ func NewEventBusWithBackend(log logger.Logger, backend types.AsyncBackend) *Even
 	}
 }
 
+// Start registers the dispatcher with the async backend and starts consumption.
+// Must be called after all handlers are registered (via Subscribe) — typically
+// at the end of auth.Initialize().
+func (eb *EventBus) Start(ctx context.Context) error {
+	return eb.asyncBackend.Subscribe(ctx, eb.dispatch)
+}
+
 // Close gracefully shuts down the event bus
 func (eb *EventBus) Close() error {
 	if eb.asyncBackend != nil {
@@ -83,8 +90,9 @@ func (eb *EventBus) Subscribe(eventType types.EventType, handler types.EventHand
 	})
 }
 
-// EmitAsync dispatches an event asynchronously to all registered handlers.
-// Events are assigned a unique ID and timestamp for tracking.
+// EmitAsync dispatches an event asynchronously via the async backend.
+// The event is published once — the backend delivers it to the dispatcher
+// which executes all registered handlers.
 func (eb *EventBus) EmitAsync(_ context.Context, eventType types.EventType, data interface{}) error {
 	eb.mu.RLock()
 	handlers := eb.handlers[eventType]
@@ -103,21 +111,39 @@ func (eb *EventBus) EmitAsync(_ context.Context, eventType types.EventType, data
 		CreatedAt: time.Now(),
 	}
 
-	go func() {
-		for _, h := range handlers {
-			if defaultBackend, ok := eb.asyncBackend.(*DefaultAsyncBackend); ok {
-				if err := defaultBackend.SubmitJob(bgCtx, h.handler, event, h.retryPolicy); err != nil && eb.logger != nil {
-					eb.logger.Errorf("Failed to submit async job (event=%s, id=%s): %v", eventType, event.ID, err)
+	// Single publish — backend queues the event and its consumer calls dispatch
+	if err := eb.asyncBackend.Publish(bgCtx, eventType, event); err != nil {
+		if eb.logger != nil {
+			eb.logger.Errorf("Failed to publish event (type=%s, id=%s): %v", eventType, event.ID, err)
+		}
+		return err
+	}
+
+	return nil
+}
+
+// dispatch is the EventDispatcher callback invoked by the async backend
+// for each event. It looks up all handlers and executes them with per-handler retry.
+func (eb *EventBus) dispatch(ctx context.Context, event *types.Event) {
+	eb.mu.RLock()
+	handlers := eb.handlers[event.Type]
+	eb.mu.RUnlock()
+
+	for _, h := range handlers {
+		if h.retryPolicy != nil && h.retryPolicy.MaxRetries > 0 {
+			processWithRetry(ctx, h.handler, event, *h.retryPolicy, eb.DLQ(), eb.logger)
+		} else {
+			if err := h.handler(ctx, event); err != nil {
+				if eb.logger != nil {
+					eb.logger.Errorf("Event handler error (event=%s, id=%s): %v", event.Type, event.ID, err)
 				}
-			} else {
-				if err := eb.asyncBackend.Publish(bgCtx, eventType, event); err != nil && eb.logger != nil {
-					eb.logger.Errorf("Failed to publish to async backend (event=%s, id=%s): %v", eventType, event.ID, err)
+				dlq := eb.DLQ()
+				if dlq != nil {
+					dlq.Add(event, err)
 				}
 			}
 		}
-	}()
-
-	return nil
+	}
 }
 
 // EmitSync dispatches an event synchronously to all handlers.
@@ -163,7 +189,7 @@ func (eb *EventBus) HasHandlers(eventType types.EventType) bool {
 }
 
 // DLQ returns the dead letter queue if the default backend is used.
-// Returns nil for custom async backends.
+// Returns nil for custom async backends (they manage their own DLQ).
 func (eb *EventBus) DLQ() *DeadLetterQueue {
 	if defaultBackend, ok := eb.asyncBackend.(*DefaultAsyncBackend); ok {
 		return defaultBackend.DLQ()

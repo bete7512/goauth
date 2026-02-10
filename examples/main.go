@@ -50,9 +50,45 @@ func main() {
 	}
 	defer store.Close()
 
+	// --- Option 1: Default worker pool backend (no config needed) ---
+	// Events are processed in-memory by a goroutine pool (10 workers, 1000 queue).
+
+	// --- Option 2: NATS JetStream backend (uncomment to use) ---
+	// Durable, distributed event processing. Requires a running NATS server.
+	//
+	// natsBackend, err := NewNATSJetStreamBackend(context.Background(), &NATSConfig{
+	// 	URL:      "nats://localhost:4222",
+	// 	Username: "admin",
+	// 	Password: "123456",
+	// })
+	// if err != nil {
+	// 	log.Fatalf("Failed to create NATS backend: %v", err)
+	// }
+	//
+	// // Start a consumer in a background goroutine to process events.
+	// // In production, run this in a separate worker process.
+	// go func() {
+	// 	err := natsBackend.ConsumeEvents(context.Background(), "goauth-worker", func(ctx context.Context, payload EventPayload) error {
+	// 		log.Printf("NATS event: type=%s id=%s", payload.Type, payload.ID)
+	// 		return nil
+	// 	})
+	// 	if err != nil {
+	// 		log.Printf("NATS consumer stopped: %v", err)
+	// 	}
+	// }()
+
+	natsBackend, err := NewNATSJetStreamBackend(context.Background(), &NATSConfig{
+		URL:      "nats://localhost:4222",
+		Username: "admin",
+		Password: "123456",
+	})
+	if err != nil {
+		log.Fatalf("Failed to create NATS backend: %v", err)
+	}
 	// Create auth instance
 	authInstance, err := auth.New(&config.Config{
-		Storage: store,
+		Storage:      store,
+		AsyncBackend: natsBackend,
 		Security: types.SecurityConfig{
 			JwtSecretKey:  "your-secret-key-change-in-production",
 			EncryptionKey: "your-encryption-key-change-in-production",

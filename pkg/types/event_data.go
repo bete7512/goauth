@@ -1,6 +1,7 @@
 package types
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/bete7512/goauth/pkg/models"
@@ -90,6 +91,10 @@ type ProfileChangedData struct {
 // EventDataAs extracts typed event data from an Event.
 // Returns the typed data and true if the assertion succeeds.
 //
+// Supports two modes:
+//   - Direct type assertion (in-process backends like worker pool)
+//   - JSON deserialization (serialized backends like NATS JetStream, Redis)
+//
 // Usage:
 //
 //	data, ok := types.EventDataAs[*types.UserEventData](event)
@@ -98,6 +103,27 @@ type ProfileChangedData struct {
 //	}
 //	user := data.User
 func EventDataAs[T any](event *Event) (T, bool) {
-	data, ok := event.Data.(T)
-	return data, ok
+	// Direct type assertion (in-process backends)
+	if data, ok := event.Data.(T); ok {
+		return data, ok
+	}
+
+	// JSON deserialization (serialized backends)
+	var raw []byte
+	switch v := event.Data.(type) {
+	case json.RawMessage:
+		raw = v
+	case []byte:
+		raw = v
+	default:
+		var zero T
+		return zero, false
+	}
+
+	var data T
+	if err := json.Unmarshal(raw, &data); err != nil {
+		var zero T
+		return zero, false
+	}
+	return data, true
 }
