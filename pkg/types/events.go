@@ -178,4 +178,8 @@ const (
 	EventSendEmailVerification  EventType = "send.email-verification"
 	EventSendPhoneVerification  EventType = "send.phone-verification"
 	EventSendPasswordResetEmail EventType = "send.password-reset-email"
+	EventSendMagicLink          EventType = "send.magic-link"
+
+	// Magic Link Events
+	EventAfterMagicLinkVerified EventType = "after.magic-link-verified"
 )

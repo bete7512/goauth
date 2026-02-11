@@ -120,6 +120,12 @@ func DefaultEmailTemplates() map[string]EmailTemplate {
 			TextBody: "Hi {{.UserName}},\n\nYour password was changed at {{.Timestamp}}. If this wasn't you, contact support at {{.Brand.ContactEmail}} immediately.\n\n{{.Brand.FooterText}}",
 			HTMLBody: loadHTML("password_changed"),
 		},
+		"magic_link": {
+			Name:     "magic_link",
+			Subject:  "Sign In to {{.Brand.AppName}}",
+			TextBody: "Hi {{.UserName}},\n\nClick here to sign in: {{.MagicLink}}\n\nOr use this code: {{.Code}}\n\nThis link expires in {{.ExpiryTime}}.\n\n{{.Brand.FooterText}}",
+			HTMLBody: loadHTML("magic_link"),
+		},
 	}
 }
 

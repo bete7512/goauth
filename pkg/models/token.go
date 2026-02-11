@@ -13,6 +13,7 @@ const (
 	TokenTypePhoneVerification = "phone_verification"
 	TokenTypePasswordReset     = "password_reset"
 	TokenTypeTwoFactorCode     = "two_factor_code"
+	TokenTypeMagicLink         = "magic_link"
 )
 
 type Token struct {

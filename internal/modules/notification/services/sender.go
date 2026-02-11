@@ -63,6 +63,27 @@ func (s *notificationService) SendEmailVerification(ctx context.Context, email, 
 	return s.sendTemplatedEmail(ctx, &tmpl, email, data)
 }
 
+// SendMagicLinkEmail renders the magic link template and delivers via email.
+func (s *notificationService) SendMagicLinkEmail(ctx context.Context, email, userName, magicLink, code, expiryTime string) error {
+	tmpl, ok := s.emailTemplates["magic_link"]
+	if !ok {
+		return nil
+	}
+
+	if s.emailSender == nil {
+		return nil
+	}
+
+	data := map[string]interface{}{
+		"UserName":   userName,
+		"MagicLink":  magicLink,
+		"Code":       code,
+		"ExpiryTime": expiryTime,
+	}
+
+	return s.sendTemplatedEmail(ctx, &tmpl, email, data)
+}
+
 // SendPhoneVerification renders the phone verification template and delivers via SMS.
 func (s *notificationService) SendPhoneVerification(ctx context.Context, phoneNumber, userName, code, expiryTime string) error {
 	tmpl, ok := s.smsTemplates["phone_verification"]

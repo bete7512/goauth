@@ -88,6 +88,15 @@ type ProfileChangedData struct {
 	Fields []string `json:"fields"`
 }
 
+// MagicLinkRequestData is used for send.magic-link events.
+// Contains the pre-built magic link and OTP code for notification handlers.
+type MagicLinkRequestData struct {
+	User       *models.User `json:"user"`
+	MagicLink  string       `json:"magic_link"`
+	Code       string       `json:"code,omitempty"`
+	ExpiryTime string       `json:"expiry_time"`
+}
+
 // EventDataAs extracts typed event data from an Event.
 // Returns the typed data and true if the assertion succeeds.
 //

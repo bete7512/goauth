@@ -39,9 +39,10 @@ const (
 	RouteOAuthUserDeleteProfile RouteName = "oauth.user_delete_profile"
 
 	// MagicLink Routes
-	RouteMagicLinkSend   RouteName = "magiclink.send"
-	RouteMagicLinkVerify RouteName = "magiclink.verify"
-	RouteMagicLinkResend RouteName = "magiclink.resend"
+	RouteMagicLinkSend       RouteName = "magiclink.send"
+	RouteMagicLinkVerify     RouteName = "magiclink.verify"
+	RouteMagicLinkVerifyCode RouteName = "magiclink.verify-code"
+	RouteMagicLinkResend     RouteName = "magiclink.resend"
 
 	// TwoFactor Routes
 	RouteTwoFactorEnable    RouteName = "twofactor.enable"

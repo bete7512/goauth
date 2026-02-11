@@ -98,6 +98,20 @@ func (mr *MockNotificationServiceMockRecorder) SendLoginAlert(ctx, user, metadat
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendLoginAlert", reflect.TypeOf((*MockNotificationService)(nil).SendLoginAlert), ctx, user, metadata)
 }
 
+// SendMagicLinkEmail mocks base method.
+func (m *MockNotificationService) SendMagicLinkEmail(ctx context.Context, email, userName, magicLink, code, expiryTime string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SendMagicLinkEmail", ctx, email, userName, magicLink, code, expiryTime)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SendMagicLinkEmail indicates an expected call of SendMagicLinkEmail.
+func (mr *MockNotificationServiceMockRecorder) SendMagicLinkEmail(ctx, email, userName, magicLink, code, expiryTime any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendMagicLinkEmail", reflect.TypeOf((*MockNotificationService)(nil).SendMagicLinkEmail), ctx, email, userName, magicLink, code, expiryTime)
+}
+
 // SendPasswordChangedAlert mocks base method.
 func (m *MockNotificationService) SendPasswordChangedAlert(ctx context.Context, user models0.User) error {
 	m.ctrl.T.Helper()

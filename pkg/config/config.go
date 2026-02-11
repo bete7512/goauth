@@ -212,6 +212,20 @@ type CaptchaModuleConfig struct {
 	ExcludeRoutes []types.RouteName
 }
 
+// MagicLinkModuleConfig holds configuration for magic link passwordless authentication
+type MagicLinkModuleConfig struct {
+	// TokenExpiry is how long magic link tokens remain valid (default: 15 minutes)
+	TokenExpiry time.Duration
+
+	// AutoRegister creates a new user if the email doesn't exist (default: false)
+	AutoRegister bool
+
+	// CallbackURL is the frontend URL to redirect to after verification.
+	// Tokens are passed as URL fragment: CallbackURL#access_token=xxx&refresh_token=xxx
+	// If empty, the verify endpoint returns JSON AuthResponse instead.
+	CallbackURL string
+}
+
 // CORSConfig holds CORS configuration
 type CORSConfig struct {
 	Enabled          bool

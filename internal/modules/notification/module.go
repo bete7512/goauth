@@ -44,6 +44,7 @@ type Config struct {
 	EnableLoginAlerts         bool
 	EnablePasswordChangeAlert bool
 	Enable2FANotifications    bool
+	EnableMagicLinkEmail      bool
 }
 
 var _ config.Module = (*NotificationModule)(nil)
@@ -120,6 +121,7 @@ func (m *NotificationModule) RegisterHooks(events types.EventBus) error {
 		EnableLoginAlerts:         m.config.EnableLoginAlerts,
 		EnablePasswordChangeAlert: m.config.EnablePasswordChangeAlert,
 		Enable2FANotifications:    m.config.Enable2FANotifications,
+		EnableMagicLinkEmail:      m.config.EnableMagicLinkEmail,
 	})
 
 	for _, hook := range hookManager.GetHooks() {

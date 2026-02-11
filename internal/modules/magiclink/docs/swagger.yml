@@ -1,0 +1,215 @@
+paths:
+  /magic-link/send:
+    post:
+      summary: Send magic link
+      description: Send a passwordless sign-in link to the user's email. If auto-register is enabled and the email is not found, a new account is created automatically.
+      tags: [Magic Link Module Docs]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MagicLinkSendRequest'
+      responses:
+        '200':
+          description: Magic link sent (generic message regardless of whether the email exists)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /magic-link/verify:
+    get:
+      summary: Verify magic link token
+      description: |
+        Verify the magic link token from the email. Behavior depends on configuration:
+        - If `CallbackURL` is configured, redirects to the frontend with tokens in the URL fragment.
+        - Otherwise, sets auth cookies and returns a JSON AuthResponse.
+      tags: [Magic Link Module Docs]
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+          description: The magic link token from the email
+      responses:
+        '200':
+          description: Token verified, auth tokens returned
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                description: Auth cookies (access + refresh tokens)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '302':
+          description: Redirect to CallbackURL with tokens in URL fragment (when CallbackURL is configured)
+        '400':
+          description: Invalid or expired token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /magic-link/verify-code:
+    post:
+      summary: Verify magic link by OTP code
+      description: Verify the 6-digit OTP code sent alongside the magic link. This is an alternative for email clients that mangle URLs.
+      tags: [Magic Link Module Docs]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MagicLinkVerifyByCodeRequest'
+      responses:
+        '200':
+          description: Code verified, auth tokens returned
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                description: Auth cookies (access + refresh tokens)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Invalid code or email mismatch
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /magic-link/resend:
+    post:
+      summary: Resend magic link
+      description: Resend a magic link to the user's email. Deletes the previous token and generates a new one.
+      tags: [Magic Link Module Docs]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MagicLinkSendRequest'
+      responses:
+        '200':
+          description: Magic link resent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    MagicLinkSendRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+
+    MagicLinkVerifyByCodeRequest:
+      type: object
+      required: [email, code]
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        code:
+          type: string
+          example: "123456"
+          description: 6-digit OTP code
+
+    AuthResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        user:
+          $ref: '#/components/schemas/UserDTO'
+        expires_in:
+          type: integer
+          format: int64
+        message:
+          type: string
+
+    UserDTO:
+      type: object
+      properties:
+        id:
+          type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        username:
+          type: string
+        avatar:
+          type: string
+        phone_number:
+          type: string
+        active:
+          type: boolean
+        email_verified:
+          type: boolean
+        phone_number_verified:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        last_login_at:
+          type: string
+          format: date-time
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            status_code:
+              type: integer
+            code:
+              type: string
+            message:
+              type: string

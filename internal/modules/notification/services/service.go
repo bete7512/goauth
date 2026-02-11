@@ -20,6 +20,7 @@ type NotificationService interface {
 	SendWelcomeEmail(ctx context.Context, user pkgmodels.User) error
 	SendLoginAlert(ctx context.Context, user pkgmodels.User, metadata map[string]interface{}) error
 	SendPasswordChangedAlert(ctx context.Context, user pkgmodels.User) error
+	SendMagicLinkEmail(ctx context.Context, email, userName, magicLink, code, expiryTime string) error
 	SendCustomEmail(ctx context.Context, message *models.EmailMessage) error
 	SendCustomSMS(ctx context.Context, message *models.SMSMessage) error
 }

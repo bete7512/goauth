@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"net/http"
 	"os"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/bete7512/goauth/internal/modules/admin"
 	"github.com/bete7512/goauth/internal/modules/audit"
+	"github.com/bete7512/goauth/internal/modules/magiclink"
 	"github.com/bete7512/goauth/internal/modules/notification"
 	"github.com/bete7512/goauth/internal/modules/notification/services/senders"
 	"github.com/bete7512/goauth/internal/modules/notification/templates"
@@ -152,6 +154,7 @@ func main() {
 			EnablePasswordResetEmail:  true,
 			EnableLoginAlerts:         true,
 			EnablePasswordChangeAlert: true,
+			EnableMagicLinkEmail:      true,
 			EmailSender: senders.NewResendEmailSender(
 				&senders.ResendConfig{
 					APIKey:          resendAPIKey,
@@ -170,10 +173,14 @@ func main() {
 		},
 	))
 
+	authInstance.Use(magiclink.New(&config.MagicLinkModuleConfig{
+		CallbackURL: "http://localhost:3000",
+		TokenExpiry: time.Hour,
+		AutoRegister: true,
+	}, nil))
 	// --- Option 1: Session-based auth (uncomment to use) ---
 	authInstance.Use(session.New(&config.SessionModuleConfig{
-		EnableSessionManagement: true, // Enable session list/delete endpoints
-
+		EnableSessionManagement: true,
 	}, nil))
 
 	// // csrf (HMAC-based double-submit cookie pattern)
@@ -198,8 +205,18 @@ func main() {
 	authInstance.Use(audit.New(nil))
 
 	// Register custom hooks (user-defined)
-	authInstance.On(types.EventAfterLogin, func(ctx context.Context, e *types.Event) error {
-		log.Println("✅ EventAfterLogin:", e.Type, e.Data)
+	authInstance.On(types.EventSendMagicLink, func(ctx context.Context, e *types.Event) error {
+		switch v := e.Data.(type) {
+
+		case json.RawMessage:
+			log.Printf("raw json: %s", string(v))
+
+		case []byte:
+			log.Printf("raw bytes: %s", string(v))
+
+		default:
+			log.Printf("unexpected data type: %T", v)
+		}
 		return nil
 	})
 

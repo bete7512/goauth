@@ -25,6 +25,7 @@ type HookConfig struct {
 	EnableLoginAlerts         bool
 	EnablePasswordChangeAlert bool
 	Enable2FANotifications    bool
+	EnableMagicLinkEmail      bool
 }
 
 // NewNotificationHooks creates a new hooks manager.
@@ -79,6 +80,14 @@ func (h *NotificationHooks) GetHooks() []EventHook {
 		hooks = append(hooks, EventHook{
 			Event:   types.EventAfterResetPassword,
 			Handler: h.handlePasswordChanged,
+		})
+	}
+
+	// Magic link email delivery
+	if h.config.EnableMagicLinkEmail {
+		hooks = append(hooks, EventHook{
+			Event:   types.EventSendMagicLink,
+			Handler: h.handleSendMagicLink,
 		})
 	}
 
@@ -189,6 +198,21 @@ func (h *NotificationHooks) handlePasswordChanged(ctx context.Context, event *ty
 		return err
 	}
 
+	return nil
+}
+
+func (h *NotificationHooks) handleSendMagicLink(ctx context.Context, event *types.Event) error {
+	data, ok := types.EventDataAs[*types.MagicLinkRequestData](event)
+	if !ok {
+		return fmt.Errorf("notification: unexpected event data type for %s (id=%s)", event.Type, event.ID)
+	}
+
+	if err := h.service.SendMagicLinkEmail(ctx, data.User.Email, data.User.Name, data.MagicLink, data.Code, data.ExpiryTime); err != nil {
+		h.deps.Logger.Errorf("notification: failed to send magic link email: %v", err)
+		return err
+	}
+
+	h.deps.Logger.Infof("notification: sent magic link email to %s", data.User.Email)
 	return nil
 }
 

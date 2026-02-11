@@ -34,7 +34,7 @@ func NewRateLimitMiddlewareWithStrategy(service *services.RateLimiterService, st
 
 			if !result.Allowed {
 				w.Header().Set("Retry-After", fmt.Sprintf("%d", result.RetryAfter))
-				http_utils.RespondError(w, http.StatusTooManyRequests, "RATE_LIMIT_EXCEEDED",
+				http_utils.RespondError(w, http.StatusTooManyRequests, string(types.ErrRateLimitExceeded),
 					fmt.Sprintf("Rate limit exceeded. Try again in %d seconds. Limit: %s", result.RetryAfter, result.Limit))
 				return
 			}
