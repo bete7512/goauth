@@ -101,13 +101,13 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /sessions/{id}:
+  /sessions/{session_id}:
     get:
       summary: Get a session
       description: Get a specific session by ID
       tags: [Session Module Docs]
       parameters:
-        - name: id
+        - name: session_id
           in: path
           required: true
           description: Session ID
@@ -148,7 +148,7 @@ paths:
         - bearerAuth: []
           csrfToken: []
       parameters:
-        - name: id
+        - name: session_id
           in: path
           required: true
           description: Session ID

@@ -140,6 +140,34 @@ type CoreConfig struct {
 type SessionModuleConfig struct {
 	// EnableSessionManagement enables session management endpoints (list, delete sessions)
 	EnableSessionManagement bool
+
+	// Strategy controls how sessions are validated per-request.
+	// "database" (default): JWT-only validation, session DB used only for refresh/logout.
+	// "cookie_cache": Signed session cookie for revocation checks without DB round-trip.
+	Strategy types.SessionStrategy
+
+	// CookieEncoding determines encoding format for session cookies.
+	// "compact" (default): base64url(JSON) + "." + HMAC-SHA256 (~200 bytes).
+	// "jwt": Standard HS256 JWT (~400 bytes, interoperable).
+	CookieEncoding types.CookieEncoding
+
+	// CookieCacheTTL controls how long the session cookie is trusted before
+	// requiring a DB re-validation. Default: 5 minutes.
+	// Only used when Strategy is SessionStrategyCookieCache.
+	CookieCacheTTL time.Duration
+
+	// SensitivePaths are route path patterns that always validate against DB,
+	// even when cookie cache is valid. Supports wildcard patterns (e.g., "/admin/*").
+	SensitivePaths []string
+
+	// SlidingExpiration extends the session ExpiresAt in the DB when the user
+	// is active and the session is in the extension window. Default: false.
+	SlidingExpiration bool
+
+	// UpdateAge forces a DB re-validation when this duration has passed since
+	// the cookie was last issued. Also defines the extension window threshold
+	// for sliding expiration (window = UpdateAge/2). Default: 10 minutes.
+	UpdateAge time.Duration
 }
 
 // StatelessModuleConfig holds configuration for stateless JWT authentication module

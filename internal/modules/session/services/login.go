@@ -12,20 +12,14 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// LoginMetadata contains additional information about the login request
-type LoginMetadata struct {
-	IPAddress string
-	UserAgent string
-}
-
 // Login authenticates user and creates session
-func (s *SessionService) Login(ctx context.Context, req *dto.LoginRequest, metadata *LoginMetadata) (dto.AuthResponse, *types.GoAuthError) {
+func (s *sessionService) Login(ctx context.Context, req *dto.LoginRequest, metadata *types.RequestMetadata) (dto.AuthResponse, *types.GoAuthError) {
 	// Find user
-	user, err := s.UserRepository.FindByEmail(ctx, req.Email)
+	user, err := s.userRepository.FindByEmail(ctx, req.Email)
 	if err != nil || user == nil {
 		// Try by username if email not found
 		if req.Username != "" {
-			user, err = s.UserRepository.FindByUsername(ctx, req.Username)
+			user, err = s.userRepository.FindByUsername(ctx, req.Username)
 		}
 		if err != nil || user == nil {
 			return dto.AuthResponse{}, types.NewInvalidCredentialsError()
@@ -37,41 +31,47 @@ func (s *SessionService) Login(ctx context.Context, req *dto.LoginRequest, metad
 		return dto.AuthResponse{}, types.NewInvalidCredentialsError()
 	}
 
-	// Generate tokens
-	accessToken, refreshToken, err := s.SecurityManager.GenerateTokens(user, map[string]interface{}{})
+	// Generate session ID first so it can be embedded in the JWT
+	sessionID := uuid.New().String()
+
+	// Generate tokens with session_id in JWT claims
+	accessToken, refreshToken, err := s.securityManager.GenerateTokens(user, map[string]interface{}{
+		"session_id": sessionID,
+	})
 	if err != nil {
 		return dto.AuthResponse{}, types.NewInternalError(fmt.Sprintf("failed to generate tokens: %s", err.Error()))
 	}
 
 	// Create session
 	session := &models.Session{
-		ID:                    uuid.New().String(),
+		ID:                    sessionID,
 		UserID:                user.ID,
 		RefreshToken:          refreshToken,
-		RefreshTokenExpiresAt: time.Now().Add(s.Deps.Config.Security.Session.RefreshTokenTTL),
-		ExpiresAt:             time.Now().Add(s.Deps.Config.Security.Session.SessionTTL),
+		RefreshTokenExpiresAt: time.Now().Add(s.deps.Config.Security.Session.RefreshTokenTTL),
+		ExpiresAt:             time.Now().Add(s.deps.Config.Security.Session.SessionTTL),
 		UserAgent:             metadata.UserAgent,
 		IPAddress:             metadata.IPAddress,
 		CreatedAt:             time.Now(),
 		UpdatedAt:             time.Now(),
 	}
 
-	if err := s.SessionRepository.Create(ctx, session); err != nil {
+	if err := s.sessionRepository.Create(ctx, session); err != nil {
 		return dto.AuthResponse{}, types.NewInternalError(fmt.Sprintf("failed to create session: %s", err.Error()))
 	}
 
 	// Update last login time
 	now := time.Now()
 	user.LastLoginAt = &now
-	if err := s.UserRepository.Update(ctx, user); err != nil {
-		s.Logger.Errorf("failed to update user last login time: %v", err)
+	if err := s.userRepository.Update(ctx, user); err != nil {
+		s.logger.Errorf("failed to update user last login time: %v", err)
 	}
 
 	return dto.AuthResponse{
-		AccessToken:  &accessToken,
-		RefreshToken: &refreshToken,
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		SessionID:    sessionID,
 		User:         dto.UserToDTO(user),
-		ExpiresIn:    int64(s.Deps.Config.Security.Session.SessionTTL.Seconds()),
+		ExpiresIn:    int64(s.deps.Config.Security.Session.SessionTTL.Seconds()),
 		Message:      "Login successful",
 	}, nil
 }

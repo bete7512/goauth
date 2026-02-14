@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/bete7512/goauth/internal/modules/session/handlers/dto"
 	http_utils "github.com/bete7512/goauth/internal/utils/http"
@@ -27,13 +26,13 @@ func (h *SessionHandler) ListSessions(w http.ResponseWriter, r *http.Request) {
 	currentSessionID := ""
 	refreshTokenName := "goauth_refresh_" + h.deps.Config.Security.Session.Name
 	if cookie, err := r.Cookie(refreshTokenName); err == nil && cookie.Value != "" {
-		session, err := h.SessionService.SessionRepository.FindByToken(ctx, cookie.Value)
-		if err == nil && session != nil {
+		session, svcErr := h.service.FindSessionByToken(ctx, cookie.Value)
+		if svcErr == nil && session != nil {
 			currentSessionID = session.ID
 		}
 	}
 
-	sessions, total, svcErr := h.SessionService.ListSessions(ctx, userID, currentSessionID, opts)
+	sessions, total, svcErr := h.service.ListSessions(ctx, userID, currentSessionID, opts)
 	if svcErr != nil {
 		http_utils.RespondError(w, svcErr.StatusCode, string(svcErr.Code), svcErr.Message)
 		return
@@ -53,13 +52,13 @@ func (h *SessionHandler) GetSession(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Extract session ID from URL path
-	sessionID := extractPathParam(r.URL.Path, "/sessions/")
+	sessionID := r.PathValue("session_id")
 	if sessionID == "" {
 		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidRequestBody), "Session ID is required")
 		return
 	}
 
-	response, err := h.SessionService.GetSession(ctx, userID, sessionID)
+	response, err := h.service.GetSession(ctx, userID, sessionID)
 	if err != nil {
 		http_utils.RespondError(w, err.StatusCode, string(err.Code), err.Message)
 		return
@@ -78,14 +77,14 @@ func (h *SessionHandler) DeleteSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	sessionID := r.PathValue("session_id")
 	// Extract session ID from URL path
-	sessionID := extractPathParam(r.URL.Path, "/sessions/")
 	if sessionID == "" {
 		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidRequestBody), "Session ID is required")
 		return
 	}
 
-	err := h.SessionService.DeleteSession(ctx, userID, sessionID)
+	err := h.service.DeleteSession(ctx, userID, sessionID)
 	if err != nil {
 		http_utils.RespondError(w, err.StatusCode, string(err.Code), err.Message)
 		return
@@ -93,7 +92,6 @@ func (h *SessionHandler) DeleteSession(w http.ResponseWriter, r *http.Request) {
 
 	http_utils.RespondSuccess(w, map[string]interface{}{
 		"message": "Session deleted successfully",
-		
 	}, nil)
 }
 
@@ -107,7 +105,7 @@ func (h *SessionHandler) DeleteAllSessions(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	err := h.SessionService.DeleteAllSessions(ctx, userID)
+	err := h.service.DeleteAllSessions(ctx, userID)
 	if err != nil {
 		http_utils.RespondError(w, err.StatusCode, string(err.Code), err.Message)
 		return
@@ -118,20 +116,5 @@ func (h *SessionHandler) DeleteAllSessions(w http.ResponseWriter, r *http.Reques
 
 	http_utils.RespondSuccess(w, map[string]interface{}{
 		"message": "All sessions deleted successfully",
-		
 	}, nil)
 }
-
-// extractPathParam extracts a path parameter from URL
-// e.g., extractPathParam("/auth/sessions/123", "/sessions/") returns "123"
-func extractPathParam(path, prefix string) string {
-	idx := strings.LastIndex(path, prefix)
-	if idx == -1 {
-		return ""
-	}
-	param := path[idx+len(prefix):]
-	// Remove trailing slash if present
-	param = strings.TrimSuffix(param, "/")
-	return param
-}
-

@@ -1,4 +1,4 @@
-package services
+package services_test
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 
 	"github.com/bete7512/goauth/internal/mocks"
 	"github.com/bete7512/goauth/internal/modules/session/handlers/dto"
+	"github.com/bete7512/goauth/internal/modules/session/services"
 	"github.com/bete7512/goauth/internal/testutil"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/models"
@@ -24,7 +25,7 @@ func TestLoginServiceSuite(t *testing.T) {
 }
 
 func (s *LoginServiceSuite) setupService() (
-	*SessionService,
+	services.SessionService,
 	*mocks.MockUserRepository,
 	*mocks.MockSessionRepository,
 	*mocks.MockLogger,
@@ -47,7 +48,7 @@ func (s *LoginServiceSuite) setupService() (
 		SecurityManager: secMgr,
 	}
 
-	svc := NewSessionService(deps, mockUserRepo, mockSessionRepo, mockLogger, secMgr, cfg)
+	svc := services.NewSessionService(deps, mockUserRepo, mockSessionRepo, mockLogger, secMgr, cfg)
 	return svc, mockUserRepo, mockSessionRepo, mockLogger
 }
 
@@ -55,7 +56,7 @@ func (s *LoginServiceSuite) TestLogin() {
 	tests := []struct {
 		name       string
 		req        *dto.LoginRequest
-		metadata   *LoginMetadata
+		metadata   *types.RequestMetadata
 		setup      func(*models.User, *mocks.MockUserRepository, *mocks.MockSessionRepository, *mocks.MockLogger)
 		wantErr    bool
 		errCode    types.ErrorCode
@@ -64,7 +65,7 @@ func (s *LoginServiceSuite) TestLogin() {
 		{
 			name:     "success with email",
 			req:      &dto.LoginRequest{Email: "test@example.com", Password: "password123"},
-			metadata: &LoginMetadata{IPAddress: "127.0.0.1", UserAgent: "TestAgent/1.0"},
+			metadata: &types.RequestMetadata{IPAddress: "127.0.0.1", UserAgent: "TestAgent/1.0"},
 			setup: func(u *models.User, ur *mocks.MockUserRepository, sr *mocks.MockSessionRepository, lg *mocks.MockLogger) {
 				ur.EXPECT().FindByEmail(gomock.Any(), "test@example.com").Return(u, nil)
 				sr.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&models.Session{})).Return(nil)
@@ -74,7 +75,7 @@ func (s *LoginServiceSuite) TestLogin() {
 		{
 			name:     "user not found",
 			req:      &dto.LoginRequest{Email: "unknown@example.com", Password: "password123"},
-			metadata: &LoginMetadata{IPAddress: "127.0.0.1", UserAgent: "TestAgent/1.0"},
+			metadata: &types.RequestMetadata{IPAddress: "127.0.0.1", UserAgent: "TestAgent/1.0"},
 			setup: func(_ *models.User, ur *mocks.MockUserRepository, _ *mocks.MockSessionRepository, _ *mocks.MockLogger) {
 				ur.EXPECT().FindByEmail(gomock.Any(), "unknown@example.com").Return(nil, errors.New("not found"))
 			},
@@ -85,7 +86,7 @@ func (s *LoginServiceSuite) TestLogin() {
 		{
 			name:     "wrong password",
 			req:      &dto.LoginRequest{Email: "test@example.com", Password: "wrongpassword"},
-			metadata: &LoginMetadata{IPAddress: "127.0.0.1", UserAgent: "TestAgent/1.0"},
+			metadata: &types.RequestMetadata{IPAddress: "127.0.0.1", UserAgent: "TestAgent/1.0"},
 			setup: func(u *models.User, ur *mocks.MockUserRepository, _ *mocks.MockSessionRepository, _ *mocks.MockLogger) {
 				ur.EXPECT().FindByEmail(gomock.Any(), "test@example.com").Return(u, nil)
 			},
@@ -96,7 +97,7 @@ func (s *LoginServiceSuite) TestLogin() {
 		{
 			name:     "session create fails",
 			req:      &dto.LoginRequest{Email: "test@example.com", Password: "password123"},
-			metadata: &LoginMetadata{IPAddress: "127.0.0.1", UserAgent: "TestAgent/1.0"},
+			metadata: &types.RequestMetadata{IPAddress: "127.0.0.1", UserAgent: "TestAgent/1.0"},
 			setup: func(u *models.User, ur *mocks.MockUserRepository, sr *mocks.MockSessionRepository, _ *mocks.MockLogger) {
 				ur.EXPECT().FindByEmail(gomock.Any(), "test@example.com").Return(u, nil)
 				sr.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&models.Session{})).Return(errors.New("db error"))
@@ -108,7 +109,7 @@ func (s *LoginServiceSuite) TestLogin() {
 		{
 			name:     "update last login fails - still succeeds",
 			req:      &dto.LoginRequest{Email: "test@example.com", Password: "password123"},
-			metadata: &LoginMetadata{IPAddress: "127.0.0.1", UserAgent: "TestAgent/1.0"},
+			metadata: &types.RequestMetadata{IPAddress: "127.0.0.1", UserAgent: "TestAgent/1.0"},
 			setup: func(u *models.User, ur *mocks.MockUserRepository, sr *mocks.MockSessionRepository, lg *mocks.MockLogger) {
 				ur.EXPECT().FindByEmail(gomock.Any(), "test@example.com").Return(u, nil)
 				sr.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&models.Session{})).Return(nil)

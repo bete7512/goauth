@@ -38,8 +38,9 @@ func (r *RefreshRequest) Validate() error {
 
 // AuthResponse represents authentication response
 type AuthResponse struct {
-	AccessToken  *string  `json:"access_token,omitempty"`
-	RefreshToken *string  `json:"refresh_token,omitempty"`
+	AccessToken  string  `json:"access_token,omitempty"`
+	RefreshToken string  `json:"refresh_token,omitempty"`
+	SessionID    string   `json:"-"`
 	User         *UserDTO `json:"user"`
 	ExpiresIn    int64    `json:"expires_in,omitempty"`
 	Message      string   `json:"message,omitempty"`

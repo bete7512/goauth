@@ -1,20 +1,23 @@
 package handlers
 
 import (
+	cookie_security "github.com/bete7512/goauth/internal/security/cookie"
 	"github.com/bete7512/goauth/internal/modules/session/services"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/types"
 )
 
 type SessionHandler struct {
-	SessionService *services.SessionService
-	deps           config.ModuleDependencies
+	service services.SessionService
+	deps    config.ModuleDependencies
+	encoder cookie_security.CookieEncoder // nil when strategy is "database"
 }
 
-func NewSessionHandler(sessionService *services.SessionService, deps config.ModuleDependencies) *SessionHandler {
+func NewSessionHandler(service services.SessionService, deps config.ModuleDependencies, encoder cookie_security.CookieEncoder) *SessionHandler {
 	return &SessionHandler{
-		SessionService: sessionService,
-		deps:           deps,
+		service: service,
+		deps:    deps,
+		encoder: encoder,
 	}
 }
 
@@ -49,14 +52,14 @@ func (h *SessionHandler) GetRoutes() []config.RouteInfo {
 		},
 		{
 			Name:        "session.get",
-			Path:        "/sessions/{id}",
+			Path:        "/sessions/{session_id}",
 			Method:      "GET",
 			Handler:     h.GetSession,
 			Middlewares: []types.MiddlewareName{(types.MiddlewareAuth)},
 		},
 		{
 			Name:        "session.delete",
-			Path:        "/sessions/{id}",
+			Path:        "/sessions/{session_id}",
 			Method:      "DELETE",
 			Handler:     h.DeleteSession,
 			Middlewares: []types.MiddlewareName{(types.MiddlewareAuth)},
