@@ -30,6 +30,7 @@ func (s *coreService) SendEmailVerification(ctx context.Context, email string) (
 
 	verificationLink := s.buildVerificationLink(token)
 
+	// FIXME: verification expiration time have to be set from configuration to override default one
 	verificationToken := &models.Token{
 		ID:        uuid.New().String(),
 		UserID:    user.ID,

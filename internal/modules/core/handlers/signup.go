@@ -55,7 +55,6 @@ func (h *CoreHandler) Signup(w http.ResponseWriter, r *http.Request) {
 
 	user := response.User.ToUser()
 
-	// Send verification via core service (creates token + emits event for notification delivery)
 	if h.deps.Config.Core.RequireEmailVerification {
 		if _, authErr := h.coreService.SendEmailVerification(ctx, user.Email); authErr != nil {
 			h.deps.Logger.Errorf("core: failed to send email verification: %v", authErr.Message)
@@ -75,8 +74,5 @@ func (h *CoreHandler) Signup(w http.ResponseWriter, r *http.Request) {
 		h.deps.Logger.Errorf("core: failed to emit after signup event: %v", emitErr)
 	}
 
-	// Note: Tokens like accesstoken and refreshtoken aren't being generated on signup
-	// User should login using session or stateless auth module after signup
-	w.WriteHeader(http.StatusCreated)
 	http_utils.RespondSuccess(w, response, nil)
 }
