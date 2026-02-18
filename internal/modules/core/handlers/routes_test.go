@@ -366,25 +366,49 @@ func (s *CoreHandlerSuite) TestChangePassword() {
 }
 
 // ---------------------------------------------------------------------------
-// CheckEmailAvailability
+// CheckAvailability
 // ---------------------------------------------------------------------------
 
-func (s *CoreHandlerSuite) TestCheckEmailAvailability() {
+func (s *CoreHandlerSuite) TestCheckAvailability() {
 	tests := []struct {
 		name       string
 		body       string
 		setup      func(*mocks.MockCoreService)
 		wantStatus int
+		wantField  string
 	}{
 		{
-			name: "success - available",
+			name: "email available",
 			body: `{"email":"free@example.com"}`,
 			setup: func(svc *mocks.MockCoreService) {
-				svc.EXPECT().CheckEmailAvailability(gomock.Any(), "free@example.com").Return(
+				svc.EXPECT().CheckAvailability(gomock.Any(), gomock.Any()).Return(
 					&dto.CheckAvailabilityResponse{Available: true, Field: "email"}, nil,
 				)
 			},
 			wantStatus: http.StatusOK,
+			wantField:  "email",
+		},
+		{
+			name: "username available",
+			body: `{"username":"freeuser"}`,
+			setup: func(svc *mocks.MockCoreService) {
+				svc.EXPECT().CheckAvailability(gomock.Any(), gomock.Any()).Return(
+					&dto.CheckAvailabilityResponse{Available: true, Field: "username"}, nil,
+				)
+			},
+			wantStatus: http.StatusOK,
+			wantField:  "username",
+		},
+		{
+			name: "phone available",
+			body: `{"phone":"+1234567890"}`,
+			setup: func(svc *mocks.MockCoreService) {
+				svc.EXPECT().CheckAvailability(gomock.Any(), gomock.Any()).Return(
+					&dto.CheckAvailabilityResponse{Available: true, Field: "phone"}, nil,
+				)
+			},
+			wantStatus: http.StatusOK,
+			wantField:  "phone",
 		},
 		{
 			name:       "invalid JSON",
@@ -393,8 +417,14 @@ func (s *CoreHandlerSuite) TestCheckEmailAvailability() {
 			wantStatus: http.StatusBadRequest,
 		},
 		{
-			name:       "validation error - missing email",
+			name:       "validation error - no field",
 			body:       `{}`,
+			setup:      func(svc *mocks.MockCoreService) {},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "validation error - multiple fields",
+			body:       `{"email":"a@b.com","username":"user1"}`,
 			setup:      func(svc *mocks.MockCoreService) {},
 			wantStatus: http.StatusBadRequest,
 		},
@@ -405,142 +435,8 @@ func (s *CoreHandlerSuite) TestCheckEmailAvailability() {
 			wantStatus: http.StatusBadRequest,
 		},
 		{
-			name: "service error",
-			body: `{"email":"test@example.com"}`,
-			setup: func(svc *mocks.MockCoreService) {
-				svc.EXPECT().CheckEmailAvailability(gomock.Any(), "test@example.com").Return(
-					nil, types.NewInternalError("db error"),
-				)
-			},
-			wantStatus: http.StatusInternalServerError,
-		},
-	}
-
-	for _, tt := range tests {
-		s.Run(tt.name, func() {
-			handler, mockService, _, _ := s.setupHandler()
-			tt.setup(mockService)
-
-			req := httptest.NewRequest(http.MethodPost, "/availability/email", strings.NewReader(tt.body))
-			req.Header.Set("Content-Type", "application/json")
-			rr := httptest.NewRecorder()
-
-			handler.CheckEmailAvailability(rr, req)
-
-			s.Equal(tt.wantStatus, rr.Code)
-
-			if tt.wantStatus == http.StatusOK {
-				var resp types.APIResponse[*dto.CheckAvailabilityResponse]
-				s.NoError(json.NewDecoder(rr.Body).Decode(&resp))
-				s.True(resp.Data.Available)
-			}
-		})
-	}
-}
-
-// ---------------------------------------------------------------------------
-// CheckUsernameAvailability
-// ---------------------------------------------------------------------------
-
-func (s *CoreHandlerSuite) TestCheckUsernameAvailability() {
-	tests := []struct {
-		name       string
-		body       string
-		setup      func(*mocks.MockCoreService)
-		wantStatus int
-	}{
-		{
-			name: "success - available",
-			body: `{"username":"freeuser"}`,
-			setup: func(svc *mocks.MockCoreService) {
-				svc.EXPECT().CheckUsernameAvailability(gomock.Any(), "freeuser").Return(
-					&dto.CheckAvailabilityResponse{Available: true, Field: "username"}, nil,
-				)
-			},
-			wantStatus: http.StatusOK,
-		},
-		{
-			name:       "invalid JSON",
-			body:       `{invalid`,
-			setup:      func(svc *mocks.MockCoreService) {},
-			wantStatus: http.StatusBadRequest,
-		},
-		{
-			name:       "validation error - missing username",
-			body:       `{}`,
-			setup:      func(svc *mocks.MockCoreService) {},
-			wantStatus: http.StatusBadRequest,
-		},
-		{
 			name:       "validation error - invalid username format",
 			body:       `{"username":"ab"}`,
-			setup:      func(svc *mocks.MockCoreService) {},
-			wantStatus: http.StatusBadRequest,
-		},
-		{
-			name: "service error",
-			body: `{"username":"testuser"}`,
-			setup: func(svc *mocks.MockCoreService) {
-				svc.EXPECT().CheckUsernameAvailability(gomock.Any(), "testuser").Return(
-					nil, types.NewInternalError("db error"),
-				)
-			},
-			wantStatus: http.StatusInternalServerError,
-		},
-	}
-
-	for _, tt := range tests {
-		s.Run(tt.name, func() {
-			handler, mockService, _, _ := s.setupHandler()
-			tt.setup(mockService)
-
-			req := httptest.NewRequest(http.MethodPost, "/availability/username", strings.NewReader(tt.body))
-			req.Header.Set("Content-Type", "application/json")
-			rr := httptest.NewRecorder()
-
-			handler.CheckUsernameAvailability(rr, req)
-
-			s.Equal(tt.wantStatus, rr.Code)
-
-			if tt.wantStatus == http.StatusOK {
-				var resp types.APIResponse[*dto.CheckAvailabilityResponse]
-				s.NoError(json.NewDecoder(rr.Body).Decode(&resp))
-				s.True(resp.Data.Available)
-			}
-		})
-	}
-}
-
-// ---------------------------------------------------------------------------
-// CheckPhoneAvailability
-// ---------------------------------------------------------------------------
-
-func (s *CoreHandlerSuite) TestCheckPhoneAvailability() {
-	tests := []struct {
-		name       string
-		body       string
-		setup      func(*mocks.MockCoreService)
-		wantStatus int
-	}{
-		{
-			name: "success - available",
-			body: `{"phone":"+1234567890"}`,
-			setup: func(svc *mocks.MockCoreService) {
-				svc.EXPECT().CheckPhoneAvailability(gomock.Any(), "+1234567890").Return(
-					&dto.CheckAvailabilityResponse{Available: true, Field: "phone"}, nil,
-				)
-			},
-			wantStatus: http.StatusOK,
-		},
-		{
-			name:       "invalid JSON",
-			body:       `{invalid`,
-			setup:      func(svc *mocks.MockCoreService) {},
-			wantStatus: http.StatusBadRequest,
-		},
-		{
-			name:       "validation error - missing phone",
-			body:       `{}`,
 			setup:      func(svc *mocks.MockCoreService) {},
 			wantStatus: http.StatusBadRequest,
 		},
@@ -552,9 +448,9 @@ func (s *CoreHandlerSuite) TestCheckPhoneAvailability() {
 		},
 		{
 			name: "service error",
-			body: `{"phone":"+1234567890"}`,
+			body: `{"email":"test@example.com"}`,
 			setup: func(svc *mocks.MockCoreService) {
-				svc.EXPECT().CheckPhoneAvailability(gomock.Any(), "+1234567890").Return(
+				svc.EXPECT().CheckAvailability(gomock.Any(), gomock.Any()).Return(
 					nil, types.NewInternalError("db error"),
 				)
 			},
@@ -567,11 +463,11 @@ func (s *CoreHandlerSuite) TestCheckPhoneAvailability() {
 			handler, mockService, _, _ := s.setupHandler()
 			tt.setup(mockService)
 
-			req := httptest.NewRequest(http.MethodPost, "/availability/phone", strings.NewReader(tt.body))
+			req := httptest.NewRequest(http.MethodPost, "/availability", strings.NewReader(tt.body))
 			req.Header.Set("Content-Type", "application/json")
 			rr := httptest.NewRecorder()
 
-			handler.CheckPhoneAvailability(rr, req)
+			handler.CheckAvailability(rr, req)
 
 			s.Equal(tt.wantStatus, rr.Code)
 
@@ -579,6 +475,7 @@ func (s *CoreHandlerSuite) TestCheckPhoneAvailability() {
 				var resp types.APIResponse[*dto.CheckAvailabilityResponse]
 				s.NoError(json.NewDecoder(rr.Body).Decode(&resp))
 				s.True(resp.Data.Available)
+				s.Equal(tt.wantField, resp.Data.Field)
 			}
 		})
 	}

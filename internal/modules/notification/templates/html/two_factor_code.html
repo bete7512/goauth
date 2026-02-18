@@ -1,0 +1,6 @@
+{{define "content"}}
+<h2 style="margin: 0 0 16px 0; color: {{.Brand.TextColor}};">Two-Factor Authentication</h2>
+<p>Your verification code is:</p>
+<p style="text-align: center; margin: 30px 0; font-size: 32px; font-weight: bold; letter-spacing: 6px; color: {{.Brand.TextColor}};">{{.Code}}</p>
+<p style="color: #666; font-size: 14px;">This code is valid for {{.ExpiryTime}}. Do not share this code with anyone.</p>
+{{end}}

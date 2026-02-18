@@ -38,18 +38,12 @@ func (h *SessionHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response, err := h.SessionService.Refresh(ctx, &req)
+	response, err := h.service.Refresh(ctx, &req)
 	if err != nil {
 		http_utils.RespondError(w, err.StatusCode, string(err.Code), err.Message)
-		return
-	}
-
-	if response.AccessToken == nil || response.RefreshToken == nil {
-		http_utils.RespondError(w, http.StatusInternalServerError, string(types.ErrInternalError), "Failed to generate tokens")
 		return
 	}
 
 	h.setSessionCookies(w, &response)
 	http_utils.RespondSuccess(w, response, nil)
 }
-

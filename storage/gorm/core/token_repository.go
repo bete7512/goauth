@@ -43,8 +43,59 @@ func (r *TokenRepository) FindByUserIDAndType(ctx context.Context, userID, token
 	return &t, err
 }
 
+func (r *TokenRepository) FindByCode(ctx context.Context, code, tokenType string) (*models.Token, error) {
+	var t models.Token
+	err := r.db.WithContext(ctx).
+		Where("code = ? AND type = ? AND used = ? AND expires_at > ?", code, tokenType, false, time.Now()).
+		First(&t).Error
+	if err == gorm.ErrRecordNotFound {
+		return nil, nil
+	}
+	return &t, err
+}
+
+func (r *TokenRepository) FindByEmailAndType(ctx context.Context, email, tokenType string) (*models.Token, error) {
+	var t models.Token
+	err := r.db.WithContext(ctx).
+		Where("email = ? AND type = ? AND used = ? AND expires_at > ?", email, tokenType, false, time.Now()).
+		Order("created_at DESC").
+		First(&t).Error
+	if err == gorm.ErrRecordNotFound {
+		return nil, nil
+	}
+	return &t, err
+}
+
+func (r *TokenRepository) FindByPhoneAndType(ctx context.Context, phone, tokenType string) (*models.Token, error) {
+	var t models.Token
+	err := r.db.WithContext(ctx).
+		Where("phone_number = ? AND type = ? AND used = ? AND expires_at > ?", phone, tokenType, false, time.Now()).
+		Order("created_at DESC").
+		First(&t).Error
+	if err == gorm.ErrRecordNotFound {
+		return nil, nil
+	}
+	return &t, err
+}
+
+func (r *TokenRepository) MarkAsUsed(ctx context.Context, id string) error {
+	now := time.Now()
+	return r.db.WithContext(ctx).
+		Model(&models.Token{}).
+		Where("id = ?", id).
+		Updates(map[string]interface{}{
+			"used":    true,
+			"used_at": &now,
+		}).Error
+}
+
 func (r *TokenRepository) Delete(ctx context.Context, token string) error {
 	return r.db.WithContext(ctx).Where("token = ?", token).Delete(&models.Token{}).Error
+}
+
+func (r *TokenRepository) DeleteByIDAndType(ctx context.Context, id string, tokenType string) error {
+	return r.db.WithContext(ctx).
+		Delete(&models.Token{}, "id = ? AND type = ?", id, tokenType).Error
 }
 
 func (r *TokenRepository) DeleteByUserID(ctx context.Context, userID string) error {

@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/bete7512/goauth/internal/modules/session/handlers/dto"
-	"github.com/bete7512/goauth/internal/modules/session/services"
 	http_utils "github.com/bete7512/goauth/internal/utils/http"
+	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/types"
 )
 
@@ -44,23 +44,9 @@ func (h *SessionHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Extract metadata for session
-	loginMetadata := &services.LoginMetadata{
-		IPAddress: r.RemoteAddr,
-		UserAgent: r.UserAgent(),
-	}
-	if forwardedFor := r.Header.Get("X-Forwarded-For"); forwardedFor != "" {
-		loginMetadata.IPAddress = forwardedFor
-	}
-
-	response, err := h.SessionService.Login(ctx, &req, loginMetadata)
+	response, err := h.service.Login(ctx, &req, metadata)
 	if err != nil {
 		http_utils.RespondError(w, err.StatusCode, string(err.Code), err.Message)
-		return
-	}
-
-	if response.AccessToken == nil || response.RefreshToken == nil {
-		http_utils.RespondError(w, http.StatusInternalServerError, string(types.ErrInternalError), "Failed to generate tokens")
 		return
 	}
 
@@ -89,27 +75,66 @@ func (h *SessionHandler) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *SessionHandler) setSessionCookies(w http.ResponseWriter, response *dto.AuthResponse) {
-	if response.AccessToken == nil || response.RefreshToken == nil {
-		return
-	}
-	accessTokenName := "goauth_access_" + h.deps.Config.Security.Session.Name
+
+	sessionCfg := h.deps.Config.Security.Session
+
+	accessTokenName := "goauth_access_" + sessionCfg.Name
 	http.SetCookie(w, &http.Cookie{
 		Name:     accessTokenName,
-		Value:    *response.AccessToken,
-		HttpOnly: h.deps.Config.Security.Session.HttpOnly,
-		Secure:   h.deps.Config.Security.Session.Secure,
-		SameSite: h.deps.Config.Security.Session.SameSite,
-		Path:     h.deps.Config.Security.Session.Path,
-		MaxAge:   h.deps.Config.Security.Session.MaxAge,
+		Value:    response.AccessToken,
+		HttpOnly: sessionCfg.HttpOnly,
+		Secure:   sessionCfg.Secure,
+		SameSite: sessionCfg.SameSite,
+		Path:     sessionCfg.Path,
+		MaxAge:   sessionCfg.MaxAge,
 	})
-	refreshTokenName := "goauth_refresh_" + h.deps.Config.Security.Session.Name
+	refreshTokenName := "goauth_refresh_" + sessionCfg.Name
 	http.SetCookie(w, &http.Cookie{
 		Name:     refreshTokenName,
-		Value:    *response.RefreshToken,
-		HttpOnly: h.deps.Config.Security.Session.HttpOnly,
-		Secure:   h.deps.Config.Security.Session.Secure,
-		SameSite: h.deps.Config.Security.Session.SameSite,
-		Path:     h.deps.Config.Security.Session.Path,
-		MaxAge:   h.deps.Config.Security.Session.MaxAge,
+		Value:    response.RefreshToken,
+		HttpOnly: sessionCfg.HttpOnly,
+		Secure:   sessionCfg.Secure,
+		SameSite: sessionCfg.SameSite,
+		Path:     sessionCfg.Path,
+		MaxAge:   sessionCfg.MaxAge,
 	})
+
+	// Set session cache cookie when cookie_cache strategy is enabled
+	if h.encoder != nil && response.SessionID != "" && response.User != nil {
+		h.setSessionCacheCookie(w, response.SessionID, response.User.ID)
+	}
+}
+
+func (h *SessionHandler) setSessionCacheCookie(w http.ResponseWriter, sessionID, userID string) {
+	sessionCfg := h.deps.Config.Security.Session
+	cacheTTL := h.sessionModuleCacheTTL()
+
+	cookieValue, err := h.encoder.Encode(&types.SessionCookieData{
+		SessionID: sessionID,
+		UserID:    userID,
+		ExpiresAt: time.Now().Add(cacheTTL).Unix(),
+		IssuedAt:  time.Now().Unix(),
+	})
+	if err != nil {
+		h.deps.Logger.Errorf("session: failed to encode session cookie: %v", err)
+		return
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "goauth_session_" + sessionCfg.Name,
+		Value:    cookieValue,
+		HttpOnly: true,
+		Secure:   sessionCfg.Secure,
+		SameSite: sessionCfg.SameSite,
+		Path:     sessionCfg.Path,
+		MaxAge:   int(cacheTTL.Seconds()),
+	})
+}
+
+// sessionModuleCacheTTL reads CookieCacheTTL from the SessionModuleConfig passed via deps.Options.
+func (h *SessionHandler) sessionModuleCacheTTL() time.Duration {
+	if cfg, ok := h.deps.Options.(*config.SessionModuleConfig); ok && cfg.CookieCacheTTL > 0 {
+		return cfg.CookieCacheTTL
+	}
+	return 5 * time.Minute // default fallback
 }

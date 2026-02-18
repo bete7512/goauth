@@ -2,33 +2,27 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"net/http"
-	"regexp"
-	"strings"
+	"os"
 	"time"
 
 	"github.com/bete7512/goauth/internal/modules/admin"
 	"github.com/bete7512/goauth/internal/modules/audit"
+	"github.com/bete7512/goauth/internal/modules/magiclink"
+	"github.com/bete7512/goauth/internal/modules/notification"
+	"github.com/bete7512/goauth/internal/modules/notification/services/senders"
+	"github.com/bete7512/goauth/internal/modules/notification/templates"
+	"github.com/bete7512/goauth/internal/modules/oauth"
 	"github.com/bete7512/goauth/internal/modules/session"
-	"github.com/bete7512/goauth/internal/modules/stateless"
+	"github.com/bete7512/goauth/pkg/adapters/stdhttp"
 	"github.com/bete7512/goauth/pkg/auth"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/types"
 	"github.com/bete7512/goauth/storage"
-	"github.com/gin-gonic/gin"
-	"github.com/go-chi/chi/v5"
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/adaptor"
+	"github.com/joho/godotenv"
 )
-
-// pathParamRegex matches Go 1.22+ / Chi-style path parameters like {id}
-var pathParamRegex = regexp.MustCompile(`\{(\w+)\}`)
-
-// toColonParams converts {param} to :param for Gin and Fiber routers
-func toColonParams(path string) string {
-	return pathParamRegex.ReplaceAllString(path, ":$1")
-}
 
 func main() {
 	// Create storage instance using factory
@@ -45,9 +39,18 @@ func main() {
 	}
 	defer store.Close()
 
+	natsBackend, err := NewNATSJetStreamBackend(context.Background(), &NATSConfig{
+		URL:      "nats://localhost:4222",
+		Username: "admin",
+		Password: "123456",
+	})
+	if err != nil {
+		log.Fatalf("Failed to create NATS backend: %v", err)
+	}
 	// Create auth instance
 	authInstance, err := auth.New(&config.Config{
-		Storage: store,
+		Storage:      store,
+		AsyncBackend: natsBackend,
 		Security: types.SecurityConfig{
 			JwtSecretKey:  "your-secret-key-change-in-production",
 			EncryptionKey: "your-encryption-key-change-in-production",
@@ -65,6 +68,7 @@ func main() {
 			},
 		},
 		AutoMigrate: true,
+		APIURL:      "http://localhost:8080",
 		BasePath:    "/api/v1",
 		Core: &config.CoreConfig{
 			RequireEmailVerification: true,  // Enable email verification
@@ -96,10 +100,53 @@ func main() {
 		log.Fatalf("Failed to create auth: %v", err)
 	}
 
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found, relying on environment variables")
+	}
+
+	resendAPIKey := os.Getenv("RESEND_API_KEY")
+	if resendAPIKey == "" {
+		log.Fatal("RESEND_API_KEY is not set")
+	}
+	authInstance.Use(notification.New(
+		&notification.Config{
+			EnableWelcomeEmail:        true,
+			EnablePasswordResetEmail:  true,
+			EnableLoginAlerts:         false,
+			EnablePasswordChangeAlert: true,
+			EnableMagicLinkEmail:      true,
+			EmailSender: senders.NewResendEmailSender(
+				&senders.ResendConfig{
+					APIKey:          resendAPIKey,
+					DefaultFrom:     "goauth@beteg.dev",
+					DefaultFromName: "Goauth",
+				},
+			),
+			Branding: &templates.Branding{
+				AppName:      "Go Auth",
+				LogoURL:      "https://www.syncore-labs.com/logo.svg",
+				PrimaryColor: "#006266",
+				TextColor:    "#000",
+				ContactEmail: "bete@goauth.io",
+				DomainName:   "goauth.io",
+			},
+		},
+	))
+
+	authInstance.Use(magiclink.New(&config.MagicLinkModuleConfig{
+		CallbackURL:  "http://localhost:3000",
+		TokenExpiry:  time.Hour,
+		AutoRegister: true,
+	}, nil))
 	// --- Option 1: Session-based auth (uncomment to use) ---
 	authInstance.Use(session.New(&config.SessionModuleConfig{
-		EnableSessionManagement: true, // Enable session list/delete endpoints
-
+		EnableSessionManagement: true,
+		Strategy:                types.SessionStrategyCookieCache,
+		CookieEncoding:          types.CookieEncodingCompact,
+		CookieCacheTTL:          time.Hour,
+		SensitivePaths:          []string{"admin/*"},
+		SlidingExpiration:       true,
+		UpdateAge:               30 * time.Minute,
 	}, nil))
 
 	// // csrf (HMAC-based double-submit cookie pattern)
@@ -124,14 +171,50 @@ func main() {
 	authInstance.Use(audit.New(nil))
 
 	// Register custom hooks (user-defined)
-	authInstance.On(types.EventAfterLogin, func(ctx context.Context, e *types.Event) error {
-		log.Println("✅ EventAfterLogin:", e.Type, e.Data)
+	authInstance.On(types.EventSendMagicLink, func(ctx context.Context, e *types.Event) error {
+		switch v := e.Data.(type) {
+
+		case json.RawMessage:
+			log.Printf("raw json: %s", string(v))
+
+		case []byte:
+			log.Printf("raw bytes: %s", string(v))
+
+		default:
+			log.Printf("unexpected data type: %T", v)
+		}
 		return nil
 	})
 
-	authInstance.On(types.EventAuthLoginSuccess, func(ctx context.Context, e *types.Event) error {
+	authInstance.On(types.EventBeforeLogin, func(ctx context.Context, e *types.Event) error {
+		// time.Sleep(10 * time.Second)
+		log.Println("beforelogin....................")
 		return nil
 	})
+	authInstance.On(types.EventAfterLogin, func(ctx context.Context, e *types.Event) error {
+		// time.Sleep(10 * time.Second)
+		log.Println("afterelogin....................")
+		return nil
+	})
+
+	// OAuth provider configuration
+	oauthConfigs := map[string]*config.OAuthProviderConfig{
+		"google": {
+			Enabled:      true,
+			ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
+			ClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
+			Scopes:       []string{"openid", "email", "profile"}, // Optional - uses defaults if empty
+			RedirectURL:  "http://localhost:3000",
+		},
+	}
+
+	authInstance.Use(oauth.New(&config.OAuthModuleConfig{
+		Providers:              oauthConfigs,
+		AllowSignup:            true, // Allow creating new users via OAuth
+		AllowAccountLinking:    true, // Allow linking OAuth to existing accounts with same email
+		TrustEmailVerification: true, // Trust OAuth provider's email verification
+		StateTTL:               10 * time.Minute,
+	}, nil))
 
 	// Initialize after all modules are registered
 	if err := authInstance.Initialize(context.Background()); err != nil {
@@ -153,150 +236,52 @@ func main() {
 	); err != nil {
 		log.Fatalf("Failed to enable swagger: %v", err)
 	}
+	// --- Framework Integration via Adapters ---
+	//
+	// Each adapter is a separate Go module. Import only the one you need:
+	//
+	// net/http (stdlib):
+	mux := http.NewServeMux()
+	handler := stdhttp.Register(mux, authInstance)
+	handler = LoggingMiddleware(handler)
+	log.Println("Server running on :8080")
+	http.ListenAndServe(":8080", handler)
 
-	// Choose your server
-	server := "gin"
-	switch server {
-	case "http":
-		mux := http.NewServeMux()
-		for _, route := range authInstance.Routes() {
-			// Go 1.22+ ServeMux: "METHOD /path" for method-specific routing
-			pattern := route.Method + " " + route.Path
-			mux.HandleFunc(pattern, route.Handler)
-		}
-		log.Println("Server running on :8080")
-		http.ListenAndServe(":8080", mux)
-	case "fiber":
-		fiberHandler(authInstance)
-	case "chi":
-		chiHandler(authInstance)
-	case "gin":
-		ginHandler(authInstance)
-	}
+	//
+	// Gin:
+	//   import "github.com/bete7512/goauth/pkg/adapters/ginadapter"
+	// r := gin.Default()
+	// ginadapter.Register(r, authInstance)
+	// r.Run(":8080")
+	//
+	// Chi:
+	//   import "github.com/bete7512/goauth/pkg/adapters/chiadapter"
+	//   r := chi.NewRouter()
+	//   chiadapter.Register(r, authInstance)
+	//   http.ListenAndServe(":8080", r)
+	//
+	// Fiber:
+	//   import "github.com/bete7512/goauth/pkg/adapters/fiberadapter"
+	//   app := fiber.New()
+	//   fiberadapter.Register(app, authInstance)
+	//   app.Listen(":8080")
 }
+func LoggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		startTime := time.Now()
 
-// Example: Stateless authentication setup
-func exampleStatelessSetup(store types.Storage) *auth.Auth {
-	authInstance, _ := auth.New(&config.Config{
-		Storage: store,
-		Security: types.SecurityConfig{
-			JwtSecretKey:  "your-secret-key",
-			EncryptionKey: "your-encryption-key",
-			Session: types.SessionConfig{
-				AccessTokenTTL:  15 * time.Minute,
-				RefreshTokenTTL: 7 * 24 * time.Hour,
-			},
-		},
-		AutoMigrate: true,
-		BasePath:    "/api/v1",
+		// Call the next handler in the chain
+		next.ServeHTTP(w, r)
+
+		// Log details after the handler has finished
+		duration := time.Since(startTime)
+		// Use slog for structured, key-value pair logging
+		log.Printf("method=%s path=%s ip=%s duration=%s",
+			r.Method,
+			r.URL.Path,
+			r.RemoteAddr,
+			duration,
+		)
+
 	})
-
-	// Use stateless JWT authentication
-	authInstance.Use(stateless.New(&config.StatelessModuleConfig{
-		RefreshTokenRotation: true,
-	}, nil))
-
-	authInstance.Initialize(context.Background())
-	return authInstance
-}
-
-func fiberHandler(auth *auth.Auth) *fiber.App {
-	fiber := fiber.New()
-	for _, route := range auth.Routes() {
-		// Fiber uses :param syntax, convert from {param}
-		path := toColonParams(route.Path)
-		switch route.Method {
-		case http.MethodGet:
-			fiber.Get(path, adaptor.HTTPHandler(route.Handler))
-		case http.MethodPost:
-			fiber.Post(path, adaptor.HTTPHandler(route.Handler))
-		case http.MethodPut:
-			fiber.Put(path, adaptor.HTTPHandler(route.Handler))
-		case http.MethodDelete:
-			fiber.Delete(path, adaptor.HTTPHandler(route.Handler))
-		case http.MethodPatch:
-			fiber.Patch(path, adaptor.HTTPHandler(route.Handler))
-		case http.MethodOptions:
-			fiber.Options(path, adaptor.HTTPHandler(route.Handler))
-		}
-	}
-	fiber.Use(auth.RequireAuth)
-	fiber.Listen(":8080")
-	return fiber
-}
-
-func chiHandler(auth *auth.Auth) *chi.Mux {
-	router := chi.NewRouter()
-	for _, route := range auth.Routes() {
-		switch route.Method {
-		case http.MethodGet:
-			router.Get(route.Path, route.Handler)
-		case http.MethodPost:
-			router.Post(route.Path, route.Handler)
-		case http.MethodPut:
-			router.Put(route.Path, route.Handler)
-		case http.MethodDelete:
-			router.Delete(route.Path, route.Handler)
-		case http.MethodPatch:
-			router.Patch(route.Path, route.Handler)
-		case http.MethodOptions:
-			router.Options(route.Path, route.Handler)
-		}
-	}
-	router.Use(auth.RequireAuth)
-	router.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("Hello, World!"))
-	})
-	return router
-}
-
-func ginHandler(auth *auth.Auth) *gin.Engine {
-	r := gin.Default()
-
-	// Handle CORS preflight at the Gin router level.
-	// GoAuth's CORS middleware wraps route handlers, but Gin's method-based routing
-	// returns 404 for OPTIONS requests before the handler (and its middleware) runs.
-	// This middleware intercepts OPTIONS before route matching.
-	corsConfig := auth.Config().CORS
-	if corsConfig != nil && corsConfig.Enabled {
-		r.Use(func(c *gin.Context) {
-			if c.Request.Method == http.MethodOptions {
-				origin := c.GetHeader("Origin")
-				c.Header("Access-Control-Allow-Origin", origin)
-				c.Header("Access-Control-Allow-Methods", strings.Join(corsConfig.AllowedMethods, ", "))
-				c.Header("Access-Control-Allow-Headers", strings.Join(corsConfig.AllowedHeaders, ", "))
-				c.Header("Access-Control-Allow-Credentials", "true")
-				c.AbortWithStatus(http.StatusNoContent)
-				return
-			}
-			c.Next()
-		})
-	}
-
-	for _, route := range auth.Routes() {
-		// Gin uses :param syntax, convert from {param}
-		path := toColonParams(route.Path)
-		switch route.Method {
-		case http.MethodGet:
-			r.GET(path, gin.WrapF(route.Handler))
-		case http.MethodPost:
-			r.POST(path, gin.WrapF(route.Handler))
-		case http.MethodPut:
-			r.PUT(path, gin.WrapF(route.Handler))
-		case http.MethodDelete:
-			r.DELETE(path, gin.WrapF(route.Handler))
-		case http.MethodPatch:
-			r.PATCH(path, gin.WrapF(route.Handler))
-		case http.MethodOptions:
-			r.OPTIONS(path, gin.WrapF(route.Handler))
-		}
-	}
-
-	// Serve captcha test page at /captcha-test
-	r.StaticFile("/captcha-test", "./captcha-test.html")
-
-	log.Println("Captcha test page: http://localhost:8080/captcha-test")
-	r.Run(":8080")
-	return r
 }

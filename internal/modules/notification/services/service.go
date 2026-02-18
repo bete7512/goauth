@@ -1,69 +1,87 @@
 package services
 
+//go:generate mockgen -destination=../../../mocks/mock_notification_service.go -package=mocks github.com/bete7512/goauth/internal/modules/notification/services NotificationService
+
 import (
-	pkgmodels "github.com/bete7512/goauth/pkg/models"
+	"context"
+
 	"github.com/bete7512/goauth/internal/modules/notification/models"
 	"github.com/bete7512/goauth/internal/modules/notification/templates"
-	"github.com/bete7512/goauth/pkg/config"
+	pkgmodels "github.com/bete7512/goauth/pkg/models"
 )
 
-// NotificationService handles sending notifications
-type NotificationService struct {
-	deps                  config.ModuleDependencies
-	emailSender           models.EmailSender
-	smsSender             models.SMSSender
-	templates             map[string]templates.NotificationTemplate
-	config                *NotificationConfig
-	verificationTokenRepo pkgmodels.VerificationTokenRepository
-	userRepo              pkgmodels.UserRepository
+// NotificationService defines the notification delivery operations.
+// This is a pure delivery layer -- no database access, no user mutations.
+type NotificationService interface {
+	SendEmailVerification(ctx context.Context, email, userName, verificationLink string) error
+	SendPhoneVerification(ctx context.Context, phoneNumber, userName, code, expiryTime string) error
+	SendPasswordResetEmail(ctx context.Context, email, userName, resetLink, code, expiryTime string) error
+	SendPasswordResetSMS(ctx context.Context, phoneNumber, code, expiryTime string) error
+	SendWelcomeEmail(ctx context.Context, user pkgmodels.User) error
+	SendLoginAlert(ctx context.Context, user pkgmodels.User, metadata map[string]interface{}) error
+	SendPasswordChangedAlert(ctx context.Context, user pkgmodels.User) error
+	SendMagicLinkEmail(ctx context.Context, email, userName, magicLink, code, expiryTime string) error
+	SendCustomEmail(ctx context.Context, message *models.EmailMessage) error
+	SendCustomSMS(ctx context.Context, message *models.SMSMessage) error
 }
 
-// NotificationConfig holds notification service configuration
+// NotificationConfig holds notification service configuration.
 type NotificationConfig struct {
-	AppName      string
-	SupportEmail string
-	SupportLink  string
-	Templates    map[string]templates.NotificationTemplate
+	// Branding injected into every template (logo, colors, company name, etc.).
+	// If nil, defaults to GoAuth branding.
+	Branding *templates.Branding
+
+	// EmailTemplates overrides individual email templates by name.
+	EmailTemplates map[string]templates.EmailTemplate
+
+	// SMSTemplates overrides individual SMS templates by name.
+	SMSTemplates map[string]templates.SMSTemplate
 }
 
-// NewNotificationService creates a new notification service
+type notificationService struct {
+	emailSender    models.EmailSender
+	smsSender      models.SMSSender
+	emailTemplates map[string]templates.EmailTemplate
+	smsTemplates   map[string]templates.SMSTemplate
+	baseHTML       string
+	branding       *templates.Branding
+}
+
+// NewNotificationService creates a new notification service (delivery only).
 func NewNotificationService(
-	deps config.ModuleDependencies,
 	emailSender models.EmailSender,
 	smsSender models.SMSSender,
 	cfg *NotificationConfig,
-	verificationTokenRepo pkgmodels.VerificationTokenRepository,
-	userRepo pkgmodels.UserRepository,
-) *NotificationService {
+) NotificationService {
 	if cfg == nil {
-		cfg = &NotificationConfig{
-			AppName:   "GoAuth",
-			Templates: make(map[string]templates.NotificationTemplate),
-		}
+		cfg = &NotificationConfig{}
 	}
 
-	// Initialize default templates
-	templates := map[string]templates.NotificationTemplate{
-		"welcome":            templates.TemplateWelcome,
-		"password_reset":     templates.TemplatePasswordReset,
-		"email_verification": templates.TemplateEmailVerification,
-		"two_factor_code":    templates.TemplateTwoFactorCode,
-		"login_alert":        templates.TemplateLoginAlert,
-		"password_changed":   templates.TemplatePasswordChanged,
+	// Resolve branding
+	branding := cfg.Branding
+	if branding == nil {
+		branding = templates.DefaultBranding()
 	}
 
-	// Override with custom templates
-	for name, tmpl := range cfg.Templates {
-		templates[name] = tmpl
+	// Load base layout and default templates from embedded FS
+	baseHTML := templates.LoadBaseHTML()
+	emailTmplMap := templates.DefaultEmailTemplates()
+	smsTmplMap := templates.DefaultSMSTemplates()
+
+	// Apply per-template overrides (most specific wins)
+	for name, tmpl := range cfg.EmailTemplates {
+		emailTmplMap[name] = tmpl
+	}
+	for name, tmpl := range cfg.SMSTemplates {
+		smsTmplMap[name] = tmpl
 	}
 
-	return &NotificationService{
-		deps:                  deps,
-		emailSender:           emailSender,
-		smsSender:             smsSender,
-		templates:             templates,
-		config:                cfg,
-		verificationTokenRepo: verificationTokenRepo,
-		userRepo:              userRepo,
+	return &notificationService{
+		emailSender:    emailSender,
+		smsSender:      smsSender,
+		emailTemplates: emailTmplMap,
+		smsTemplates:   smsTmplMap,
+		baseHTML:       baseHTML,
+		branding:       branding,
 	}
 }

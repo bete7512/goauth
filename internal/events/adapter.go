@@ -6,14 +6,6 @@ import (
 	"github.com/bete7512/goauth/pkg/types"
 )
 
-// // ConfigEvent represents event structure from config package
-// type ConfigEvent struct {
-// 	Type    string
-// 	Data    interface{}
-// 	Context context.Context
-// 	Error   error
-// }
-
 // EventBusAdapter adapts EventBus to work with config.EventBus interface
 type EventBusAdapter struct {
 	bus *EventBus

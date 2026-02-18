@@ -11,7 +11,6 @@ type LogrusLogger struct {
 	logger *logrus.Entry
 }
 
-
 func captureCaller(skip int) logrus.Fields {
 	_, file, line, ok := runtime.Caller(skip)
 	if !ok {
@@ -100,6 +99,9 @@ func (l *LogrusLogger) Infof(format string, args ...interface{}) {
 	l.logger.WithFields(captureCaller(2)).Infof(format, args...)
 }
 
+func (l *LogrusLogger) Tracef(format string, args ...interface{}) {
+	l.logger.WithFields(captureCaller(2)).Tracef(format, args...)
+}
 func (l *LogrusLogger) Errorf(format string, args ...interface{}) {
 	l.logger.WithFields(captureCaller(2)).Errorf(format, args...)
 }

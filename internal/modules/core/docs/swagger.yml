@@ -118,7 +118,34 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  # Password Recovery Routes (reset only)
+  # Password Recovery Routes
+  /forgot-password:
+    post:
+      summary: Request password reset
+      description: Send password reset link/code via email or SMS
+      tags: [Core Authentication Module Docs]
+      security:
+        - csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForgotPasswordRequest'
+      responses:
+        '200':
+          description: Password reset instructions sent (always succeeds to prevent user enumeration)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /reset-password:
     post:
       summary: Reset password
@@ -147,6 +174,178 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # Email Verification Routes
+  /send-verification-email:
+    post:
+      summary: Send email verification
+      description: Send verification email to user's email address
+      tags: [Core Authentication Module Docs]
+      security:
+        - csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendVerificationEmailRequest'
+      responses:
+        '200':
+          description: Verification email sent (always succeeds to prevent user enumeration)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /resend-verification-email:
+    post:
+      summary: Resend email verification
+      description: Resend verification email (deletes any existing token first)
+      tags: [Core Authentication Module Docs]
+      security:
+        - csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendVerificationEmailRequest'
+      responses:
+        '200':
+          description: Verification email resent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /verify-email:
+    get:
+      summary: Verify email address
+      description: Verify email using token from email link. Redirects to frontend with success/error status if frontend config is set, otherwise returns JSON.
+      tags: [Core Authentication Module Docs]
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Verification token from email
+          example: abc123def456
+      responses:
+        '302':
+          description: Redirects to frontend verify-email page with status query parameter
+          headers:
+            Location:
+              description: Redirect URL to frontend
+              schema:
+                type: string
+                example: http://localhost:3000/verify-email?status=success
+        '200':
+          description: Email verified (JSON fallback when no frontend config)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Invalid or expired token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # Phone Verification Routes
+  /send-verification-phone:
+    post:
+      summary: Send phone verification
+      description: Send verification SMS with OTP code to user's phone number
+      tags: [Core Authentication Module Docs]
+      security:
+        - csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendVerificationPhoneRequest'
+      responses:
+        '200':
+          description: Verification SMS sent (always succeeds to prevent user enumeration)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /resend-verification-phone:
+    post:
+      summary: Resend phone verification
+      description: Resend verification SMS (deletes any existing token first)
+      tags: [Core Authentication Module Docs]
+      security:
+        - csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendVerificationPhoneRequest'
+      responses:
+        '200':
+          description: Verification SMS resent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /verify-phone:
+    post:
+      summary: Verify phone number
+      description: Verify phone number using 6-digit OTP code from SMS
+      tags: [Core Authentication Module Docs]
+      security:
+        - csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyPhoneRequest'
+      responses:
+        '200':
+          description: Phone verified successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Invalid or expired code
           content:
             application/json:
               schema:
@@ -226,10 +425,10 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
 
   # Utility Routes
-  /availability/email:
+  /is-available:
     post:
-      summary: Check field availability
-      description: Check if email, username, or phone is available
+      summary: Check email/phone/username availability
+      description: Check if an email, username, or phone is available. Provide exactly one field.
       tags: [Core Authentication Module Docs]
       security:
         - csrfToken: []
@@ -238,7 +437,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CheckEmailAvailabilityRequest'
+              $ref: '#/components/schemas/CheckAvailabilityRequest'
       responses:
         '200':
           description: Availability check completed
@@ -247,61 +446,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/CheckAvailabilityResponse'
         '400':
-          description: Validation error
+          description: Validation error (missing field, multiple fields, or invalid format)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-
-  /availability/username:
-    post:
-      summary: Check username availability
-      description: Check if username is available
-      tags: [Core Authentication Module Docs]
-      security:
-        - csrfToken: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CheckUsernameAvailabilityRequest'
-
-      responses:
-        '200':
-          description: Availability check completed
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CheckAvailabilityResponse'
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /availability/phone:
-    post:
-      summary: Check phone availability
-      description: Check if phone is available
-      tags: [Core Authentication Module Docs]
-      security:
-        - csrfToken: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CheckPhoneAvailabilityRequest'
-
-      responses:
-        '200':
-          description: Availability check completed
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CheckAvailabilityResponse'
 
 components:
   # Security schemes are now defined globally in the swagger generator
@@ -359,6 +508,20 @@ components:
           example: securePassword123
           description: Password
 
+    ForgotPasswordRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+          description: Email address (provide email or phone)
+        phone:
+          type: string
+          pattern: '^\+[1-9]\d{1,14}$'
+          example: +1234567890
+          description: Phone number in E.164 format (provide email or phone)
+
     ResetPasswordRequest:
       type: object
       required: [new_password]
@@ -386,6 +549,41 @@ components:
           minLength: 8
           example: newSecurePassword123
           description: New password (minimum 8 characters)
+
+    SendVerificationEmailRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+          description: Email address to verify
+
+    SendVerificationPhoneRequest:
+      type: object
+      required: [phone]
+      properties:
+        phone:
+          type: string
+          pattern: '^\+[1-9]\d{1,14}$'
+          example: +1234567890
+          description: Phone number in E.164 format
+
+    VerifyPhoneRequest:
+      type: object
+      required: [code, phone]
+      properties:
+        code:
+          type: string
+          pattern: '^\d{6}$'
+          example: "123456"
+          description: 6-digit verification code from SMS
+        phone:
+          type: string
+          pattern: '^\+[1-9]\d{1,14}$'
+          example: +1234567890
+          description: Phone number being verified
 
     UpdateProfileRequest:
       type: object
@@ -419,32 +617,24 @@ components:
           example: newSecurePassword123
           description: New password (minimum 8 characters)
   
-    CheckEmailAvailabilityRequest:
+    CheckAvailabilityRequest:
       type: object
+      description: Provide exactly one of email, username, or phone
       properties:
         email:
           type: string
           format: email
           example: user@example.com
           description: Email to check
-          required: true
-    CheckUsernameAvailabilityRequest:
-      type: object
-      properties:
         username:
           type: string
           example: john_doe
           description: Username to check
-          required: true
-    CheckPhoneAvailabilityRequest:
-      type: object
-      properties:
         phone:
           type: string
           pattern: '^\+[1-9]\d{1,14}$'
           example: +1234567890
           description: Phone number to check
-          required: true
     # Response Schemas
     AuthResponse:
       type: object
@@ -567,4 +757,4 @@ components:
 
 tags:
   - name: Core Authentication Module Docs
-    description: Core Authentication Module API Documentation - Handles user authentication, profile management, and account operations
+    description: Core Authentication Module API Documentation - Handles user authentication, profile management, email/phone verification, password recovery, and account operations

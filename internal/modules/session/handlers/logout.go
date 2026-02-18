@@ -16,7 +16,13 @@ func (h *SessionHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.SessionService.Logout(ctx, userID)
+	sessionID, _ := ctx.Value(types.SessionIDKey).(string)
+	if sessionID == "" {
+		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidRequestBody), "Session ID not found")
+		return
+	}
+
+	err := h.service.Logout(ctx, userID, sessionID)
 	if err != nil {
 		http_utils.RespondError(w, err.StatusCode, string(err.Code), err.Message)
 		return
@@ -37,24 +43,39 @@ func (h *SessionHandler) Logout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *SessionHandler) clearSessionCookies(w http.ResponseWriter) {
-	accessTokenName := "goauth_access_" + h.deps.Config.Security.Session.Name
+	sessionCfg := h.deps.Config.Security.Session
+
+	accessTokenName := "goauth_access_" + sessionCfg.Name
 	http.SetCookie(w, &http.Cookie{
 		Name:     accessTokenName,
 		Value:    "",
-		HttpOnly: h.deps.Config.Security.Session.HttpOnly,
-		Secure:   h.deps.Config.Security.Session.Secure,
-		SameSite: h.deps.Config.Security.Session.SameSite,
-		Path:     h.deps.Config.Security.Session.Path,
+		HttpOnly: sessionCfg.HttpOnly,
+		Secure:   sessionCfg.Secure,
+		SameSite: sessionCfg.SameSite,
+		Path:     sessionCfg.Path,
 		MaxAge:   -1,
 	})
-	refreshTokenName := "goauth_refresh_" + h.deps.Config.Security.Session.Name
+	refreshTokenName := "goauth_refresh_" + sessionCfg.Name
 	http.SetCookie(w, &http.Cookie{
 		Name:     refreshTokenName,
 		Value:    "",
-		HttpOnly: h.deps.Config.Security.Session.HttpOnly,
-		Secure:   h.deps.Config.Security.Session.Secure,
-		SameSite: h.deps.Config.Security.Session.SameSite,
-		Path:     h.deps.Config.Security.Session.Path,
+		HttpOnly: sessionCfg.HttpOnly,
+		Secure:   sessionCfg.Secure,
+		SameSite: sessionCfg.SameSite,
+		Path:     sessionCfg.Path,
 		MaxAge:   -1,
 	})
+
+	// Clear session cache cookie
+	if h.encoder != nil {
+		http.SetCookie(w, &http.Cookie{
+			Name:     "goauth_session_" + sessionCfg.Name,
+			Value:    "",
+			HttpOnly: true,
+			Secure:   sessionCfg.Secure,
+			SameSite: sessionCfg.SameSite,
+			Path:     sessionCfg.Path,
+			MaxAge:   -1,
+		})
+	}
 }

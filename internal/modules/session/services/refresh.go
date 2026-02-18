@@ -11,9 +11,9 @@ import (
 )
 
 // Refresh refreshes the access token using a refresh token
-func (s *SessionService) Refresh(ctx context.Context, req *dto.RefreshRequest) (dto.AuthResponse, *types.GoAuthError) {
+func (s *sessionService) Refresh(ctx context.Context, req *dto.RefreshRequest) (dto.AuthResponse, *types.GoAuthError) {
 	// Find session by refresh token
-	session, err := s.SessionRepository.FindByToken(ctx, req.RefreshToken)
+	session, err := s.sessionRepository.FindByToken(ctx, req.RefreshToken)
 	if err != nil || session == nil {
 		return dto.AuthResponse{}, types.NewInvalidCredentialsError()
 	}
@@ -29,39 +29,44 @@ func (s *SessionService) Refresh(ctx context.Context, req *dto.RefreshRequest) (
 	}
 
 	// Get user
-	user, err := s.UserRepository.FindByID(ctx, session.UserID)
+	user, err := s.userRepository.FindByID(ctx, session.UserID)
 	if err != nil || user == nil {
 		return dto.AuthResponse{}, types.NewInvalidCredentialsError()
 	}
 
-	// Generate new tokens (with rotation)
-	accessToken, newRefreshToken, err := s.SecurityManager.GenerateTokens(user, map[string]interface{}{})
+	// Generate new session ID for rotation
+	newSessionID := uuid.New().String()
+
+	// Generate new tokens with session_id in JWT claims
+	accessToken, newRefreshToken, err := s.securityManager.GenerateTokens(user, map[string]interface{}{
+		"session_id": newSessionID,
+	})
 	if err != nil {
 		return dto.AuthResponse{}, types.NewInternalError(fmt.Sprintf("failed to generate tokens: %s", err.Error()))
 	}
 
 	// Delete old session
-	if err := s.SessionRepository.DeleteByToken(ctx, req.RefreshToken); err != nil {
+	if err := s.sessionRepository.DeleteByToken(ctx, req.RefreshToken); err != nil {
 		return dto.AuthResponse{}, types.NewInternalError(fmt.Sprintf("failed to rotate session: %s", err.Error()))
 	}
 
 	// Create new session with rotated refresh token
-	session.ID = uuid.New().String()
+	session.ID = newSessionID
 	session.RefreshToken = newRefreshToken
-	session.RefreshTokenExpiresAt = time.Now().Add(s.Deps.Config.Security.Session.RefreshTokenTTL)
-	session.ExpiresAt = time.Now().Add(s.Deps.Config.Security.Session.SessionTTL)
+	session.RefreshTokenExpiresAt = time.Now().Add(s.deps.Config.Security.Session.RefreshTokenTTL)
+	session.ExpiresAt = time.Now().Add(s.deps.Config.Security.Session.SessionTTL)
 	session.CreatedAt = time.Now()
 	session.UpdatedAt = time.Now()
 
-	if err := s.SessionRepository.Create(ctx, session); err != nil {
+	if err := s.sessionRepository.Create(ctx, session); err != nil {
 		return dto.AuthResponse{}, types.NewInternalError(fmt.Sprintf("failed to create refreshed session: %s", err.Error()))
 	}
 
 	return dto.AuthResponse{
-		AccessToken:  &accessToken,
-		RefreshToken: &newRefreshToken,
-		ExpiresIn:    int64(s.Deps.Config.Security.Session.SessionTTL.Seconds()),
+		AccessToken:  accessToken,
+		RefreshToken: newRefreshToken,
+		ExpiresIn:    int64(s.deps.Config.Security.Session.SessionTTL.Seconds()),
 		Message:      "Token refreshed successfully",
+		SessionID:    newSessionID,
 	}, nil
 }
-

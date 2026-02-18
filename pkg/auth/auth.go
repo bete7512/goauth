@@ -267,6 +267,13 @@ func (a *Auth) Initialize(ctx context.Context) error {
 		}
 	}
 
+	// Start the event bus — registers the dispatcher with the async backend
+	// and begins consuming events. Must happen after all hooks are registered
+	// so that durable backends (NATS, Redis) replay messages to registered handlers.
+	if err := a.eventBus.Start(ctx); err != nil {
+		return fmt.Errorf("failed to start event bus: %w", err)
+	}
+
 	// Build routes
 	a.routes = a.buildRoutes()
 
@@ -342,6 +349,10 @@ type asyncBackendAdapter struct {
 
 func (a *asyncBackendAdapter) Publish(ctx context.Context, eventType types.EventType, event *types.Event) error {
 	return a.backend.Publish(ctx, eventType, event)
+}
+
+func (a *asyncBackendAdapter) Subscribe(ctx context.Context, dispatcher types.EventDispatcher) error {
+	return a.backend.Subscribe(ctx, dispatcher)
 }
 
 func (a *asyncBackendAdapter) Close() error {

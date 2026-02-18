@@ -1,4 +1,4 @@
-package services
+package services_test
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/bete7512/goauth/internal/mocks"
+	"github.com/bete7512/goauth/internal/modules/session/services"
 	"github.com/bete7512/goauth/internal/testutil"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/models"
@@ -23,7 +24,7 @@ func TestSessionsServiceSuite(t *testing.T) {
 }
 
 func (s *SessionsServiceSuite) setupService() (
-	*SessionService,
+	services.SessionService,
 	*mocks.MockSessionRepository,
 ) {
 	ctrl := gomock.NewController(s.T())
@@ -44,7 +45,7 @@ func (s *SessionsServiceSuite) setupService() (
 		SecurityManager: secMgr,
 	}
 
-	svc := NewSessionService(deps, mockUserRepo, mockSessionRepo, mockLogger, secMgr, cfg)
+	svc := services.NewSessionService(deps, mockUserRepo, mockSessionRepo, mockLogger, secMgr, cfg)
 	return svc, mockSessionRepo
 }
 

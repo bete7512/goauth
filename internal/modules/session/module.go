@@ -3,14 +3,17 @@ package session
 import (
 	"context"
 	"errors"
+	"time"
 
 	_ "embed"
 
 	"github.com/bete7512/goauth/internal/modules/session/handlers"
-	"github.com/bete7512/goauth/internal/modules/session/models"
+	"github.com/bete7512/goauth/internal/modules/session/middlewares"
 	"github.com/bete7512/goauth/internal/modules/session/services"
 	"github.com/bete7512/goauth/internal/security"
+	cookie_security "github.com/bete7512/goauth/internal/security/cookie"
 	"github.com/bete7512/goauth/pkg/config"
+	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
 )
 
@@ -22,6 +25,7 @@ type SessionModule struct {
 	handlers      *handlers.SessionHandler
 	config        *config.SessionModuleConfig
 	customStorage types.SessionStorage
+	validator     *services.SessionValidator // nil when strategy is "database"
 }
 
 var _ config.Module = (*SessionModule)(nil)
@@ -67,8 +71,36 @@ func (m *SessionModule) Init(ctx context.Context, deps config.ModuleDependencies
 	securityManager := security.NewSecurityManager(m.deps.Config.Security)
 	m.deps.SecurityManager = securityManager
 
+	// Create encoder and validator for cookie_cache strategy
+	var encoder cookie_security.CookieEncoder
+	if m.config.Strategy == types.SessionStrategyCookieCache {
+		// Apply defaults
+		if m.config.CookieCacheTTL <= 0 {
+			m.config.CookieCacheTTL = 5 * time.Minute
+		}
+		if m.config.UpdateAge <= 0 {
+			m.config.UpdateAge = 10 * time.Minute
+		}
+
+		encoder = cookie_security.NewEncoder(m.config.CookieEncoding, m.deps.Config.Security.EncryptionKey)
+		m.validator = services.NewSessionValidator(
+			encoder,
+			sessionStorage.Sessions(),
+			services.ValidatorConfig{
+				CacheTTL:          m.config.CookieCacheTTL,
+				SessionTTL:        m.deps.Config.Security.Session.SessionTTL,
+				SensitivePaths:    m.config.SensitivePaths,
+				SlidingExpiration: m.config.SlidingExpiration,
+				UpdateAge:         m.config.UpdateAge,
+			},
+		)
+	}
+
+	// Pass SessionModuleConfig through deps.Options so handlers can access it
+	handlerDeps := m.deps
+	handlerDeps.Options = m.config
+
 	// Initialize handlers with all dependencies
-	// Repositories now use concrete types - no adapters needed
 	m.handlers = handlers.NewSessionHandler(
 		services.NewSessionService(
 			m.deps,
@@ -78,7 +110,8 @@ func (m *SessionModule) Init(ctx context.Context, deps config.ModuleDependencies
 			securityManager,
 			m.config,
 		),
-		m.deps,
+		handlerDeps,
+		encoder,
 	)
 
 	return nil
@@ -100,7 +133,24 @@ func (m *SessionModule) Routes() []config.RouteInfo {
 }
 
 func (m *SessionModule) Middlewares() []config.MiddlewareConfig {
-	return nil
+	if m.validator == nil {
+		return nil
+	}
+	return []config.MiddlewareConfig{{
+		Name: "session.validate",
+		Middleware: middlewares.NewSessionValidateMiddleware(
+			m.validator,
+			m.deps.Config.Security.Session,
+			m.deps.Logger,
+		),
+		Priority: 45, // Runs after auth middleware (50)
+		Global:   true,
+		ExcludeFrom: []types.RouteName{
+			types.RouteLogin,
+			types.RouteSignup,
+			types.RouteRefreshToken,
+		},
+	}}
 }
 
 func (m *SessionModule) Models() []any {
@@ -116,4 +166,3 @@ func (m *SessionModule) RegisterHooks(events types.EventBus) error {
 func (m *SessionModule) Dependencies() []string {
 	return []string{string(types.CoreModule)}
 }
-

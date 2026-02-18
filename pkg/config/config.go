@@ -140,6 +140,34 @@ type CoreConfig struct {
 type SessionModuleConfig struct {
 	// EnableSessionManagement enables session management endpoints (list, delete sessions)
 	EnableSessionManagement bool
+
+	// Strategy controls how sessions are validated per-request.
+	// "database" (default): JWT-only validation, session DB used only for refresh/logout.
+	// "cookie_cache": Signed session cookie for revocation checks without DB round-trip.
+	Strategy types.SessionStrategy
+
+	// CookieEncoding determines encoding format for session cookies.
+	// "compact" (default): base64url(JSON) + "." + HMAC-SHA256 (~200 bytes).
+	// "jwt": Standard HS256 JWT (~400 bytes, interoperable).
+	CookieEncoding types.CookieEncoding
+
+	// CookieCacheTTL controls how long the session cookie is trusted before
+	// requiring a DB re-validation. Default: 5 minutes.
+	// Only used when Strategy is SessionStrategyCookieCache.
+	CookieCacheTTL time.Duration
+
+	// SensitivePaths are route path patterns that always validate against DB,
+	// even when cookie cache is valid. Supports wildcard patterns (e.g., "/admin/*").
+	SensitivePaths []string
+
+	// SlidingExpiration extends the session ExpiresAt in the DB when the user
+	// is active and the session is in the extension window. Default: false.
+	SlidingExpiration bool
+
+	// UpdateAge forces a DB re-validation when this duration has passed since
+	// the cookie was last issued. Also defines the extension window threshold
+	// for sliding expiration (window = UpdateAge/2). Default: 10 minutes.
+	UpdateAge time.Duration
 }
 
 // StatelessModuleConfig holds configuration for stateless JWT authentication module
@@ -210,6 +238,89 @@ type CaptchaModuleConfig struct {
 
 	// ExcludeRoutes are route names or patterns to exclude from captcha
 	ExcludeRoutes []types.RouteName
+}
+
+// MagicLinkModuleConfig holds configuration for magic link passwordless authentication
+type MagicLinkModuleConfig struct {
+	// TokenExpiry is how long magic link tokens remain valid (default: 15 minutes)
+	TokenExpiry time.Duration
+
+	// AutoRegister creates a new user if the email doesn't exist (default: false)
+	AutoRegister bool
+
+	// CallbackURL is the frontend URL to redirect to after verification.
+	// Tokens are passed as URL fragment: CallbackURL#access_token=xxx&refresh_token=xxx
+	// If empty, the verify endpoint returns JSON AuthResponse instead.
+	CallbackURL string
+}
+
+// OAuthModuleConfig holds configuration for OAuth authentication module
+type OAuthModuleConfig struct {
+	// Providers maps provider name (e.g., "google", "github") to its configuration
+	Providers map[string]*OAuthProviderConfig
+
+	// DefaultRedirectURL is the frontend URL to redirect to after successful OAuth authentication.
+	// Tokens are passed as URL fragment: DefaultRedirectURL#access_token=xxx&refresh_token=xxx
+	// If empty, the callback endpoint returns JSON AuthResponse instead.
+	DefaultRedirectURL string
+
+	// ErrorRedirectURL is the URL to redirect to when OAuth authentication fails.
+	// Error details are passed as query params: ErrorRedirectURL?error=xxx&error_description=xxx
+	// If empty, the callback endpoint returns JSON error response instead.
+	ErrorRedirectURL string
+
+	// AllowSignup allows creating new users via OAuth (default: true)
+	// If false, only existing users can authenticate via OAuth
+	AllowSignup bool
+
+	// AllowAccountLinking allows linking OAuth to existing accounts with matching email (default: true)
+	// If false, OAuth login fails if email already exists with password auth
+	AllowAccountLinking bool
+
+	// TrustEmailVerification trusts the OAuth provider's email verification status (default: true)
+	// If true, sets EmailVerified=true when provider reports email as verified
+	TrustEmailVerification bool
+
+	// StateTTL is how long OAuth state tokens remain valid (default: 10 minutes)
+	StateTTL time.Duration
+
+	// StoreProviderTokens enables storing OAuth provider access/refresh tokens in the Account model.
+	// If true, tokens are encrypted and stored for API access to the provider.
+	// Default: false (tokens are not stored)
+	StoreProviderTokens bool
+
+	// UseSessionAuth determines if OAuth should create database sessions (like session module)
+	// or use stateless JWT tokens.
+	// - true: Creates session record in database (requires SessionStorage)
+	// - false: Uses stateless JWT tokens (default)
+	UseSessionAuth bool
+}
+
+// OAuthProviderConfig holds configuration for a single OAuth provider
+type OAuthProviderConfig struct {
+	// ClientID is the OAuth client ID from the provider
+	ClientID string
+
+	// ClientSecret is the OAuth client secret from the provider
+	ClientSecret string
+
+	// Scopes to request from the provider. Uses provider defaults if empty.
+	// Google default: ["openid", "email", "profile"]
+	// GitHub default: ["user:email", "read:user"]
+	// Microsoft default: ["openid", "email", "profile", "User.Read"]
+	// Discord default: ["identify", "email"]
+	Scopes []string
+
+	// RedirectURL overrides the callback URL for this provider.
+	// If empty, auto-generated as: {APIURL}{BasePath}/oauth/{provider}/callback
+	RedirectURL string
+
+	// PKCE enables Proof Key for Code Exchange (default: true)
+	// Recommended for all OAuth flows for additional security
+	PKCE bool
+
+	// Enabled allows disabling a provider without removing its configuration (default: true)
+	Enabled bool
 }
 
 // CORSConfig holds CORS configuration

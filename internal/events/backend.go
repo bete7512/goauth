@@ -7,7 +7,9 @@ import (
 	"github.com/bete7512/goauth/pkg/types"
 )
 
-// DefaultAsyncBackend uses the built-in worker pool with retry and DLQ support.
+// DefaultAsyncBackend uses the built-in worker pool with DLQ support.
+// Events are queued in a buffered channel and processed by goroutine workers
+// via the dispatcher set through Subscribe.
 type DefaultAsyncBackend struct {
 	workerPool *WorkerPool
 	dlq        *DeadLetterQueue
@@ -24,10 +26,15 @@ func NewDefaultAsyncBackend(workers, queueSize int, log logger.Logger) *DefaultA
 	}
 }
 
-// Publish submits event to worker pool
+// Publish submits an event to the worker pool queue.
 func (b *DefaultAsyncBackend) Publish(ctx context.Context, eventType types.EventType, event *types.Event) error {
-	// Worker pool doesn't need eventType since it's in the event
-	// This is handled by EventBus calling handler directly
+	return b.workerPool.Submit(ctx, event)
+}
+
+// Subscribe sets the dispatcher on the worker pool.
+// Workers will call dispatcher(ctx, event) for each queued event.
+func (b *DefaultAsyncBackend) Subscribe(ctx context.Context, dispatcher types.EventDispatcher) error {
+	b.workerPool.SetDispatcher(dispatcher)
 	return nil
 }
 
@@ -40,12 +47,6 @@ func (b *DefaultAsyncBackend) Close() error {
 // Name returns backend name
 func (b *DefaultAsyncBackend) Name() string {
 	return "worker-pool"
-}
-
-// SubmitJob submits a job to worker pool (used by EventBus).
-// The retryPolicy is passed per-handler from the subscription options.
-func (b *DefaultAsyncBackend) SubmitJob(ctx context.Context, handler types.EventHandler, event *types.Event, retryPolicy *types.RetryPolicy) error {
-	return b.workerPool.Submit(ctx, handler, event, retryPolicy)
 }
 
 // QueueStats returns queue statistics

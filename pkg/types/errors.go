@@ -88,6 +88,22 @@ const (
 	ErrInvalidVerificationCode  ErrorCode = "INVALID_VERIFICATION_CODE"
 	ErrVerificationCodeExpired  ErrorCode = "VERIFICATION_CODE_EXPIRED"
 
+	// OAuth errors
+	ErrOAuthProviderNotFound  ErrorCode = "OAUTH_PROVIDER_NOT_FOUND"
+	ErrOAuthProviderDisabled  ErrorCode = "OAUTH_PROVIDER_DISABLED"
+	ErrOAuthInvalidState      ErrorCode = "OAUTH_INVALID_STATE"
+	ErrOAuthStateExpired      ErrorCode = "OAUTH_STATE_EXPIRED"
+	ErrOAuthStateUsed         ErrorCode = "OAUTH_STATE_USED"
+	ErrOAuthTokenExchange     ErrorCode = "OAUTH_TOKEN_EXCHANGE_FAILED"
+	ErrOAuthUserInfo          ErrorCode = "OAUTH_USER_INFO_FAILED"
+	ErrOAuthEmailExists       ErrorCode = "OAUTH_EMAIL_EXISTS"
+	ErrOAuthSignupDisabled    ErrorCode = "OAUTH_SIGNUP_DISABLED"
+	ErrOAuthProviderError     ErrorCode = "OAUTH_PROVIDER_ERROR"
+	ErrOAuthNotLinked         ErrorCode = "OAUTH_NOT_LINKED"
+	ErrOAuthAlreadyLinked     ErrorCode = "OAUTH_ALREADY_LINKED"
+	ErrOAuthEmailRequired     ErrorCode = "OAUTH_EMAIL_REQUIRED"
+	ErrOAuthAccountLinkingDisabled ErrorCode = "OAUTH_ACCOUNT_LINKING_DISABLED"
+
 	// unknown error
 	ErrUnknown ErrorCode = "UNKNOWN_ERROR"
 
@@ -559,5 +575,127 @@ func NewVerificationCodeExpiredError() *GoAuthError {
 		Code:       ErrVerificationCodeExpired,
 		Message:    "Verification code has expired",
 		StatusCode: http.StatusBadRequest,
+	}
+}
+
+// OAuth error factory functions
+func NewOAuthProviderNotFoundError(provider string) *GoAuthError {
+	return &GoAuthError{
+		Code:       ErrOAuthProviderNotFound,
+		Message:    "OAuth provider '" + provider + "' not found or not configured",
+		StatusCode: http.StatusBadRequest,
+	}
+}
+
+func NewOAuthProviderDisabledError(provider string) *GoAuthError {
+	return &GoAuthError{
+		Code:       ErrOAuthProviderDisabled,
+		Message:    "OAuth provider '" + provider + "' is disabled",
+		StatusCode: http.StatusBadRequest,
+	}
+}
+
+func NewOAuthInvalidStateError() *GoAuthError {
+	return &GoAuthError{
+		Code:       ErrOAuthInvalidState,
+		Message:    "Invalid OAuth state parameter",
+		StatusCode: http.StatusBadRequest,
+	}
+}
+
+func NewOAuthStateExpiredError() *GoAuthError {
+	return &GoAuthError{
+		Code:       ErrOAuthStateExpired,
+		Message:    "OAuth state has expired. Please try again.",
+		StatusCode: http.StatusBadRequest,
+	}
+}
+
+func NewOAuthStateUsedError() *GoAuthError {
+	return &GoAuthError{
+		Code:       ErrOAuthStateUsed,
+		Message:    "OAuth state has already been used",
+		StatusCode: http.StatusBadRequest,
+	}
+}
+
+func NewOAuthTokenExchangeError(message string) *GoAuthError {
+	if message == "" {
+		message = "Failed to exchange authorization code for tokens"
+	}
+	return &GoAuthError{
+		Code:       ErrOAuthTokenExchange,
+		Message:    message,
+		StatusCode: http.StatusBadRequest,
+	}
+}
+
+func NewOAuthUserInfoError(message string) *GoAuthError {
+	if message == "" {
+		message = "Failed to retrieve user information from OAuth provider"
+	}
+	return &GoAuthError{
+		Code:       ErrOAuthUserInfo,
+		Message:    message,
+		StatusCode: http.StatusBadRequest,
+	}
+}
+
+func NewOAuthEmailExistsError() *GoAuthError {
+	return &GoAuthError{
+		Code:       ErrOAuthEmailExists,
+		Message:    "An account with this email already exists",
+		StatusCode: http.StatusConflict,
+	}
+}
+
+func NewOAuthSignupDisabledError() *GoAuthError {
+	return &GoAuthError{
+		Code:       ErrOAuthSignupDisabled,
+		Message:    "Signup via OAuth is disabled",
+		StatusCode: http.StatusForbidden,
+	}
+}
+
+func NewOAuthProviderError(message string) *GoAuthError {
+	if message == "" {
+		message = "OAuth provider returned an error"
+	}
+	return &GoAuthError{
+		Code:       ErrOAuthProviderError,
+		Message:    message,
+		StatusCode: http.StatusBadRequest,
+	}
+}
+
+func NewOAuthNotLinkedError(provider string) *GoAuthError {
+	return &GoAuthError{
+		Code:       ErrOAuthNotLinked,
+		Message:    "OAuth provider '" + provider + "' is not linked to this account",
+		StatusCode: http.StatusBadRequest,
+	}
+}
+
+func NewOAuthAlreadyLinkedError(provider string) *GoAuthError {
+	return &GoAuthError{
+		Code:       ErrOAuthAlreadyLinked,
+		Message:    "OAuth provider '" + provider + "' is already linked to this account",
+		StatusCode: http.StatusConflict,
+	}
+}
+
+func NewOAuthEmailRequiredError() *GoAuthError {
+	return &GoAuthError{
+		Code:       ErrOAuthEmailRequired,
+		Message:    "Email address is required from OAuth provider",
+		StatusCode: http.StatusBadRequest,
+	}
+}
+
+func NewOAuthAccountLinkingDisabledError() *GoAuthError {
+	return &GoAuthError{
+		Code:       ErrOAuthAccountLinkingDisabled,
+		Message:    "Account linking via OAuth is disabled",
+		StatusCode: http.StatusForbidden,
 	}
 }

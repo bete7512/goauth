@@ -1,0 +1,308 @@
+openapi: 3.0.3
+info:
+  title: GoAuth OAuth Module
+  description: OAuth 2.0 / OpenID Connect authentication endpoints
+  version: 1.0.0
+
+paths:
+  /oauth/{provider}:
+    get:
+      operationId: oauth.login
+      summary: Initiate OAuth login
+      description: |
+        Initiates the OAuth login flow by redirecting to the provider's authorization page.
+        After authorization, the provider redirects back to the callback endpoint.
+      tags:
+        - OAuth
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          description: OAuth provider name (google, github, microsoft, discord)
+          schema:
+            type: string
+            required: true
+        - name: redirect_uri
+          in: query
+          required: false
+          description: |
+            Optional frontend URL to redirect to after successful authentication.
+            Tokens are passed in the URL fragment.
+          schema:
+            type: string
+            format: uri
+      responses:
+        "302":
+          description: Redirect to OAuth provider authorization page
+        "400":
+          description: Invalid provider
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      operationId: oauth.unlink
+      summary: Unlink OAuth provider
+      description: Removes an OAuth provider link from the current user's account
+      tags:
+        - OAuth
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          description: OAuth provider name to unlink
+          schema:
+            type: string
+            enum: [google, github, microsoft, discord]
+      responses:
+        "200":
+          description: Provider unlinked successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          description: Provider not linked or cannot unlink only login method
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /oauth/{provider}/callback:
+    get:
+      operationId: oauth.callback
+      summary: OAuth callback
+      description: |
+        Handles the OAuth provider callback after user authorization.
+        Exchanges the authorization code for tokens and authenticates the user.
+      tags:
+        - OAuth
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          description: OAuth provider name
+          schema:
+            type: string
+            enum: [google, github, microsoft, discord]
+        - name: code
+          in: query
+          required: true
+          description: Authorization code from the OAuth provider
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: true
+          description: State parameter for CSRF protection
+          schema:
+            type: string
+        - name: error
+          in: query
+          required: false
+          description: Error code if the provider returned an error
+          schema:
+            type: string
+        - name: error_description
+          in: query
+          required: false
+          description: Error description from the provider
+          schema:
+            type: string
+      responses:
+        "302":
+          description: |
+            Redirect to frontend with tokens in URL fragment.
+            Fragment format: #access_token=xxx&refresh_token=xxx&token_type=Bearer&expires_in=3600
+        "200":
+          description: Authentication successful (when no redirect URL configured)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Invalid state, expired state, or token exchange failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /oauth/providers:
+    get:
+      operationId: oauth.providers
+      summary: List enabled OAuth providers
+      description: Returns the list of enabled OAuth providers
+      tags:
+        - OAuth
+      responses:
+        "200":
+          description: List of enabled providers
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProvidersResponse"
+
+  /oauth/linked:
+    get:
+      operationId: oauth.linked
+      summary: Get linked OAuth providers
+      description: Returns the OAuth providers linked to the current user's account
+      tags:
+        - OAuth
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: List of linked providers
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LinkedProvidersResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    AuthResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            access_token:
+              type: string
+              description: JWT access token
+            refresh_token:
+              type: string
+              description: Refresh token for obtaining new access tokens
+            expires_in:
+              type: integer
+              description: Access token expiration time in seconds
+            token_type:
+              type: string
+              default: Bearer
+            is_new_user:
+              type: boolean
+              description: True if this is a newly created user
+            provider:
+              type: string
+              description: OAuth provider used for authentication
+            user:
+              $ref: "#/components/schemas/User"
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        username:
+          type: string
+        name:
+          type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        avatar:
+          type: string
+          format: uri
+        email_verified:
+          type: boolean
+        active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        last_login_at:
+          type: string
+          format: date-time
+
+    ProvidersResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            providers:
+              type: array
+              items:
+                type: object
+                properties:
+                  name:
+                    type: string
+                    description: Provider identifier
+                  enabled:
+                    type: boolean
+
+    LinkedProvidersResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            providers:
+              type: array
+              items:
+                type: string
+              description: List of linked provider names
+
+    MessageResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            message:
+              type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              description: Error code
+              enum:
+                - OAUTH_PROVIDER_NOT_FOUND
+                - OAUTH_PROVIDER_DISABLED
+                - OAUTH_INVALID_STATE
+                - OAUTH_STATE_EXPIRED
+                - OAUTH_STATE_USED
+                - OAUTH_TOKEN_EXCHANGE_FAILED
+                - OAUTH_USER_INFO_FAILED
+                - OAUTH_EMAIL_EXISTS
+                - OAUTH_SIGNUP_DISABLED
+                - OAUTH_NOT_LINKED
+                - OAUTH_EMAIL_REQUIRED
+            message:
+              type: string
+              description: Human-readable error message
+
+tags:
+  - name: OAuth
+    description: OAuth 2.0 / OpenID Connect authentication endpoints

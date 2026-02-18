@@ -1,6 +1,7 @@
 package types
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/bete7512/goauth/pkg/models"
@@ -47,14 +48,30 @@ type LogoutEventData struct {
 	UserID string `json:"user_id"`
 }
 
-// PasswordResetRequestData is used for before:reset-password events.
+// EmailVerificationRequestData is used for send:email-verification events.
+// Carries the pre-built verification link so notification just renders + delivers.
+type EmailVerificationRequestData struct {
+	User             *models.User `json:"user"`
+	VerificationLink string       `json:"verification_link"`
+}
+
+// PhoneVerificationRequestData is used for send:phone-verification events.
+// Carries the OTP code so notification just renders + delivers.
+type PhoneVerificationRequestData struct {
+	User       *models.User `json:"user"`
+	Code       string       `json:"code"`
+	ExpiryTime string       `json:"expiry_time"`
+}
+
+// PasswordResetRequestData is used for send:password-reset-email events.
 // Contains the reset link and code for notification handlers.
 type PasswordResetRequestData struct {
-	UserID    string `json:"user_id"`
-	Email     string `json:"email"`
-	Name      string `json:"name"`
-	ResetLink string `json:"reset_link"`
-	Code      string `json:"code"`
+	UserID      string `json:"user_id"`
+	Email       string `json:"email"`
+	PhoneNumber string `json:"phone_number,omitempty"`
+	Name        string `json:"name"`
+	ResetLink   string `json:"reset_link"`
+	Code        string `json:"code"`
 }
 
 // PasswordChangedData is used for after:change-password and after:reset-password events.
@@ -71,8 +88,48 @@ type ProfileChangedData struct {
 	Fields []string `json:"fields"`
 }
 
+// MagicLinkRequestData is used for send.magic-link events.
+// Contains the pre-built magic link and OTP code for notification handlers.
+type MagicLinkRequestData struct {
+	User       *models.User `json:"user"`
+	MagicLink  string       `json:"magic_link"`
+	Code       string       `json:"code,omitempty"`
+	ExpiryTime string       `json:"expiry_time"`
+}
+
+// OAuthLoginEventData is emitted after successful OAuth authentication.
+// Contains the authenticated user, provider info, and optional provider tokens.
+type OAuthLoginEventData struct {
+	User                 *models.User     `json:"user"`
+	Provider             string           `json:"provider"`
+	ProviderUserID       string           `json:"provider_user_id"`
+	ProviderAccessToken  string           `json:"provider_access_token,omitempty"`
+	ProviderRefreshToken string           `json:"provider_refresh_token,omitempty"`
+	IsNewUser            bool             `json:"is_new_user"`
+	Metadata             *RequestMetadata `json:"metadata,omitempty"`
+}
+
+// OAuthLinkEventData is emitted when an OAuth provider is linked or unlinked.
+type OAuthLinkEventData struct {
+	UserID         string `json:"user_id"`
+	Provider       string `json:"provider"`
+	ProviderUserID string `json:"provider_user_id"`
+}
+
+// OAuthErrorEventData is emitted when OAuth authentication fails.
+type OAuthErrorEventData struct {
+	Provider         string           `json:"provider"`
+	ErrorCode        string           `json:"error_code"`
+	ErrorDescription string           `json:"error_description"`
+	Metadata         *RequestMetadata `json:"metadata,omitempty"`
+}
+
 // EventDataAs extracts typed event data from an Event.
 // Returns the typed data and true if the assertion succeeds.
+//
+// Supports two modes:
+//   - Direct type assertion (in-process backends like worker pool)
+//   - JSON deserialization (serialized backends like NATS JetStream, Redis)
 //
 // Usage:
 //
@@ -82,6 +139,27 @@ type ProfileChangedData struct {
 //	}
 //	user := data.User
 func EventDataAs[T any](event *Event) (T, bool) {
-	data, ok := event.Data.(T)
-	return data, ok
+	// Direct type assertion (in-process backends)
+	if data, ok := event.Data.(T); ok {
+		return data, ok
+	}
+
+	// JSON deserialization (serialized backends)
+	var raw []byte
+	switch v := event.Data.(type) {
+	case json.RawMessage:
+		raw = v
+	case []byte:
+		raw = v
+	default:
+		var zero T
+		return zero, false
+	}
+
+	var data T
+	if err := json.Unmarshal(raw, &data); err != nil {
+		var zero T
+		return zero, false
+	}
+	return data, true
 }

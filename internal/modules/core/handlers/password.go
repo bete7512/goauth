@@ -38,9 +38,7 @@ func (h *CoreHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-
-	// logout
-	
+	// TODO: somehow logout 
 
 	http_utils.RespondSuccess(w, response, nil)
 }

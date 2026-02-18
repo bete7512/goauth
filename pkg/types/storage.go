@@ -1,6 +1,6 @@
 package types
 
-//go:generate mockgen -destination=../../internal/mocks/mock_storage.go -package=mocks github.com/bete7512/goauth/pkg/types Storage,CoreStorage,SessionStorage,StatelessStorage,AdminStorage
+//go:generate mockgen -destination=../../internal/mocks/mock_storage.go -package=mocks github.com/bete7512/goauth/pkg/types Storage,CoreStorage,SessionStorage,StatelessStorage,AdminStorage,OAuthStorage
 
 import (
 	"context"
@@ -42,9 +42,11 @@ type Storage interface {
 	// Returns nil if admin storage is not needed/available
 	Admin() AdminStorage
 
+	// OAuth returns storage for the OAuth module
+	// Returns nil if OAuth storage is not needed/available
+	OAuth() OAuthStorage
 
 	// Audit Log
-
 	AuditLog() AuditLogStorage
 
 	// Migrate runs database migrations for the provided models
@@ -62,7 +64,6 @@ type Storage interface {
 type CoreStorage interface {
 	Users() models.UserRepository
 	Tokens() models.TokenRepository
-	VerificationTokens() models.VerificationTokenRepository
 	ExtendedAttributes() models.ExtendedAttributeRepository
 	WithTransaction(ctx context.Context, fn func(tx CoreStorage) error) error
 }
@@ -86,4 +87,10 @@ type AdminStorage interface {
 type AuditLogStorage interface {
 	AuditLogs() models.AuditLogRepository
 	WithTransaction(ctx context.Context, fn func(tx AuditLogStorage) error) error
+}
+
+// OAuthStorage defines storage interface for the OAuth module
+type OAuthStorage interface {
+	Accounts() models.AccountRepository
+	WithTransaction(ctx context.Context, fn func(tx OAuthStorage) error) error
 }

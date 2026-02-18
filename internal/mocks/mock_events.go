@@ -151,3 +151,17 @@ func (mr *MockAsyncBackendMockRecorder) Publish(ctx, eventType, event any) *gomo
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Publish", reflect.TypeOf((*MockAsyncBackend)(nil).Publish), ctx, eventType, event)
 }
+
+// Subscribe mocks base method.
+func (m *MockAsyncBackend) Subscribe(ctx context.Context, dispatcher types.EventDispatcher) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Subscribe", ctx, dispatcher)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Subscribe indicates an expected call of Subscribe.
+func (mr *MockAsyncBackendMockRecorder) Subscribe(ctx, dispatcher any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Subscribe", reflect.TypeOf((*MockAsyncBackend)(nil).Subscribe), ctx, dispatcher)
+}

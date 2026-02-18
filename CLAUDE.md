@@ -38,6 +38,16 @@ Required patterns:
 
 Reference implementation: `internal/modules/core/module.go`
 
+### Swagger Docs Rule
+
+**Whenever you add, modify, or remove a DTO or HTTP endpoint in any module, you MUST update that module's `docs/swagger.yml` to reflect the change.** This includes:
+- New routes → add path + request/response schemas
+- Modified DTOs → update the corresponding schema definitions
+- Removed endpoints → remove from swagger spec
+- Changed request/response shapes → update schemas accordingly
+
+Every module's swagger spec lives at `internal/modules/<name>/docs/swagger.yml` and is embedded via `//go:embed docs/swagger.yml`.
+
 ### Service Pattern
 
 Every module's service layer uses the **exported interface / unexported struct** pattern:
@@ -282,6 +292,10 @@ http_utils.RespondList(w, items, total, opts.SortField, opts.SortDir)
 - Clean: `make clean`
 - Always run `make build` to catch compilation errors before committing.
 
+## Before You Build Anything
+**When asked to implement or change something, STOP and think through these before writing code:**
+**Surface this thinking to the user before coding.** Say what the change enables, what it costs, and what adjacent concerns it raises. Then discuss then build.
+
 ## Current State
 
-Branch: `feat/storage-architecture-update`. Active work on storage architecture, CSRF, and captcha modules. See `SCRATCHPAD.md` for session-persistent progress notes.
+Branch: `mvp-cleaning`. Active work on notification module refactor and template system. See `SCRATCHPAD.md` for session-persistent progress notes.

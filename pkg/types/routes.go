@@ -16,18 +16,17 @@ const (
 	RouteRefreshToken   RouteName = "core.refresh_token"
 
 	// availability routes
-	RouteCheckAvailability         RouteName = "core.check_availability"
-	RouteCheckUsernameAvailability RouteName = "core.check_username_availability"
-	RouteCheckPhoneAvailability    RouteName = "core.check_phone_availability"
+	RouteCheckAvailability RouteName = "core.check_availability"
 
-	// Notification Routes
-	RouteNotificationSendVerificationEmail   RouteName = "notification.send_verification_email"
-	RouteNotificationResendVerificationEmail RouteName = "notification.resend_verification_email"
-	RouteNotificationSendVerificationPhone   RouteName = "notification.send_verification_phone"
-	RouteNotificationResendVerificationPhone RouteName = "notification.resend_verification_phone"
-	RouteNotificationForgotPassword          RouteName = "notification.forgot_password"
-	RouteNotificationVerifyEmail             RouteName = "notification.verify_email"
-	RouteNotificationVerifyPhone             RouteName = "notification.verify_phone"
+	// Verification & Password Reset Routes
+	RouteSendVerificationEmail   RouteName = "core.send_verification_email"
+	RouteResendVerificationEmail RouteName = "core.resend_verification_email"
+	RouteSendVerificationPhone   RouteName = "core.send_verification_phone"
+	RouteResendVerificationPhone RouteName = "core.resend_verification_phone"
+	RouteVerifyEmail             RouteName = "core.verify_email"
+	RouteVerifyPhone             RouteName = "core.verify_phone"
+	RouteForgotPassword          RouteName = "core.forgot_password"
+	RouteResetPassword           RouteName = "core.reset_password"
 
 	// OAuth Routes
 	RouteOAuthLogin             RouteName = "oauth.login"
@@ -40,9 +39,10 @@ const (
 	RouteOAuthUserDeleteProfile RouteName = "oauth.user_delete_profile"
 
 	// MagicLink Routes
-	RouteMagicLinkSend   RouteName = "magiclink.send"
-	RouteMagicLinkVerify RouteName = "magiclink.verify"
-	RouteMagicLinkResend RouteName = "magiclink.resend"
+	RouteMagicLinkSend       RouteName = "magiclink.send"
+	RouteMagicLinkVerify     RouteName = "magiclink.verify"
+	RouteMagicLinkVerifyCode RouteName = "magiclink.verify-code"
+	RouteMagicLinkResend     RouteName = "magiclink.resend"
 
 	// TwoFactor Routes
 	RouteTwoFactorEnable    RouteName = "twofactor.enable"

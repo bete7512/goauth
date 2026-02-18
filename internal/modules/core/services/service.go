@@ -22,9 +22,15 @@ type CoreService interface {
 	ChangePassword(ctx context.Context, userID string, req *dto.ChangePasswordRequest) (*dto.MessageResponse, *types.GoAuthError)
 	ForgotPassword(ctx context.Context, req *dto.ForgotPasswordRequest) (*dto.MessageResponse, *types.GoAuthError)
 	ResetPassword(ctx context.Context, req *dto.ResetPasswordRequest) (*dto.MessageResponse, *types.GoAuthError)
-	CheckEmailAvailability(ctx context.Context, email string) (*dto.CheckAvailabilityResponse, *types.GoAuthError)
-	CheckUsernameAvailability(ctx context.Context, username string) (*dto.CheckAvailabilityResponse, *types.GoAuthError)
-	CheckPhoneAvailability(ctx context.Context, phone string) (*dto.CheckAvailabilityResponse, *types.GoAuthError)
+	CheckAvailability(ctx context.Context, req *dto.CheckAvailabilityRequest) (*dto.CheckAvailabilityResponse, *types.GoAuthError)
+
+	// Verification
+	SendEmailVerification(ctx context.Context, email string) (*dto.MessageResponse, *types.GoAuthError)
+	ResendEmailVerification(ctx context.Context, email string) (*dto.MessageResponse, *types.GoAuthError)
+	SendPhoneVerification(ctx context.Context, phone string) (*dto.MessageResponse, *types.GoAuthError)
+	ResendPhoneVerification(ctx context.Context, phone string) (*dto.MessageResponse, *types.GoAuthError)
+	VerifyEmail(ctx context.Context, token string) (*dto.MessageResponse, *types.GoAuthError)
+	VerifyPhone(ctx context.Context, code string, phone string) (*dto.MessageResponse, *types.GoAuthError)
 }
 
 type coreService struct {
@@ -33,7 +39,6 @@ type coreService struct {
 	UserRepository                  models.UserRepository
 	UserExtendedAttributeRepository models.ExtendedAttributeRepository
 	TokenRepository                 models.TokenRepository
-	VerificationTokenRepository     models.VerificationTokenRepository
 	Logger                          logger.Logger
 	SecurityManager                 *security.SecurityManager
 }
@@ -43,7 +48,6 @@ func NewCoreService(
 	userRepository models.UserRepository,
 	userAttrRepo models.ExtendedAttributeRepository,
 	tokenRepository models.TokenRepository,
-	verificationTokenRepository models.VerificationTokenRepository,
 	logger logger.Logger,
 	securityManager *security.SecurityManager,
 	config *config.CoreConfig,
@@ -53,7 +57,6 @@ func NewCoreService(
 		UserRepository:                  userRepository,
 		UserExtendedAttributeRepository: userAttrRepo,
 		TokenRepository:                 tokenRepository,
-		VerificationTokenRepository:     verificationTokenRepository,
 		Logger:                          deps.Logger,
 		SecurityManager:                 securityManager,
 		Config:                          config,

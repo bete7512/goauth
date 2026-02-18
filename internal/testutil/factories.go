@@ -62,6 +62,21 @@ func TestExpiredToken(userID, tokenType string) *models.Token {
 	return t
 }
 
+// TestVerificationToken creates a token with Code/Email fields for verification tests.
+func TestVerificationToken(userID, tokenType string) *models.Token {
+	t := TestToken(userID, tokenType)
+	t.Code = "123456"
+	t.Email = "test@example.com"
+	return t
+}
+
+// TestExpiredVerificationToken creates an expired token with verification fields.
+func TestExpiredVerificationToken(userID, tokenType string) *models.Token {
+	t := TestVerificationToken(userID, tokenType)
+	t.ExpiresAt = time.Now().Add(-1 * time.Hour)
+	return t
+}
+
 // HashPassword hashes a plaintext password for test fixtures.
 func HashPassword(password string) string {
 	hash, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.MinCost)

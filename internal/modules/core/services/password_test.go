@@ -36,7 +36,6 @@ func (s *PasswordServiceSuite) setupService() (
 
 	mockUserRepo := mocks.NewMockUserRepository(ctrl)
 	mockTokenRepo := mocks.NewMockTokenRepository(ctrl)
-	mockVerifRepo := mocks.NewMockVerificationTokenRepository(ctrl)
 	mockExtAttrRepo := mocks.NewMockExtendedAttributeRepository(ctrl)
 	mockEvents := mocks.NewMockEventBus(ctrl)
 	mockLogger := mocks.NewMockLogger(ctrl)
@@ -51,7 +50,7 @@ func (s *PasswordServiceSuite) setupService() (
 		SecurityManager: secMgr,
 	}
 
-	svc := core_services.NewCoreService(deps, mockUserRepo, mockExtAttrRepo, mockTokenRepo, mockVerifRepo, mockLogger, secMgr, cfg)
+	svc := core_services.NewCoreService(deps, mockUserRepo, mockExtAttrRepo, mockTokenRepo, mockLogger, secMgr, cfg)
 	return svc, mockUserRepo, mockTokenRepo, mockEvents
 }
 
@@ -156,7 +155,7 @@ func (s *PasswordServiceSuite) TestForgotPassword() {
 			setup: func(ur *mocks.MockUserRepository, tr *mocks.MockTokenRepository, ev *mocks.MockEventBus) {
 				ur.EXPECT().FindByEmail(gomock.Any(), testUser.Email).Return(testUser, nil)
 				tr.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&models.Token{})).Return(nil)
-				ev.EXPECT().EmitAsync(gomock.Any(), types.EventBeforeResetPassword, gomock.AssignableToTypeOf(&types.PasswordResetRequestData{})).Return(nil)
+				ev.EXPECT().EmitAsync(gomock.Any(), types.EventSendPasswordResetEmail, gomock.AssignableToTypeOf(&types.PasswordResetRequestData{})).Return(nil)
 			},
 		},
 		{
@@ -199,8 +198,8 @@ func (s *PasswordServiceSuite) TestForgotPassword() {
 
 func (s *PasswordServiceSuite) TestResetPassword() {
 	testUser := testutil.TestUser()
-	validToken := testutil.TestToken(testUser.ID, "password_reset")
-	expiredToken := testutil.TestExpiredToken(testUser.ID, "password_reset")
+	validToken := testutil.TestVerificationToken(testUser.ID, models.TokenTypePasswordReset)
+	expiredToken := testutil.TestExpiredVerificationToken(testUser.ID, models.TokenTypePasswordReset)
 
 	tests := []struct {
 		name    string
@@ -216,7 +215,7 @@ func (s *PasswordServiceSuite) TestResetPassword() {
 				tr.EXPECT().FindByToken(gomock.Any(), validToken.Token).Return(validToken, nil)
 				ur.EXPECT().FindByID(gomock.Any(), testUser.ID).Return(testUser, nil)
 				ur.EXPECT().Update(gomock.Any(), gomock.AssignableToTypeOf(&models.User{})).Return(nil)
-				tr.EXPECT().Delete(gomock.Any(), validToken.ID).Return(nil)
+				tr.EXPECT().MarkAsUsed(gomock.Any(), validToken.ID).Return(nil)
 				ev.EXPECT().EmitAsync(gomock.Any(), types.EventAfterResetPassword, gomock.AssignableToTypeOf(&types.PasswordChangedData{})).Return(nil)
 			},
 		},
@@ -253,7 +252,7 @@ func (s *PasswordServiceSuite) TestResetPassword() {
 					ID:        "tok-orphan",
 					UserID:    "deleted-user",
 					Token:     "orphan-token",
-					Type:      "password_reset",
+					Type:      models.TokenTypePasswordReset,
 					ExpiresAt: time.Now().Add(1 * time.Hour),
 					CreatedAt: time.Now(),
 				}
