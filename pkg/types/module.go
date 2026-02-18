@@ -12,7 +12,6 @@ const (
 	AdminModule        ModuleName = "admin"
 	AuditModule        ModuleName = "audit"
 	CSRFModule         ModuleName = "csrf"
-	RateLimiterModule  ModuleName = "ratelimiter"
 	CaptchaModule      ModuleName = "captcha"
 	ReportModule       ModuleName = "report"
 	NotificationModule ModuleName = "notification"

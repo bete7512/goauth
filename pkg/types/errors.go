@@ -68,10 +68,6 @@ const (
 	ErrTwoFactorExpired        ErrorCode = "TWO_FACTOR_EXPIRED"
 	ErrTwoFactorAlreadyUsed    ErrorCode = "TWO_FACTOR_ALREADY_USED"
 
-	// Rate limiting
-	ErrRateLimitExceeded ErrorCode = "RATE_LIMIT_EXCEEDED"
-	ErrTooManyRequests   ErrorCode = "TOO_MANY_REQUESTS"
-
 	// Method errors
 	ErrMethodNotAllowed ErrorCode = "METHOD_NOT_ALLOWED"
 
@@ -362,23 +358,6 @@ func NewCaptchaFailedError() *GoAuthError {
 		Code:       ErrCaptchaFailed,
 		Message:    "Captcha verification failed",
 		StatusCode: http.StatusForbidden,
-	}
-}
-
-// Rate limiting error factory functions
-func NewRateLimitExceededError() *GoAuthError {
-	return &GoAuthError{
-		Code:       ErrRateLimitExceeded,
-		Message:    "Rate limit exceeded",
-		StatusCode: http.StatusTooManyRequests,
-	}
-}
-
-func NewTooManyRequestsError() *GoAuthError {
-	return &GoAuthError{
-		Code:       ErrTooManyRequests,
-		Message:    "Too many requests",
-		StatusCode: http.StatusTooManyRequests,
 	}
 }
 
