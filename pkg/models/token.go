@@ -14,6 +14,7 @@ const (
 	TokenTypePasswordReset     = "password_reset"
 	TokenTypeTwoFactorCode     = "two_factor_code"
 	TokenTypeMagicLink         = "magic_link"
+	TokenTypeOAuthState        = "oauth_state"
 )
 
 type Token struct {

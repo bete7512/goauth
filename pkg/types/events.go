@@ -182,4 +182,11 @@ const (
 
 	// Magic Link Events
 	EventAfterMagicLinkVerified EventType = "after.magic-link-verified"
+
+	// OAuth Events
+	EventBeforeOAuthLogin EventType = "before.oauth.login"
+	EventAfterOAuthLogin  EventType = "after.oauth.login"
+	EventOAuthLinkAdded   EventType = "oauth.link.added"
+	EventOAuthLinkRemoved EventType = "oauth.link.removed"
+	EventOAuthError       EventType = "oauth.error"
 )

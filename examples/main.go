@@ -14,6 +14,7 @@ import (
 	"github.com/bete7512/goauth/internal/modules/notification"
 	"github.com/bete7512/goauth/internal/modules/notification/services/senders"
 	"github.com/bete7512/goauth/internal/modules/notification/templates"
+	"github.com/bete7512/goauth/internal/modules/oauth"
 	"github.com/bete7512/goauth/internal/modules/session"
 	"github.com/bete7512/goauth/pkg/adapters/stdhttp"
 	"github.com/bete7512/goauth/pkg/auth"
@@ -195,6 +196,25 @@ func main() {
 		log.Println("afterelogin....................")
 		return nil
 	})
+
+	// OAuth provider configuration
+	oauthConfigs := map[string]*config.OAuthProviderConfig{
+		"google": {
+			Enabled:      true,
+			ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
+			ClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
+			Scopes:       []string{"openid", "email", "profile"}, // Optional - uses defaults if empty
+			RedirectURL:  "http://localhost:3000",
+		},
+	}
+
+	authInstance.Use(oauth.New(&config.OAuthModuleConfig{
+		Providers:              oauthConfigs,
+		AllowSignup:            true, // Allow creating new users via OAuth
+		AllowAccountLinking:    true, // Allow linking OAuth to existing accounts with same email
+		TrustEmailVerification: true, // Trust OAuth provider's email verification
+		StateTTL:               10 * time.Minute,
+	}, nil))
 
 	// Initialize after all modules are registered
 	if err := authInstance.Initialize(context.Background()); err != nil {

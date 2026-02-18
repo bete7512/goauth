@@ -8,6 +8,7 @@ import (
 	"github.com/bete7512/goauth/pkg/types"
 	"github.com/bete7512/goauth/storage/gorm/auditlog"
 	"github.com/bete7512/goauth/storage/gorm/core"
+	"github.com/bete7512/goauth/storage/gorm/oauth"
 	"github.com/bete7512/goauth/storage/gorm/session"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
@@ -48,6 +49,7 @@ type GormStorage struct {
 	coreStorage      *core.GormCoreStorage
 	sessionStorage   *session.GormSessionStorage
 	auditLogStoarage *auditlog.GormAuditLogStorage
+	oauthStorage     *oauth.GormOAuthStorage
 }
 
 // NewStorage creates a new GORM storage from configuration
@@ -116,6 +118,7 @@ func NewStorageFromDB(db *gorm.DB) *GormStorage {
 		coreStorage:      core.NewCoreStorage(db),
 		sessionStorage:   session.NewSessionStorage(db),
 		auditLogStoarage: auditlog.NewAuditLogStorage(db),
+		oauthStorage:     oauth.NewOAuthStorage(db),
 	}
 }
 
@@ -143,6 +146,11 @@ func (s *GormStorage) AuditLog() types.AuditLogStorage {
 // Admin returns storage for the admin module
 func (s *GormStorage) Admin() types.AdminStorage {
 	return nil
+}
+
+// OAuth returns storage for the OAuth module
+func (s *GormStorage) OAuth() types.OAuthStorage {
+	return s.oauthStorage
 }
 
 // Migrate runs database migrations for the provided models

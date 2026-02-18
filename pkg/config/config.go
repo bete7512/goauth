@@ -254,6 +254,75 @@ type MagicLinkModuleConfig struct {
 	CallbackURL string
 }
 
+// OAuthModuleConfig holds configuration for OAuth authentication module
+type OAuthModuleConfig struct {
+	// Providers maps provider name (e.g., "google", "github") to its configuration
+	Providers map[string]*OAuthProviderConfig
+
+	// DefaultRedirectURL is the frontend URL to redirect to after successful OAuth authentication.
+	// Tokens are passed as URL fragment: DefaultRedirectURL#access_token=xxx&refresh_token=xxx
+	// If empty, the callback endpoint returns JSON AuthResponse instead.
+	DefaultRedirectURL string
+
+	// ErrorRedirectURL is the URL to redirect to when OAuth authentication fails.
+	// Error details are passed as query params: ErrorRedirectURL?error=xxx&error_description=xxx
+	// If empty, the callback endpoint returns JSON error response instead.
+	ErrorRedirectURL string
+
+	// AllowSignup allows creating new users via OAuth (default: true)
+	// If false, only existing users can authenticate via OAuth
+	AllowSignup bool
+
+	// AllowAccountLinking allows linking OAuth to existing accounts with matching email (default: true)
+	// If false, OAuth login fails if email already exists with password auth
+	AllowAccountLinking bool
+
+	// TrustEmailVerification trusts the OAuth provider's email verification status (default: true)
+	// If true, sets EmailVerified=true when provider reports email as verified
+	TrustEmailVerification bool
+
+	// StateTTL is how long OAuth state tokens remain valid (default: 10 minutes)
+	StateTTL time.Duration
+
+	// StoreProviderTokens enables storing OAuth provider access/refresh tokens in the Account model.
+	// If true, tokens are encrypted and stored for API access to the provider.
+	// Default: false (tokens are not stored)
+	StoreProviderTokens bool
+
+	// UseSessionAuth determines if OAuth should create database sessions (like session module)
+	// or use stateless JWT tokens.
+	// - true: Creates session record in database (requires SessionStorage)
+	// - false: Uses stateless JWT tokens (default)
+	UseSessionAuth bool
+}
+
+// OAuthProviderConfig holds configuration for a single OAuth provider
+type OAuthProviderConfig struct {
+	// ClientID is the OAuth client ID from the provider
+	ClientID string
+
+	// ClientSecret is the OAuth client secret from the provider
+	ClientSecret string
+
+	// Scopes to request from the provider. Uses provider defaults if empty.
+	// Google default: ["openid", "email", "profile"]
+	// GitHub default: ["user:email", "read:user"]
+	// Microsoft default: ["openid", "email", "profile", "User.Read"]
+	// Discord default: ["identify", "email"]
+	Scopes []string
+
+	// RedirectURL overrides the callback URL for this provider.
+	// If empty, auto-generated as: {APIURL}{BasePath}/oauth/{provider}/callback
+	RedirectURL string
+
+	// PKCE enables Proof Key for Code Exchange (default: true)
+	// Recommended for all OAuth flows for additional security
+	PKCE bool
+
+	// Enabled allows disabling a provider without removing its configuration (default: true)
+	Enabled bool
+}
+
 // CORSConfig holds CORS configuration
 type CORSConfig struct {
 	Enabled          bool
