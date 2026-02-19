@@ -1,6 +1,6 @@
 package types
 
-//go:generate mockgen -destination=../../internal/mocks/mock_storage.go -package=mocks github.com/bete7512/goauth/pkg/types Storage,CoreStorage,SessionStorage,StatelessStorage,AdminStorage,OAuthStorage
+//go:generate mockgen -destination=../../internal/mocks/mock_storage.go -package=mocks github.com/bete7512/goauth/pkg/types Storage,CoreStorage,SessionStorage,StatelessStorage,AdminStorage,OAuthStorage,TwoFactorStorage
 
 import (
 	"context"
@@ -45,6 +45,10 @@ type Storage interface {
 	// OAuth returns storage for the OAuth module
 	// Returns nil if OAuth storage is not needed/available
 	OAuth() OAuthStorage
+
+	// TwoFactorAuth returns storage for the two-factor authentication module
+	// Returns nil if 2FA storage is not needed/available
+	TwoFactorAuth() TwoFactorStorage
 
 	// Audit Log
 	AuditLog() AuditLogStorage
@@ -93,4 +97,11 @@ type AuditLogStorage interface {
 type OAuthStorage interface {
 	Accounts() models.AccountRepository
 	WithTransaction(ctx context.Context, fn func(tx OAuthStorage) error) error
+}
+
+// TwoFactorStorage defines storage interface for the two-factor authentication module
+type TwoFactorStorage interface {
+	TwoFactor() models.TwoFactorRepository
+	BackupCodes() models.BackupCodeRepository
+	WithTransaction(ctx context.Context, fn func(tx TwoFactorStorage) error) error
 }

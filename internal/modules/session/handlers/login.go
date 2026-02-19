@@ -46,6 +46,11 @@ func (h *SessionHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	response, err := h.service.Login(ctx, &req, metadata)
 	if err != nil {
+		// Special handling for 2FA required - return as success with challenge data
+		if err.Code == types.ErrTwoFactorRequired {
+			http_utils.RespondSuccess(w, err.Details, nil)
+			return
+		}
 		http_utils.RespondError(w, err.StatusCode, string(err.Code), err.Message)
 		return
 	}

@@ -31,6 +31,28 @@ func (s *StatelessService) Login(ctx context.Context, req *dto.LoginRequest) (dt
 		return dto.AuthResponse{}, types.NewInvalidCredentialsError()
 	}
 
+	// Emit password verified event (allows 2FA module to intercept)
+	metadata := &types.RequestMetadata{
+		IPAddress: "", // Handler should pass this, but we don't have it in service layer yet
+		UserAgent: "",
+		Timestamp: time.Now(),
+	}
+	if eventErr := s.Deps.Events.EmitSync(ctx, types.EventAfterPasswordVerified, &types.PasswordVerifiedEventData{
+		User:     user,
+		Metadata: metadata,
+	}); eventErr != nil {
+		// Check if this is a 2FA required error (special case - not really an error)
+		if goAuthErr, ok := eventErr.(*types.GoAuthError); ok {
+			if goAuthErr.Code == types.ErrTwoFactorRequired {
+				// Return the 2FA challenge to the handler
+				return dto.AuthResponse{}, goAuthErr
+			}
+		}
+		// Other errors should block login
+		s.Logger.Errorf("stateless: password verified event handler failed: %v", eventErr)
+		return dto.AuthResponse{}, types.NewInternalError("Authentication flow interrupted")
+	}
+
 	// Generate access token
 	accessToken, err := s.SecurityManager.GenerateAccessToken(
 		*user,

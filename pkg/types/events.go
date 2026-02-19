@@ -110,6 +110,7 @@ const (
 	EventAfterSignup                      EventType = "after.signup"
 	EventAfterEmailVerified               EventType = "after.email-verified"
 	EventBeforeLogin                      EventType = "before.login"
+	EventAfterPasswordVerified            EventType = "after.password-verified"
 	EventAfterLogin                       EventType = "after.login"
 	EventBeforeLogout                     EventType = "before.logout"
 	EventAfterLogout                      EventType = "after.logout"
@@ -152,6 +153,7 @@ const (
 	EventAuthPasswordChanged EventType = "auth.password.changed"
 	EventAuth2FAEnabled      EventType = "auth.2fa.enabled"
 	EventAuth2FADisabled     EventType = "auth.2fa.disabled"
+	EventAuth2FAVerified     EventType = "auth.2fa.verified"
 
 	// User Profile Events (for audit logging)
 	EventUserProfileUpdated EventType = "user.profile.updated"

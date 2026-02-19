@@ -61,6 +61,7 @@ const (
 	ErrCaptchaFailed   ErrorCode = "CAPTCHA_FAILED"
 
 	// Two-factor errors
+	ErrTwoFactorRequired       ErrorCode = "TWO_FACTOR_REQUIRED"
 	ErrTwoFactorAlreadyEnabled ErrorCode = "TWO_FACTOR_ALREADY_ENABLED"
 	ErrTwoFactorNotEnabled     ErrorCode = "TWO_FACTOR_NOT_ENABLED"
 	ErrTwoFactorNotFound       ErrorCode = "TWO_FACTOR_NOT_FOUND"
@@ -474,6 +475,15 @@ func NewCustomError(message string) *GoAuthError {
 	return &GoAuthError{
 		Code:    ErrCustom,
 		Message: message,
+	}
+}
+
+func NewTwoFactorRequiredError(details map[string]any) *GoAuthError {
+	return &GoAuthError{
+		Code:       ErrTwoFactorRequired,
+		Message:    "Two-factor authentication required",
+		StatusCode: http.StatusOK, // 200 OK, not an error - it's a challenge
+		Details:    details,
 	}
 }
 

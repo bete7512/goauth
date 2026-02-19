@@ -3,19 +3,22 @@ package twofactor
 import (
 	"context"
 	_ "embed"
+	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/bete7512/goauth/internal/modules/twofactor/handlers"
-	"github.com/bete7512/goauth/internal/modules/twofactor/models"
 	"github.com/bete7512/goauth/internal/modules/twofactor/services"
 	"github.com/bete7512/goauth/pkg/config"
+	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 type TwoFactorModule struct {
 	deps     config.ModuleDependencies
 	handlers *handlers.TwoFactorHandler
-	service  *services.TwoFactorService
+	service  services.TwoFactorService
 	config   *TwoFactorConfig
 }
 
@@ -59,7 +62,7 @@ func (m *TwoFactorModule) Init(ctx context.Context, deps config.ModuleDependenci
 
 	// Initialize service
 	m.service = services.NewTwoFactorService(
-		deps.Storage,
+		deps,
 		m.config.Issuer,
 		m.config.BackupCodesCount,
 		m.config.CodeLength,
@@ -75,7 +78,38 @@ func (m *TwoFactorModule) Routes() []config.RouteInfo {
 	if m.handlers == nil {
 		return nil
 	}
-	return m.handlers.GetRoutes()
+	return []config.RouteInfo{
+		{
+			Name:    "twofactor.setup",
+			Path:    "/2fa/setup",
+			Method:  http.MethodPost,
+			Handler: m.handlers.SetupHandler,
+		},
+		{
+			Name:    "twofactor.verify",
+			Path:    "/2fa/verify",
+			Method:  http.MethodPost,
+			Handler: m.handlers.VerifyHandler,
+		},
+		{
+			Name:    "twofactor.disable",
+			Path:    "/2fa/disable",
+			Method:  http.MethodPost,
+			Handler: m.handlers.DisableHandler,
+		},
+		{
+			Name:    "twofactor.status",
+			Path:    "/2fa/status",
+			Method:  http.MethodGet,
+			Handler: m.handlers.StatusHandler,
+		},
+		{
+			Name:    "twofactor.verify-login",
+			Path:    "/2fa/verify-login",
+			Method:  http.MethodPost,
+			Handler: m.handlers.VerifyLoginHandler,
+		},
+	}
 }
 
 func (m *TwoFactorModule) Middlewares() []config.MiddlewareConfig {
@@ -101,47 +135,48 @@ func (m *TwoFactorModule) Models() []interface{} {
 func (m *TwoFactorModule) RegisterHooks(events types.EventBus) error {
 	m.deps.Logger.Info("Registering 2FA hooks")
 
-	// Hook into after-login to check if 2FA verification is required
-	// This runs synchronously - will block login if 2FA needs verification
-	events.Subscribe(types.EventAfterLogin, types.EventHandler(func(ctx context.Context, event *types.Event) error {
-		data, ok := event.Data.(map[string]interface{})
+	// Hook into password verification to intercept login flow
+	// This runs SYNCHRONOUSLY to allow us to prevent token issuance if 2FA is required
+	events.Subscribe(types.EventAfterPasswordVerified, types.EventHandler(func(ctx context.Context, event *types.Event) error {
+		// Extract user from event
+		data, ok := types.EventDataAs[*types.PasswordVerifiedEventData](event)
 		if !ok {
-			return nil
-		}
-
-		userMap, ok := data["user"].(map[string]interface{})
-		if !ok {
-			return nil
-		}
-
-		userID, ok := userMap["id"].(string)
-		if !ok {
-			return nil
+			m.deps.Logger.Warn("Failed to extract PasswordVerifiedEventData")
+			return nil // Don't block login on event parsing failure
 		}
 
 		// Check if user has 2FA enabled
-		twoFA, err := m.service.GetTwoFactorStatus(ctx, userID)
-		if err != nil {
-			// No 2FA configured, allow login
+		tfConfig, authErr := m.service.GetTwoFactorConfig(ctx, data.User.ID)
+		if authErr != nil || tfConfig == nil || !tfConfig.Enabled {
+			// No 2FA configured or not enabled - allow normal login
 			return nil
 		}
 
-		if twoFA.Enabled && !twoFA.Verified {
-			// User has 2FA but hasn't verified in this session
-			m.deps.Logger.Info("2FA verification required", "user_id", userID)
-			// In a real implementation, you'd set a flag requiring verification
-			// For now, we'll just log it
+		m.deps.Logger.Info("2FA required for user", "user_id", data.User.ID)
+
+		// Generate temporary token for 2FA flow
+		tempToken, err := m.generateTempToken(data.User.ID)
+		if err != nil {
+			m.deps.Logger.Error("Failed to generate temp 2FA token", "error", err)
+			// Fail gracefully - allow login without 2FA
+			return nil
 		}
 
-		return nil
+		// Return special error to interrupt login flow
+		// Core module will catch this and return the challenge to the user
+		return types.NewTwoFactorRequiredError(map[string]any{
+			"requires_2fa": true,
+			"temp_token":   tempToken,
+			"user_id":      data.User.ID,
+			"message":      "Two-factor authentication required. Please provide your 2FA code.",
+		})
 	}))
 
 	// If 2FA is required for all users, hook into signup
 	if m.config.Required {
 		events.Subscribe(types.EventAfterSignup, types.EventHandler(func(ctx context.Context, event *types.Event) error {
 			m.deps.Logger.Info("2FA is required for all users - new user must set up 2FA")
-			// In a real implementation, you might redirect to 2FA setup
-			// or send an email prompting 2FA setup
+			// TODO: Could send email prompting 2FA setup
 			return nil
 		}))
 	}
@@ -153,6 +188,24 @@ func (m *TwoFactorModule) Dependencies() []string {
 	return []string{"core"}
 }
 
+// generateTempToken creates a short-lived JWT for pending 2FA verification
+func (m *TwoFactorModule) generateTempToken(userID string) (string, error) {
+	claims := jwt.MapClaims{
+		"user_id": userID,
+		"type":    "2fa_pending",
+		"exp":     time.Now().Add(5 * time.Minute).Unix(),
+		"iat":     time.Now().Unix(),
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenString, err := token.SignedString([]byte(m.deps.Config.Security.JwtSecretKey))
+	if err != nil {
+		return "", fmt.Errorf("failed to sign temp token: %w", err)
+	}
+
+	return tokenString, nil
+}
+
 // verify2FAMiddleware checks if user has completed 2FA verification
 func (m *TwoFactorModule) verify2FAMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -160,7 +213,7 @@ func (m *TwoFactorModule) verify2FAMiddleware(next http.Handler) http.Handler {
 		// If not verified, require verification
 
 		// For now, just pass through
-		// TODO: Implement proper 2FA session verification
+		// TODO: Implement proper 2FA session verification (step-up authentication)
 		next.ServeHTTP(w, r)
 	})
 }

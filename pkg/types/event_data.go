@@ -124,6 +124,24 @@ type OAuthErrorEventData struct {
 	Metadata         *RequestMetadata `json:"metadata,omitempty"`
 }
 
+// TwoFactorEventData is used for 2FA-related events (auth.2fa.enabled, auth.2fa.disabled).
+type TwoFactorEventData struct {
+	UserID string `json:"user_id"`
+}
+
+// PasswordVerifiedEventData is emitted after password verification, before token issuance.
+// This event allows modules (like 2FA) to intercept the login flow.
+type PasswordVerifiedEventData struct {
+	User     *models.User     `json:"user"`
+	Metadata *RequestMetadata `json:"metadata"`
+}
+
+// Auth2FAVerifiedEventData is emitted after successful 2FA verification during login.
+type Auth2FAVerifiedEventData struct {
+	User     *models.User     `json:"user"`
+	Metadata *RequestMetadata `json:"metadata"`
+}
+
 // EventDataAs extracts typed event data from an Event.
 // Returns the typed data and true if the assertion succeeds.
 //
