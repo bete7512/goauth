@@ -72,7 +72,7 @@ func main() {
 }
 ```
 
-## Modules
+## Available Modules {#available-modules}
 
 | Module | Description | Registration |
 |--------|-------------|--------------|
