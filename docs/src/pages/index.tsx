@@ -93,7 +93,7 @@ function HomepageCTA() {
                 </Link>
                 <Link
                   className="button button--outline button--lg"
-                  to="/docs/examples/basic-auth"
+                  to="/docs/showcase"
                 >
                   📖 View Examples
                 </Link>

@@ -717,3 +717,144 @@
     font-size: 12px;
   }
 }
+
+/* ═══════════════════════════════════════
+   API Endpoints — Interactive Details
+   ═══════════════════════════════════════ */
+
+/* Details container */
+.markdown details {
+  border: 1px solid var(--ifm-color-emphasis-200);
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+  overflow: hidden;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.markdown details:hover {
+  border-color: var(--ifm-color-primary-light);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.markdown details[open] {
+  border-color: var(--ifm-color-primary);
+  box-shadow: 0 2px 12px rgba(46, 133, 85, 0.1);
+}
+
+/* Summary line */
+.markdown details > summary {
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.9rem;
+  font-weight: 500;
+  background: var(--ifm-color-emphasis-50);
+  transition: background 0.2s ease;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.markdown details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.markdown details > summary::before {
+  content: "▸";
+  display: inline-block;
+  transition: transform 0.2s ease;
+  margin-right: 0.25rem;
+  color: var(--ifm-color-emphasis-500);
+}
+
+.markdown details[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.markdown details > summary:hover {
+  background: var(--ifm-color-emphasis-100);
+}
+
+.markdown details[open] > summary {
+  background: var(--ifm-color-emphasis-100);
+  border-bottom: 1px solid var(--ifm-color-emphasis-200);
+}
+
+/* Content area */
+.markdown details > :not(summary) {
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+/* HTTP method badges inside summary code tags */
+.markdown details > summary code {
+  font-weight: 700;
+  font-size: 0.8rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  letter-spacing: 0.03em;
+}
+
+/* Color method badges by content */
+.markdown details > summary code:first-of-type {
+  background: #2e8555;
+  color: #fff;
+}
+
+/* Path code */
+.markdown details > summary code:nth-of-type(2) {
+  background: var(--ifm-color-emphasis-100);
+  color: var(--ifm-color-emphasis-800);
+  font-weight: 600;
+}
+
+/* Auth badges */
+.badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: var(--ifm-font-family-base);
+  vertical-align: middle;
+}
+
+.badge--primary {
+  background: #3578e5;
+  color: #fff;
+}
+
+.badge--danger {
+  background: #e13238;
+  color: #fff;
+}
+
+/* Dark theme adjustments */
+[data-theme="dark"] .markdown details {
+  border-color: var(--ifm-color-emphasis-300);
+}
+
+[data-theme="dark"] .markdown details > summary {
+  background: var(--ifm-color-emphasis-100);
+}
+
+[data-theme="dark"] .markdown details > summary:hover {
+  background: var(--ifm-color-emphasis-200);
+}
+
+[data-theme="dark"] .markdown details[open] > summary {
+  background: var(--ifm-color-emphasis-200);
+  border-bottom-color: var(--ifm-color-emphasis-300);
+}
+
+[data-theme="dark"] .markdown details[open] {
+  box-shadow: 0 2px 12px rgba(37, 194, 160, 0.1);
+}
+
+[data-theme="dark"] .markdown details > summary code:nth-of-type(2) {
+  background: var(--ifm-color-emphasis-200);
+  color: var(--ifm-color-emphasis-900);
+}
