@@ -41,6 +41,7 @@ const config: Config = {
     [
       "classic",
       {
+        debug: false, // Avoid @theme/Debug* resolution errors in production build
         docs: {
           sidebarPath: "./sidebars.ts",
           // Please change this to your repo.

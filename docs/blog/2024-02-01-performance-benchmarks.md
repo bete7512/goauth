@@ -9,6 +9,8 @@ tags: [performance, benchmarks, go, authentication]
 
 Performance is crucial when building authentication systems that need to handle thousands of requests per second. In this post, we'll dive deep into GoAuth's performance characteristics and show you how it compares to other popular authentication libraries.
 
+<!-- truncate -->
+
 ## Benchmark Environment
 
 All benchmarks were conducted on the following hardware:
@@ -364,7 +366,7 @@ These improvements make GoAuth an excellent choice for high-performance applicat
 
 ## Next Steps
 
-Ready to experience these performance improvements? Check out our [Getting Started guide](/docs/getting-started) and [Performance tuning documentation](/docs/performance).
+Ready to experience these performance improvements? Check out our [Introduction guide](/docs/intro) and [Performance tuning documentation](/docs/performance).
 
 ---
 

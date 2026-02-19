@@ -1,19 +1,51 @@
-facebook:
-  label: Facebook
-  permalink: /facebook
-  description: Facebook tag description
+welcome:
+  label: Welcome
+  description: Welcome announcements and introductory posts.
 
-hello:
-  label: Hello
-  permalink: /hello
-  description: Hello tag description
+announcement:
+  label: Announcement
+  description: Official project news and updates.
 
-docusaurus:
-  label: Docusaurus
-  permalink: /docusaurus
-  description: Docusaurus tag description
+go:
+  label: Go (Golang)
+  description: Technical insights and best practices for Go development.
 
-hola:
-  label: Hola
-  permalink: /hola
-  description: Hola tag description
+authentication:
+  label: Authentication
+  description: Deep dives into authentication strategies and patterns.
+
+jwt:
+  label: JWT
+  description: JSON Web Tokens and token-based security.
+
+best-practices:
+  label: Best Practices
+  description: Recommended implementation patterns and security standards.
+
+performance:
+  label: Performance
+  description: Benchmarks and optimization techniques.
+
+benchmarks:
+  label: Benchmarks
+  description: Comparative performance data and testing results.
+
+enterprise:
+  label: Enterprise
+  description: Scaling GoAuth for large-scale and high-security environments.
+
+security:
+  label: Security
+  description: Security principles, hashing, and token management.
+
+compliance:
+  label: Compliance
+  description: Auditing, data protection, and regulatory standards.
+
+sso:
+  label: SSO
+  description: Single Sign-On and enterprise identity integration.
+
+ldap:
+  label: LDAP
+  description: Enterprise directory integration.

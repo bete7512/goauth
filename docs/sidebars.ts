@@ -39,6 +39,25 @@ const sidebars: SidebarsConfig = {
     
     {
       type: "category",
+      label: "Guides",
+      collapsed: false,
+      items: [
+        "performance",
+        "compliance",
+        "enterprise",
+      ],
+    },
+
+    {
+      type: "category",
+      label: "Frameworks",
+      items: [
+        "frameworks/gin",
+      ],
+    },
+    
+    {
+      type: "category",
       label: "API Reference",
       items: ["api/endpoints"],
     },

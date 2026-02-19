@@ -9,6 +9,8 @@ tags: [security, jwt, best-practices, go]
 
 In today's digital landscape, securing your applications is more critical than ever. JSON Web Tokens (JWTs) have become a popular choice for authentication and authorization, but they come with their own set of security considerations. In this post, we'll explore essential JWT security best practices specifically tailored for Go applications.
 
+<!-- truncate -->
+
 ## Understanding JWT Security Risks
 
 JWTs are stateless and can be vulnerable to several security threats if not implemented correctly:

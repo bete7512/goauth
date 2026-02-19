@@ -9,6 +9,8 @@ tags: [enterprise, security, compliance, sso, ldap]
 
 Modern enterprises require robust, scalable, and compliant authentication solutions. GoAuth has evolved beyond basic JWT functionality to provide comprehensive enterprise features that meet the demanding requirements of large organizations.
 
+<!-- truncate -->
+
 ## Enterprise Authentication Challenges
 
 Enterprise environments face unique challenges that go beyond simple user authentication:
