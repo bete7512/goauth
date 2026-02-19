@@ -5,1103 +5,655 @@ sidebar_label: Endpoints
 sidebar_position: 1
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # API Endpoints
 
-GoAuth provides a comprehensive REST API based on its **modular architecture**. The endpoints available in your application depend on which modules you've registered.
+All paths are prefixed with your `BasePath` (default: `/auth`). Endpoints depend on which modules you register.
 
-:::info Modular Endpoints
-The endpoints listed here represent the full feature set across all modules. Your application will only expose endpoints for the modules you've registered. See the [Module Documentation](/docs/modules/core) for module-specific endpoints.
-:::
+---
 
-## Module-Based Endpoints
+## Core Module <small>(auto-registered)</small>
 
-| Module | Endpoints | Documentation |
-|--------|-----------|---------------|
-| **Core** (Auto-registered) | `/signup`, `/login`, `/profile`, `/verify-email`, etc. | [Core Module](/docs/modules/core) |
-| **Notification** | Hooks into Core events | [Notification Module](/docs/modules/notification) |
-| **Two-Factor** | `/2fa/setup`, `/2fa/verify`, `/2fa/disable` | Coming soon |
-| **OAuth** | `/oauth/{provider}`, `/oauth/{provider}/callback` | Coming soon |
-| **CSRF** | `/csrf-token` | Coming soon |
-| **Admin** | `/admin/users`, `/admin/users/{id}/role` | Coming soon |
+<details>
+<summary><code>POST</code> <code>/signup</code> — Register a new user</summary>
 
-## Base URL
-
-All API endpoints are prefixed with your configured `BasePath`:
-
-```
-https://yourdomain.com/api/v1
-# Or your custom base path configured in auth.New()
-```
-
-## Authentication
-
-### Register User
-
-**POST** `/api/auth/register`
-
-Create a new user account.
-
-**Request Body:**
-
+**Request:**
 ```json
 {
   "email": "user@example.com",
-  "password": "securepassword123",
-  "name": "John Doe",
-  "phone": "+1234567890"
+  "password": "SecurePassword123!",
+  "first_name": "John",
+  "last_name": "Doe",
+  "username": "johndoe",
+  "phone_number": "+1234567890",
+  "extended_attributes": {"company": "Acme Inc"}
 }
 ```
 
-**Response (201):**
-
+**Success Response** `200`:
 ```json
 {
-  "success": true,
   "message": "User registered successfully",
   "user": {
-    "id": "user-uuid",
+    "id": "uuid",
     "email": "user@example.com",
-    "name": "John Doe",
-    "phone": "+1234567890",
-    "email_verified": false,
-    "phone_verified": false,
-    "created_at": "2024-01-01T00:00:00Z"
-  }
+    "first_name": "John",
+    "last_name": "Doe",
+    "email_verified": false
+  },
+  "token": "eyJhbGciOi...",
+  "refresh_token": "eyJhbGciOi..."
 }
 ```
 
-**Response (400):**
+**Error** `400`: `"email already exists"` or validation errors.
 
+</details>
+
+<details>
+<summary><code>GET</code> <code>/me</code> — Get current user <span className="badge badge--primary">Auth</span></summary>
+
+**Headers:** `Authorization: Bearer <access_token>`
+
+**Response** `200`:
 ```json
 {
-  "success": false,
-  "error": "Email already exists",
-  "code": "EMAIL_EXISTS"
+  "id": "uuid",
+  "email": "user@example.com",
+  "first_name": "John",
+  "last_name": "Doe"
 }
 ```
 
-### Login User
+</details>
 
-**POST** `/api/auth/login`
+<details>
+<summary><code>GET</code> <code>/profile</code> — Get full profile <span className="badge badge--primary">Auth</span></summary>
 
-Authenticate user and receive access tokens.
+**Headers:** `Authorization: Bearer <access_token>`
 
-**Request Body:**
+**Response** `200`:
+```json
+{
+  "id": "uuid",
+  "email": "user@example.com",
+  "username": "johndoe",
+  "first_name": "John",
+  "last_name": "Doe",
+  "phone_number": "+1234567890",
+  "email_verified": true,
+  "phone_number_verified": false,
+  "extended_attributes": {"company": "Acme Inc"},
+  "created_at": "2025-01-01T00:00:00Z",
+  "updated_at": "2025-01-15T00:00:00Z"
+}
+```
 
+</details>
+
+<details>
+<summary><code>PUT</code> <code>/profile</code> — Update profile <span className="badge badge--primary">Auth</span></summary>
+
+**Headers:** `Authorization: Bearer <access_token>`
+
+**Request:**
+```json
+{
+  "first_name": "Jane",
+  "phone_number": "+9876543210",
+  "extended_attributes": {"role": "Manager"}
+}
+```
+
+</details>
+
+<details>
+<summary><code>PUT</code> <code>/change-password</code> — Change password <span className="badge badge--primary">Auth</span></summary>
+
+**Headers:** `Authorization: Bearer <access_token>`
+
+**Request:**
+```json
+{
+  "old_password": "OldPassword123!",
+  "new_password": "NewPassword456!"
+}
+```
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/forgot-password</code> — Request password reset</summary>
+
+**Request:**
+```json
+{"email": "user@example.com"}
+```
+
+**Response** `200`:
+```json
+{"message": "Password reset email sent"}
+```
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/reset-password</code> — Reset with token</summary>
+
+**Request:**
+```json
+{
+  "token": "reset-token-from-email",
+  "new_password": "NewPassword456!"
+}
+```
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/send-verification-email</code> — Send verification email <span className="badge badge--primary">Auth</span></summary>
+
+**Headers:** `Authorization: Bearer <access_token>`
+
+Sends a verification link to the user's email address.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/verify-email?token=...</code> — Verify email</summary>
+
+Called from the email link. Redirects to `FrontendConfig.VerifyEmailCallbackPath` with `?status=success` or `?status=error`.
+
+Falls back to JSON response if `FrontendConfig` is not set.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/send-verification-phone</code> — Send phone verification SMS <span className="badge badge--primary">Auth</span></summary>
+
+Requires the Notification module with an SMS sender configured.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/verify-phone</code> — Verify phone <span className="badge badge--primary">Auth</span></summary>
+
+**Request:**
+```json
+{"code": "123456"}
+```
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/availability/email</code> — Check email availability</summary>
+
+**Request:**
+```json
+{"email": "newuser@example.com"}
+```
+
+**Response:**
+```json
+{"available": true, "field": "email"}
+```
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/availability/username</code> — Check username availability</summary>
+
+**Request:** `{"username": "johndoe"}`
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/availability/phone</code> — Check phone availability</summary>
+
+**Request:** `{"phone_number": "+1234567890"}`
+
+</details>
+
+---
+
+## Session Module
+
+:::info
+Requires `session.New(...)`. Mutually exclusive with Stateless.
+:::
+
+<details>
+<summary><code>POST</code> <code>/login</code> — Login (create session)</summary>
+
+**Request:**
 ```json
 {
   "email": "user@example.com",
-  "password": "securepassword123"
+  "password": "SecurePassword123!"
 }
 ```
 
-**Response (200):**
-
+**Response** `200`:
 ```json
 {
-  "success": true,
   "message": "Login successful",
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "expires_in": 86400,
-  "user": {
-    "id": "user-uuid",
-    "email": "user@example.com",
-    "name": "John Doe",
-    "role": "user"
-  }
+  "user": {"id": "uuid", "email": "user@example.com"},
+  "token": "eyJhbGciOi...",
+  "refresh_token": "eyJhbGciOi..."
 }
 ```
 
-**Response (401):**
+</details>
 
+<details>
+<summary><code>POST</code> <code>/logout</code> — Logout <span className="badge badge--primary">Auth</span></summary>
+
+Ends the current session.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/refresh</code> — Refresh tokens</summary>
+
+**Request:**
+```json
+{"refresh_token": "eyJhbGciOi..."}
+```
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/sessions</code> — List sessions <span className="badge badge--primary">Auth</span></summary>
+
+Requires `EnableSessionManagement: true`.
+
+**Response** `200`:
 ```json
 {
-  "success": false,
-  "error": "Invalid credentials",
-  "code": "INVALID_CREDENTIALS"
-}
-```
-
-### Logout User
-
-**POST** `/api/auth/logout`
-
-Logout user and invalidate tokens.
-
-**Headers:**
-
-```
-Authorization: Bearer <access_token>
-```
-
-**Response (200):**
-
-```json
-{
-  "success": true,
-  "message": "Logged out successfully"
-}
-```
-
-### Refresh Token
-
-**POST** `/api/auth/refresh`
-
-Refresh access token using refresh token.
-
-**Request Body:**
-
-```json
-{
-  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-}
-```
-
-**Response (200):**
-
-```json
-{
-  "success": true,
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "expires_in": 86400
-}
-```
-
-## Password Management
-
-### Forgot Password
-
-**POST** `/api/auth/forgot-password`
-
-Send password reset email.
-
-**Request Body:**
-
-```json
-{
-  "email": "user@example.com"
-}
-```
-
-**Response (200):**
-
-```json
-{
-  "success": true,
-  "message": "Password reset email sent"
-}
-```
-
-### Reset Password
-
-**POST** `/api/auth/reset-password`
-
-Reset password using reset token.
-
-**Request Body:**
-
-```json
-{
-  "token": "reset-token-here",
-  "password": "newpassword123"
-}
-```
-
-**Response (200):**
-
-```json
-{
-  "success": true,
-  "message": "Password reset successfully"
-}
-```
-
-### Change Password
-
-**PUT** `/api/auth/change-password`
-
-Change password for authenticated user.
-
-**Headers:**
-
-```
-Authorization: Bearer <access_token>
-```
-
-**Request Body:**
-
-```json
-{
-  "current_password": "oldpassword123",
-  "new_password": "newpassword123"
-}
-```
-
-**Response (200):**
-
-```json
-{
-  "success": true,
-  "message": "Password changed successfully"
-}
-```
-
-## Email Verification
-
-### Send Verification Email
-
-**POST** `/api/auth/send-verification-email`
-
-Send email verification link.
-
-**Headers:**
-
-```
-Authorization: Bearer <access_token>
-```
-
-**Response (200):**
-
-```json
-{
-  "success": true,
-  "message": "Verification email sent"
-}
-```
-
-### Verify Email
-
-**GET** `/api/auth/verify-email`
-
-Verify email using verification token. This endpoint is meant to be accessed directly from the email link sent to the user.
-
-**Query Parameters:**
-
-```
-?token=verification-token-here
-```
-
-**Response (302 Redirect):**
-
-Redirects to the frontend verify email page with status and message query parameters:
-
-```
-Location: http://your-frontend.com/verify-email?status=success&message=Email%20verified%20successfully
-```
-
-Or on error:
-
-```
-Location: http://your-frontend.com/verify-email?status=error&message=Error%20message
-```
-
-**Note:** If `FrontendConfig` is not set, it falls back to a JSON response:
-
-```json
-{
-  "success": true,
-  "message": "Email verified successfully"
-}
-```
-
-## Phone Verification
-
-### Send Phone Verification
-
-**POST** `/api/auth/send-phone-verification`
-
-Send SMS verification code.
-
-**Headers:**
-
-```
-Authorization: Bearer <access_token>
-```
-
-**Request Body:**
-
-```json
-{
-  "phone": "+1234567890"
-}
-```
-
-**Response (200):**
-
-```json
-{
-  "success": true,
-  "message": "Verification code sent"
-}
-```
-
-### Verify Phone
-
-**POST** `/api/auth/verify-phone`
-
-Verify phone using verification code.
-
-**Headers:**
-
-```
-Authorization: Bearer <access_token>
-```
-
-**Request Body:**
-
-```json
-{
-  "phone": "+1234567890",
-  "code": "123456"
-}
-```
-
-**Response (200):**
-
-```json
-{
-  "success": true,
-  "message": "Phone verified successfully"
-}
-```
-
-## OAuth Authentication
-
-### Initiate OAuth
-
-**GET** `/api/auth/oauth/{provider}`
-
-Start OAuth flow for specified provider.
-
-**Path Parameters:**
-
-- `provider`: OAuth provider (google, github, facebook, etc.)
-
-**Query Parameters:**
-
-```
-?redirect_uri=https://yourdomain.com/callback
-&state=random-state-string
-```
-
-**Response (302):**
-Redirects to OAuth provider.
-
-### OAuth Callback
-
-**GET** `/api/auth/oauth/{provider}/callback`
-
-Handle OAuth callback from provider.
-
-**Path Parameters:**
-
-- `provider`: OAuth provider
-
-**Query Parameters:**
-
-```
-?code=authorization-code
-&state=state-string
-```
-
-**Response (200):**
-
-```json
-{
-  "success": true,
-  "message": "OAuth authentication successful",
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "user": {
-    "id": "user-uuid",
-    "email": "user@example.com",
-    "name": "John Doe"
-  }
-}
-```
-
-### Link OAuth Account
-
-**POST** `/api/auth/oauth/{provider}/link`
-
-Link OAuth account to existing user.
-
-**Headers:**
-
-```
-Authorization: Bearer <access_token>
-```
-
-**Path Parameters:**
-
-- `provider`: OAuth provider
-
-**Request Body:**
-
-```json
-{
-  "code": "authorization-code",
-  "state": "state-string"
-}
-```
-
-**Response (200):**
-
-```json
-{
-  "success": true,
-  "message": "OAuth account linked successfully"
-}
-```
-
-### Unlink OAuth Account
-
-**DELETE** `/api/auth/oauth/{provider}/unlink`
-
-Unlink OAuth account from user.
-
-**Headers:**
-
-```
-Authorization: Bearer <access_token>
-```
-
-**Path Parameters:**
-
-- `provider`: OAuth provider
-
-**Response (200):**
-
-```json
-{
-  "success": true,
-  "message": "OAuth account unlinked successfully"
-}
-```
-
-## Two-Factor Authentication
-
-### Enable 2FA
-
-**POST** `/api/auth/2fa/enable`
-
-Enable two-factor authentication.
-
-**Headers:**
-
-```
-Authorization: Bearer <access_token>
-```
-
-**Request Body:**
-
-```json
-{
-  "method": "totp"
-}
-```
-
-**Response (200):**
-
-```json
-{
-  "success": true,
-  "message": "2FA enabled successfully",
-  "qr_code": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
-  "secret": "JBSWY3DPEHPK3PXP"
-}
-```
-
-### Verify 2FA
-
-**POST** `/api/auth/2fa/verify`
-
-Verify 2FA code during login.
-
-**Request Body:**
-
-```json
-{
-  "email": "user@example.com",
-  "password": "password123",
-  "code": "123456"
-}
-```
-
-**Response (200):**
-
-```json
-{
-  "success": true,
-  "message": "2FA verification successful",
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "user": {
-    "id": "user-uuid",
-    "email": "user@example.com"
-  }
-}
-```
-
-### Disable 2FA
-
-**POST** `/api/auth/2fa/disable`
-
-Disable two-factor authentication.
-
-**Headers:**
-
-```
-Authorization: Bearer <access_token>
-```
-
-**Request Body:**
-
-```json
-{
-  "code": "123456"
-}
-```
-
-**Response (200):**
-
-```json
-{
-  "success": true,
-  "message": "2FA disabled successfully"
-}
-```
-
-## User Management
-
-### Get User Profile
-
-**GET** `/api/auth/me`
-
-Get current user's profile information.
-
-**Headers:**
-
-```
-Authorization: Bearer <access_token>
-```
-
-**Response (200):**
-
-```json
-{
-  "success": true,
-  "user": {
-    "id": "user-uuid",
-    "email": "user@example.com",
-    "name": "John Doe",
-    "phone": "+1234567890",
-    "email_verified": true,
-    "phone_verified": false,
-    "two_factor_enabled": true,
-    "role": "user",
-    "created_at": "2024-01-01T00:00:00Z",
-    "updated_at": "2024-01-01T00:00:00Z"
-  }
-}
-```
-
-### Update User Profile
-
-**PUT** `/api/auth/profile`
-
-Update user profile information.
-
-**Headers:**
-
-```
-Authorization: Bearer <access_token>
-```
-
-**Request Body:**
-
-```json
-{
-  "name": "John Smith",
-  "phone": "+1234567890"
-}
-```
-
-**Response (200):**
-
-```json
-{
-  "success": true,
-  "message": "Profile updated successfully",
-  "user": {
-    "id": "user-uuid",
-    "name": "John Smith",
-    "phone": "+1234567890",
-    "updated_at": "2024-01-01T00:00:00Z"
-  }
-}
-```
-
-### Deactivate Account
-
-**DELETE** `/api/auth/account`
-
-Deactivate user account.
-
-**Headers:**
-
-```
-Authorization: Bearer <access_token>
-```
-
-**Request Body:**
-
-```json
-{
-  "password": "password123"
-}
-```
-
-**Response (200):**
-
-```json
-{
-  "success": true,
-  "message": "Account deactivated successfully"
-}
-```
-
-## Session Management
-
-### Get User Sessions
-
-**GET** `/api/auth/sessions`
-
-Get all active sessions for current user.
-
-**Headers:**
-
-```
-Authorization: Bearer <access_token>
-```
-
-**Response (200):**
-
-```json
-{
-  "success": true,
   "sessions": [
     {
       "id": "session-uuid",
       "ip_address": "192.168.1.1",
       "user_agent": "Mozilla/5.0...",
-      "created_at": "2024-01-01T00:00:00Z",
-      "last_used": "2024-01-01T00:00:00Z"
+      "created_at": "2025-01-01T00:00:00Z"
     }
   ]
 }
 ```
 
-### Revoke Session
+</details>
 
-**DELETE** `/api/auth/sessions/{session_id}`
+<details>
+<summary><code>DELETE</code> <code>/sessions/&#123;id&#125;</code> — Revoke session <span className="badge badge--primary">Auth</span></summary>
 
-Revoke specific session.
+Revokes a specific session by ID.
 
-**Headers:**
+</details>
+
+<details>
+<summary><code>DELETE</code> <code>/sessions</code> — Revoke all sessions <span className="badge badge--primary">Auth</span></summary>
+
+Revokes all sessions except the current one.
+
+</details>
+
+---
+
+## Stateless Module
+
+:::info
+Default if no auth module registered. Or register explicitly with `stateless.New(...)`.
+:::
+
+<details>
+<summary><code>POST</code> <code>/login</code> — Login (JWT tokens)</summary>
+
+**Request:**
+```json
+{
+  "email": "user@example.com",
+  "password": "SecurePassword123!"
+}
+```
+
+**Response** `200`:
+```json
+{
+  "message": "Login successful",
+  "user": {"id": "uuid", "email": "user@example.com"},
+  "token": "eyJhbGciOi...",
+  "refresh_token": "eyJhbGciOi..."
+}
+```
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/logout</code> — Blacklist token <span className="badge badge--primary">Auth</span></summary>
+
+Blacklists the current access token.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/refresh</code> — Refresh tokens</summary>
+
+Returns new access token. Optionally rotates refresh token if `RefreshTokenRotation: true`.
+
+</details>
+
+---
+
+## Two-Factor Module
+
+:::info
+Requires `twofactor.New(...)`.
+:::
+
+<details>
+<summary><code>POST</code> <code>/2fa/setup</code> — Start 2FA setup <span className="badge badge--primary">Auth</span></summary>
+
+**Response** `200`:
+```json
+{
+  "secret": "JBSWY3DPEHPK3PXP",
+  "qr_url": "otpauth://totp/MyApp:user@example.com?secret=...",
+  "backup_codes": ["12345678", "87654321", "..."]
+}
+```
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/2fa/verify</code> — Verify and enable 2FA <span className="badge badge--primary">Auth</span></summary>
+
+**Request:**
+```json
+{"code": "123456"}
+```
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/2fa/disable</code> — Disable 2FA <span className="badge badge--primary">Auth</span></summary>
+
+**Request:**
+```json
+{"code": "123456"}
+```
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/2fa/status</code> — Get 2FA status <span className="badge badge--primary">Auth</span></summary>
+
+**Response** `200`:
+```json
+{"enabled": true, "verified": true, "method": "totp"}
+```
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/2fa/verify-login</code> — Complete login with 2FA</summary>
+
+Called after login returns `requires_2fa: true`.
+
+**Request:**
+```json
+{
+  "temp_token": "temporary-2fa-token",
+  "code": "123456"
+}
+```
+
+**Response** `200`: Returns auth tokens.
+
+</details>
+
+---
+
+## OAuth Module
+
+:::info
+Requires `oauth.New(...)` with configured providers and `APIURL` set.
+:::
+
+<details>
+<summary><code>GET</code> <code>/oauth/&#123;provider&#125;</code> — Start OAuth flow</summary>
+
+Redirects to the OAuth provider's consent screen.
+
+**Providers:** `google`, `github`, `facebook`, `microsoft`, `apple`, `discord`
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/oauth/&#123;provider&#125;/callback</code> — OAuth callback</summary>
+
+Handles provider callback. Creates/links user, then:
+- Redirects to `DefaultRedirectURL#access_token=xxx&refresh_token=xxx`
+- Or returns JSON if no redirect URL configured
+
+</details>
+
+<details>
+<summary><code>DELETE</code> <code>/oauth/&#123;provider&#125;</code> — Unlink provider <span className="badge badge--primary">Auth</span></summary>
+
+Unlinks an OAuth provider from the user's account.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/oauth/providers</code> — List available providers</summary>
+
+**Response** `200`:
+```json
+{"providers": ["google", "github"]}
+```
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/oauth/linked</code> — List linked providers <span className="badge badge--primary">Auth</span></summary>
+
+**Response** `200`:
+```json
+{"providers": [{"provider": "google", "email": "user@gmail.com"}]}
+```
+
+</details>
+
+---
+
+## Admin Module
+
+:::info
+Requires `admin.New(...)`. All routes require auth + admin middleware.
+:::
+
+<details>
+<summary><code>GET</code> <code>/admin/users</code> — List users <span className="badge badge--danger">Admin</span></summary>
+
+**Query:** `?page=1&limit=20`
+
+**Response** `200`:
+```json
+{
+  "users": [{"id": "uuid", "email": "user@example.com", "active": true}],
+  "total": 100,
+  "page": 1
+}
+```
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/admin/users/&#123;id&#125;</code> — Get user <span className="badge badge--danger">Admin</span></summary>
+
+Returns full user details.
+
+</details>
+
+<details>
+<summary><code>PUT</code> <code>/admin/users/&#123;id&#125;</code> — Update user <span className="badge badge--danger">Admin</span></summary>
+
+**Request:**
+```json
+{"active": false, "role": "admin"}
+```
+
+</details>
+
+<details>
+<summary><code>DELETE</code> <code>/admin/users/&#123;id&#125;</code> — Delete user <span className="badge badge--danger">Admin</span></summary>
+
+Permanently deletes the user.
+
+</details>
+
+---
+
+## Audit Module
+
+:::info
+Requires `audit.New(...)`.
+:::
+
+<details>
+<summary><code>GET</code> <code>/me/audit</code> — My audit logs <span className="badge badge--primary">Auth</span></summary>
+
+Returns the authenticated user's audit trail.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/me/audit/logins</code> — My login history <span className="badge badge--primary">Auth</span></summary>
+
+Returns login events for the authenticated user.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/me/audit/changes</code> — My profile changes <span className="badge badge--primary">Auth</span></summary>
+
+Returns profile update events.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/me/audit/security</code> — My security events <span className="badge badge--primary">Auth</span></summary>
+
+Returns security-related events (2FA changes, password changes, etc.).
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/admin/audit</code> — All audit logs <span className="badge badge--danger">Admin</span></summary>
+
+Returns all audit logs across all users.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/admin/audit/users/&#123;id&#125;</code> — User audit logs <span className="badge badge--danger">Admin</span></summary>
+
+Returns audit logs for a specific user.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/admin/audit/actions/&#123;action&#125;</code> — Logs by action <span className="badge badge--danger">Admin</span></summary>
+
+Returns audit logs filtered by action type.
+
+</details>
+
+---
+
+## CSRF Module
+
+:::info
+Requires `csrf.New(...)`.
+:::
+
+<details>
+<summary><code>GET</code> <code>/csrf-token</code> — Get CSRF token</summary>
+
+**Response** `200`:
+```json
+{"csrf_token": "hmac-signed-token"}
+```
+
+Also sets a `__goauth_csrf` cookie. Include the token in `X-CSRF-Token` header for protected methods (POST, PUT, DELETE, PATCH).
+
+</details>
+
+---
+
+## Magic Link Module
+
+:::info
+Requires `magiclink.New(...)` and the Notification module.
+:::
+
+<details>
+<summary><code>POST</code> <code>/magic-link/send</code> — Send magic link</summary>
+
+**Request:**
+```json
+{"email": "user@example.com"}
+```
+
+Sends an email with a magic link. If `AutoRegister: true`, creates a new user if email doesn't exist.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/magic-link/verify</code> — Verify magic link</summary>
+
+**Query:** `?token=magic-link-token`
+
+Verifies the token and either:
+- Redirects to `CallbackURL#access_token=xxx&refresh_token=xxx`
+- Or returns JSON auth response
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/magic-link/verify-code</code> — Verify by code</summary>
+
+**Request:**
+```json
+{"email": "user@example.com", "code": "123456"}
+```
+
+For mobile apps — verifies using the numeric code from the email.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/magic-link/resend</code> — Resend magic link</summary>
+
+**Request:**
+```json
+{"email": "user@example.com"}
+```
+
+</details>
+
+---
+
+## Authentication
+
+Protected endpoints require:
 
 ```
 Authorization: Bearer <access_token>
 ```
 
-**Path Parameters:**
+Get tokens from the login endpoint. Refresh expired tokens via `/refresh`.
 
-- `session_id`: Session UUID
-
-**Response (200):**
-
-```json
-{
-  "success": true,
-  "message": "Session revoked successfully"
-}
-```
-
-### Revoke All Sessions
-
-**DELETE** `/api/auth/sessions`
-
-Revoke all sessions except current one.
-
-**Headers:**
-
-```
-Authorization: Bearer <access_token>
-```
-
-**Response (200):**
-
-```json
-{
-  "success": true,
-  "message": "All sessions revoked successfully"
-}
-```
-
-## Admin Endpoints
-
-### Get All Users
-
-**GET** `/api/auth/admin/users`
-
-Get list of all users (admin only).
-
-**Headers:**
-
-```
-Authorization: Bearer <admin_access_token>
-```
-
-**Query Parameters:**
-
-```
-?page=1&limit=20&search=john&role=user
-```
-
-**Response (200):**
-
-```json
-{
-  "success": true,
-  "users": [
-    {
-      "id": "user-uuid",
-      "email": "user@example.com",
-      "name": "John Doe",
-      "role": "user",
-      "status": "active",
-      "created_at": "2024-01-01T00:00:00Z"
-    }
-  ],
-  "pagination": {
-    "page": 1,
-    "limit": 20,
-    "total": 100,
-    "pages": 5
-  }
-}
-```
-
-### Update User Role
-
-**PUT** `/api/auth/admin/users/{user_id}/role`
-
-Update user role (admin only).
-
-**Headers:**
-
-```
-Authorization: Bearer <admin_access_token>
-```
-
-**Path Parameters:**
-
-- `user_id`: User UUID
-
-**Request Body:**
-
-```json
-{
-  "role": "admin"
-}
-```
-
-**Response (200):**
-
-```json
-{
-  "success": true,
-  "message": "User role updated successfully",
-  "user": {
-    "id": "user-uuid",
-    "role": "admin",
-    "updated_at": "2024-01-01T00:00:00Z"
-  }
-}
-```
-
-### Lock/Unlock User
-
-**POST** `/api/auth/admin/users/{user_id}/lock`
-
-Lock or unlock user account (admin only).
-
-**Headers:**
-
-```
-Authorization: Bearer <admin_access_token>
-```
-
-**Path Parameters:**
-
-- `user_id`: User UUID
-
-**Request Body:**
-
-```json
-{
-  "locked": true,
-  "reason": "Suspicious activity detected"
-}
-```
-
-**Response (200):**
-
-```json
-{
-  "success": true,
-  "message": "User account locked successfully"
-}
-```
-
-## Health and Status
-
-### Health Check
-
-**GET** `/api/auth/health`
-
-Check API health status.
-
-**Response (200):**
-
-```json
-{
-  "status": "healthy",
-  "timestamp": "2024-01-01T00:00:00Z",
-  "version": "1.0.0",
-  "services": {
-    "database": "healthy",
-    "cache": "healthy",
-    "email": "healthy",
-    "sms": "healthy"
-  }
-}
-```
-
-### API Status
-
-**GET** `/api/auth/status`
-
-Get detailed API status information.
-
-**Response (200):**
-
-```json
-{
-  "status": "operational",
-  "uptime": "99.9%",
-  "response_time": "45ms",
-  "active_users": 1250,
-  "total_requests": 1500000,
-  "error_rate": "0.1%"
-}
-```
-
-## Error Responses
-
-### Standard Error Format
-
-All error responses follow this format:
-
-```json
-{
-  "success": false,
-  "error": "Error message description",
-  "code": "ERROR_CODE",
-  "details": {
-    "field": "Additional error details"
-  },
-  "timestamp": "2024-01-01T00:00:00Z",
-  "request_id": "req-uuid-here"
-}
-```
-
-### Common Error Codes
-
-| Code                       | Description                      | HTTP Status |
-| -------------------------- | -------------------------------- | ----------- |
-| `INVALID_CREDENTIALS`      | Invalid email/password           | 401         |
-| `TOKEN_EXPIRED`            | Access token has expired         | 401         |
-| `INVALID_TOKEN`            | Invalid or malformed token       | 401         |
-| `INSUFFICIENT_PERMISSIONS` | User lacks required permissions  | 403         |
-| `ACCOUNT_LOCKED`           | User account is locked           | 423         |
-| `EMAIL_EXISTS`             | Email address already registered | 400         |
-| `PHONE_EXISTS`             | Phone number already registered  | 400         |
-| `INVALID_2FA_CODE`         | Invalid 2FA verification code    | 400         |
-| `RATE_LIMIT_EXCEEDED`      | Too many requests                | 429         |
-| `VALIDATION_ERROR`         | Request validation failed        | 400         |
-
-## Rate Limiting
-
-### Rate Limit Headers
-
-Rate-limited endpoints include these headers:
-
-```
-X-RateLimit-Limit: 100
-X-RateLimit-Remaining: 95
-X-RateLimit-Reset: 1640995200
-X-RateLimit-Reset-Time: Mon, 01 Jan 2024 00:00:00 GMT
-```
-
-### Rate Limit Response
-
-When rate limit is exceeded:
-
-**Response (429):**
-
-```json
-{
-  "success": false,
-  "error": "Rate limit exceeded",
-  "code": "RATE_LIMIT_EXCEEDED",
-  "retry_after": 60
-}
-```
-
-## Pagination
-
-### Pagination Headers
-
-Paginated endpoints include these headers:
-
-```
-X-Pagination-Page: 1
-X-Pagination-Limit: 20
-X-Pagination-Total: 100
-X-Pagination-Pages: 5
-```
-
-### Pagination Query Parameters
-
-```
-?page=1&limit=20&sort=created_at&order=desc
-```
-
-## Filtering and Search
-
-### Search Query Parameters
-
-```
-?search=john&role=user&status=active&created_after=2024-01-01
-```
-
-### Sort Query Parameters
-
-```
-?sort=created_at&order=desc
-?sort=name&order=asc
-```
-
-## Response Headers
-
-### Standard Headers
-
-All responses include these headers:
-
-```
-Content-Type: application/json
-X-Request-ID: req-uuid-here
-X-Response-Time: 45ms
-```
-
-### Security Headers
-
-```
-X-Content-Type-Options: nosniff
-X-Frame-Options: DENY
-X-XSS-Protection: 1; mode=block
-Strict-Transport-Security: max-age=31536000; includeSubDomains
-```
-
-## WebSocket Endpoints
-
-### Real-time Updates
-
-**WebSocket** `/api/auth/ws`
-
-Connect to real-time updates for authenticated users.
-
-**Headers:**
-
-```
-Authorization: Bearer <access_token>
-```
-
-**Message Types:**
-
-- `user.updated`: User profile updated
-- `session.revoked`: Session revoked
-- `2fa.enabled`: 2FA enabled
-- `2fa.disabled`: 2FA disabled
-
-## Testing Endpoints
-
-### Test Authentication
-
-**POST** `/api/auth/test`
-
-Test endpoint for development/testing.
-
-**Headers:**
-
-```
-Authorization: Bearer <access_token>
-```
-
-**Response (200):**
-
-```json
-{
-  "success": true,
-  "message": "Authentication test successful",
-  "user_id": "user-uuid",
-  "timestamp": "2024-01-01T00:00:00Z"
-}
-```
-
-## SDK Endpoints
-
-### Get SDK Configuration
-
-**GET** `/api/auth/sdk/config`
-
-Get configuration for client SDKs.
-
-**Response (200):**
-
-```json
-{
-  "success": true,
-  "config": {
-    "oauth_providers": ["google", "github", "facebook"],
-    "features": {
-      "two_factor": true,
-      "email_verification": true,
-      "phone_verification": true
-    },
-    "endpoints": {
-      "login": "/api/auth/login",
-      "register": "/api/auth/register",
-      "oauth": "/api/auth/oauth"
-    }
-  }
-}
-```
-
-## Next Steps
-
-- [Request/Response Models](models.md) - Learn about data models
-- [Authentication](auth.md) - Understand authentication flows
-- [Error Handling](errors.md) - Handle errors properly
-- [SDK Integration](../frameworks/gin.md) - Integrate with frameworks
+**Admin** endpoints additionally require admin privileges on the user account.
