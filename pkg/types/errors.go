@@ -61,16 +61,13 @@ const (
 	ErrCaptchaFailed   ErrorCode = "CAPTCHA_FAILED"
 
 	// Two-factor errors
+	ErrTwoFactorRequired       ErrorCode = "TWO_FACTOR_REQUIRED"
 	ErrTwoFactorAlreadyEnabled ErrorCode = "TWO_FACTOR_ALREADY_ENABLED"
 	ErrTwoFactorNotEnabled     ErrorCode = "TWO_FACTOR_NOT_ENABLED"
 	ErrTwoFactorNotFound       ErrorCode = "TWO_FACTOR_NOT_FOUND"
 	ErrTwoFactorInvalid        ErrorCode = "TWO_FACTOR_INVALID"
 	ErrTwoFactorExpired        ErrorCode = "TWO_FACTOR_EXPIRED"
 	ErrTwoFactorAlreadyUsed    ErrorCode = "TWO_FACTOR_ALREADY_USED"
-
-	// Rate limiting
-	ErrRateLimitExceeded ErrorCode = "RATE_LIMIT_EXCEEDED"
-	ErrTooManyRequests   ErrorCode = "TOO_MANY_REQUESTS"
 
 	// Method errors
 	ErrMethodNotAllowed ErrorCode = "METHOD_NOT_ALLOWED"
@@ -365,23 +362,6 @@ func NewCaptchaFailedError() *GoAuthError {
 	}
 }
 
-// Rate limiting error factory functions
-func NewRateLimitExceededError() *GoAuthError {
-	return &GoAuthError{
-		Code:       ErrRateLimitExceeded,
-		Message:    "Rate limit exceeded",
-		StatusCode: http.StatusTooManyRequests,
-	}
-}
-
-func NewTooManyRequestsError() *GoAuthError {
-	return &GoAuthError{
-		Code:       ErrTooManyRequests,
-		Message:    "Too many requests",
-		StatusCode: http.StatusTooManyRequests,
-	}
-}
-
 // Method error factory functions
 func NewMethodNotAllowedError() *GoAuthError {
 	return &GoAuthError{
@@ -495,6 +475,15 @@ func NewCustomError(message string) *GoAuthError {
 	return &GoAuthError{
 		Code:    ErrCustom,
 		Message: message,
+	}
+}
+
+func NewTwoFactorRequiredError(details map[string]any) *GoAuthError {
+	return &GoAuthError{
+		Code:       ErrTwoFactorRequired,
+		Message:    "Two-factor authentication required",
+		StatusCode: http.StatusOK, // 200 OK, not an error - it's a challenge
+		Details:    details,
 	}
 }
 

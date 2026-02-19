@@ -45,11 +45,12 @@ type Config struct {
 //	store, _ := gorm.NewStorage(gorm.Config{...})
 //	auth.New(&config.Config{Storage: store})
 type GormStorage struct {
-	db               *gorm.DB
-	coreStorage      *core.GormCoreStorage
-	sessionStorage   *session.GormSessionStorage
-	auditLogStoarage *auditlog.GormAuditLogStorage
-	oauthStorage     *oauth.GormOAuthStorage
+	db                *gorm.DB
+	coreStorage       *core.GormCoreStorage
+	sessionStorage    *session.GormSessionStorage
+	auditLogStoarage  *auditlog.GormAuditLogStorage
+	oauthStorage      *oauth.GormOAuthStorage
+	twoFactorStorage  *twoFactorStorage
 }
 
 // NewStorage creates a new GORM storage from configuration
@@ -119,6 +120,7 @@ func NewStorageFromDB(db *gorm.DB) *GormStorage {
 		sessionStorage:   session.NewSessionStorage(db),
 		auditLogStoarage: auditlog.NewAuditLogStorage(db),
 		oauthStorage:     oauth.NewOAuthStorage(db),
+		twoFactorStorage: NewTwoFactorStorage(db).(*twoFactorStorage),
 	}
 }
 
@@ -151,6 +153,11 @@ func (s *GormStorage) Admin() types.AdminStorage {
 // OAuth returns storage for the OAuth module
 func (s *GormStorage) OAuth() types.OAuthStorage {
 	return s.oauthStorage
+}
+
+// TwoFactorAuth returns storage for the two-factor authentication module
+func (s *GormStorage) TwoFactorAuth() types.TwoFactorStorage {
+	return s.twoFactorStorage
 }
 
 // Migrate runs database migrations for the provided models

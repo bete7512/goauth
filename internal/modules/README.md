@@ -6,8 +6,7 @@ This document describes the modular architecture, available modules, and how to 
 
 1. [Core Module](#core-module)
 2. [Two-Factor Authentication](#two-factor-authentication)
-3. [Rate Limiter](#rate-limiter)
-4. [Captcha Protection](#captcha-protection)
+3. [Captcha Protection](#captcha-protection)
 5. [CSRF Protection](#csrf-protection)
 6. [Admin Module](#admin-module)
 7. [OAuth Module](#oauth-module)
@@ -97,54 +96,6 @@ curl -X POST http://localhost:8080/auth/2fa/verify \
 ```bash
 curl http://localhost:8080/auth/2fa/status
 # Returns: { "enabled": true, "verified": true, "method": "totp" }
-```
-
----
-
-## Rate Limiter
-
-The **Rate Limiter Module** provides per-IP request rate limiting to prevent abuse and brute force attacks.
-
-### Features
-- Per-IP rate limiting
-- Configurable requests per minute/hour
-- Burst capacity
-- Automatic cleanup of expired limiters
-- In-memory storage (no database required)
-
-### Configuration
-```go
-rateLimiterConfig := &ratelimiter.RateLimiterConfig{
-    RequestsPerMinute: 60,    // Max requests per minute per IP
-    RequestsPerHour:   1000,  // Max requests per hour per IP
-    BurstSize:         10,    // Allow burst of requests
-}
-
-a.Use(ratelimiter.New(rateLimiterConfig))
-```
-
-### How It Works
-1. Tracks requests by client IP address
-2. Maintains separate counters for minute and hour windows
-3. Automatically resets counters when time windows expire
-4. Returns `429 Too Many Requests` when limit is exceeded
-5. Cleans up expired limiters every 10 minutes
-
-### Customization
-```go
-// Strict rate limiting for production
-rateLimiterConfig := &ratelimiter.RateLimiterConfig{
-    RequestsPerMinute: 30,
-    RequestsPerHour:   500,
-    BurstSize:         5,
-}
-
-// Lenient rate limiting for development
-rateLimiterConfig := &ratelimiter.RateLimiterConfig{
-    RequestsPerMinute: 120,
-    RequestsPerHour:   5000,
-    BurstSize:         20,
-}
 ```
 
 ---
@@ -366,7 +317,6 @@ import (
 
     "github.com/bete7512/goauth/internal/modules/captcha"
     "github.com/bete7512/goauth/internal/modules/csrf"
-    "github.com/bete7512/goauth/internal/modules/ratelimiter"
     "github.com/bete7512/goauth/internal/modules/twofactor"
     "github.com/bete7512/goauth/internal/storage"
     "github.com/bete7512/goauth/pkg/auth"
@@ -409,14 +359,7 @@ func main() {
         CodeLength:      8,
     }))
 
-    // 2. Rate Limiter
-    a.Use(ratelimiter.New(&ratelimiter.RateLimiterConfig{
-        RequestsPerMinute: 60,
-        RequestsPerHour:   1000,
-        BurstSize:         10,
-    }))
-
-    // 3. Captcha Protection (Cloudflare Turnstile)
+    // 2. Captcha Protection (Cloudflare Turnstile)
     a.Use(captcha.New(&captcha.CaptchaConfig{
         Provider:           "cloudflare",
         TurnstileSiteKey:   "your-turnstile-site-key",
@@ -424,7 +367,7 @@ func main() {
         ApplyToRoutes:      []string{"core.login", "core.signup"},
     }))
 
-    // 4. CSRF Protection
+    // 3. CSRF Protection
     a.Use(csrf.New(&csrf.CSRFConfig{
         TokenLength:      32,
         TokenExpiry:      3600,
@@ -488,13 +431,12 @@ config := &config.Config{
 1. **Always use HTTPS in production**
 2. **Use strong secret keys** (at least 32 random characters)
 3. **Enable CSRF protection** for all state-changing operations
-4. **Use rate limiting** to prevent brute force attacks
-5. **Enable captcha** on authentication endpoints
-6. **Set secure cookie flags** (Secure, HttpOnly, SameSite)
-7. **Keep dependencies updated**
-8. **Use environment variables** for sensitive configuration
-9. **Enable 2FA** for admin users
-10. **Regularly review audit logs**
+4. **Enable captcha** on authentication endpoints
+5. **Set secure cookie flags** (Secure, HttpOnly, SameSite)
+6. **Keep dependencies updated**
+7. **Use environment variables** for sensitive configuration
+8. **Enable 2FA** for admin users
+9. **Regularly review audit logs**
 
 ---
 

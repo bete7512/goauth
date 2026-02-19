@@ -2,11 +2,11 @@ package models
 
 import "time"
 
-// TwoFactorAuth stores 2FA configuration for a user
+// TwoFactor stores 2FA configuration for a user
 type TwoFactor struct {
 	ID        string    `json:"id" gorm:"primaryKey"`
 	UserID    string    `json:"user_id" gorm:"uniqueIndex;not null"`
-	Secret    string    `json:"-" gorm:"not null"` // TOTP secret (encrypted)
+	Secret    string    `json:"-" gorm:"not null"` // TOTP secret (encrypted in storage)
 	Enabled   bool      `json:"enabled" gorm:"default:false"`
 	Verified  bool      `json:"verified" gorm:"default:false"`
 	Method    string    `json:"method" gorm:"default:'totp'"` // totp, sms, email
@@ -22,7 +22,7 @@ func (TwoFactor) TableName() string {
 type BackupCode struct {
 	ID        string     `json:"id" gorm:"primaryKey"`
 	UserID    string     `json:"user_id" gorm:"index;not null"`
-	Code      string     `json:"-" gorm:"not null"` // Hashed backup code
+	Code      string     `json:"-" gorm:"not null"` // Hashed with bcrypt
 	Used      bool       `json:"used" gorm:"default:false"`
 	UsedAt    *time.Time `json:"used_at,omitempty"`
 	CreatedAt time.Time  `json:"created_at"`
@@ -30,9 +30,4 @@ type BackupCode struct {
 
 func (BackupCode) TableName() string {
 	return "backup_codes"
-}
-
-type TwoFactorRepository interface {
-}
-type BackupCodeRepository interface {
 }

@@ -31,6 +31,23 @@ func (s *sessionService) Login(ctx context.Context, req *dto.LoginRequest, metad
 		return dto.AuthResponse{}, types.NewInvalidCredentialsError()
 	}
 
+	// Emit password verified event (allows 2FA module to intercept)
+	if eventErr := s.deps.Events.EmitSync(ctx, types.EventAfterPasswordVerified, &types.PasswordVerifiedEventData{
+		User:     user,
+		Metadata: metadata,
+	}); eventErr != nil {
+		// Check if this is a 2FA required error (special case - not really an error)
+		if goAuthErr, ok := eventErr.(*types.GoAuthError); ok {
+			if goAuthErr.Code == types.ErrTwoFactorRequired {
+				// Return the 2FA challenge to the handler
+				return dto.AuthResponse{}, goAuthErr
+			}
+		}
+		// Other errors should block login
+		s.logger.Errorf("session: password verified event handler failed: %v", eventErr)
+		return dto.AuthResponse{}, types.NewInternalError("Authentication flow interrupted")
+	}
+
 	// Generate session ID first so it can be embedded in the JWT
 	sessionID := uuid.New().String()
 

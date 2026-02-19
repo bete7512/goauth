@@ -7,6 +7,7 @@ import (
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -147,4 +148,30 @@ func TestConfig() *config.Config {
 			UniquePhoneNumber:        true,
 		},
 	}
+}
+
+// GenerateTempToken generates a valid 2FA temp token for testing
+func GenerateTempToken(userID string) string {
+	claims := jwt.MapClaims{
+		"user_id": userID,
+		"type":    "2fa_pending",
+		"exp":     time.Now().Add(5 * time.Minute).Unix(),
+		"iat":     time.Now().Unix(),
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenString, _ := token.SignedString([]byte("test-secret-key-for-unit-tests"))
+	return tokenString
+}
+
+// GenerateExpiredTempToken generates an expired 2FA temp token for testing
+func GenerateExpiredTempToken(userID string, expiryOffset time.Duration) string {
+	claims := jwt.MapClaims{
+		"user_id": userID,
+		"type":    "2fa_pending",
+		"exp":     time.Now().Add(expiryOffset).Unix(), // expiryOffset should be negative for expired tokens
+		"iat":     time.Now().Add(expiryOffset - time.Minute).Unix(),
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenString, _ := token.SignedString([]byte("test-secret-key-for-unit-tests"))
+	return tokenString
 }
