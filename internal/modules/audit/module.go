@@ -14,8 +14,8 @@ import (
 	"github.com/google/uuid"
 )
 
-//go:embed docs/swagger.yml
-var swaggerSpec []byte
+//go:embed docs/openapi.yml
+var openapiSpec []byte
 
 type AuditModule struct {
 	deps     config.ModuleDependencies
@@ -298,6 +298,6 @@ func (m *AuditModule) Dependencies() []string {
 	return []string{string(types.CoreModule)}
 }
 
-func (m *AuditModule) SwaggerSpec() []byte {
-	return swaggerSpec
+func (m *AuditModule) OpenAPISpecs() []byte {
+	return openapiSpec
 }

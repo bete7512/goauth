@@ -52,8 +52,6 @@ func (h *AuditHandler) GetRoutes() []config.RouteInfo {
 			Handler:     h.GetMySecurity,
 			Middlewares: []types.MiddlewareName{types.MiddlewareAuth},
 		},
-
-		// Admin routes
 		{
 			Name:        string(types.RouteAdminListAuditLogs),
 			Path:        "/admin/audit",
@@ -73,6 +71,13 @@ func (h *AuditHandler) GetRoutes() []config.RouteInfo {
 			Path:        "/admin/audit/actions/{action}",
 			Method:      http.MethodGet,
 			Handler:     h.AdminGetActionAudit,
+			Middlewares: []types.MiddlewareName{types.MiddlewareAuth, types.MiddlewareAdminAuth},
+		},
+		{
+			Name:        string(types.RouteAdminCleanupAuditLogs),
+			Path:        "/admin/audit/cleanup",
+			Method:      http.MethodPost,
+			Handler:     h.AdminCleanupLogs,
 			Middlewares: []types.MiddlewareName{types.MiddlewareAuth, types.MiddlewareAdminAuth},
 		},
 	}

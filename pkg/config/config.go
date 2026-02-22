@@ -5,9 +5,6 @@ import (
 	"net/http"
 	"time"
 
-	// "github.com/bete7512/goauth/internal/security"
-	"github.com/bete7512/goauth/internal/security"
-	"github.com/bete7512/goauth/internal/utils/logger"
 	"github.com/bete7512/goauth/pkg/types"
 )
 
@@ -47,18 +44,18 @@ type Module interface {
 	// Dependencies returns required module names
 	Dependencies() []string
 
-	// SwaggerSpec returns module's swagger spec (YAML or JSON)
-	SwaggerSpec() []byte // Returns module's swagger spec (YAML or JSON)
+	// OpenAPUSpec returns module's openapi specs
+	OpenAPISpecs() []byte // Returns module's openapi specs
 
 }
 
 type ModuleDependencies struct {
 	Storage           Storage
 	Config            *Config
-	Logger            logger.Logger
+	Logger            types.Logger
 	Events            types.EventBus
 	MiddlewareManager MiddlewareManager
-	SecurityManager   *security.SecurityManager
+	SecurityManager   types.SecurityManager
 	Options           interface{}
 }
 
@@ -91,9 +88,9 @@ type Config struct {
 	// Module-specific configurations
 	ModuleConfigs map[string]interface{}
 
-	// Logger - Users can provide their own logger implementation
-	// If nil, a default logrus logger will be used
-	Logger *logger.LogrusLogger
+	// Logger - Users can provide their own logger implementation (types.Logger).
+	// If nil, a default logrus logger will be used.
+	Logger types.Logger
 
 	// CORS Configuration
 	CORS *CORSConfig
@@ -323,6 +320,14 @@ type OAuthProviderConfig struct {
 	Enabled bool
 }
 
+// two factor
+type TwoFactorConfig struct {
+	Issuer           string // Name shown in authenticator app
+	Required         bool   // Make 2FA mandatory for all users
+	BackupCodesCount int    // Number of backup codes to generate
+	CodeLength       int    // Length of backup codes
+}
+
 // CORSConfig holds CORS configuration
 type CORSConfig struct {
 	Enabled          bool
@@ -362,8 +367,7 @@ func (c *Config) Validate() error {
 	// Set default CORS if not provided
 	if c.CORS == nil {
 		c.CORS = &CORSConfig{
-			Enabled:          false,
-			
+			Enabled: false,
 		}
 	}
 

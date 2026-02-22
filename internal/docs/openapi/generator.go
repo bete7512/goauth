@@ -1,4 +1,4 @@
-package swagger
+package openapi
 
 import (
 	"fmt"
@@ -9,22 +9,22 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type SwaggerGenerator struct {
+type OpenAPIGenerator struct {
 	modules       []config.Module
 	baseSpec      map[string]interface{}
-	swaggerConfig types.SwaggerConfig
+	openapiConfig types.OpenAPIConfig
 }
 
-func NewGenerator(modules []config.Module, metadata types.SwaggerConfig) *SwaggerGenerator {
-	return &SwaggerGenerator{
+func NewGenerator(modules []config.Module, metadata types.OpenAPIConfig) *OpenAPIGenerator {
+	return &OpenAPIGenerator{
 		modules:       modules,
 		baseSpec:      getBaseSpec(metadata),
-		swaggerConfig: metadata,
+		openapiConfig: metadata,
 	}
 }
 
 // MergeEnabledModules only merges specs from enabled modules
-func (g *SwaggerGenerator) MergeEnabledModules() ([]byte, error) {
+func (g *OpenAPIGenerator) MergeEnabledModules() ([]byte, error) {
 	merged := copyMap(g.baseSpec)
 
 	// Initialize structures
@@ -37,14 +37,14 @@ func (g *SwaggerGenerator) MergeEnabledModules() ([]byte, error) {
 
 	// Iterate through ONLY registered modules
 	for _, module := range g.modules {
-		spec := module.SwaggerSpec()
+		spec := module.OpenAPISpecs()
 		if len(spec) == 0 {
-			continue // Skip modules without swagger specs
+			continue // Skip modules without openapi specs
 		}
 
 		moduleSpec := make(map[string]interface{})
 		if err := yaml.Unmarshal(spec, &moduleSpec); err != nil {
-			return nil, fmt.Errorf("failed to parse swagger for module %s: %w", module.Name(), err)
+			return nil, fmt.Errorf("failed to parse openapi spec for module %s: %w", module.Name(), err)
 		}
 
 		// Merge paths
@@ -89,7 +89,7 @@ func mergeComponents(base, new map[string]interface{}) {
 	}
 }
 
-func getBaseSpec(metadata types.SwaggerConfig) map[string]interface{} {
+func getBaseSpec(metadata types.OpenAPIConfig) map[string]interface{} {
 	baseSpec := map[string]interface{}{
 		"openapi": "3.0.3",
 		"info": map[string]interface{}{
@@ -116,7 +116,7 @@ func getBaseSpec(metadata types.SwaggerConfig) map[string]interface{} {
 }
 
 // buildSecuritySchemes dynamically builds security schemes based on configuration
-func buildSecuritySchemes(metadata types.SwaggerConfig) map[string]interface{} {
+func buildSecuritySchemes(metadata types.OpenAPIConfig) map[string]interface{} {
 	schemes := make(map[string]interface{})
 
 	// If custom security schemes are provided, use them
@@ -178,9 +178,9 @@ func copyMap(m map[string]interface{}) map[string]interface{} {
 	return copy
 }
 
-// ServeSwaggerUI serves embedded Swagger UI
-func ServeSwaggerUI(specPath string) http.HandlerFunc {
-	swaggerHTML := `<!DOCTYPE html>
+// ServeOpenAPIUI serves embedded Swagger UI
+func ServeOpenAPIUI(specPath string) http.HandlerFunc {
+	openapiHTML := `<!DOCTYPE html>
 <html>
 <head>
     <title>Go-Auth API Documentation</title>
@@ -201,6 +201,6 @@ func ServeSwaggerUI(specPath string) http.HandlerFunc {
 </html>`
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
-		w.Write([]byte(swaggerHTML))
+		w.Write([]byte(openapiHTML))
 	}
 }

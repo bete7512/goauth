@@ -16,8 +16,8 @@ import (
 	"github.com/bete7512/goauth/pkg/types"
 )
 
-//go:embed docs/swagger.yml
-var swaggerSpec []byte
+//go:embed docs/openapi.yml
+var openapiSpec []byte
 
 // OAuthModule provides OAuth authentication functionality
 type OAuthModule struct {
@@ -131,7 +131,7 @@ func (m *OAuthModule) Init(ctx context.Context, deps config.ModuleDependencies) 
 	}
 
 	// Get or create security manager
-	var securityManager *security.SecurityManager
+	var securityManager types.SecurityManager
 	if deps.SecurityManager != nil {
 		securityManager = deps.SecurityManager
 	} else {
@@ -212,8 +212,8 @@ func (m *OAuthModule) Dependencies() []string {
 }
 
 // SwaggerSpec returns the module's swagger specification
-func (m *OAuthModule) SwaggerSpec() []byte {
-	return swaggerSpec
+func (m *OAuthModule) OpenAPISpecs() []byte {
+	return openapiSpec
 }
 
 // GetRegistry returns the provider registry (for advanced use)

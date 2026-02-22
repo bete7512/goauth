@@ -61,8 +61,6 @@ func (s *auditService) GetMyAuditLogs(ctx context.Context, userID string, opts m
 
 	// Get logs where user is the target
 	targetOpts := opts
-	targetOpts.Limit = opts.Limit / 2
-	targetOpts.Offset = 0
 	targetLogs, _, err := s.auditLogRepo.FindByTargetID(ctx, userID, targetOpts)
 	if err != nil {
 		return nil, 0, types.NewInternalError(fmt.Sprintf("failed to get target logs: %v", err))
@@ -84,6 +82,7 @@ func (s *auditService) GetMyLogins(ctx context.Context, userID string, opts mode
 
 	// Filter for login-related actions
 	var loginLogs []*models.AuditLog
+	// TODO: this is disaster filter have to be sent 
 	for _, log := range allLogs {
 		if strings.HasPrefix(log.Action, "auth.login") {
 			loginLogs = append(loginLogs, log)

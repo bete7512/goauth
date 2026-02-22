@@ -59,10 +59,11 @@ const (
 	RouteAdminCreateUser     RouteName = "admin.users.create"
 	RouteAdminUpdateUser     RouteName = "admin.users.update"
 	RouteAdminDeleteUser     RouteName = "admin.users.delete"
-	RouteAdminListAuditLogs  RouteName = "admin.audit.list"
-	RouteAdminGetUserAudit   RouteName = "admin.audit.user"
-	RouteAdminGetActionAudit RouteName = "admin.audit.action"
-	RouteAdminExportAudit    RouteName = "admin.audit.export"
+	RouteAdminListAuditLogs    RouteName = "admin.audit.list"
+	RouteAdminGetUserAudit     RouteName = "admin.audit.user"
+	RouteAdminGetActionAudit   RouteName = "admin.audit.action"
+	RouteAdminExportAudit      RouteName = "admin.audit.export"
+	RouteAdminCleanupAuditLogs RouteName = "admin.audit.cleanup"
 
 	// Audit Routes (user self-service)
 	RouteAuditMyLogs     RouteName = "audit.my.logs"

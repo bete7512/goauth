@@ -69,7 +69,7 @@ func (m *StatelessModule) Init(ctx context.Context, deps config.ModuleDependenci
 	return nil
 }
 
-func (m *StatelessModule) SwaggerSpec() []byte {
+func (m *StatelessModule) OpenAPISpecs() []byte {
 	return nil
 }
 

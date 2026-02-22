@@ -10,7 +10,6 @@ import (
 
 	coredto "github.com/bete7512/goauth/internal/modules/core/handlers/dto"
 	"github.com/bete7512/goauth/internal/modules/magiclink/handlers/dto"
-	"github.com/bete7512/goauth/internal/security"
 	"github.com/bete7512/goauth/internal/utils/logger"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/models"
@@ -31,7 +30,7 @@ type magicLinkService struct {
 	config          *config.MagicLinkModuleConfig
 	userRepository  models.UserRepository
 	tokenRepository models.TokenRepository
-	securityManager *security.SecurityManager
+	securityManager types.SecurityManager
 	logger          logger.Logger
 }
 
@@ -39,7 +38,7 @@ func NewMagicLinkService(
 	deps config.ModuleDependencies,
 	userRepo models.UserRepository,
 	tokenRepo models.TokenRepository,
-	securityManager *security.SecurityManager,
+	securityManager types.SecurityManager,
 	cfg *config.MagicLinkModuleConfig,
 ) *magicLinkService {
 	return &magicLinkService{

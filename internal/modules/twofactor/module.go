@@ -19,28 +19,23 @@ type TwoFactorModule struct {
 	deps     config.ModuleDependencies
 	handlers *handlers.TwoFactorHandler
 	service  services.TwoFactorService
-	config   *TwoFactorConfig
+	config   *config.TwoFactorConfig
 }
 
-type TwoFactorConfig struct {
-	Issuer           string // Name shown in authenticator app
-	Required         bool   // Make 2FA mandatory for all users
-	BackupCodesCount int    // Number of backup codes to generate
-	CodeLength       int    // Length of backup codes
-}
+
 
 var (
-	//go:embed docs/swagger.yml
-	swaggerSpec []byte
+	//go:embed docs/openapi.yml
+	openapiSpec []byte
 )
 var _ config.Module = (*TwoFactorModule)(nil)
 
-func New(cfg ...*TwoFactorConfig) *TwoFactorModule {
-	var moduleConfig *TwoFactorConfig
+func New(cfg ...*config.TwoFactorConfig) *TwoFactorModule {
+	var moduleConfig *config.TwoFactorConfig
 	if len(cfg) > 0 && cfg[0] != nil {
 		moduleConfig = cfg[0]
 	} else {
-		moduleConfig = &TwoFactorConfig{
+		moduleConfig = &config.TwoFactorConfig{
 			Issuer:           "GoAuth",
 			Required:         false,
 			BackupCodesCount: 10,
@@ -218,6 +213,6 @@ func (m *TwoFactorModule) verify2FAMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func (m *TwoFactorModule) SwaggerSpec() []byte {
-	return swaggerSpec
+func (m *TwoFactorModule) OpenAPISpecs() []byte {
+	return openapiSpec
 }

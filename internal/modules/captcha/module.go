@@ -11,8 +11,8 @@ import (
 	"github.com/bete7512/goauth/pkg/types"
 )
 
-//go:embed docs/swagger.yml
-var swaggerSpec []byte
+//go:embed docs/openapi.yml
+var openapiSpec []byte
 
 // CaptchaModule provides captcha verification middleware using external providers
 // (Google reCAPTCHA v3 or Cloudflare Turnstile). Applied to specific routes only.
@@ -102,8 +102,8 @@ func (m *CaptchaModule) Dependencies() []string {
 	return nil
 }
 
-func (m *CaptchaModule) SwaggerSpec() []byte {
-	return swaggerSpec
+func (m *CaptchaModule) OpenAPISpecs() []byte {
+	return openapiSpec
 }
 
 // GetSiteKey returns the public site key for frontend widget integration.

@@ -22,8 +22,8 @@ type CoreModule struct {
 	customStorage types.CoreStorage
 }
 
-//go:embed docs/swagger.yml
-var swaggerSpec []byte
+//go:embed docs/openapi.yml
+var openapiSpec []byte
 
 var _ config.Module = (*CoreModule)(nil)
 
@@ -79,8 +79,8 @@ func (m *CoreModule) Init(ctx context.Context, deps config.ModuleDependencies) e
 	return nil
 }
 
-func (m *CoreModule) SwaggerSpec() []byte {
-	return swaggerSpec
+func (m *CoreModule) OpenAPISpecs() []byte {
+	return openapiSpec
 }
 
 func (m *CoreModule) Name() string {

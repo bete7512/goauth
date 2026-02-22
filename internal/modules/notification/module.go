@@ -132,7 +132,7 @@ func (m *NotificationModule) RegisterHooks(events types.EventBus) error {
 	return nil
 }
 
-func (m *NotificationModule) SwaggerSpec() []byte {
+func (m *NotificationModule) OpenAPISpecs() []byte {
 	return nil
 }
 
