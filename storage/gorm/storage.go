@@ -10,6 +10,7 @@ import (
 	"github.com/bete7512/goauth/storage/gorm/core"
 	"github.com/bete7512/goauth/storage/gorm/oauth"
 	"github.com/bete7512/goauth/storage/gorm/session"
+	"github.com/bete7512/goauth/storage/gorm/twofactor"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
@@ -45,12 +46,12 @@ type Config struct {
 //	store, _ := gorm.NewStorage(gorm.Config{...})
 //	auth.New(&config.Config{Storage: store})
 type GormStorage struct {
-	db                *gorm.DB
-	coreStorage       *core.GormCoreStorage
-	sessionStorage    *session.GormSessionStorage
-	auditLogStoarage  *auditlog.GormAuditLogStorage
-	oauthStorage      *oauth.GormOAuthStorage
-	twoFactorStorage  *twoFactorStorage
+	db               *gorm.DB
+	coreStorage      *core.GormCoreStorage
+	sessionStorage   *session.GormSessionStorage
+	auditLogStoarage *auditlog.GormAuditLogStorage
+	oauthStorage     *oauth.GormOAuthStorage
+	twoFactorStorage *twofactor.TwoFactorStorage
 }
 
 // NewStorage creates a new GORM storage from configuration
@@ -120,7 +121,7 @@ func NewStorageFromDB(db *gorm.DB) *GormStorage {
 		sessionStorage:   session.NewSessionStorage(db),
 		auditLogStoarage: auditlog.NewAuditLogStorage(db),
 		oauthStorage:     oauth.NewOAuthStorage(db),
-		twoFactorStorage: NewTwoFactorStorage(db).(*twoFactorStorage),
+		twoFactorStorage: twofactor.NewTwoFactorStorage(db),
 	}
 }
 

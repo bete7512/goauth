@@ -51,6 +51,16 @@ func (h *TwoFactorHandler) SetupHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// If there's a pending (unverified) setup, clean it up before starting fresh.
+	// Without this, repeated setup calls silently overwrite the secret while the
+	// authenticator app still holds the old one — causing permanent TOTP mismatch.
+	if existing != nil && !existing.Enabled {
+		if authErr := h.service.DisableTwoFactor(r.Context(), userID); authErr != nil {
+			http_utils.RespondError(w, authErr.StatusCode, string(authErr.Code), authErr.Message)
+			return
+		}
+	}
+
 	// Fetch user email for QR code
 	user, authErr := h.service.GetUser(r.Context(), userID)
 	if authErr != nil {

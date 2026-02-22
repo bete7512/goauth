@@ -35,12 +35,18 @@ func New(cfg ...*config.TwoFactorConfig) *TwoFactorModule {
 	if len(cfg) > 0 && cfg[0] != nil {
 		moduleConfig = cfg[0]
 	} else {
-		moduleConfig = &config.TwoFactorConfig{
-			Issuer:           "GoAuth",
-			Required:         false,
-			BackupCodesCount: 10,
-			CodeLength:       8,
-		}
+		moduleConfig = &config.TwoFactorConfig{}
+	}
+
+	// Apply defaults for any zero values (handles partial configs)
+	if moduleConfig.Issuer == "" {
+		moduleConfig.Issuer = "GoAuth"
+	}
+	if moduleConfig.BackupCodesCount <= 0 {
+		moduleConfig.BackupCodesCount = 10
+	}
+	if moduleConfig.CodeLength <= 0 {
+		moduleConfig.CodeLength = 8
 	}
 
 	return &TwoFactorModule{
@@ -75,30 +81,35 @@ func (m *TwoFactorModule) Routes() []config.RouteInfo {
 	}
 	return []config.RouteInfo{
 		{
-			Name:    "twofactor.setup",
-			Path:    "/2fa/setup",
-			Method:  http.MethodPost,
-			Handler: m.handlers.SetupHandler,
+			Name:        "twofactor.setup",
+			Path:        "/2fa/setup",
+			Method:      http.MethodPost,
+			Handler:     m.handlers.SetupHandler,
+			Middlewares: []types.MiddlewareName{types.MiddlewareAuth},
 		},
 		{
-			Name:    "twofactor.verify",
-			Path:    "/2fa/verify",
-			Method:  http.MethodPost,
-			Handler: m.handlers.VerifyHandler,
+			Name:        "twofactor.verify",
+			Path:        "/2fa/verify",
+			Method:      http.MethodPost,
+			Handler:     m.handlers.VerifyHandler,
+			Middlewares: []types.MiddlewareName{types.MiddlewareAuth},
 		},
 		{
-			Name:    "twofactor.disable",
-			Path:    "/2fa/disable",
-			Method:  http.MethodPost,
-			Handler: m.handlers.DisableHandler,
+			Name:        "twofactor.disable",
+			Path:        "/2fa/disable",
+			Method:      http.MethodPost,
+			Handler:     m.handlers.DisableHandler,
+			Middlewares: []types.MiddlewareName{types.MiddlewareAuth},
 		},
 		{
-			Name:    "twofactor.status",
-			Path:    "/2fa/status",
-			Method:  http.MethodGet,
-			Handler: m.handlers.StatusHandler,
+			Name:        "twofactor.status",
+			Path:        "/2fa/status",
+			Method:      http.MethodGet,
+			Handler:     m.handlers.StatusHandler,
+			Middlewares: []types.MiddlewareName{types.MiddlewareAuth},
 		},
 		{
+			// No auth middleware - uses temp_token from 2FA challenge instead
 			Name:    "twofactor.verify-login",
 			Path:    "/2fa/verify-login",
 			Method:  http.MethodPost,

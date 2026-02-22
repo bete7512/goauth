@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -42,11 +43,10 @@ func (s *StatelessService) Login(ctx context.Context, req *dto.LoginRequest) (dt
 		Metadata: metadata,
 	}); eventErr != nil {
 		// Check if this is a 2FA required error (special case - not really an error)
-		if goAuthErr, ok := eventErr.(*types.GoAuthError); ok {
-			if goAuthErr.Code == types.ErrTwoFactorRequired {
-				// Return the 2FA challenge to the handler
-				return dto.AuthResponse{}, goAuthErr
-			}
+		// Use errors.As because the event bus wraps errors with fmt.Errorf("%w")
+		var goAuthErr *types.GoAuthError
+		if errors.As(eventErr, &goAuthErr) && goAuthErr.Code == types.ErrTwoFactorRequired {
+			return dto.AuthResponse{}, goAuthErr
 		}
 		// Other errors should block login
 		s.Logger.Errorf("stateless: password verified event handler failed: %v", eventErr)

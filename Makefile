@@ -47,4 +47,4 @@ lint:
 
 # Clean generated files
 clean:
-	rm -f coverage.out coverage.html
+	rm -f coverage.out coverage.html test_out.txt
