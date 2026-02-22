@@ -65,11 +65,17 @@ paths:
   /2fa/disable:
     post:
       summary: Disable two-factor authentication
-      description: Disable 2FA for the authenticated user
+      description: Disable 2FA for the authenticated user. Requires current TOTP code to confirm.
       tags: [Two-Factor Authentication Module]
       security:
         - cookieAuth: []
         - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TwoFactorVerifyRequest'
       responses:
         '200':
           description: 2FA disabled successfully
@@ -77,14 +83,49 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Invalid or missing code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Not authenticated
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal server error
+
+  /2fa/verify-login:
+    post:
+      summary: Complete login with two-factor authentication
+      description: |
+        Submit a TOTP code (or backup code) to complete the login flow after receiving
+        a `TWO_FACTOR_REQUIRED` challenge from the login endpoint.
+        Use the `temp_token` returned by the login challenge in the request body.
+        On success, returns the same tokens as a normal login response.
+      tags: [Two-Factor Authentication Module]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TwoFactorVerifyLoginRequest'
+      responses:
+        '200':
+          description: 2FA verified — authentication tokens issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TwoFactorAuthResponse'
+        '400':
+          description: Missing or invalid request fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid or expired temp_token / wrong TOTP code
           content:
             application/json:
               schema:
@@ -125,9 +166,26 @@ components:
       properties:
         code:
           type: string
-          pattern: '^\d{6}$'
           example: "123456"
-          description: 6-digit TOTP code from authenticator app
+          description: 6-digit TOTP code from authenticator app (or 8-character backup code e.g. "ABCD-EFGH")
+
+    TwoFactorVerifyLoginRequest:
+      type: object
+      required: [code]
+      properties:
+        temp_token:
+          type: string
+          example: "eyJhbGci..."
+          description: Temporary token from the TWO_FACTOR_REQUIRED login challenge (preferred)
+        user_id:
+          type: string
+          format: uuid
+          example: "6c9c5673-b6cb-40d5-97c0-aba3886fac68"
+          description: User ID fallback (use temp_token instead when available)
+        code:
+          type: string
+          example: "123456"
+          description: 6-digit TOTP code from authenticator app, or 8-character backup code (e.g. "ABCD-EFGH")
 
     # Response Schemas
     TwoFactorSetupResponse:
@@ -136,16 +194,54 @@ components:
         secret:
           type: string
           example: JBSWY3DPEHPK3PXP
-          description: TOTP secret key (base32 encoded)
+          description: TOTP secret key (base32 encoded) — store securely
         qr_url:
           type: string
           format: uri
           example: otpauth://totp/GoAuth:user@example.com?secret=JBSWY3DPEHPK3PXP&issuer=GoAuth
-          description: QR code URL for authenticator app
+          description: QR code URL — scan with authenticator app (Google Authenticator, Authy, etc.)
+        backup_codes:
+          type: array
+          items:
+            type: string
+          example: ["ABCD-EFGH", "IJKL-MNOP"]
+          description: One-time backup codes — save these securely, shown only once
         message:
           type: string
-          example: Scan QR code with your authenticator app
+          example: "Scan the QR code with your authenticator app, then verify with a code to enable 2FA"
           description: Setup instructions
+
+    TwoFactorAuthResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: JWT access token
+        refresh_token:
+          type: string
+          description: Refresh token
+        session_id:
+          type: string
+          format: uuid
+          description: Session ID (session-based auth only)
+        expires_in:
+          type: integer
+          example: 2592000
+          description: Access token TTL in seconds
+        user:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            email:
+              type: string
+              format: email
+            name:
+              type: string
+        message:
+          type: string
+          example: "2FA verification successful - tokens issued"
 
     TwoFactorStatusResponse:
       type: object

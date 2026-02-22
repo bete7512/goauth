@@ -29,6 +29,7 @@ func (r *twoFactorRepository) GetByUserID(ctx context.Context, userID string) (*
 	err := r.db.WithContext(ctx).Where("user_id = ?", userID).First(&tf).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
+			// TODO: somehow this have to be changed to generic not found instead of gorm not found here
 			return nil, nil
 		}
 		return nil, err
