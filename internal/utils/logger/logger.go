@@ -1,26 +1,10 @@
 package logger
 
+import "github.com/bete7512/goauth/pkg/types"
+
 //go:generate mockgen -destination=../../mocks/mock_logger.go -package=mocks github.com/bete7512/goauth/internal/utils/logger Logger
 
-// Logger is the unified interface for logging across the entire application.
-// Users can implement this interface to provide their own logger
-// (e.g., logrus, zap, zerolog, or any custom implementation).
-type Logger interface {
-	// Structured logging with key-value pairs
-	Info(msg string, args ...interface{})
-	Error(msg string, args ...interface{})
-	Debug(msg string, args ...interface{})
-	Warn(msg string, args ...interface{})
-	Trace(msg string, args ...interface{})
-
-	// Printf-style logging
-	Infof(format string, args ...interface{})
-	Tracef(format string, args ...interface{})
-	Errorf(format string, args ...interface{})
-	Debugf(format string, args ...interface{})
-	Warnf(format string, args ...interface{})
-	Fatalf(format string, args ...interface{})
-
-	// WithFields returns a logger with pre-set fields
-	WithFields(fields map[string]interface{}) Logger
-}
+// Logger is a type alias for types.Logger.
+// All internal code continues to work unchanged; the interface is now defined in pkg/types
+// so external module authors can reference it without importing internal packages.
+type Logger = types.Logger

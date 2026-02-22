@@ -185,6 +185,32 @@ paths:
         '403':
           description: Forbidden - super admin access required
 
+  /admin/audit/cleanup:
+    post:
+      tags:
+        - Audit Logs
+      summary: Trigger audit log cleanup
+      description: Deletes old audit logs based on the configured retention policy (admin only)
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Cleanup completed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "audit log cleanup completed successfully"
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - admin access required
+        '500':
+          description: Internal server error
+
 components:
   parameters:
     Limit:

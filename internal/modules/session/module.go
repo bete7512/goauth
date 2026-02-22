@@ -17,8 +17,8 @@ import (
 	"github.com/bete7512/goauth/pkg/types"
 )
 
-//go:embed docs/swagger.yml
-var swaggerSpec []byte
+//go:embed docs/openapi.yml
+var openapiSpec []byte
 
 type SessionModule struct {
 	deps          config.ModuleDependencies
@@ -117,8 +117,8 @@ func (m *SessionModule) Init(ctx context.Context, deps config.ModuleDependencies
 	return nil
 }
 
-func (m *SessionModule) SwaggerSpec() []byte {
-	return swaggerSpec
+func (m *SessionModule) OpenAPISpecs() []byte {
+	return openapiSpec
 }
 
 func (m *SessionModule) Name() string {

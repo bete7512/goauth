@@ -1,7 +1,7 @@
 package types
 
-// SwaggerSecurityScheme defines an OpenAPI security scheme
-type SwaggerSecurityScheme struct {
+// OpenAPISecurityScheme defines an OpenAPI security scheme
+type OpenAPISecurityScheme struct {
 	Type         string                 // apiKey, http, oauth2, openIdConnect
 	In           string                 // query, header, cookie (for apiKey)
 	Name         string                 // Name of the header, query, or cookie (for apiKey)
@@ -11,17 +11,17 @@ type SwaggerSecurityScheme struct {
 	Flows        map[string]interface{} // OAuth2 flows (for oauth2 type)
 }
 
-type SwaggerConfig struct {
+type OpenAPIConfig struct {
 	Title           string
 	Path            string
 	Description     string
 	Version         string
-	Servers         []SwaggerServer
-	SecuritySchemes map[string]SwaggerSecurityScheme // Custom security schemes (optional)
+	Servers         []OpenAPIServer
+	SecuritySchemes map[string]OpenAPISecurityScheme // Custom security schemes (optional)
 	UseDefaultAuth  bool                             // Use default auth based on SecurityConfig.AuthMode
 }
 
-type SwaggerServer struct {
+type OpenAPIServer struct {
 	URL         string
 	Description string
 }

@@ -6,16 +6,16 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/bete7512/goauth/internal/docs/swagger"
+	"github.com/bete7512/goauth/internal/docs/openapi"
 	"github.com/bete7512/goauth/internal/utils"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/types"
 )
 
-// GenerateSwaggerDocs dynamically generates docs for enabled modules only
-func (a *Auth) GenerateSwaggerDocs(cfg types.SwaggerConfig) ([]byte, error) {
+// GenerateOpenAPIDocs dynamically generates docs for enabled modules only
+func (a *Auth) GenerateOpenAPIDocs(cfg types.OpenAPIConfig) ([]byte, error) {
 	if !a.initialized {
-		return nil, errors.New("auth must be initialized before generating swagger docs")
+		return nil, errors.New("auth must be initialized before generating openapi docs")
 	}
 
 	modules := make([]config.Module, 0, len(a.modules))
@@ -23,12 +23,12 @@ func (a *Auth) GenerateSwaggerDocs(cfg types.SwaggerConfig) ([]byte, error) {
 		modules = append(modules, module)
 	}
 
-	gen := swagger.NewGenerator(modules, cfg)
+	gen := openapi.NewGenerator(modules, cfg)
 	return gen.MergeEnabledModules()
 }
 
-// EnableSwagger adds swagger UI and spec endpoints
-func (a *Auth) EnableSwagger(cfg types.SwaggerConfig) error {
+// OpenAPI adds the OpenAPI UI and spec endpoints
+func (a *Auth) OpenAPI(cfg types.OpenAPIConfig) error {
 	basePath := strings.TrimRight(a.config.BasePath, "/")
 	if len(cfg.Servers) == 0 {
 		return fmt.Errorf("no servers provided")
@@ -40,17 +40,16 @@ func (a *Auth) EnableSwagger(cfg types.SwaggerConfig) error {
 		cfg.Servers[i].URL = strings.TrimRight(cfg.Servers[i].URL, "/") + basePath
 	}
 
-	spec, err := a.GenerateSwaggerDocs(cfg)
+	spec, err := a.GenerateOpenAPIDocs(cfg)
 	if err != nil {
-		a.moduleDependencies.Logger.Error("failed to generate swagger", "error", err)
-		return fmt.Errorf("failed to generate swagger: %w", err)
+		a.moduleDependencies.Logger.Error("failed to generate openapi docs", "error", err)
+		return fmt.Errorf("failed to generate openapi docs: %w", err)
 	}
 
 	path := "/" + strings.Trim(cfg.Path, "/")
-	// Add swagger routes
-	swaggerRoutes := []config.RouteInfo{
+	openapiRoutes := []config.RouteInfo{
 		{
-			Name:   "swagger.spec",
+			Name:   "openapi.spec",
 			Path:   path + "/openapi.yaml",
 			Method: "GET",
 			Handler: func(w http.ResponseWriter, r *http.Request) {
@@ -59,14 +58,14 @@ func (a *Auth) EnableSwagger(cfg types.SwaggerConfig) error {
 			},
 		},
 		{
-			Name:    "swagger.ui",
+			Name:    "openapi.ui",
 			Path:    path,
 			Method:  "GET",
-			Handler: swagger.ServeSwaggerUI(path + "/openapi.yaml"),
+			Handler: openapi.ServeOpenAPIUI(path + "/openapi.yaml"),
 		},
 	}
 
 	// Add to routes
-	a.routes = append(a.routes, swaggerRoutes...)
+	a.routes = append(a.routes, openapiRoutes...)
 	return nil
 }

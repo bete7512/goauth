@@ -12,8 +12,8 @@ import (
 	"github.com/bete7512/goauth/pkg/types"
 )
 
-//go:embed docs/swagger.yml
-var swaggerSpec []byte
+//go:embed docs/openapi.yml
+var openapiSpec []byte
 
 // CSRFModule provides CSRF protection using the HMAC-based double-submit cookie pattern.
 // Tokens are stateless — no server-side storage is required.
@@ -75,6 +75,6 @@ func (m *CSRFModule) Dependencies() []string {
 	return nil
 }
 
-func (m *CSRFModule) SwaggerSpec() []byte {
-	return swaggerSpec
+func (m *CSRFModule) OpenAPISpecs() []byte {
+	return openapiSpec
 }

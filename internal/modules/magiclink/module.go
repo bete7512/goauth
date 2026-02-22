@@ -13,8 +13,8 @@ import (
 	"github.com/bete7512/goauth/pkg/types"
 )
 
-//go:embed docs/swagger.yml
-var swaggerSpec []byte
+//go:embed docs/openapi.yml
+var openapiSpec []byte
 
 type MagicLinkModule struct {
 	deps          config.ModuleDependencies
@@ -55,7 +55,7 @@ func (m *MagicLinkModule) Init(ctx context.Context, deps config.ModuleDependenci
 		return errors.New("core storage is required for magic link module")
 	}
 
-	var securityManager *security.SecurityManager
+	var securityManager types.SecurityManager
 	if deps.SecurityManager != nil {
 		securityManager = deps.SecurityManager
 	} else {
@@ -99,6 +99,6 @@ func (m *MagicLinkModule) Dependencies() []string {
 	return []string{string(types.CoreModule)}
 }
 
-func (m *MagicLinkModule) SwaggerSpec() []byte {
-	return swaggerSpec
+func (m *MagicLinkModule) OpenAPISpecs() []byte {
+	return openapiSpec
 }

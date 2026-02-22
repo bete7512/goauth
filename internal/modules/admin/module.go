@@ -13,8 +13,8 @@ import (
 	"github.com/bete7512/goauth/pkg/types"
 )
 
-//go:embed docs/swagger.yml
-var swaggerSpec []byte
+//go:embed docs/openapi.yml
+var openapiSpec []byte
 
 type AdminModule struct {
 	deps       config.ModuleDependencies
@@ -113,6 +113,6 @@ func (m *AdminModule) Dependencies() []string {
 	return []string{string(types.CoreModule)}
 }
 
-func (m *AdminModule) SwaggerSpec() []byte {
-	return swaggerSpec
+func (m *AdminModule) OpenAPISpecs() []byte {
+	return openapiSpec
 }

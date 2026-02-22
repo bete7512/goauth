@@ -6,7 +6,6 @@ import (
 	"context"
 
 	"github.com/bete7512/goauth/internal/modules/oauth/providers"
-	"github.com/bete7512/goauth/internal/security"
 	"github.com/bete7512/goauth/internal/utils/logger"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/models"
@@ -54,7 +53,7 @@ type oauthService struct {
 	tokenRepo       models.TokenRepository
 	accountRepo     models.AccountRepository
 	sessionRepo     models.SessionRepository // nil if stateless mode
-	securityManager *security.SecurityManager
+	securityManager types.SecurityManager
 	logger          logger.Logger
 	apiURL          string
 	basePath        string
@@ -69,7 +68,7 @@ func NewOAuthService(
 	tokenRepo models.TokenRepository,
 	accountRepo models.AccountRepository,
 	sessionRepo models.SessionRepository, // nil for stateless mode
-	securityManager *security.SecurityManager,
+	securityManager types.SecurityManager,
 	apiURL, basePath string,
 ) *oauthService {
 	return &oauthService{

@@ -18,6 +18,15 @@ func RespondSuccess[T any](w http.ResponseWriter, data T, message *string) {
 	writeJSON(w, http.StatusOK, response)
 }
 
+// RespondCreated writes a 201 Created response (for resource creation endpoints).
+func RespondCreated[T any](w http.ResponseWriter, data T, message *string) {
+	response := types.APIResponse[T]{
+		Data:    data,
+		Message: message,
+	}
+	writeJSON(w, http.StatusCreated, response)
+}
+
 // 
 
 // Error response

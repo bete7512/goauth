@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/bete7512/goauth/internal/security"
 	http_utils "github.com/bete7512/goauth/internal/utils/http"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/types"
@@ -14,10 +13,10 @@ import (
 
 type AuthMiddleware struct {
 	Config          *config.Config
-	SecurityManager *security.SecurityManager
+	SecurityManager types.SecurityManager
 }
 
-func NewAuthMiddleware(config *config.Config, securityManager *security.SecurityManager) *AuthMiddleware {
+func NewAuthMiddleware(config *config.Config, securityManager types.SecurityManager) *AuthMiddleware {
 	return &AuthMiddleware{
 		Config:          config,
 		SecurityManager: securityManager,

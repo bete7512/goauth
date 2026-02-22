@@ -122,6 +122,16 @@ func (h *AuditHandler) AdminGetUserAudit(w http.ResponseWriter, r *http.Request)
 	http_utils.RespondList(w, logs, total, opts.SortField, opts.SortDir)
 }
 
+// AdminCleanupLogs handles POST /admin/audit/cleanup
+func (h *AuditHandler) AdminCleanupLogs(w http.ResponseWriter, r *http.Request) {
+	if authErr := h.service.CleanupOldLogs(r.Context()); authErr != nil {
+		http_utils.RespondError(w, authErr.StatusCode, string(authErr.Code), authErr.Message)
+		return
+	}
+	msg := "audit log cleanup completed successfully"
+	http_utils.RespondSuccess(w, struct{}{}, &msg)
+}
+
 // AdminGetActionAudit handles GET /admin/audit/actions/{action}
 func (h *AuditHandler) AdminGetActionAudit(w http.ResponseWriter, r *http.Request) {
 	action := r.PathValue("action")

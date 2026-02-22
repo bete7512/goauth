@@ -8,14 +8,14 @@ import (
 	"os"
 	"time"
 
-	"github.com/bete7512/goauth/internal/modules/admin"
-	"github.com/bete7512/goauth/internal/modules/audit"
-	"github.com/bete7512/goauth/internal/modules/magiclink"
-	"github.com/bete7512/goauth/internal/modules/notification"
-	"github.com/bete7512/goauth/internal/modules/notification/services/senders"
-	"github.com/bete7512/goauth/internal/modules/notification/templates"
-	"github.com/bete7512/goauth/internal/modules/oauth"
-	"github.com/bete7512/goauth/internal/modules/session"
+	"github.com/bete7512/goauth/pkg/modules/admin"
+	"github.com/bete7512/goauth/pkg/modules/audit"
+	"github.com/bete7512/goauth/pkg/modules/magiclink"
+	"github.com/bete7512/goauth/pkg/modules/notification"
+	"github.com/bete7512/goauth/pkg/modules/notification/senders"
+	"github.com/bete7512/goauth/pkg/modules/oauth"
+	"github.com/bete7512/goauth/pkg/modules/session"
+	"github.com/bete7512/goauth/pkg/modules/twofactor"
 	"github.com/bete7512/goauth/pkg/adapters/stdhttp"
 	"github.com/bete7512/goauth/pkg/auth"
 	"github.com/bete7512/goauth/pkg/config"
@@ -122,7 +122,7 @@ func main() {
 					DefaultFromName: "Goauth",
 				},
 			),
-			Branding: &templates.Branding{
+			Branding: &notification.Branding{
 				AppName:      "Go Auth",
 				LogoURL:      "https://www.syncore-labs.com/logo.svg",
 				PrimaryColor: "#006266",
@@ -216,25 +216,29 @@ func main() {
 		StateTTL:               10 * time.Minute,
 	}, nil))
 
+	authInstance.Use(twofactor.New(&config.TwoFactorConfig{
+		Issuer: "goauth.beteg.dev",
+	}))
+
 	// Initialize after all modules are registered
 	if err := authInstance.Initialize(context.Background()); err != nil {
 		log.Fatalf("Failed to initialize auth: %v", err)
 	}
 
-	// Enable swagger after initialization
-	if err := authInstance.EnableSwagger(
-		types.SwaggerConfig{
+	// Enable OpenAPI after initialization
+	if err := authInstance.OpenAPI(
+		types.OpenAPIConfig{
 			Title:       "GoAuth Docs",
 			Description: "GoAuth Documentation",
 			Version:     "1.0.0",
 			Path:        "/api/v1/docs",
-			Servers: []types.SwaggerServer{
+			Servers: []types.OpenAPIServer{
 				{URL: "http://localhost:8080", Description: "Development Server"},
 				{URL: "https://goauth.com", Description: "Production Server"},
 			},
 		},
 	); err != nil {
-		log.Fatalf("Failed to enable swagger: %v", err)
+		log.Fatalf("Failed to enable openapi: %v", err)
 	}
 	// --- Framework Integration via Adapters ---
 	//

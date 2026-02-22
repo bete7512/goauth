@@ -13,6 +13,9 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// Compile-time check: SecurityManager must satisfy types.SecurityManager
+var _ types.SecurityManager = (*SecurityManager)(nil)
+
 type SecurityManager struct {
 	Config types.SecurityConfig
 }
@@ -91,8 +94,8 @@ func (t *SecurityManager) GenerateTokens(user *models.User, claims map[string]in
 	return accessToken, refreshToken, nil
 }
 
-// ValidateToken validates a JWT token
-func (t *SecurityManager) ValidateJWTToken(tokenString string) (jwt.MapClaims, error) {
+// ValidateJWTToken validates a JWT token and returns its claims as a plain map.
+func (t *SecurityManager) ValidateJWTToken(tokenString string) (map[string]interface{}, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errors.New("unexpected signing method")
@@ -111,7 +114,7 @@ func (t *SecurityManager) ValidateJWTToken(tokenString string) (jwt.MapClaims, e
 	}
 
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-		return claims, nil
+		return map[string]interface{}(claims), nil
 	}
 
 	return nil, errors.New("invalid token")

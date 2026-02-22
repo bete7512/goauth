@@ -10,6 +10,7 @@ import (
 	"github.com/bete7512/goauth/internal/modules/core"
 	"github.com/bete7512/goauth/internal/modules/core/middlewares"
 	"github.com/bete7512/goauth/internal/modules/stateless"
+	"github.com/bete7512/goauth/internal/security"
 	"github.com/bete7512/goauth/internal/utils/logger"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/types"
@@ -23,7 +24,7 @@ type Auth struct {
 	moduleDependencies config.ModuleDependencies
 	eventBus           *events.EventBus
 	middlewareManager  *middleware.Manager
-	logger             logger.Logger
+	logger             types.Logger
 	initialized        bool
 }
 
@@ -98,6 +99,8 @@ func New(cfg *config.Config) (*Auth, error) {
 		configLogger = authLogger
 	}
 
+	securityManager := security.NewSecurityManager(cfg.Security)
+
 	eventBusAdapter := events.NewEventBusAdapter(eventBus)
 	auth.moduleDependencies = config.ModuleDependencies{
 		Storage:           cfg.Storage,
@@ -105,6 +108,7 @@ func New(cfg *config.Config) (*Auth, error) {
 		Logger:            configLogger,
 		Events:            eventBusAdapter,
 		MiddlewareManager: middlewareManager,
+		SecurityManager:   securityManager,
 	}
 
 	// Auto-register core module if not already configured
