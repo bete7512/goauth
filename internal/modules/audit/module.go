@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/bete7512/goauth/internal/modules/audit/handlers"
 	"github.com/bete7512/goauth/internal/modules/audit/services"
@@ -89,6 +90,23 @@ func (m *AuditModule) Init(ctx context.Context, deps config.ModuleDependencies) 
 
 	// Initialize handlers
 	m.handlers = handlers.NewAuditHandler(deps, m.service)
+
+	go func() {
+		// start  cleaner
+		ticker := time.NewTicker(24 * time.Hour)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				if err := m.service.CleanupOldLogs(context.Background()); err != nil {
+					m.deps.Logger.Errorf("audit: cleanup failed: %s", err.Message)
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
 
 	return nil
 }
