@@ -29,6 +29,7 @@ func (s *LoginServiceSuite) setupService() (
 	*mocks.MockUserRepository,
 	*mocks.MockSessionRepository,
 	*mocks.MockLogger,
+	*mocks.MockEventBus,
 ) {
 	ctrl := gomock.NewController(s.T())
 	s.T().Cleanup(ctrl.Finish)
@@ -49,7 +50,7 @@ func (s *LoginServiceSuite) setupService() (
 	}
 
 	svc := services.NewSessionService(deps, mockUserRepo, mockSessionRepo, mockLogger, secMgr, cfg)
-	return svc, mockUserRepo, mockSessionRepo, mockLogger
+	return svc, mockUserRepo, mockSessionRepo, mockLogger, mockEvents
 }
 
 func (s *LoginServiceSuite) TestLogin() {
@@ -57,7 +58,7 @@ func (s *LoginServiceSuite) TestLogin() {
 		name       string
 		req        *dto.LoginRequest
 		metadata   *types.RequestMetadata
-		setup      func(*models.User, *mocks.MockUserRepository, *mocks.MockSessionRepository, *mocks.MockLogger)
+		setup      func(*models.User, *mocks.MockUserRepository, *mocks.MockSessionRepository, *mocks.MockLogger, *mocks.MockEventBus)
 		wantErr    bool
 		errCode    types.ErrorCode
 		statusCode int
@@ -66,8 +67,9 @@ func (s *LoginServiceSuite) TestLogin() {
 			name:     "success with email",
 			req:      &dto.LoginRequest{Email: "test@example.com", Password: "password123"},
 			metadata: &types.RequestMetadata{IPAddress: "127.0.0.1", UserAgent: "TestAgent/1.0"},
-			setup: func(u *models.User, ur *mocks.MockUserRepository, sr *mocks.MockSessionRepository, lg *mocks.MockLogger) {
+			setup: func(u *models.User, ur *mocks.MockUserRepository, sr *mocks.MockSessionRepository, lg *mocks.MockLogger, me *mocks.MockEventBus) {
 				ur.EXPECT().FindByEmail(gomock.Any(), "test@example.com").Return(u, nil)
+				me.EXPECT().EmitSync(gomock.Any(), types.EventAfterPasswordVerified, gomock.Any()).Return(nil)
 				sr.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&models.Session{})).Return(nil)
 				ur.EXPECT().Update(gomock.Any(), gomock.AssignableToTypeOf(&models.User{})).Return(nil)
 			},
@@ -76,7 +78,7 @@ func (s *LoginServiceSuite) TestLogin() {
 			name:     "user not found",
 			req:      &dto.LoginRequest{Email: "unknown@example.com", Password: "password123"},
 			metadata: &types.RequestMetadata{IPAddress: "127.0.0.1", UserAgent: "TestAgent/1.0"},
-			setup: func(_ *models.User, ur *mocks.MockUserRepository, _ *mocks.MockSessionRepository, _ *mocks.MockLogger) {
+			setup: func(_ *models.User, ur *mocks.MockUserRepository, _ *mocks.MockSessionRepository, _ *mocks.MockLogger, _ *mocks.MockEventBus) {
 				ur.EXPECT().FindByEmail(gomock.Any(), "unknown@example.com").Return(nil, errors.New("not found"))
 			},
 			wantErr:    true,
@@ -87,7 +89,7 @@ func (s *LoginServiceSuite) TestLogin() {
 			name:     "wrong password",
 			req:      &dto.LoginRequest{Email: "test@example.com", Password: "wrongpassword"},
 			metadata: &types.RequestMetadata{IPAddress: "127.0.0.1", UserAgent: "TestAgent/1.0"},
-			setup: func(u *models.User, ur *mocks.MockUserRepository, _ *mocks.MockSessionRepository, _ *mocks.MockLogger) {
+			setup: func(u *models.User, ur *mocks.MockUserRepository, _ *mocks.MockSessionRepository, _ *mocks.MockLogger, _ *mocks.MockEventBus) {
 				ur.EXPECT().FindByEmail(gomock.Any(), "test@example.com").Return(u, nil)
 			},
 			wantErr:    true,
@@ -98,8 +100,9 @@ func (s *LoginServiceSuite) TestLogin() {
 			name:     "session create fails",
 			req:      &dto.LoginRequest{Email: "test@example.com", Password: "password123"},
 			metadata: &types.RequestMetadata{IPAddress: "127.0.0.1", UserAgent: "TestAgent/1.0"},
-			setup: func(u *models.User, ur *mocks.MockUserRepository, sr *mocks.MockSessionRepository, _ *mocks.MockLogger) {
+			setup: func(u *models.User, ur *mocks.MockUserRepository, sr *mocks.MockSessionRepository, _ *mocks.MockLogger, me *mocks.MockEventBus) {
 				ur.EXPECT().FindByEmail(gomock.Any(), "test@example.com").Return(u, nil)
+				me.EXPECT().EmitSync(gomock.Any(), types.EventAfterPasswordVerified, gomock.Any()).Return(nil)
 				sr.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&models.Session{})).Return(errors.New("db error"))
 			},
 			wantErr:    true,
@@ -110,8 +113,9 @@ func (s *LoginServiceSuite) TestLogin() {
 			name:     "update last login fails - still succeeds",
 			req:      &dto.LoginRequest{Email: "test@example.com", Password: "password123"},
 			metadata: &types.RequestMetadata{IPAddress: "127.0.0.1", UserAgent: "TestAgent/1.0"},
-			setup: func(u *models.User, ur *mocks.MockUserRepository, sr *mocks.MockSessionRepository, lg *mocks.MockLogger) {
+			setup: func(u *models.User, ur *mocks.MockUserRepository, sr *mocks.MockSessionRepository, lg *mocks.MockLogger, me *mocks.MockEventBus) {
 				ur.EXPECT().FindByEmail(gomock.Any(), "test@example.com").Return(u, nil)
+				me.EXPECT().EmitSync(gomock.Any(), types.EventAfterPasswordVerified, gomock.Any()).Return(nil)
 				sr.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&models.Session{})).Return(nil)
 				ur.EXPECT().Update(gomock.Any(), gomock.AssignableToTypeOf(&models.User{})).Return(errors.New("update failed"))
 				lg.EXPECT().Errorf(gomock.Any(), gomock.Any())
@@ -122,8 +126,8 @@ func (s *LoginServiceSuite) TestLogin() {
 	for _, tt := range tests {
 		s.Run(tt.name, func() {
 			testUser := testutil.TestUser()
-			svc, mockUserRepo, mockSessionRepo, mockLogger := s.setupService()
-			tt.setup(testUser, mockUserRepo, mockSessionRepo, mockLogger)
+			svc, mockUserRepo, mockSessionRepo, mockLogger, mockEvents := s.setupService()
+			tt.setup(testUser, mockUserRepo, mockSessionRepo, mockLogger, mockEvents)
 
 			resp, goauthErr := svc.Login(context.Background(), tt.req, tt.metadata)
 

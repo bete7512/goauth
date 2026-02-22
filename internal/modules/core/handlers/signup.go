@@ -74,5 +74,5 @@ func (h *CoreHandler) Signup(w http.ResponseWriter, r *http.Request) {
 		h.deps.Logger.Errorf("core: failed to emit after signup event: %v", emitErr)
 	}
 
-	http_utils.RespondSuccess(w, response, nil)
+	http_utils.RespondCreated(w, response, nil)
 }
