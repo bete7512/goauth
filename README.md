@@ -134,7 +134,7 @@ Session and stateless are **mutually exclusive**. Registering both panics. If ne
 **Session** — Server-side sessions with cookie strategies, session management (list/revoke), sliding expiration.
 
 ```go
-import "github.com/bete7512/goauth/internal/modules/session"
+import "github.com/bete7512/goauth/pkg/modules/session"
 
 a.Use(session.New(&config.SessionModuleConfig{
     EnableSessionManagement: true,
@@ -147,7 +147,7 @@ a.Use(session.New(&config.SessionModuleConfig{
 **Stateless** — JWT access + refresh tokens with refresh token rotation.
 
 ```go
-import "github.com/bete7512/goauth/internal/modules/stateless"
+import "github.com/bete7512/goauth/pkg/modules/stateless"
 
 a.Use(stateless.New(&config.StatelessModuleConfig{
     RefreshTokenRotation: true,
@@ -159,7 +159,10 @@ a.Use(stateless.New(&config.StatelessModuleConfig{
 Email/SMS delivery with pluggable senders and customizable branding & templates. Hooks into core events (signup, password reset, login alerts, etc.) — no HTTP routes.
 
 ```go
-import "github.com/bete7512/goauth/internal/modules/notification"
+import (
+    "github.com/bete7512/goauth/pkg/modules/notification"
+    "github.com/bete7512/goauth/pkg/modules/notification/senders"
+)
 
 a.Use(notification.New(&notification.Config{
     EmailSender:              senders.NewSendGridEmailSender(&senders.SendGridConfig{
@@ -177,9 +180,9 @@ a.Use(notification.New(&notification.Config{
 TOTP-based 2FA with backup codes. Setup, verify, disable, and status endpoints.
 
 ```go
-import "github.com/bete7512/goauth/internal/modules/twofactor"
+import "github.com/bete7512/goauth/pkg/modules/twofactor"
 
-a.Use(twofactor.New(&twofactor.TwoFactorConfig{
+a.Use(twofactor.New(&config.TwoFactorConfig{
     Issuer:           "MyApp",
     Required:         false,
     BackupCodesCount: 10,
@@ -203,9 +206,9 @@ Logs security-relevant events for compliance and debugging.
 reCAPTCHA v3 or Cloudflare Turnstile. Applied to specific routes by name.
 
 ```go
-import "github.com/bete7512/goauth/internal/modules/captcha"
+import "github.com/bete7512/goauth/pkg/modules/captcha"
 
-a.Use(captcha.New(&captcha.CaptchaConfig{
+a.Use(captcha.New(&config.CaptchaModuleConfig{
     Provider:           "google",
     RecaptchaSiteKey:   "your-site-key",
     RecaptchaSecretKey: "your-secret-key",
@@ -218,9 +221,9 @@ a.Use(captcha.New(&captcha.CaptchaConfig{
 Token-based CSRF protection for state-changing requests.
 
 ```go
-import "github.com/bete7512/goauth/internal/modules/csrf"
+import "github.com/bete7512/goauth/pkg/modules/csrf"
 
-a.Use(csrf.New(&csrf.CSRFConfig{
+a.Use(csrf.New(&config.CSRFModuleConfig{
     TokenLength:      32,
     TokenExpiry:      3600,
     Secure:           true,
@@ -351,15 +354,16 @@ make lint              # Lint (golangci-lint)
 
 ## Creating Custom Modules
 
+Implement `config.Module` (8 methods: `Name`, `Init`, `Routes`, `Middlewares`, `Models`, `RegisterHooks`, `Dependencies`, `OpenAPISpecs`) and pass your module to `auth.Use()`. As long as your module satisfies the interface, GoAuth treats it identically to bundled modules — it can use any storage backend and hook into all events.
+
+Scaffolding scripts for internal module development:
 ```bash
 cd internal/modules
 ./new_module_with_route.sh mymodule      # Module with routes
 ./new_module_with_no_route.sh mymodule   # Middleware-only module
 ```
 
-Every module implements `config.Module` (8 methods): `Name`, `Init`, `Routes`, `Middlewares`, `Models`, `RegisterHooks`, `Dependencies`, `SwaggerSpec`.
-
-Reference: `internal/modules/core/module.go`.
+Reference: `internal/modules/core/module.go` · `pkg/config/config.go` (Module interface).
 
 ## Documentation
 
@@ -379,7 +383,7 @@ Contributions are welcome. Here's how:
 5. Commit and push
 6. Open a pull request
 
-Please follow the existing code patterns — exported interface / unexported struct for services, `types.GoAuthError` for error returns, dot-notation route names, and embedded swagger specs per module.
+Please follow the existing code patterns — exported interface / unexported struct for services, `types.GoAuthError` for error returns, dot-notation route names, and embedded OpenAPI specs per module.
 
 If you're adding a new module, use the scaffolding scripts in `internal/modules/` and follow the `config.Module` interface.
 
