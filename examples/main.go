@@ -8,11 +8,11 @@ import (
 	"os"
 	"time"
 
+	"github.com/bete7512/goauth/internal/modules/audit"
 	"github.com/bete7512/goauth/pkg/adapters/stdhttp"
 	"github.com/bete7512/goauth/pkg/auth"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/modules/admin"
-	"github.com/bete7512/goauth/pkg/modules/audit"
 	"github.com/bete7512/goauth/pkg/modules/magiclink"
 	"github.com/bete7512/goauth/pkg/modules/notification"
 	"github.com/bete7512/goauth/pkg/modules/notification/senders"
@@ -67,9 +67,12 @@ func main() {
 				RequireSpecial:   false,
 			},
 		},
-		AutoMigrate: true,
-		APIURL:      "http://localhost:8080",
-		BasePath:    "/api/v1",
+		Migration: config.MigrationConfig{
+			Auto: true,
+			// OutputDir: ".examples/",
+		},
+		APIURL:   "http://localhost:8080",
+		BasePath: "/api/v1",
 		Core: &config.CoreConfig{
 			RequireEmailVerification: true,  // Enable email verification
 			RequirePhoneVerification: false, // Disable phone verification

@@ -16,10 +16,15 @@ type RouteInfo struct {
 	Middlewares []types.MiddlewareName
 }
 
-type ModuleMigration struct {
-	ID   string
-	Up   string
-	Down string
+// MigrationConfig controls the module migration system.
+type MigrationConfig struct {
+	// Auto: apply pending module migrations during Initialize().
+	Auto bool
+
+	// OutputDir: write up/down SQL files for all modules to this directory during Initialize().
+	// Files are named: {module}_{dialect}_up.sql and {module}_{dialect}_down.sql
+	// Can be combined with Auto (generates files AND applies them).
+	OutputDir string
 }
 
 type Module interface {
@@ -35,22 +40,22 @@ type Module interface {
 	// Middlewares returns middleware configurations for this module
 	Middlewares() []MiddlewareConfig
 
-	// Models returns database models for migration
-	Models() []interface{}
-
 	// RegisterHooks registers event handlers for this module
 	RegisterHooks(events types.EventBus) error
 
 	// Dependencies returns required module names
 	Dependencies() []string
 
-	// OpenAPUSpec returns module's openapi specs
-	OpenAPISpecs() []byte // Returns module's openapi specs
+	// OpenAPISpecs returns module's openapi specs
+	OpenAPISpecs() []byte
 
+	// Migrations returns per-dialect SQL migration files (up and down).
+	// Modules with no DB tables should return an empty types.ModuleMigrations{}.
+	Migrations() types.ModuleMigrations
 }
 
 type ModuleDependencies struct {
-	Storage           Storage
+	Storage           types.Storage
 	Config            *Config
 	Logger            types.Logger
 	Events            types.EventBus
@@ -77,10 +82,10 @@ type MiddlewareManager interface {
 
 type Config struct {
 	// Storage backend
-	Storage Storage
+	Storage types.Storage
 
-	// Migration
-	AutoMigrate bool
+	// Migration: module migration system with per-dialect SQL files and a tracking table.
+	Migration MigrationConfig
 
 	// Base path for all routes
 	BasePath string

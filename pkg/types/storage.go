@@ -53,10 +53,6 @@ type Storage interface {
 	// Audit Log
 	AuditLog() AuditLogStorage
 
-	// Migrate runs database migrations for the provided models
-	// Models should be collected from registered modules via their Models() method
-	Migrate(ctx context.Context, models []interface{}) error
-
 	// Close closes all storage connections
 	Close() error
 

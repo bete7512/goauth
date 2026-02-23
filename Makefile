@@ -27,16 +27,6 @@ test-coverage:
 test-coverage-html: test-coverage
 	go tool cover -html=coverage.out -o coverage.html
 
-# Run specific package tests
-test-core:
-	go test ./internal/modules/core/services/ -v -count=1
-
-test-session:
-	go test ./internal/modules/session/services/ -v -count=1
-
-test-events:
-	go test ./internal/events/ -v -count=1
-
 # Build
 build:
 	go build ./...

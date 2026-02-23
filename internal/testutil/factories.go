@@ -125,8 +125,7 @@ func TestSessionModuleConfig() *config.SessionModuleConfig {
 // TestConfig returns a full Config for tests.
 func TestConfig() *config.Config {
 	return &config.Config{
-		AutoMigrate: false,
-		BasePath:    "/api/v1",
+		BasePath: "/api/v1",
 		Security: types.SecurityConfig{
 			JwtSecretKey:  "test-secret-key-for-unit-tests",
 			EncryptionKey: "test-encryption-key-for-tests!",

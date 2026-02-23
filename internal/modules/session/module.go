@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	_ "embed"
+	"embed"
 
 	"github.com/bete7512/goauth/internal/modules/session/handlers"
 	"github.com/bete7512/goauth/internal/modules/session/middlewares"
@@ -13,12 +13,14 @@ import (
 	"github.com/bete7512/goauth/internal/security"
 	cookie_security "github.com/bete7512/goauth/internal/security/cookie"
 	"github.com/bete7512/goauth/pkg/config"
-	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
 )
 
 //go:embed docs/openapi.yml
 var openapiSpec []byte
+
+//go:embed migrations
+var migrationFS embed.FS
 
 type SessionModule struct {
 	deps          config.ModuleDependencies
@@ -153,16 +155,22 @@ func (m *SessionModule) Middlewares() []config.MiddlewareConfig {
 	}}
 }
 
-func (m *SessionModule) Models() []any {
-	return []any{
-		&models.Session{},
-	}
-}
-
 func (m *SessionModule) RegisterHooks(events types.EventBus) error {
 	return nil
 }
 
 func (m *SessionModule) Dependencies() []string {
 	return []string{string(types.CoreModule)}
+}
+
+func (m *SessionModule) Migrations() types.ModuleMigrations {
+	result := types.ModuleMigrations{}
+	for _, d := range []types.DialectType{types.DialectTypePostgres, types.DialectTypeMysql, types.DialectTypeSqlite} {
+		up, _ := migrationFS.ReadFile("migrations/" + string(d) + "/up.sql")
+		down, _ := migrationFS.ReadFile("migrations/" + string(d) + "/down.sql")
+		if len(up) > 0 {
+			result[d] = types.MigrationFiles{Up: up, Down: down}
+		}
+	}
+	return result
 }

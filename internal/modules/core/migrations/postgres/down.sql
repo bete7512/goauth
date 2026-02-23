@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS tokens;
+DROP TABLE IF EXISTS extended_attributes;
+DROP TABLE IF EXISTS users;

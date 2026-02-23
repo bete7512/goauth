@@ -18,7 +18,7 @@ import (
 
 type Auth struct {
 	config             *config.Config
-	storage            config.Storage
+	storage            types.Storage
 	modules            map[string]config.Module
 	routes             []config.RouteInfo
 	moduleDependencies config.ModuleDependencies
@@ -224,25 +224,19 @@ func (a *Auth) Initialize(ctx context.Context) error {
 		a.modules[statelessModule.Name()] = statelessModule
 	}
 
-	// Run migrations if enabled
-	// Collect models from registered modules
-	if a.config.AutoMigrate && a.storage != nil {
-		var allModels []interface{}
-		for name, module := range a.modules {
-			moduleModels := module.Models()
-			if len(moduleModels) > 0 {
-				a.logger.Debug("Collecting models from module", "module", name, "count", len(moduleModels))
-				allModels = append(allModels, moduleModels...)
-			}
+	// Run migrations
+	if a.config.Migration.Auto {
+		if err := a.ApplyMigrations(ctx); err != nil {
+			return fmt.Errorf("apply migrations: %w", err)
 		}
-
-		if len(allModels) > 0 {
-			a.logger.Info("Running auto-migrations", "models", len(allModels))
-			if err := a.storage.Migrate(ctx, allModels); err != nil {
-				return fmt.Errorf("failed to run migrations: %w", err)
-			}
-		} else {
-			a.logger.Warn("Auto-migrate enabled but no models found from registered modules")
+	}
+	if a.config.Migration.OutputDir != "" {
+		files, err := a.GenerateMigrationFiles(ctx, a.config.Migration.OutputDir)
+		if err != nil {
+			return fmt.Errorf("generate migration files: %w", err)
+		}
+		if len(files) > 0 {
+			a.logger.Info("Migration files written", "up", files[0], "down", files[1])
 		}
 	}
 

@@ -108,11 +108,6 @@ func (m *NotificationModule) Middlewares() []config.MiddlewareConfig {
 	return []config.MiddlewareConfig{}
 }
 
-func (m *NotificationModule) Models() []any {
-	// No models -- tokens are owned by core module.
-	return []any{}
-}
-
 func (m *NotificationModule) RegisterHooks(events types.EventBus) error {
 	hookManager := hooks.NewNotificationHooks(m.service, m.deps, &hooks.HookConfig{
 		EnableWelcomeEmail:        m.config.EnableWelcomeEmail,
@@ -134,6 +129,10 @@ func (m *NotificationModule) RegisterHooks(events types.EventBus) error {
 
 func (m *NotificationModule) OpenAPISpecs() []byte {
 	return nil
+}
+
+func (m *NotificationModule) Migrations() types.ModuleMigrations {
+	return types.ModuleMigrations{}
 }
 
 func (m *NotificationModule) Dependencies() []string {

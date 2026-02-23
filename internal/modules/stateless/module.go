@@ -88,14 +88,14 @@ func (m *StatelessModule) Middlewares() []config.MiddlewareConfig {
 	return nil
 }
 
-func (m *StatelessModule) Models() []any {
-	return nil
-}
-
 func (m *StatelessModule) RegisterHooks(events types.EventBus) error {
 	return nil
 }
 
 func (m *StatelessModule) Dependencies() []string {
 	return []string{string(types.CoreModule)}
+}
+
+func (m *StatelessModule) Migrations() types.ModuleMigrations {
+	return types.ModuleMigrations{}
 }

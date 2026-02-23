@@ -95,10 +95,6 @@ func (m *AdminModule) Middlewares() []config.MiddlewareConfig {
 	}
 }
 
-func (m *AdminModule) Models() []any {
-	return []any{}
-}
-
 func (m *AdminModule) RegisterHooks(events types.EventBus) error {
 	// register subscriptions here
 	events.Subscribe(types.EventAdminAction, types.EventHandler(func(ctx context.Context, event *types.Event) error {
@@ -115,4 +111,8 @@ func (m *AdminModule) Dependencies() []string {
 
 func (m *AdminModule) OpenAPISpecs() []byte {
 	return openapiSpec
+}
+
+func (m *AdminModule) Migrations() types.ModuleMigrations {
+	return types.ModuleMigrations{}
 }

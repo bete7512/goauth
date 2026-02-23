@@ -86,11 +86,6 @@ func (m *MagicLinkModule) Middlewares() []config.MiddlewareConfig {
 	return nil
 }
 
-func (m *MagicLinkModule) Models() []interface{} {
-	// Reuses Token and User models from core module
-	return nil
-}
-
 func (m *MagicLinkModule) RegisterHooks(events types.EventBus) error {
 	return nil
 }
@@ -101,4 +96,8 @@ func (m *MagicLinkModule) Dependencies() []string {
 
 func (m *MagicLinkModule) OpenAPISpecs() []byte {
 	return openapiSpec
+}
+
+func (m *MagicLinkModule) Migrations() types.ModuleMigrations {
+	return types.ModuleMigrations{}
 }

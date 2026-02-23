@@ -2,7 +2,7 @@ package twofactor
 
 import (
 	"context"
-	_ "embed"
+	"embed"
 	"fmt"
 	"net/http"
 	"time"
@@ -10,7 +10,6 @@ import (
 	"github.com/bete7512/goauth/internal/modules/twofactor/handlers"
 	"github.com/bete7512/goauth/internal/modules/twofactor/services"
 	"github.com/bete7512/goauth/pkg/config"
-	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -27,6 +26,9 @@ type TwoFactorModule struct {
 var (
 	//go:embed docs/openapi.yml
 	openapiSpec []byte
+
+	//go:embed migrations
+	migrationFS embed.FS
 )
 var _ config.Module = (*TwoFactorModule)(nil)
 
@@ -131,13 +133,6 @@ func (m *TwoFactorModule) Middlewares() []config.MiddlewareConfig {
 	}
 }
 
-func (m *TwoFactorModule) Models() []interface{} {
-	return []interface{}{
-		&models.TwoFactor{},
-		&models.BackupCode{},
-	}
-}
-
 func (m *TwoFactorModule) RegisterHooks(events types.EventBus) error {
 	m.deps.Logger.Info("Registering 2FA hooks")
 
@@ -226,4 +221,16 @@ func (m *TwoFactorModule) verify2FAMiddleware(next http.Handler) http.Handler {
 
 func (m *TwoFactorModule) OpenAPISpecs() []byte {
 	return openapiSpec
+}
+
+func (m *TwoFactorModule) Migrations() types.ModuleMigrations {
+	result := types.ModuleMigrations{}
+	for _, d := range []types.DialectType{types.DialectTypePostgres, types.DialectTypeMysql, types.DialectTypeSqlite} {
+		up, _ := migrationFS.ReadFile("migrations/" + string(d) + "/up.sql")
+		down, _ := migrationFS.ReadFile("migrations/" + string(d) + "/down.sql")
+		if len(up) > 0 {
+			result[d] = types.MigrationFiles{Up: up, Down: down}
+		}
+	}
+	return result
 }

@@ -2,7 +2,7 @@ package audit
 
 import (
 	"context"
-	_ "embed"
+	"embed"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -17,6 +17,9 @@ import (
 
 //go:embed docs/openapi.yml
 var openapiSpec []byte
+
+//go:embed migrations
+var migrationFS embed.FS
 
 type AuditModule struct {
 	deps     config.ModuleDependencies
@@ -124,12 +127,6 @@ func (m *AuditModule) Routes() []config.RouteInfo {
 
 func (m *AuditModule) Middlewares() []config.MiddlewareConfig {
 	return []config.MiddlewareConfig{}
-}
-
-func (m *AuditModule) Models() []any {
-	return []any{
-		&models.AuditLog{},
-	}
 }
 
 func (m *AuditModule) RegisterHooks(events types.EventBus) error {
@@ -318,4 +315,16 @@ func (m *AuditModule) Dependencies() []string {
 
 func (m *AuditModule) OpenAPISpecs() []byte {
 	return openapiSpec
+}
+
+func (m *AuditModule) Migrations() types.ModuleMigrations {
+	result := types.ModuleMigrations{}
+	for _, d := range []types.DialectType{types.DialectTypePostgres, types.DialectTypeMysql, types.DialectTypeSqlite} {
+		up, _ := migrationFS.ReadFile("migrations/" + string(d) + "/up.sql")
+		down, _ := migrationFS.ReadFile("migrations/" + string(d) + "/down.sql")
+		if len(up) > 0 {
+			result[d] = types.MigrationFiles{Up: up, Down: down}
+		}
+	}
+	return result
 }

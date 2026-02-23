@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	_ "embed"
+	"embed"
 
 	"github.com/bete7512/goauth/internal/modules/oauth/handlers"
 	"github.com/bete7512/goauth/internal/modules/oauth/providers"
@@ -18,6 +18,9 @@ import (
 
 //go:embed docs/openapi.yml
 var openapiSpec []byte
+
+//go:embed migrations
+var migrationFS embed.FS
 
 // OAuthModule provides OAuth authentication functionality
 type OAuthModule struct {
@@ -194,13 +197,6 @@ func (m *OAuthModule) Middlewares() []config.MiddlewareConfig {
 	return nil
 }
 
-// Models returns database models for migration
-func (m *OAuthModule) Models() []interface{} {
-	return []interface{}{
-		&models.Account{},
-	}
-}
-
 // RegisterHooks registers event handlers for this module
 func (m *OAuthModule) RegisterHooks(events types.EventBus) error {
 	return nil
@@ -219,4 +215,16 @@ func (m *OAuthModule) OpenAPISpecs() []byte {
 // GetRegistry returns the provider registry (for advanced use)
 func (m *OAuthModule) GetRegistry() *providers.Registry {
 	return m.registry
+}
+
+func (m *OAuthModule) Migrations() types.ModuleMigrations {
+	result := types.ModuleMigrations{}
+	for _, d := range []types.DialectType{types.DialectTypePostgres, types.DialectTypeMysql, types.DialectTypeSqlite} {
+		up, _ := migrationFS.ReadFile("migrations/" + string(d) + "/up.sql")
+		down, _ := migrationFS.ReadFile("migrations/" + string(d) + "/down.sql")
+		if len(up) > 0 {
+			result[d] = types.MigrationFiles{Up: up, Down: down}
+		}
+	}
+	return result
 }
