@@ -73,4 +73,26 @@ const (
 
 	// CSRF Routes
 	RouteCSRFToken RouteName = "csrf.get_token"
+
+	// Organization Routes
+	RouteOrgCreate  RouteName = "org.create"
+	RouteOrgMyOrgs  RouteName = "org.my"
+	RouteOrgGet     RouteName = "org.get"
+	RouteOrgUpdate  RouteName = "org.update"
+	RouteOrgDelete  RouteName = "org.delete"
+	RouteOrgSwitch  RouteName = "org.switch"
+
+	// Organization Member Routes
+	RouteOrgListMembers  RouteName = "org.members.list"
+	RouteOrgGetMember    RouteName = "org.members.get"
+	RouteOrgUpdateMember RouteName = "org.members.update"
+	RouteOrgRemoveMember RouteName = "org.members.remove"
+
+	// Organization Invitation Routes
+	RouteOrgInvite            RouteName = "org.invite"
+	RouteOrgListInvitations   RouteName = "org.invitations.list"
+	RouteOrgCancelInvitation  RouteName = "org.invitations.cancel"
+	RouteOrgAcceptInvitation  RouteName = "org.invitations.accept"
+	RouteOrgDeclineInvitation RouteName = "org.invitations.decline"
+	RouteOrgMyInvitations     RouteName = "org.my.invitations"
 )

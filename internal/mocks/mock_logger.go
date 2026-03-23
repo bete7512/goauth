@@ -12,7 +12,7 @@ package mocks
 import (
 	reflect "reflect"
 
-	logger "github.com/bete7512/goauth/internal/utils/logger"
+	types "github.com/bete7512/goauth/pkg/types"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -228,10 +228,10 @@ func (mr *MockLoggerMockRecorder) Warnf(format any, args ...any) *gomock.Call {
 }
 
 // WithFields mocks base method.
-func (m *MockLogger) WithFields(fields map[string]any) logger.Logger {
+func (m *MockLogger) WithFields(fields map[string]any) types.Logger {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WithFields", fields)
-	ret0, _ := ret[0].(logger.Logger)
+	ret0, _ := ret[0].(types.Logger)
 	return ret0
 }
 

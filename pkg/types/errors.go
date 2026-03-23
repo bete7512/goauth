@@ -101,6 +101,20 @@ const (
 	ErrOAuthEmailRequired     ErrorCode = "OAUTH_EMAIL_REQUIRED"
 	ErrOAuthAccountLinkingDisabled ErrorCode = "OAUTH_ACCOUNT_LINKING_DISABLED"
 
+	// Organization errors
+	ErrOrgNotFound             ErrorCode = "ORG_NOT_FOUND"
+	ErrOrgSlugTaken            ErrorCode = "ORG_SLUG_TAKEN"
+	ErrOrgMemberExists         ErrorCode = "ORG_MEMBER_EXISTS"
+	ErrOrgMemberNotFound       ErrorCode = "ORG_MEMBER_NOT_FOUND"
+	ErrOrgNotMember            ErrorCode = "ORG_NOT_MEMBER"
+	ErrOrgInsufficientRole     ErrorCode = "ORG_INSUFFICIENT_ROLE"
+	ErrOrgCannotRemoveOwner    ErrorCode = "ORG_CANNOT_REMOVE_OWNER"
+	ErrOrgMaxMembers           ErrorCode = "ORG_MAX_MEMBERS"
+	ErrInvitationNotFound      ErrorCode = "INVITATION_NOT_FOUND"
+	ErrInvitationExpired       ErrorCode = "INVITATION_EXPIRED"
+	ErrInvitationExists        ErrorCode = "INVITATION_ALREADY_EXISTS"
+	ErrInvitationEmailMismatch ErrorCode = "INVITATION_EMAIL_MISMATCH"
+
 	// unknown error
 	ErrUnknown ErrorCode = "UNKNOWN_ERROR"
 
@@ -687,4 +701,54 @@ func NewOAuthAccountLinkingDisabledError() *GoAuthError {
 		Message:    "Account linking via OAuth is disabled",
 		StatusCode: http.StatusForbidden,
 	}
+}
+
+// Organization error factory functions
+
+func NewOrgNotFoundError() *GoAuthError {
+	return &GoAuthError{Code: ErrOrgNotFound, Message: "Organization not found", StatusCode: http.StatusNotFound}
+}
+
+func NewOrgSlugTakenError() *GoAuthError {
+	return &GoAuthError{Code: ErrOrgSlugTaken, Message: "Organization slug is already taken", StatusCode: http.StatusConflict}
+}
+
+func NewOrgMemberExistsError() *GoAuthError {
+	return &GoAuthError{Code: ErrOrgMemberExists, Message: "User is already a member of this organization", StatusCode: http.StatusConflict}
+}
+
+func NewOrgMemberNotFoundError() *GoAuthError {
+	return &GoAuthError{Code: ErrOrgMemberNotFound, Message: "Organization member not found", StatusCode: http.StatusNotFound}
+}
+
+func NewOrgNotMemberError() *GoAuthError {
+	return &GoAuthError{Code: ErrOrgNotMember, Message: "You are not a member of this organization", StatusCode: http.StatusForbidden}
+}
+
+func NewOrgInsufficientRoleError() *GoAuthError {
+	return &GoAuthError{Code: ErrOrgInsufficientRole, Message: "Insufficient role for this operation", StatusCode: http.StatusForbidden}
+}
+
+func NewOrgCannotRemoveOwnerError() *GoAuthError {
+	return &GoAuthError{Code: ErrOrgCannotRemoveOwner, Message: "Cannot remove the organization owner", StatusCode: http.StatusForbidden}
+}
+
+func NewOrgMaxMembersError() *GoAuthError {
+	return &GoAuthError{Code: ErrOrgMaxMembers, Message: "Organization has reached the maximum number of members", StatusCode: http.StatusForbidden}
+}
+
+func NewInvitationNotFoundError() *GoAuthError {
+	return &GoAuthError{Code: ErrInvitationNotFound, Message: "Invitation not found", StatusCode: http.StatusNotFound}
+}
+
+func NewInvitationExpiredError() *GoAuthError {
+	return &GoAuthError{Code: ErrInvitationExpired, Message: "Invitation has expired", StatusCode: http.StatusBadRequest}
+}
+
+func NewInvitationExistsError() *GoAuthError {
+	return &GoAuthError{Code: ErrInvitationExists, Message: "A pending invitation already exists for this email", StatusCode: http.StatusConflict}
+}
+
+func NewInvitationEmailMismatchError() *GoAuthError {
+	return &GoAuthError{Code: ErrInvitationEmailMismatch, Message: "Your email does not match the invitation", StatusCode: http.StatusForbidden}
 }

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/bete7512/goauth/pkg/models"
+	"github.com/bete7512/goauth/pkg/types"
 )
 
 // LoginRequest represents login request
@@ -38,11 +39,12 @@ func (r *RefreshRequest) Validate() error {
 
 // AuthResponse represents authentication response
 type AuthResponse struct {
-	AccessToken  *string  `json:"access_token,omitempty"`
-	RefreshToken *string  `json:"refresh_token,omitempty"`
-	User         *UserDTO `json:"user"`
-	ExpiresIn    int64    `json:"expires_in,omitempty"`
-	Message      string   `json:"message,omitempty"`
+	AccessToken  *string                `json:"access_token,omitempty"`
+	RefreshToken *string                `json:"refresh_token,omitempty"`
+	User         *UserDTO               `json:"user,omitempty"`
+	ExpiresIn    int64                  `json:"expires_in,omitempty"`
+	Message      string                 `json:"message,omitempty"`
+	Challenges   []types.LoginChallenge `json:"challenges,omitempty"`
 }
 
 // UserDTO represents user data in responses

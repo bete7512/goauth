@@ -13,13 +13,107 @@ import (
 	"github.com/google/uuid"
 )
 
+// migrationKey uniquely identifies an applied migration.
+func migrationKey(moduleName string, version int) string {
+	return fmt.Sprintf("%s:%d", moduleName, version)
+}
+
+// buildAppliedSet returns a set of "module:version" keys from applied records.
+func buildAppliedSet(applied []types.MigrationRecord) map[string]struct{} {
+	set := make(map[string]struct{}, len(applied))
+	for _, r := range applied {
+		set[migrationKey(r.ModuleName, r.Version)] = struct{}{}
+	}
+	return set
+}
+
+// pendingMigration is a single migration step waiting to be applied.
+type pendingMigration struct {
+	moduleName string
+	version    int
+	name       string
+	up         []byte
+	down       []byte
+}
+
+// collectPending gathers all unapplied migrations across all modules, sorted by module name then version.
+func (a *Auth) collectPending(dialect types.DialectType, appliedSet map[string]struct{}) []pendingMigration {
+	// Sort module names for deterministic order.
+	names := make([]string, 0, len(a.modules))
+	for name := range a.modules {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	var pending []pendingMigration
+	for _, name := range names {
+		module := a.modules[name]
+		migrations, found := module.Migrations()[dialect]
+		if !found {
+			continue
+		}
+		for _, m := range migrations {
+			if _, applied := appliedSet[migrationKey(name, m.Version)]; applied {
+				continue
+			}
+			if len(m.Up) == 0 {
+				continue
+			}
+			pending = append(pending, pendingMigration{
+				moduleName: name,
+				version:    m.Version,
+				name:       m.Name,
+				up:         m.Up,
+				down:       m.Down,
+			})
+		}
+	}
+	return pending
+}
+
+// ApplyMigrations applies pending versioned migrations directly (reads embedded SQL, no file I/O).
+// Migrations are applied per-module in version order. Each applied migration is recorded individually.
+func (a *Auth) ApplyMigrations(ctx context.Context) error {
+	applier, ok := a.storage.(types.MigrationApplier)
+	if !ok {
+		return fmt.Errorf("storage does not implement MigrationApplier")
+	}
+	if err := applier.EnsureMigrationsTable(ctx); err != nil {
+		return fmt.Errorf("ensure migrations table: %w", err)
+	}
+	applied, err := applier.AppliedMigrations(ctx)
+	if err != nil {
+		return fmt.Errorf("get applied migrations: %w", err)
+	}
+	appliedSet := buildAppliedSet(applied)
+	dialect := applier.Dialect()
+
+	pending := a.collectPending(dialect, appliedSet)
+	for _, p := range pending {
+		a.logger.Info("Applying migration", "module", p.moduleName, "version", p.version, "name", p.name, "dialect", string(dialect))
+		if err := applier.ExecMigration(ctx, p.up); err != nil {
+			return fmt.Errorf("exec migration %s v%d (%s): %w", p.moduleName, p.version, p.name, err)
+		}
+		record := types.MigrationRecord{
+			ID:         uuid.NewString(),
+			ModuleName: p.moduleName,
+			Version:    p.version,
+			Name:       p.name,
+			Dialect:    string(dialect),
+			AppliedAt:  time.Now(),
+		}
+		if err := applier.RecordMigration(ctx, record); err != nil {
+			return fmt.Errorf("record migration %s v%d: %w", p.moduleName, p.version, err)
+		}
+	}
+	return nil
+}
+
 // GenerateMigrationFiles checks the goauth_migrations tracking table, collects all
-// modules that have not yet been applied, and writes their SQL into two combined files:
+// unapplied versioned migrations, and writes combined up/down SQL files.
 //
-//	goauth_{timestamp}_up.sql   — up migrations concatenated in module-name order
-//	goauth_{timestamp}_down.sql — down migrations in reverse order
-//
-// If every registered module is already tracked, no files are written and nil is returned.
+// Up file: migrations in module-name + version order.
+// Down file: migrations in reverse order.
 func (a *Auth) GenerateMigrationFiles(ctx context.Context, outputDir string) ([]string, error) {
 	applier, ok := a.storage.(types.MigrationApplier)
 	if !ok {
@@ -32,39 +126,10 @@ func (a *Auth) GenerateMigrationFiles(ctx context.Context, outputDir string) ([]
 	if err != nil {
 		return nil, fmt.Errorf("get applied migrations: %w", err)
 	}
-	appliedSet := make(map[string]struct{}, len(applied))
-	for _, r := range applied {
-		appliedSet[r.ModuleName] = struct{}{}
-	}
-
+	appliedSet := buildAppliedSet(applied)
 	dialect := applier.Dialect()
 
-	// Collect pending modules in deterministic (sorted) order.
-	type pendingEntry struct {
-		name string
-		up   []byte
-		down []byte
-	}
-	var pending []pendingEntry
-	// Sort module names for deterministic file content.
-	names := make([]string, 0, len(a.modules))
-	for name := range a.modules {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-
-	for _, name := range names {
-		module := a.modules[name]
-		if _, alreadyApplied := appliedSet[name]; alreadyApplied {
-			continue
-		}
-		files, found := module.Migrations()[dialect]
-		if !found || len(files.Up) == 0 {
-			continue
-		}
-		pending = append(pending, pendingEntry{name: name, up: files.Up, down: files.Down})
-	}
-
+	pending := a.collectPending(dialect, appliedSet)
 	if len(pending) == 0 {
 		return nil, nil
 	}
@@ -77,19 +142,19 @@ func (a *Auth) GenerateMigrationFiles(ctx context.Context, outputDir string) ([]
 	upPath := filepath.Join(outputDir, fmt.Sprintf("goauth_%s_up.sql", timestamp))
 	downPath := filepath.Join(outputDir, fmt.Sprintf("goauth_%s_down.sql", timestamp))
 
-	// Build combined up SQL — modules in sorted order.
+	// Build combined up SQL — modules in sorted order, then version order.
 	var upBuf strings.Builder
 	for _, p := range pending {
-		fmt.Fprintf(&upBuf, "-- module: %s\n", p.name)
+		fmt.Fprintf(&upBuf, "-- module: %s  version: %d  name: %s\n", p.moduleName, p.version, p.name)
 		upBuf.Write(p.up)
 		upBuf.WriteString("\n")
 	}
 
-	// Build combined down SQL — modules in reverse order (last in, first out).
+	// Build combined down SQL — reverse order.
 	var downBuf strings.Builder
 	for i := len(pending) - 1; i >= 0; i-- {
 		p := pending[i]
-		fmt.Fprintf(&downBuf, "-- module: %s\n", p.name)
+		fmt.Fprintf(&downBuf, "-- module: %s  version: %d  name: %s\n", p.moduleName, p.version, p.name)
 		downBuf.Write(p.down)
 		downBuf.WriteString("\n")
 	}
@@ -103,54 +168,8 @@ func (a *Auth) GenerateMigrationFiles(ctx context.Context, outputDir string) ([]
 	return []string{upPath, downPath}, nil
 }
 
-// ApplyMigrations applies pending module migrations directly (reads embedded SQL, no file I/O).
-// Records each applied migration in the goauth_migrations table.
-func (a *Auth) ApplyMigrations(ctx context.Context) error {
-	applier, ok := a.storage.(types.MigrationApplier)
-	if !ok {
-		return fmt.Errorf("storage does not implement MigrationApplier")
-	}
-	if err := applier.EnsureMigrationsTable(ctx); err != nil {
-		return fmt.Errorf("ensure migrations table: %w", err)
-	}
-	applied, err := applier.AppliedMigrations(ctx)
-	if err != nil {
-		return fmt.Errorf("get applied migrations: %w", err)
-	}
-	appliedSet := make(map[string]struct{}, len(applied))
-	for _, r := range applied {
-		appliedSet[r.ModuleName] = struct{}{}
-	}
-
-	dialect := applier.Dialect()
-	for _, module := range a.modules {
-		if _, alreadyApplied := appliedSet[module.Name()]; alreadyApplied {
-			continue
-		}
-		files, found := module.Migrations()[dialect]
-		if !found || len(files.Up) == 0 {
-			continue
-		}
-
-		a.logger.Info("Applying migration", "module", module.Name(), "dialect", string(dialect))
-		if err := applier.ExecMigration(ctx, files.Up); err != nil {
-			return fmt.Errorf("exec migration for %s: %w", module.Name(), err)
-		}
-		record := types.MigrationRecord{
-			ID:         uuid.NewString(),
-			ModuleName: module.Name(),
-			Dialect:    string(dialect),
-			AppliedAt:  time.Now(),
-			Status:     "up",
-		}
-		if err := applier.RecordMigration(ctx, record); err != nil {
-			return fmt.Errorf("record migration for %s: %w", module.Name(), err)
-		}
-	}
-	return nil
-}
-
-// RollbackModule runs the down.sql for a specific module and removes its tracking record.
+// RollbackModule rolls back the latest applied migration for a module.
+// Call repeatedly to roll back multiple versions.
 func (a *Auth) RollbackModule(ctx context.Context, moduleName string) error {
 	applier, ok := a.storage.(types.MigrationApplier)
 	if !ok {
@@ -160,16 +179,44 @@ func (a *Auth) RollbackModule(ctx context.Context, moduleName string) error {
 	if !exists {
 		return fmt.Errorf("module %q is not registered", moduleName)
 	}
+
+	// Find the highest applied version for this module.
+	applied, err := applier.AppliedMigrations(ctx)
+	if err != nil {
+		return fmt.Errorf("get applied migrations: %w", err)
+	}
+	latestVersion := -1
+	for _, r := range applied {
+		if r.ModuleName == moduleName && r.Version > latestVersion {
+			latestVersion = r.Version
+		}
+	}
+	if latestVersion < 0 {
+		return fmt.Errorf("no applied migrations found for module %q", moduleName)
+	}
+
+	// Find the down SQL for that version.
 	dialect := applier.Dialect()
-	files, found := module.Migrations()[dialect]
-	if !found || len(files.Down) == 0 {
-		return fmt.Errorf("no down migration for module %q dialect %s", moduleName, string(dialect))
+	migrations, found := module.Migrations()[dialect]
+	if !found {
+		return fmt.Errorf("no migrations for module %q dialect %s", moduleName, string(dialect))
 	}
-	a.logger.Info("Rolling back migration", "module", moduleName, "dialect", string(dialect))
-	if err := applier.ExecMigration(ctx, files.Down); err != nil {
-		return fmt.Errorf("exec rollback for %s: %w", moduleName, err)
+	var downSQL []byte
+	for _, m := range migrations {
+		if m.Version == latestVersion {
+			downSQL = m.Down
+			break
+		}
 	}
-	return applier.RemoveMigrationRecord(ctx, moduleName)
+	if len(downSQL) == 0 {
+		return fmt.Errorf("no down migration for module %q version %d", moduleName, latestVersion)
+	}
+
+	a.logger.Info("Rolling back migration", "module", moduleName, "version", latestVersion, "dialect", string(dialect))
+	if err := applier.ExecMigration(ctx, downSQL); err != nil {
+		return fmt.Errorf("exec rollback for %s v%d: %w", moduleName, latestVersion, err)
+	}
+	return applier.RemoveMigrationRecord(ctx, moduleName, latestVersion)
 }
 
 // MigrationStatus returns all rows from the goauth_migrations tracking table.

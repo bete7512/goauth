@@ -17,6 +17,7 @@ import (
 	"github.com/bete7512/goauth/pkg/modules/notification"
 	"github.com/bete7512/goauth/pkg/modules/notification/senders"
 	"github.com/bete7512/goauth/pkg/modules/oauth"
+	"github.com/bete7512/goauth/pkg/modules/organization"
 	"github.com/bete7512/goauth/pkg/modules/session"
 	"github.com/bete7512/goauth/pkg/modules/twofactor"
 	"github.com/bete7512/goauth/pkg/types"
@@ -68,8 +69,8 @@ func main() {
 			},
 		},
 		Migration: config.MigrationConfig{
-			Auto: true,
-			// OutputDir: ".examples/",
+			Auto:      true,
+			OutputDir: ".examples/",
 		},
 		APIURL:   "http://localhost:8080",
 		BasePath: "/api/v1",
@@ -152,6 +153,7 @@ func main() {
 		UpdateAge:               30 * time.Minute,
 	}, nil))
 
+	authInstance.Use(organization.New(&organization.Config{}))
 	// // csrf (HMAC-based double-submit cookie pattern)
 	// authInstance.Use(csrf.New(&config.CSRFModuleConfig{
 	// 	TokenExpiry: 2 * time.Hour,

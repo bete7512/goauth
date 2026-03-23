@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -32,29 +31,36 @@ func (s *sessionService) Login(ctx context.Context, req *dto.LoginRequest, metad
 		return dto.AuthResponse{}, types.NewInvalidCredentialsError()
 	}
 
-	// Emit password verified event (allows 2FA module to intercept)
-	if eventErr := s.deps.Events.EmitSync(ctx, types.EventAfterPasswordVerified, &types.PasswordVerifiedEventData{
+	// Run auth interceptors (2FA challenges, org enrichment, etc.)
+	interceptClaims, challenges, interceptErr := s.deps.AuthInterceptors.Run(ctx, &types.InterceptParams{
+		Phase:    types.PhaseLogin,
 		User:     user,
 		Metadata: metadata,
-	}); eventErr != nil {
-		// Check if this is a 2FA required error (special case - not really an error)
-		// Use errors.As because the event bus wraps errors with fmt.Errorf("%w")
-		var goAuthErr *types.GoAuthError
-		if errors.As(eventErr, &goAuthErr) && goAuthErr.Code == types.ErrTwoFactorRequired {
-			return dto.AuthResponse{}, goAuthErr
-		}
-		// Other errors should block login
-		s.logger.Errorf("session: password verified event handler failed: %v", eventErr)
+	})
+	if interceptErr != nil {
+		s.logger.Errorf("session: auth interceptor failed: %v", interceptErr)
 		return dto.AuthResponse{}, types.NewInternalError("Authentication flow interrupted")
+	}
+
+	// If any challenges were issued, return them without tokens
+	if len(challenges) > 0 {
+		return dto.AuthResponse{
+			Challenges: challenges,
+			Message:    "Authentication challenge required",
+		}, nil
 	}
 
 	// Generate session ID first so it can be embedded in the JWT
 	sessionID := uuid.New().String()
 
-	// Generate tokens with session_id in JWT claims
-	accessToken, refreshToken, err := s.securityManager.GenerateTokens(user, map[string]interface{}{
-		"session_id": sessionID,
-	})
+	// Merge interceptor claims with session_id
+	tokenClaims := map[string]interface{}{"session_id": sessionID}
+	for k, v := range interceptClaims {
+		tokenClaims[k] = v
+	}
+
+	// Generate tokens with enriched claims
+	accessToken, refreshToken, err := s.securityManager.GenerateTokens(user, tokenClaims)
 	if err != nil {
 		return dto.AuthResponse{}, types.NewInternalError(fmt.Sprintf("failed to generate tokens: %s", err.Error()))
 	}

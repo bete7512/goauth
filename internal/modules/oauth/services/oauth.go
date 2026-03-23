@@ -158,18 +158,45 @@ func (s *oauthService) HandleCallback(ctx context.Context, providerName, code, s
 		s.logger.Warnf("oauth: failed to update last login time: %v", err)
 	}
 
+	// 7. Run auth interceptors (2FA challenges, org enrichment, etc.)
+	interceptClaims, challenges, interceptErr := s.deps.AuthInterceptors.Run(ctx, &types.InterceptParams{
+		Phase:    types.PhaseLogin,
+		User:     user,
+		Metadata: metadata,
+	})
+	if interceptErr != nil {
+		s.logger.Errorf("oauth: auth interceptor failed: %v", interceptErr)
+		return nil, types.NewInternalError("Authentication flow interrupted")
+	}
+
+	// If challenges were issued, return them without generating tokens
+	if len(challenges) > 0 {
+		return &OAuthResult{
+			User:              user,
+			IsNewUser:         isNewUser,
+			Provider:          providerName,
+			ClientRedirectURI: clientRedirectURI,
+			Challenges:        challenges,
+		}, nil
+	}
+
 	var accessToken, refreshToken, sessionID string
 	var expiresIn int64
 
-	// 7. Generate auth tokens (session-based or stateless)
+	// 8. Generate auth tokens (session-based or stateless)
 	if s.useSessionAuth() {
 		// Session-based: create session record and embed session_id in JWT
 		sessionID = uuid.New().String()
 
-		accessToken, refreshToken, err = s.securityManager.GenerateTokens(user, map[string]interface{}{
+		tokenClaims := map[string]interface{}{
 			"oauth_provider": providerName,
 			"session_id":     sessionID,
-		})
+		}
+		for k, v := range interceptClaims {
+			tokenClaims[k] = v
+		}
+
+		accessToken, refreshToken, err = s.securityManager.GenerateTokens(user, tokenClaims)
 		if err != nil {
 			s.logger.Errorf("oauth: failed to generate tokens: %v", err)
 			return nil, types.NewInternalError("failed to generate authentication tokens")
@@ -196,9 +223,14 @@ func (s *oauthService) HandleCallback(ctx context.Context, providerName, code, s
 		expiresIn = int64(s.deps.Config.Security.Session.SessionTTL.Seconds())
 	} else {
 		// Stateless: just generate JWT tokens
-		accessToken, refreshToken, err = s.securityManager.GenerateTokens(user, map[string]interface{}{
+		tokenClaims := map[string]interface{}{
 			"oauth_provider": providerName,
-		})
+		}
+		for k, v := range interceptClaims {
+			tokenClaims[k] = v
+		}
+
+		accessToken, refreshToken, err = s.securityManager.GenerateTokens(user, tokenClaims)
 		if err != nil {
 			s.logger.Errorf("oauth: failed to generate tokens: %v", err)
 			return nil, types.NewInternalError("failed to generate authentication tokens")

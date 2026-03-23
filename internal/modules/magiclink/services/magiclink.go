@@ -169,8 +169,25 @@ func (s *magicLinkService) verifyToken(ctx context.Context, verification *models
 		return nil, types.NewInternalError(fmt.Sprintf("failed to mark token as used: %v", err))
 	}
 
-	// Generate auth tokens
-	accessToken, refreshToken, err := s.securityManager.GenerateTokens(user, map[string]interface{}{})
+	// Run auth interceptors (org enrichment, etc.)
+	interceptClaims, challenges, interceptErr := s.deps.AuthInterceptors.Run(ctx, &types.InterceptParams{
+		Phase: types.PhaseLogin,
+		User:  user,
+	})
+	if interceptErr != nil {
+		return nil, types.NewInternalError(fmt.Sprintf("auth interceptor failed: %v", interceptErr))
+	}
+
+	// If challenges were issued, return them without tokens
+	if len(challenges) > 0 {
+		return &coredto.AuthResponse{
+			Challenges: challenges,
+			Message:    "Authentication challenge required",
+		}, nil
+	}
+
+	// Generate auth tokens with enriched claims
+	accessToken, refreshToken, err := s.securityManager.GenerateTokens(user, interceptClaims)
 	if err != nil {
 		return nil, types.NewInternalError(fmt.Sprintf("failed to generate tokens: %v", err))
 	}

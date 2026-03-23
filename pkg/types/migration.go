@@ -5,28 +5,31 @@ import (
 	"time"
 )
 
-// MigrationFiles holds the up and down SQL (or driver-specific script) for one dialect.
-type MigrationFiles struct {
-	Up   []byte
-	Down []byte
+// VersionedMigration represents a single numbered migration step for one dialect.
+// Modules embed multiple versioned migrations (000_init, 001_add_roles, etc.).
+type VersionedMigration struct {
+	Version int    // 0, 1, 2, ... parsed from filename prefix
+	Name    string // human-readable name parsed from filename (e.g. "init", "add_roles")
+	Up      []byte
+	Down    []byte
 }
 
-// ModuleMigrations maps a DialectType to its migration files.
+// ModuleMigrations maps a DialectType to its ordered list of versioned migrations.
 // Modules with no DB tables return an empty map.
-type ModuleMigrations map[DialectType]MigrationFiles
+type ModuleMigrations map[DialectType][]VersionedMigration
 
 // MigrationRecord represents one applied migration tracked in the goauth_migrations table.
 type MigrationRecord struct {
 	ID         string    `json:"id"`
 	ModuleName string    `json:"module_name"`
+	Version    int       `json:"version"`
+	Name       string    `json:"name"`
 	Dialect    string    `json:"dialect"`
 	AppliedAt  time.Time `json:"applied_at"`
-	Status     string    `json:"status"` // "up" | "down"
 }
 
 // MigrationApplier is implemented by storage backends that support the module migration system.
 // Checked via type assertion: if applier, ok := storage.(types.MigrationApplier); ok { ... }
-// Only GORM storage implements this initially; future backends (MongoDB, sqlc) may implement it too.
 type MigrationApplier interface {
 	// Dialect returns the current DB dialect ("postgres", "mysql", "sqlite", ...)
 	Dialect() DialectType
@@ -43,6 +46,6 @@ type MigrationApplier interface {
 	// RecordMigration inserts a migration record into goauth_migrations.
 	RecordMigration(ctx context.Context, record MigrationRecord) error
 
-	// RemoveMigrationRecord deletes a migration record by module name (used on rollback).
-	RemoveMigrationRecord(ctx context.Context, moduleName string) error
+	// RemoveMigrationRecord deletes a migration record by module name and version.
+	RemoveMigrationRecord(ctx context.Context, moduleName string, version int) error
 }
