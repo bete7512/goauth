@@ -1,0 +1,850 @@
+openapi: 3.0.0
+info:
+  title: GoAuth Organization Module API
+  version: 1.0.0
+  description: Multi-tenant organization management with membership, roles, and invitations
+
+servers:
+  - url: /
+
+tags:
+  - name: Organizations
+    description: Organization CRUD and switching
+  - name: Members
+    description: Organization member management
+  - name: Invitations
+    description: Organization invitation flow
+
+paths:
+  /org:
+    post:
+      tags:
+        - Organizations
+      summary: Create organization
+      description: Create a new organization. The authenticated user becomes the owner.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrgRequest'
+      responses:
+        '201':
+          description: Organization created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Organization'
+                  message:
+                    type: string
+                    nullable: true
+        '400':
+          description: Invalid request (missing name or slug taken)
+        '401':
+          description: Authentication required
+
+  /org/my:
+    get:
+      tags:
+        - Organizations
+      summary: List my organizations
+      description: List all organizations the authenticated user belongs to
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Organization'
+                  message:
+                    type: string
+                    nullable: true
+        '401':
+          description: Authentication required
+
+  /org/switch:
+    post:
+      tags:
+        - Organizations
+      summary: Switch active organization
+      description: Switch the user's active organization context. Returns new JWT tokens with the target org's claims.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SwitchOrgRequest'
+      responses:
+        '200':
+          description: Switched successfully, new tokens returned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/TokenPair'
+                  message:
+                    type: string
+                    nullable: true
+        '400':
+          description: Missing org_id
+        '401':
+          description: Authentication required
+        '403':
+          description: User is not a member of the target organization
+
+  /org/my/invitations:
+    get:
+      tags:
+        - Invitations
+      summary: List my pending invitations
+      description: List all pending invitations for the authenticated user's email
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Invitation'
+                  message:
+                    type: string
+                    nullable: true
+        '401':
+          description: Authentication required
+
+  /org/invitations/accept:
+    post:
+      tags:
+        - Invitations
+      summary: Accept invitation
+      description: Accept an organization invitation by token. The user's email must match the invitation email.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvitationTokenRequest'
+      responses:
+        '200':
+          description: Invitation accepted, membership created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/OrganizationMember'
+                  message:
+                    type: string
+                    nullable: true
+        '400':
+          description: Missing token or email mismatch
+        '401':
+          description: Authentication required
+        '404':
+          description: Invitation not found
+        '409':
+          description: Already a member of this organization
+        '410':
+          description: Invitation expired
+
+  /org/invitations/decline:
+    post:
+      tags:
+        - Invitations
+      summary: Decline invitation
+      description: Decline an organization invitation by token
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvitationTokenRequest'
+      responses:
+        '200':
+          description: Invitation declined
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    nullable: true
+                  message:
+                    type: string
+                    nullable: true
+        '400':
+          description: Missing token
+        '401':
+          description: Authentication required
+        '404':
+          description: Invitation not found
+
+  /org/{orgId}:
+    get:
+      tags:
+        - Organizations
+      summary: Get organization
+      description: Get organization details. Requires membership (any role).
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrgId'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Organization'
+                  message:
+                    type: string
+                    nullable: true
+        '401':
+          description: Authentication required
+        '403':
+          description: Not a member of this organization
+        '404':
+          description: Organization not found
+
+    put:
+      tags:
+        - Organizations
+      summary: Update organization
+      description: Update organization name, logo, or metadata. Requires admin or owner role.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrgId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateOrgRequest'
+      responses:
+        '200':
+          description: Organization updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Organization'
+                  message:
+                    type: string
+                    nullable: true
+        '401':
+          description: Authentication required
+        '403':
+          description: Insufficient role (requires admin or owner)
+        '404':
+          description: Organization not found
+
+    delete:
+      tags:
+        - Organizations
+      summary: Delete organization
+      description: Permanently delete an organization and all its memberships. Requires owner role.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrgId'
+      responses:
+        '200':
+          description: Organization deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    nullable: true
+                  message:
+                    type: string
+                    nullable: true
+        '401':
+          description: Authentication required
+        '403':
+          description: Insufficient role (requires owner)
+        '404':
+          description: Organization not found
+
+  /org/{orgId}/members:
+    get:
+      tags:
+        - Members
+      summary: List members
+      description: List organization members with pagination. Requires membership (any role).
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrgId'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+        - $ref: '#/components/parameters/MemberSortField'
+        - $ref: '#/components/parameters/SortDir'
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [owner, admin, member]
+          description: Filter members by role
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      list:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/MemberWithUser'
+                      sort_field:
+                        type: string
+                        example: joined_at
+                      sort_dir:
+                        type: string
+                        enum: [asc, desc]
+                        example: desc
+                      total:
+                        type: integer
+                  message:
+                    type: string
+                    nullable: true
+        '401':
+          description: Authentication required
+        '403':
+          description: Not a member of this organization
+
+  /org/{orgId}/members/{userId}:
+    get:
+      tags:
+        - Members
+      summary: Get member
+      description: Get a specific member's details. Requires membership (any role).
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrgId'
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/MemberWithUser'
+                  message:
+                    type: string
+                    nullable: true
+        '401':
+          description: Authentication required
+        '403':
+          description: Not a member of this organization
+        '404':
+          description: Member not found
+
+    put:
+      tags:
+        - Members
+      summary: Update member role
+      description: Change a member's role. Requires admin or owner role. Cannot demote the org owner.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrgId'
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRoleRequest'
+      responses:
+        '200':
+          description: Role updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    nullable: true
+                  message:
+                    type: string
+                    nullable: true
+        '400':
+          description: Invalid role
+        '401':
+          description: Authentication required
+        '403':
+          description: Insufficient role or cannot demote owner
+        '404':
+          description: Member not found
+
+    delete:
+      tags:
+        - Members
+      summary: Remove member
+      description: Remove a member from the organization. Requires admin or owner role. Cannot remove the org owner.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrgId'
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: Member removed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    nullable: true
+                  message:
+                    type: string
+                    nullable: true
+        '401':
+          description: Authentication required
+        '403':
+          description: Insufficient role or cannot remove owner
+        '404':
+          description: Member not found
+
+  /org/{orgId}/invite:
+    post:
+      tags:
+        - Invitations
+      summary: Send invitation
+      description: Invite a user to the organization by email. Requires admin or owner role. Checks for duplicate invitations and member limits.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrgId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InviteRequest'
+      responses:
+        '201':
+          description: Invitation sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Invitation'
+                  message:
+                    type: string
+                    nullable: true
+        '400':
+          description: Missing email or invalid role
+        '401':
+          description: Authentication required
+        '403':
+          description: Insufficient role (requires admin or owner)
+        '409':
+          description: User is already a member or invitation already exists
+        '429':
+          description: Organization has reached the maximum member limit
+
+  /org/{orgId}/invitations:
+    get:
+      tags:
+        - Invitations
+      summary: List invitations
+      description: List organization invitations with pagination. Requires admin or owner role.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrgId'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+        - $ref: '#/components/parameters/InvitationSortField'
+        - $ref: '#/components/parameters/SortDir'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, accepted, declined, expired]
+          description: Filter invitations by status
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      list:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Invitation'
+                      sort_field:
+                        type: string
+                        example: created_at
+                      sort_dir:
+                        type: string
+                        enum: [asc, desc]
+                        example: desc
+                      total:
+                        type: integer
+                  message:
+                    type: string
+                    nullable: true
+        '401':
+          description: Authentication required
+        '403':
+          description: Insufficient role (requires admin or owner)
+
+  /org/{orgId}/invitations/{invId}:
+    delete:
+      tags:
+        - Invitations
+      summary: Cancel invitation
+      description: Cancel a pending invitation. Requires admin or owner role.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrgId'
+        - name: invId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Invitation ID
+      responses:
+        '200':
+          description: Invitation cancelled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    nullable: true
+                  message:
+                    type: string
+                    nullable: true
+        '401':
+          description: Authentication required
+        '403':
+          description: Insufficient role (requires admin or owner)
+        '404':
+          description: Invitation not found
+
+components:
+  parameters:
+    OrgId:
+      name: orgId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Organization ID
+
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: User ID
+
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        default: 20
+        maximum: 100
+      description: Maximum number of items to return
+
+    Offset:
+      name: offset
+      in: query
+      schema:
+        type: integer
+        default: 0
+        minimum: 0
+      description: Number of items to skip
+
+    MemberSortField:
+      name: sort_field
+      in: query
+      schema:
+        type: string
+        default: joined_at
+        enum: [joined_at, role]
+      description: Field to sort members by
+
+    InvitationSortField:
+      name: sort_field
+      in: query
+      schema:
+        type: string
+        default: created_at
+        enum: [created_at, expires_at, status]
+      description: Field to sort invitations by
+
+    SortDir:
+      name: sort_dir
+      in: query
+      schema:
+        type: string
+        default: desc
+        enum: [asc, desc]
+      description: Sort direction
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Organization:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: "Acme Corp"
+        slug:
+          type: string
+          example: "acme-corp"
+        owner_id:
+          type: string
+          format: uuid
+        logo_url:
+          type: string
+          nullable: true
+          example: "https://example.com/logo.png"
+        metadata:
+          type: string
+          nullable: true
+          description: JSON string for extensibility
+        active:
+          type: boolean
+          default: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    OrganizationMember:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        org_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [owner, admin, member]
+        joined_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    MemberWithUser:
+      allOf:
+        - $ref: '#/components/schemas/OrganizationMember'
+        - type: object
+          properties:
+            user:
+              $ref: '#/components/schemas/UserSummary'
+
+    UserSummary:
+      type: object
+      description: User info returned with member data (password hash excluded)
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        username:
+          type: string
+        avatar:
+          type: string
+          nullable: true
+
+    Invitation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        org_id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [owner, admin, member]
+        inviter_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, accepted, declined, expired]
+        expires_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        accepted_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    TokenPair:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: JWT with active_org_id and org_role claims
+        refresh_token:
+          type: string
+
+    CreateOrgRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          example: "Acme Corp"
+        slug:
+          type: string
+          description: URL-friendly identifier. Auto-generated from name if omitted.
+          example: "acme-corp"
+
+    UpdateOrgRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        logo_url:
+          type: string
+        metadata:
+          type: string
+          description: JSON string for extensibility
+
+    SwitchOrgRequest:
+      type: object
+      required:
+        - org_id
+      properties:
+        org_id:
+          type: string
+          format: uuid
+          description: Target organization to switch to
+
+    InviteRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+          description: Email of the user to invite
+        role:
+          type: string
+          enum: [admin, member]
+          default: member
+          description: Role to assign. Cannot invite as owner.
+
+    InvitationTokenRequest:
+      type: object
+      required:
+        - token
+      properties:
+        token:
+          type: string
+          description: Invitation token received via email
+
+    UpdateRoleRequest:
+      type: object
+      required:
+        - role
+      properties:
+        role:
+          type: string
+          enum: [owner, admin, member]
+          description: New role for the member

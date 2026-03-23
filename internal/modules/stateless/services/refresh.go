@@ -54,10 +54,20 @@ func (s *StatelessService) Refresh(ctx context.Context, req *dto.RefreshRequest)
 		return dto.AuthResponse{}, types.NewInternalError(fmt.Sprintf("failed to revoke used token: %s", err.Error()))
 	}
 
-	// Generate new access token
+	// Run auth interceptors for refresh (enrichment only)
+	interceptClaims, _, interceptErr := s.Deps.AuthInterceptors.Run(ctx, &types.InterceptParams{
+		Phase:          types.PhaseRefresh,
+		User:           user,
+		ExistingClaims: claims,
+	})
+	if interceptErr != nil {
+		return dto.AuthResponse{}, types.NewInternalError("Token refresh interrupted")
+	}
+
+	// Generate new access token with enriched claims
 	accessToken, err := s.SecurityManager.GenerateAccessToken(
 		*user,
-		map[string]interface{}{},
+		interceptClaims,
 	)
 	if err != nil {
 		return dto.AuthResponse{}, types.NewInternalError(fmt.Sprintf("failed to generate access token: %s", err.Error()))

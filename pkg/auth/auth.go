@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/bete7512/goauth/internal/events"
+	"github.com/bete7512/goauth/internal/interceptor"
 	"github.com/bete7512/goauth/internal/middleware"
 	"github.com/bete7512/goauth/internal/modules/core"
 	"github.com/bete7512/goauth/internal/modules/core/middlewares"
@@ -100,6 +101,7 @@ func New(cfg *config.Config) (*Auth, error) {
 	}
 
 	securityManager := security.NewSecurityManager(cfg.Security)
+	interceptorRegistry := interceptor.NewRegistry()
 
 	eventBusAdapter := events.NewEventBusAdapter(eventBus)
 	auth.moduleDependencies = config.ModuleDependencies{
@@ -109,6 +111,7 @@ func New(cfg *config.Config) (*Auth, error) {
 		Events:            eventBusAdapter,
 		MiddlewareManager: middlewareManager,
 		SecurityManager:   securityManager,
+		AuthInterceptors:  interceptorRegistry,
 	}
 
 	// Auto-register core module if not already configured

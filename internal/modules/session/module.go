@@ -11,6 +11,7 @@ import (
 	"github.com/bete7512/goauth/internal/modules/session/middlewares"
 	"github.com/bete7512/goauth/internal/modules/session/services"
 	"github.com/bete7512/goauth/internal/security"
+	"github.com/bete7512/goauth/internal/utils"
 	cookie_security "github.com/bete7512/goauth/internal/security/cookie"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/types"
@@ -164,13 +165,5 @@ func (m *SessionModule) Dependencies() []string {
 }
 
 func (m *SessionModule) Migrations() types.ModuleMigrations {
-	result := types.ModuleMigrations{}
-	for _, d := range []types.DialectType{types.DialectTypePostgres, types.DialectTypeMysql, types.DialectTypeSqlite} {
-		up, _ := migrationFS.ReadFile("migrations/" + string(d) + "/up.sql")
-		down, _ := migrationFS.ReadFile("migrations/" + string(d) + "/down.sql")
-		if len(up) > 0 {
-			result[d] = types.MigrationFiles{Up: up, Down: down}
-		}
-	}
-	return result
+	return utils.ParseMigrations(migrationFS)
 }

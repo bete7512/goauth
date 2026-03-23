@@ -4,15 +4,19 @@
 [![Go Version](https://img.shields.io/github/go-mod/go-version/bete7512/goauth)](https://go.dev/)
 [![License](https://img.shields.io/github/license/bete7512/goauth)](LICENSE)
 
-A modular, framework-agnostic authentication library for Go. Compose the auth features you need — session or stateless JWT, 2FA, OAuth, notifications, admin — and plug them into any web framework.
+A modular, framework-agnostic authentication library for Go. Compose the auth features you need — session or stateless JWT, 2FA, OAuth, notifications, admin — and drop it into any web framework.
 
 Module path: `github.com/bete7512/goauth` · Go 1.25
+
+---
 
 ## Installation
 
 ```bash
 go get github.com/bete7512/goauth
 ```
+
+---
 
 ## Quick Start
 
@@ -28,31 +32,32 @@ import (
     "github.com/bete7512/goauth/pkg/adapters/stdhttp"
     "github.com/bete7512/goauth/pkg/auth"
     "github.com/bete7512/goauth/pkg/config"
+    "github.com/bete7512/goauth/pkg/modules/session"
     "github.com/bete7512/goauth/pkg/types"
     "github.com/bete7512/goauth/storage"
 )
 
 func main() {
-    // 1. Create storage
+    // 1. Storage
     store, err := storage.NewGormStorage(storage.GormConfig{
-        Dialect:      types.DialectTypePostgres,
-        DSN:          "host=localhost user=postgres password=secret dbname=authdb sslmode=disable",
-        MaxOpenConns: 25,
-        MaxIdleConns: 5,
+        Dialect: types.DialectTypePostgres,
+        DSN:     "host=localhost user=postgres password=secret dbname=authdb sslmode=disable",
     })
     if err != nil {
         log.Fatal(err)
     }
     defer store.Close()
 
-    // 2. Create auth instance (core module is auto-registered)
+    // 2. Auth instance (core module is auto-registered)
     a, err := auth.New(&config.Config{
-        Storage:     store,
-        AutoMigrate: true,
-        BasePath:    "/api/v1",
+        Storage:  store,
+        BasePath: "/api/v1",
+        Migration: config.MigrationConfig{
+            Auto: true, // apply pending migrations on startup
+        },
         Security: types.SecurityConfig{
             JwtSecretKey:  "your-secret-key-min-32-chars!!",
-            EncryptionKey: "your-encryption-key-32-chars!!",
+            EncryptionKey: "your-encryption-key-32-chars!!!",
             Session: types.SessionConfig{
                 AccessTokenTTL:  15 * time.Minute,
                 RefreshTokenTTL: 7 * 24 * time.Hour,
@@ -64,74 +69,98 @@ func main() {
     }
     defer a.Close()
 
-    // 3. Register optional modules (before Initialize)
-    // If no auth module is registered, stateless JWT is the default.
+    // 3. Register optional modules (must be before Initialize)
+    a.Use(session.New(&config.SessionModuleConfig{
+        EnableSessionManagement: true,
+    }, nil))
 
     // 4. Initialize
     if err := a.Initialize(context.Background()); err != nil {
         log.Fatal(err)
     }
 
-    // 5. Register routes and serve
+    // 5. Mount routes and serve
     mux := http.NewServeMux()
     stdhttp.Register(mux, a)
-    log.Println("Server running on :8080")
     log.Fatal(http.ListenAndServe(":8080", mux))
 }
 ```
 
-## Architecture
+---
 
-### Three-Phase Lifecycle
-
-```
-auth.New(config) → auth.Use(module) → auth.Initialize(ctx)
-```
-
-`Use()` panics after `Initialize()` — modules are registered in order before initialization wires everything together.
-
-### Package Layout
+## Lifecycle
 
 ```
-pkg/       Public contracts (auth, config, models, types, adapters)
-internal/  Implementation (modules, events, middleware, security)
-storage/   Storage backends (GORM built-in, cache decorators)
+auth.New(config) → auth.Use(module...) → auth.Initialize(ctx)
 ```
 
-### Storage
+`Use()` panics after `Initialize()`. Modules register in order — dependencies must be registered before dependents.
 
-Type-safe storage hierarchy. No string-based lookups.
+---
+
+## Storage
+
+Type-safe storage hierarchy backed by GORM (PostgreSQL, MySQL, SQLite). Pass an existing `*gorm.DB` or implement `types.Storage` for a custom backend.
+
+```go
+// Built-in GORM storage
+store, err := storage.NewGormStorage(storage.GormConfig{
+    Dialect: types.DialectTypePostgres,
+    DSN:     "...",
+})
+
+// From existing connection
+store := storage.NewGormStorageFromDB(existingDB)
+```
 
 ```
 types.Storage
   ├── Core()          → Users, Tokens, ExtendedAttributes
   ├── Session()       → Sessions
-  ├── Stateless()     → Blacklist
-  ├── Admin()
   ├── OAuth()         → Accounts
   ├── TwoFactorAuth() → TwoFactor, BackupCodes
   └── AuditLog()      → AuditLogs
 ```
 
-GORM supports PostgreSQL, MySQL, and SQLite out of the box. You can also pass an existing `*gorm.DB`:
+---
+
+## Migrations
+
+GoAuth ships embedded, per-dialect SQL migrations for each module. Two modes:
+
+**Auto-apply on startup** — runs pending migrations and records them in a `goauth_migrations` tracking table:
 
 ```go
-store := storage.NewGormStorageFromDB(existingDB)
+Migration: config.MigrationConfig{Auto: true}
 ```
 
-Or implement `types.Storage` for your own backend.
+**Generate SQL files for manual review** — writes one combined `goauth_{timestamp}_up.sql` and `goauth_{timestamp}_down.sql` containing only the modules not yet tracked:
+
+```go
+Migration: config.MigrationConfig{OutputDir: "./migrations"}
+```
+
+Both can be combined. Check migration status at runtime:
+
+```go
+records, err := a.MigrationStatus(ctx)
+```
+
+Supported dialects: `postgres`, `mysql`, `sqlite`.
+
+---
 
 ## Modules
 
-### Core (Auto-Registered)
+### Core (auto-registered)
 
-User registration, profile management, password reset/change, email & phone verification, availability checks.
+Signup, profile (`/me`, update), password reset & change, email/phone verification, username/email availability checks.
 
-### Authentication (Pick One)
+### Authentication — pick one
 
-Session and stateless are **mutually exclusive**. Registering both panics. If neither is registered, stateless is the default.
+Session and stateless are **mutually exclusive**. Registering both panics. If neither is registered, stateless JWT is the default.
 
-**Session** — Server-side sessions with cookie strategies, session management (list/revoke), sliding expiration.
+**Session-based** — server-side sessions, cookie strategies, session management (list/revoke), sliding expiration:
 
 ```go
 import "github.com/bete7512/goauth/pkg/modules/session"
@@ -144,7 +173,7 @@ a.Use(session.New(&config.SessionModuleConfig{
 }, nil))
 ```
 
-**Stateless** — JWT access + refresh tokens with refresh token rotation.
+**Stateless JWT** — access + refresh tokens with optional rotation:
 
 ```go
 import "github.com/bete7512/goauth/pkg/modules/stateless"
@@ -156,7 +185,7 @@ a.Use(stateless.New(&config.StatelessModuleConfig{
 
 ### Notification
 
-Email/SMS delivery with pluggable senders and customizable branding & templates. Hooks into core events (signup, password reset, login alerts, etc.) — no HTTP routes.
+Email/SMS delivery with pluggable senders. Hooks into core events (signup, password reset, login alerts). No HTTP routes.
 
 ```go
 import (
@@ -165,8 +194,8 @@ import (
 )
 
 a.Use(notification.New(&notification.Config{
-    EmailSender:              senders.NewSendGridEmailSender(&senders.SendGridConfig{
-        APIKey:      "your-api-key",
+    EmailSender: senders.NewSendGridEmailSender(&senders.SendGridConfig{
+        APIKey:      "SG.xxx",
         DefaultFrom: "noreply@yourapp.com",
     }),
     EnableWelcomeEmail:       true,
@@ -175,9 +204,11 @@ a.Use(notification.New(&notification.Config{
 }))
 ```
 
+Built-in senders: SendGrid, Twilio. Implement `notification.EmailSender` or `notification.SMSSender` for custom providers.
+
 ### Two-Factor Authentication
 
-TOTP-based 2FA with backup codes. Setup, verify, disable, and status endpoints.
+TOTP + backup codes. Endpoints: setup, verify, disable, status.
 
 ```go
 import "github.com/bete7512/goauth/pkg/modules/twofactor"
@@ -186,34 +217,56 @@ a.Use(twofactor.New(&config.TwoFactorConfig{
     Issuer:           "MyApp",
     Required:         false,
     BackupCodesCount: 10,
-}))
+}, nil))
 ```
 
 ### OAuth
 
-Social login with providers: Google, GitHub, Facebook, Microsoft, Apple, Discord.
+Social login: Google, GitHub, Facebook, Microsoft, Apple, Discord.
+
+```go
+import "github.com/bete7512/goauth/pkg/modules/oauth"
+
+a.Use(oauth.New(&config.OAuthModuleConfig{
+    Providers: map[string]*config.OAuthProviderConfig{
+        "google": {
+            ClientID:     "your-client-id",
+            ClientSecret: "your-client-secret",
+            Scopes:       []string{"openid", "email", "profile"},
+        },
+    },
+    DefaultRedirectURL: "http://localhost:3000/auth/callback",
+    AllowSignup:        true,
+}, nil))
+```
 
 ### Admin
 
-Admin-only endpoints for user CRUD (list, get, update, delete). Protected by admin middleware.
+User CRUD (list, get, update, delete) behind admin middleware. Audit log cleanup endpoint.
+
+```go
+import "github.com/bete7512/goauth/pkg/modules/admin"
+
+a.Use(admin.New(nil, nil))
+```
 
 ### Audit
 
-Logs security-relevant events for compliance and debugging.
+Records security-relevant events (login, logout, password change, etc.) for compliance and debugging.
 
 ### Captcha
 
-reCAPTCHA v3 or Cloudflare Turnstile. Applied to specific routes by name.
+reCAPTCHA v3 or Cloudflare Turnstile, applied to specific routes by name.
 
 ```go
 import "github.com/bete7512/goauth/pkg/modules/captcha"
 
 a.Use(captcha.New(&config.CaptchaModuleConfig{
-    Provider:           "google",
-    RecaptchaSiteKey:   "your-site-key",
-    RecaptchaSecretKey: "your-secret-key",
-    ApplyToRoutes:      []string{"core.signup", "core.login"},
-}))
+    Provider:       types.CaptchaProviderGoogle,
+    SiteKey:        "your-site-key",
+    SecretKey:      "your-secret-key",
+    ApplyToRoutes:  []types.RouteName{types.RouteSignup, types.RouteLogin},
+}, nil))
 ```
 
 ### CSRF
@@ -224,8 +277,7 @@ Token-based CSRF protection for state-changing requests.
 import "github.com/bete7512/goauth/pkg/modules/csrf"
 
 a.Use(csrf.New(&config.CSRFModuleConfig{
-    TokenLength:      32,
-    TokenExpiry:      3600,
+    TokenExpiry:      time.Hour,
     Secure:           true,
     ProtectedMethods: []string{"POST", "PUT", "DELETE", "PATCH"},
 }))
@@ -235,82 +287,99 @@ a.Use(csrf.New(&config.CSRFModuleConfig{
 
 Passwordless authentication via email.
 
-## Framework Integration
+---
 
-GoAuth provides adapters in `pkg/adapters/` for one-line route registration:
+## Framework Adapters
 
-### Standard `net/http`
+One-line route registration for common frameworks:
 
 ```go
-import "github.com/bete7512/goauth/pkg/adapters/stdhttp"
-
-mux := http.NewServeMux()
+// net/http
 stdhttp.Register(mux, a)
-http.ListenAndServe(":8080", mux)
-```
 
-### Gin
+// Gin
+ginadapter.Register(router, a)
 
-```go
-import "github.com/bete7512/goauth/pkg/adapters/ginadapter"
+// Chi
+chiadapter.Register(router, a)
 
-r := gin.Default()
-ginadapter.Register(r, a)
-r.Run(":8080")
-```
-
-### Chi
-
-```go
-import "github.com/bete7512/goauth/pkg/adapters/chiadapter"
-
-r := chi.NewRouter()
-chiadapter.Register(r, a)
-http.ListenAndServe(":8080", r)
-```
-
-### Fiber
-
-```go
-import "github.com/bete7512/goauth/pkg/adapters/fiberadapter"
-
-app := fiber.New()
+// Fiber
 fiberadapter.Register(app, a)
-app.Listen(":8080")
 ```
+
+All adapters live in `pkg/adapters/`.
+
+---
 
 ## Event System
 
-Subscribe to events for custom logic:
+Subscribe to events for custom business logic:
 
 ```go
 a.On(types.EventAfterSignup, func(ctx context.Context, e *types.Event) error {
-    log.Printf("User signed up: %+v", e.Data)
+    // send welcome email, set up trial, etc.
     return nil
 })
 
 a.On(types.EventAfterLogin, func(ctx context.Context, e *types.Event) error {
-    log.Printf("User logged in: %+v", e.Data["user"])
+    // analytics, rate limiting, etc.
     return nil
 })
 ```
 
-Events are processed asynchronously with a built-in worker pool. For distributed systems, provide a custom `types.AsyncBackend` (Redis, RabbitMQ, Kafka, etc.).
+Async events are processed by a built-in worker pool (10 workers, 1000 queue). For distributed systems, provide a custom `types.AsyncBackend`:
 
-## Configuration
+```go
+a, _ := auth.New(&config.Config{
+    AsyncBackend: myRedisBackend, // implements types.AsyncBackend
+})
+```
+
+Key events: `EventAfterSignup`, `EventAfterLogin`, `EventAfterLogout`, `EventBeforeLogin`, `EventAfterPasswordVerified`, `EventSendPasswordResetEmail`, `EventAfterEmailVerified`, `EventAuthLoginSuccess`.
+
+---
+
+## Protecting Routes
+
+```go
+mux.Handle("/api/v1/dashboard", a.RequireAuth(dashboardHandler))
+```
+
+`RequireAuth` validates the JWT and injects `user_id` (and `session_id` if session-based) into the request context:
+
+```go
+userID := r.Context().Value(types.UserIDKey).(string)
+```
+
+---
+
+## Configuration Reference
 
 ```go
 &config.Config{
-    Storage:     store,
-    AutoMigrate: true,
-    BasePath:    "/api/v1",
+    Storage:  store,
+    BasePath: "/api/v1",                // default: "/auth"
+    APIURL:   "https://api.example.com",
+
+    Migration: config.MigrationConfig{
+        Auto:      true,        // apply on startup
+        OutputDir: "./sql",     // write SQL files (can combine with Auto)
+    },
 
     Security: types.SecurityConfig{
-        JwtSecretKey:  "secret-32-chars-minimum!!!!",
-        EncryptionKey: "encrypt-32-chars-minimum!!!",
+        JwtSecretKey:  "min-32-chars",
+        EncryptionKey: "min-32-chars",
+        HashSaltLength: 10,
         Session: types.SessionConfig{
+            Name:            "session_token",
             AccessTokenTTL:  15 * time.Minute,
             RefreshTokenTTL: 7 * 24 * time.Hour,
+            SessionTTL:      30 * 24 * time.Hour,
+        },
+        PasswordPolicy: types.PasswordPolicy{
+            MinLength:        8,
+            RequireUppercase: true,
+            RequireSpecial:   true,
         },
     },
 
@@ -318,77 +387,73 @@ Events are processed asynchronously with a built-in worker pool. For distributed
         RequireEmailVerification: true,
         RequirePhoneVerification: false,
         RequireUserName:          false,
-        RequirePhoneNumber:       false,
         UniquePhoneNumber:        true,
     },
 
     FrontendConfig: &config.FrontendConfig{
-        URL:                     "http://localhost:3000",
-        Domain:                  "localhost",
+        URL:                     "https://app.example.com",
+        Domain:                  "example.com",
         ResetPasswordPath:       "/reset-password",
         VerifyEmailCallbackPath: "/verify-email",
     },
 
     CORS: &config.CORSConfig{
         Enabled:        true,
-        AllowedOrigins: []string{"http://localhost:3000"},
+        AllowedOrigins: []string{"https://app.example.com"},
         AllowedMethods: []string{"GET", "POST", "PUT", "DELETE"},
+        AllowedHeaders: []string{"Content-Type", "Authorization"},
     },
+
+    Logger: myLogger, // implements types.Logger; defaults to logrus
 }
 ```
 
-## Testing
+---
 
-```bash
-make test              # Unit tests
-make test-verbose      # Verbose output
-make test-core         # Core module only
-make test-session      # Session module only
-make test-events       # Events only
-make test-integration  # Integration (requires GOAUTH_TEST_DSN)
-make test-coverage     # Coverage report
-make mocks             # Regenerate mocks
-make build             # Build
-make lint              # Lint (golangci-lint)
+## Custom Modules
+
+Implement `config.Module` (8 methods) and register with `auth.Use()`:
+
+```go
+type config.Module interface {
+    Name()          string
+    Init(ctx, deps) error
+    Routes()        []config.RouteInfo
+    Middlewares()   []config.MiddlewareConfig
+    RegisterHooks(events types.EventBus) error
+    Dependencies()  []string
+    OpenAPISpecs()  []byte
+    Migrations()    types.ModuleMigrations
+}
 ```
 
-## Creating Custom Modules
+Pattern: exported interface + unexported struct + constructor. Include a compile-time check:
 
-Implement `config.Module` (8 methods: `Name`, `Init`, `Routes`, `Middlewares`, `Models`, `RegisterHooks`, `Dependencies`, `OpenAPISpecs`) and pass your module to `auth.Use()`. As long as your module satisfies the interface, GoAuth treats it identically to bundled modules — it can use any storage backend and hook into all events.
-
-Scaffolding scripts for internal module development:
-```bash
-cd internal/modules
-./new_module_with_route.sh mymodule      # Module with routes
-./new_module_with_no_route.sh mymodule   # Middleware-only module
+```go
+var _ config.Module = (*MyModule)(nil)
 ```
 
-Reference: `internal/modules/core/module.go` · `pkg/config/config.go` (Module interface).
+Reference implementation: [internal/modules/core/module.go](internal/modules/core/module.go)
 
-## Documentation
+---
 
-- [Module docs](internal/modules/README.md)
-- [Examples](examples/)
-- [API docs](docs/)
-- [Demo app](demo/) — Next.js frontend
+## Development
 
-## Contributing
+```bash
+make build          # compile
+make test           # unit tests
+make test-core      # core module only
+make test-session   # session module only
+make test-coverage  # coverage report
+make mocks          # regenerate mocks (uber/mock)
+make lint           # golangci-lint
+make test-integration  # needs GOAUTH_TEST_DSN env var
+```
 
-Contributions are welcome. Here's how:
-
-1. Fork the repository
-2. Create a branch (`git checkout -b feature/my-feature`)
-3. Make your changes
-4. Run `make build` and `make test` to verify
-5. Commit and push
-6. Open a pull request
-
-Please follow the existing code patterns — exported interface / unexported struct for services, `types.GoAuthError` for error returns, dot-notation route names, and embedded OpenAPI specs per module.
-
-If you're adding a new module, use the scaffolding scripts in `internal/modules/` and follow the `config.Module` interface.
+---
 
 ## License
 
-MIT License — see [LICENSE](LICENSE) for the full text.
+MIT — see [LICENSE](LICENSE).
 
 Copyright (c) 2025 bete7512

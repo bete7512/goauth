@@ -392,12 +392,27 @@ func (s *twoFactorService) IssueAuthTokenAfter2FA(ctx context.Context, user *mod
 
 // issueSessionToken creates a session and returns tokens (session-based auth)
 func (s *twoFactorService) issueSessionToken(ctx context.Context, user *models.User, metadata *types.RequestMetadata, sessionStorage types.SessionStorage) (map[string]any, *types.GoAuthError) {
+	// Run auth interceptors for resume phase (enrichment only, e.g. org claims)
+	interceptClaims, _, interceptErr := s.deps.AuthInterceptors.Run(ctx, &types.InterceptParams{
+		Phase:    types.PhaseResume,
+		User:     user,
+		Metadata: metadata,
+	})
+	if interceptErr != nil {
+		s.deps.Logger.Error("Auth interceptor failed after 2FA", "error", interceptErr)
+		return nil, types.NewInternalError("Authentication flow interrupted")
+	}
+
 	sessionID := uuid.New().String()
 
-	// Generate tokens with session_id in JWT claims
-	accessToken, refreshToken, err := s.deps.SecurityManager.GenerateTokens(user, map[string]interface{}{
-		"session_id": sessionID,
-	})
+	// Merge interceptor claims with session_id
+	tokenClaims := map[string]interface{}{"session_id": sessionID}
+	for k, v := range interceptClaims {
+		tokenClaims[k] = v
+	}
+
+	// Generate tokens with enriched claims
+	accessToken, refreshToken, err := s.deps.SecurityManager.GenerateTokens(user, tokenClaims)
 	if err != nil {
 		s.deps.Logger.Error("Failed to generate session tokens after 2FA", "error", err)
 		return nil, types.NewInternalError("Failed to generate authentication tokens")
@@ -446,8 +461,19 @@ func (s *twoFactorService) issueSessionToken(ctx context.Context, user *models.U
 
 // issueStatelessToken generates JWT tokens with nonce-based refresh token (stateless auth)
 func (s *twoFactorService) issueStatelessToken(ctx context.Context, user *models.User, metadata *types.RequestMetadata, statelessStorage types.StatelessStorage) (map[string]any, *types.GoAuthError) {
-	// Generate access token
-	accessToken, err := s.deps.SecurityManager.GenerateAccessToken(*user, map[string]interface{}{})
+	// Run auth interceptors for resume phase (enrichment only, e.g. org claims)
+	interceptClaims, _, interceptErr := s.deps.AuthInterceptors.Run(ctx, &types.InterceptParams{
+		Phase:    types.PhaseResume,
+		User:     user,
+		Metadata: metadata,
+	})
+	if interceptErr != nil {
+		s.deps.Logger.Error("Auth interceptor failed after 2FA", "error", interceptErr)
+		return nil, types.NewInternalError("Authentication flow interrupted")
+	}
+
+	// Generate access token with enriched claims
+	accessToken, err := s.deps.SecurityManager.GenerateAccessToken(*user, interceptClaims)
 	if err != nil {
 		s.deps.Logger.Error("Failed to generate access token after 2FA", "error", err)
 		return nil, types.NewInternalError("Failed to generate authentication tokens")

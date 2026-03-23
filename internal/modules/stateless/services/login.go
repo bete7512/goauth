@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -32,31 +31,29 @@ func (s *StatelessService) Login(ctx context.Context, req *dto.LoginRequest) (dt
 		return dto.AuthResponse{}, types.NewInvalidCredentialsError()
 	}
 
-	// Emit password verified event (allows 2FA module to intercept)
-	metadata := &types.RequestMetadata{
-		IPAddress: "", // Handler should pass this, but we don't have it in service layer yet
-		UserAgent: "",
-		Timestamp: time.Now(),
-	}
-	if eventErr := s.Deps.Events.EmitSync(ctx, types.EventAfterPasswordVerified, &types.PasswordVerifiedEventData{
+	// Run auth interceptors (2FA challenges, org enrichment, etc.)
+	interceptClaims, challenges, interceptErr := s.Deps.AuthInterceptors.Run(ctx, &types.InterceptParams{
+		Phase:    types.PhaseLogin,
 		User:     user,
-		Metadata: metadata,
-	}); eventErr != nil {
-		// Check if this is a 2FA required error (special case - not really an error)
-		// Use errors.As because the event bus wraps errors with fmt.Errorf("%w")
-		var goAuthErr *types.GoAuthError
-		if errors.As(eventErr, &goAuthErr) && goAuthErr.Code == types.ErrTwoFactorRequired {
-			return dto.AuthResponse{}, goAuthErr
-		}
-		// Other errors should block login
-		s.Logger.Errorf("stateless: password verified event handler failed: %v", eventErr)
+		Metadata: nil, // TODO: pass metadata from handler
+	})
+	if interceptErr != nil {
+		s.Logger.Errorf("stateless: auth interceptor failed: %v", interceptErr)
 		return dto.AuthResponse{}, types.NewInternalError("Authentication flow interrupted")
 	}
 
-	// Generate access token
+	// If any challenges were issued, return them without tokens
+	if len(challenges) > 0 {
+		return dto.AuthResponse{
+			Challenges: challenges,
+			Message:    "Authentication challenge required",
+		}, nil
+	}
+
+	// Generate access token with enriched claims
 	accessToken, err := s.SecurityManager.GenerateAccessToken(
 		*user,
-		map[string]interface{}{},
+		interceptClaims,
 	)
 	if err != nil {
 		return dto.AuthResponse{}, types.NewInternalError(fmt.Sprintf("failed to generate access token: %s", err.Error()))

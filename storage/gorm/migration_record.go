@@ -6,10 +6,11 @@ import "time"
 // It is NOT part of the public API — use types.MigrationRecord for that.
 type gormMigrationRecord struct {
 	ID         string    `gorm:"primaryKey"`
-	ModuleName string    `gorm:"column:module_name;not null;index"`
+	ModuleName string    `gorm:"column:module_name;not null;index:idx_module_version"`
+	Version    int       `gorm:"column:version;not null;index:idx_module_version"`
+	Name       string    `gorm:"column:name;not null"`
 	Dialect    string    `gorm:"column:dialect;not null"`
 	AppliedAt  time.Time `gorm:"column:applied_at;not null"`
-	Status     string    `gorm:"column:status;not null;default:'up'"`
 }
 
 func (gormMigrationRecord) TableName() string {

@@ -10,6 +10,7 @@ import (
 	"github.com/bete7512/goauth/internal/modules/core/middlewares"
 	core_services "github.com/bete7512/goauth/internal/modules/core/services"
 	"github.com/bete7512/goauth/internal/security"
+	"github.com/bete7512/goauth/internal/utils"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/types"
 )
@@ -118,15 +119,7 @@ func (m *CoreModule) Dependencies() []string {
 }
 
 func (m *CoreModule) Migrations() types.ModuleMigrations {
-	result := types.ModuleMigrations{}
-	for _, d := range []types.DialectType{types.DialectTypePostgres, types.DialectTypeMysql, types.DialectTypeSqlite} {
-		up, _ := migrationFS.ReadFile("migrations/" + string(d) + "/up.sql")
-		down, _ := migrationFS.ReadFile("migrations/" + string(d) + "/down.sql")
-		if len(up) > 0 {
-			result[d] = types.MigrationFiles{Up: up, Down: down}
-		}
-	}
-	return result
+	return utils.ParseMigrations(migrationFS)
 }
 
 func (m *CoreModule) updateConfigFromDeps() {

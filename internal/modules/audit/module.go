@@ -9,6 +9,7 @@ import (
 
 	"github.com/bete7512/goauth/internal/modules/audit/handlers"
 	"github.com/bete7512/goauth/internal/modules/audit/services"
+	"github.com/bete7512/goauth/internal/utils"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
@@ -318,13 +319,5 @@ func (m *AuditModule) OpenAPISpecs() []byte {
 }
 
 func (m *AuditModule) Migrations() types.ModuleMigrations {
-	result := types.ModuleMigrations{}
-	for _, d := range []types.DialectType{types.DialectTypePostgres, types.DialectTypeMysql, types.DialectTypeSqlite} {
-		up, _ := migrationFS.ReadFile("migrations/" + string(d) + "/up.sql")
-		down, _ := migrationFS.ReadFile("migrations/" + string(d) + "/down.sql")
-		if len(up) > 0 {
-			result[d] = types.MigrationFiles{Up: up, Down: down}
-		}
-	}
-	return result
+	return utils.ParseMigrations(migrationFS)
 }

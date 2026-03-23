@@ -61,6 +61,7 @@ type ModuleDependencies struct {
 	Events            types.EventBus
 	MiddlewareManager MiddlewareManager
 	SecurityManager   types.SecurityManager
+	AuthInterceptors  types.AuthInterceptorRegistry
 	Options           interface{}
 }
 

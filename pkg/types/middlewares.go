@@ -7,4 +7,5 @@ const (
 	MiddlewareAdminAuth MiddlewareName = "admin.auth"
 	MiddlewareCSRF      MiddlewareName = "csrf.csrf"
 	MiddlewareCaptcha   MiddlewareName = "captcha.verify"
+	MiddlewareOrgAuth   MiddlewareName = "org.auth"
 )
