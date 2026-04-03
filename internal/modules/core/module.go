@@ -70,7 +70,6 @@ func (m *CoreModule) Init(ctx context.Context, deps config.ModuleDependencies) e
 		core_services.NewCoreService(
 			m.deps,
 			coreStorage.Users(),
-			coreStorage.ExtendedAttributes(),
 			coreStorage.Tokens(),
 			m.deps.Logger,
 			securityManager,

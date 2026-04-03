@@ -480,4 +480,3 @@ func (s *CoreHandlerSuite) TestCheckAvailability() {
 		})
 	}
 }
-

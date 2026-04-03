@@ -1,0 +1,183 @@
+openapi: 3.0.3
+info:
+  title: GoAuth Stateless Authentication
+  description: JWT-based stateless authentication with nonce-based refresh token rotation.
+  version: 1.0.0
+
+paths:
+  /login:
+    post:
+      operationId: statelessLogin
+      summary: Authenticate with email/username and password
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: User email (required if username not provided)
+                username:
+                  type: string
+                  description: Username (required if email not provided)
+                password:
+                  type: string
+                  format: password
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "423":
+          description: Account locked due to too many failed attempts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /logout:
+    post:
+      operationId: statelessLogout
+      summary: Revoke all refresh tokens for the authenticated user
+      tags: [Authentication]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /refresh:
+    post:
+      operationId: statelessRefresh
+      summary: Exchange a refresh token for new access and refresh tokens
+      description: |
+        The old refresh token is revoked after use (rotation).
+        Reusing an old refresh token will fail with 401.
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token:
+                  type: string
+                  description: JWT refresh token from login or previous refresh
+      responses:
+        "200":
+          description: Tokens refreshed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid or revoked refresh token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    AuthResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            access_token:
+              type: string
+            refresh_token:
+              type: string
+            expires_in:
+              type: integer
+              description: Token lifetime in seconds
+            message:
+              type: string
+            user:
+              $ref: "#/components/schemas/UserDTO"
+            challenges:
+              type: array
+              description: Login challenges (e.g. 2FA) if any
+              items:
+                type: object
+
+    UserDTO:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        name:
+          type: string
+        username:
+          type: string
+        active:
+          type: boolean
+        email_verified:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    MessageResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            message:
+              type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        data:
+          type: object
+          properties:
+            code:
+              type: string
+              example: INVALID_CREDENTIALS
+            message:
+              type: string
+              example: Invalid email or password

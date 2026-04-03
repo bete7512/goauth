@@ -26,7 +26,7 @@ func NewAuditLogRepository(db *gorm.DB) *GormAuditLogRepository {
 // Create creates a new audit log entry
 func (r *GormAuditLogRepository) Create(ctx context.Context, log *models.AuditLog) error {
 	if log.ID == "" {
-		log.ID = uuid.New().String()
+		log.ID = uuid.Must(uuid.NewV7()).String()
 	}
 	if log.CreatedAt.IsZero() {
 		log.CreatedAt = time.Now()

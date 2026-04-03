@@ -15,4 +15,3 @@ func (s *StatelessService) Logout(ctx context.Context, userID string) *types.GoA
 
 	return nil
 }
-

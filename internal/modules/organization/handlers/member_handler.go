@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/bete7512/goauth/internal/modules/organization/handlers/dto"
 	"github.com/bete7512/goauth/internal/modules/organization/services"
 	http_utils "github.com/bete7512/goauth/internal/utils/http"
 	"github.com/bete7512/goauth/pkg/config"
@@ -36,7 +37,7 @@ func (h *MemberHandler) ListMembers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http_utils.RespondList(w, members, total, opts.SortField, opts.SortDir)
+	http_utils.RespondList(w, dto.MembersToDTO(members), total, opts.SortField, opts.SortDir)
 }
 
 func (h *MemberHandler) GetMember(w http.ResponseWriter, r *http.Request) {
@@ -49,7 +50,7 @@ func (h *MemberHandler) GetMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http_utils.RespondSuccess(w, member, nil)
+	http_utils.RespondSuccess(w, dto.MemberToDTO(member), nil)
 }
 
 func (h *MemberHandler) UpdateMember(w http.ResponseWriter, r *http.Request) {
@@ -63,11 +64,13 @@ func (h *MemberHandler) UpdateMember(w http.ResponseWriter, r *http.Request) {
 	actorID, _ := r.Context().Value(types.UserIDKey).(string)
 	targetUserID := extractLastPathSegment(r.URL.Path)
 
-	var req struct {
-		Role string `json:"role"`
-	}
+	var req dto.UpdateMemberRoleRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidJSON), "Invalid request body")
+		return
+	}
+	if err := req.Validate(); err != nil {
+		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidRequestBody), err.Error())
 		return
 	}
 

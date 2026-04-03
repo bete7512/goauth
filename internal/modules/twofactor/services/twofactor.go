@@ -102,7 +102,7 @@ func (s *twoFactorService) SaveTwoFactorConfig(ctx context.Context, tfConfig *mo
 		}
 	} else {
 		// Create new
-		tfConfig.ID = uuid.New().String()
+		tfConfig.ID = uuid.Must(uuid.NewV7()).String()
 		if err := tfRepo.Create(ctx, tfConfig); err != nil {
 			s.deps.Logger.Error("Failed to create 2FA config", "error", err)
 			return types.NewInternalError("Failed to save 2FA configuration")
@@ -154,7 +154,6 @@ func (s *twoFactorService) VerifyCode(ctx context.Context, userID, code string) 
 		return types.NewTwoFactorInvalidError()
 	}
 
-	// TODO: Add code reuse prevention (cache used codes for 60s) in future version
 	return nil
 }
 
@@ -246,7 +245,7 @@ func (s *twoFactorService) SaveBackupCodes(ctx context.Context, userID string, p
 		}
 
 		backupCodes[i] = &models.BackupCode{
-			ID:     uuid.New().String(),
+			ID:     uuid.Must(uuid.NewV7()).String(),
 			UserID: userID,
 			Code:   string(hashedCode),
 			Used:   false,
@@ -403,7 +402,7 @@ func (s *twoFactorService) issueSessionToken(ctx context.Context, user *models.U
 		return nil, types.NewInternalError("Authentication flow interrupted")
 	}
 
-	sessionID := uuid.New().String()
+	sessionID := uuid.Must(uuid.NewV7()).String()
 
 	// Merge interceptor claims with session_id
 	tokenClaims := map[string]interface{}{"session_id": sessionID}
@@ -418,11 +417,11 @@ func (s *twoFactorService) issueSessionToken(ctx context.Context, user *models.U
 		return nil, types.NewInternalError("Failed to generate authentication tokens")
 	}
 
-	// Create session
+	// Create session — store hashed refresh token
 	session := &models.Session{
 		ID:                    sessionID,
 		UserID:                user.ID,
-		RefreshToken:          refreshToken,
+		RefreshToken:          s.deps.SecurityManager.HashRefreshToken(refreshToken),
 		RefreshTokenExpiresAt: time.Now().Add(s.deps.Config.Security.Session.RefreshTokenTTL),
 		ExpiresAt:             time.Now().Add(s.deps.Config.Security.Session.SessionTTL),
 		UserAgent:             metadata.UserAgent,
@@ -488,7 +487,7 @@ func (s *twoFactorService) issueStatelessToken(ctx context.Context, user *models
 
 	// Store the JTI (nonce) in the tokens table for revocation checks
 	tokenModel := &models.Token{
-		ID:        uuid.New().String(),
+		ID:        uuid.Must(uuid.NewV7()).String(),
 		UserID:    user.ID,
 		Type:      "refresh_nonce",
 		Token:     jti,

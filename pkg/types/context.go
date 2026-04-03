@@ -10,4 +10,5 @@ const (
 	OrgRoleKey   ContextKey = "org_role"
 	OrgKey       ContextKey = "organization"
 	OrgMemberKey ContextKey = "org_member"
+	RouteNameKey ContextKey = "route_name"
 )

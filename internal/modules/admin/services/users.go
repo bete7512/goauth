@@ -46,7 +46,7 @@ func (s *adminService) ListUsers(ctx context.Context, opts models.UserListOpts) 
 func (s *adminService) GetUser(ctx context.Context, userID string) (*models.User, *types.GoAuthError) {
 	user, err := s.userRepository.FindByID(ctx, userID)
 	if err != nil {
-		// FIXME check it first if user not found 
+		// FIXME check it first if user not found
 		// but this depends on storage provider mercy unless different orm returns the same error for not found
 		return nil, types.NewInternalError("failed to get user")
 	}

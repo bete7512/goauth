@@ -1,4 +1,4 @@
-.PHONY: mocks test test-unit test-integration test-coverage lint build clean
+.PHONY: mocks test test-unit test-integration test-coverage test-bench lint build clean
 
 # Generate all mocks via go:generate directives
 mocks:
@@ -34,6 +34,11 @@ build:
 # Lint (requires golangci-lint)
 lint:
 	golangci-lint run ./...
+
+# Run benchmarks
+.PHONY: test-bench
+test-bench:
+	go test ./tests/benchmarks/ -bench=. -benchmem -count=3
 
 # Clean generated files
 clean:

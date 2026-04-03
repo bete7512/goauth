@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/bete7512/goauth/internal/modules/organization/handlers"
+	"github.com/bete7512/goauth/internal/modules/organization/handlers/dto"
 	"github.com/bete7512/goauth/internal/modules/organization/middlewares"
 	"github.com/bete7512/goauth/internal/modules/organization/services"
 	"github.com/bete7512/goauth/internal/utils"
@@ -130,7 +131,7 @@ func (m *OrganizationModule) Middlewares() []config.MiddlewareConfig {
 		{
 			Name:       types.MiddlewareOrgAuth,
 			Middleware: m.orgAuthMiddleware.Middleware,
-			Priority:   45, // Below auth (50), above 2FA (40)
+			Priority:   45,                  // Below auth (50), above 2FA (40)
 			ApplyTo:    []types.RouteName{}, // Applied via route's Middlewares field, not pattern
 			Global:     false,
 		},
@@ -160,7 +161,7 @@ func (m *OrganizationModule) RegisterHooks(events types.EventBus) error {
 				m.deps.Storage.Core().Users(),
 			)
 
-			_, authErr := orgService.Create(ctx, user.ID, &services.CreateOrgRequest{Name: orgName})
+			_, authErr := orgService.Create(ctx, user.ID, &dto.CreateOrgRequest{Name: orgName})
 			if authErr != nil {
 				m.deps.Logger.Error("Failed to auto-create organization", "user_id", user.ID, "error", authErr.Message)
 			} else {

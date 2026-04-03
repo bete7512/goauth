@@ -52,4 +52,3 @@ func (h *StatelessHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	h.setTokenCookies(w, &response)
 	http_utils.RespondSuccess(w, response, nil)
 }
-

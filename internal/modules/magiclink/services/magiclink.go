@@ -118,7 +118,7 @@ func (s *magicLinkService) sendMagicLinkForUser(ctx context.Context, user *model
 	}
 
 	magicLinkToken := &models.Token{
-		ID:        uuid.New().String(),
+		ID:        uuid.Must(uuid.NewV7()).String(),
 		UserID:    user.ID,
 		Token:     token,
 		Code:      code,
@@ -218,7 +218,7 @@ func (s *magicLinkService) verifyToken(ctx context.Context, verification *models
 func (s *magicLinkService) autoRegister(ctx context.Context, email string) (*models.User, *types.GoAuthError) {
 	now := time.Now()
 	user := &models.User{
-		ID:            uuid.New().String(),
+		ID:            uuid.Must(uuid.NewV7()).String(),
 		Email:         email,
 		Username:      generateUsernameFromEmail(email),
 		Active:        true,
@@ -253,9 +253,9 @@ func (s *magicLinkService) buildMagicLink(token string) string {
 func generateUsernameFromEmail(email string) string {
 	parts := strings.Split(email, "@")
 	if len(parts) > 0 && parts[0] != "" {
-		return parts[0] + "-" + uuid.New().String()[:8]
+		return parts[0] + "-" + uuid.Must(uuid.NewV7()).String()[:8]
 	}
-	return "user-" + uuid.New().String()[:8]
+	return "user-" + uuid.Must(uuid.NewV7()).String()[:8]
 }
 
 func userToDTO(user *models.User) *coredto.UserDTO {

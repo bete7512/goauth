@@ -51,7 +51,7 @@ func (s *coreService) ForgotPassword(ctx context.Context, req *dto.ForgotPasswor
 
 	// Create password reset token
 	verificationToken := &models.Token{
-		ID:          uuid.New().String(),
+		ID:          uuid.Must(uuid.NewV7()).String(),
 		UserID:      user.ID,
 		Token:       token,
 		Code:        code,

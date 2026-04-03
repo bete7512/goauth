@@ -8,9 +8,6 @@ import (
 	"testing"
 	"time"
 
-
-
-	
 	"github.com/bete7512/goauth/internal/modules/captcha/services"
 	"github.com/stretchr/testify/suite"
 )

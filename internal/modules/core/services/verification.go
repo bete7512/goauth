@@ -32,7 +32,7 @@ func (s *coreService) SendEmailVerification(ctx context.Context, email string) (
 
 	// FIXME: verification expiration time have to be set from configuration to override default one
 	verificationToken := &models.Token{
-		ID:        uuid.New().String(),
+		ID:        uuid.Must(uuid.NewV7()).String(),
 		UserID:    user.ID,
 		Token:     token,
 		Type:      models.TokenTypeEmailVerification,
@@ -79,7 +79,7 @@ func (s *coreService) ResendEmailVerification(ctx context.Context, email string)
 	verificationLink := s.buildVerificationLink(token)
 
 	verificationToken := &models.Token{
-		ID:        uuid.New().String(),
+		ID:        uuid.Must(uuid.NewV7()).String(),
 		UserID:    user.ID,
 		Token:     token,
 		Type:      models.TokenTypeEmailVerification,
@@ -118,7 +118,7 @@ func (s *coreService) SendPhoneVerification(ctx context.Context, phone string) (
 	}
 
 	verificationToken := &models.Token{
-		ID:          uuid.New().String(),
+		ID:          uuid.Must(uuid.NewV7()).String(),
 		UserID:      user.ID,
 		Code:        code,
 		Type:        models.TokenTypePhoneVerification,
@@ -164,7 +164,7 @@ func (s *coreService) ResendPhoneVerification(ctx context.Context, phone string)
 	}
 
 	verificationToken := &models.Token{
-		ID:          uuid.New().String(),
+		ID:          uuid.Must(uuid.NewV7()).String(),
 		UserID:      user.ID,
 		Code:        code,
 		Type:        models.TokenTypePhoneVerification,

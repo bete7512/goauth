@@ -2,6 +2,7 @@ package stateless
 
 import (
 	"context"
+	_ "embed"
 	"errors"
 
 	"github.com/bete7512/goauth/internal/modules/stateless/handlers"
@@ -10,6 +11,9 @@ import (
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/types"
 )
+
+//go:embed docs/openapi.yml
+var openapiSpec []byte
 
 type StatelessModule struct {
 	deps          config.ModuleDependencies
@@ -70,7 +74,7 @@ func (m *StatelessModule) Init(ctx context.Context, deps config.ModuleDependenci
 }
 
 func (m *StatelessModule) OpenAPISpecs() []byte {
-	return nil
+	return openapiSpec
 }
 
 func (m *StatelessModule) Name() string {

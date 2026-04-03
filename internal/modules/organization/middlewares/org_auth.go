@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"strings"
 
+	http_utils "github.com/bete7512/goauth/internal/utils/http"
 	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
-	http_utils "github.com/bete7512/goauth/internal/utils/http"
 )
 
 type OrgAuthMiddleware struct {

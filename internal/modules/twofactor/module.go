@@ -22,8 +22,6 @@ type TwoFactorModule struct {
 	config   *config.TwoFactorConfig
 }
 
-
-
 var (
 	//go:embed docs/openapi.yml
 	openapiSpec []byte
@@ -65,12 +63,13 @@ func (m *TwoFactorModule) Init(ctx context.Context, deps config.ModuleDependenci
 	m.deps = deps
 
 	// Initialize service
-	m.service = services.NewTwoFactorService(
+	svc := services.NewTwoFactorService(
 		deps,
 		m.config.Issuer,
 		m.config.BackupCodesCount,
 		m.config.CodeLength,
 	)
+	m.service = svc
 
 	// Initialize handlers
 	m.handlers = handlers.NewTwoFactorHandler(deps, m.service)

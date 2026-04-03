@@ -31,14 +31,13 @@ func (h *CoreHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Call service
 	response, err := h.coreService.ChangePassword(ctx, userID, &req)
 	if err != nil {
 		http_utils.RespondError(w, err.StatusCode, string(err.Code), err.Message)
 		return
 	}
 
-	// TODO: somehow logout 
+	// TODO: somehow logout in the future from here automatically
 
 	http_utils.RespondSuccess(w, response, nil)
 }

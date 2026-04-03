@@ -8,11 +8,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/bete7512/goauth/internal/modules/audit"
 	"github.com/bete7512/goauth/pkg/adapters/stdhttp"
 	"github.com/bete7512/goauth/pkg/auth"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/modules/admin"
+	"github.com/bete7512/goauth/pkg/modules/audit"
 	"github.com/bete7512/goauth/pkg/modules/magiclink"
 	"github.com/bete7512/goauth/pkg/modules/notification"
 	"github.com/bete7512/goauth/pkg/modules/notification/senders"

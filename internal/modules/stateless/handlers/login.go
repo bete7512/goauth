@@ -13,7 +13,6 @@ import (
 func (h *StatelessHandler) Login(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-
 	var req dto.LoginRequest
 	metadata := &types.RequestMetadata{
 		IPAddress:         r.RemoteAddr,

@@ -41,12 +41,12 @@ func (s *CSRFMiddlewareSuite) okHandler() http.Handler {
 
 func (s *CSRFMiddlewareSuite) TestDoubleSubmit() {
 	tests := []struct {
-		name           string
-		method         string
-		cookieToken    string
-		headerToken    string
-		formToken      string
-		wantStatus     int
+		name        string
+		method      string
+		cookieToken string
+		headerToken string
+		formToken   string
+		wantStatus  int
 	}{
 		{
 			name:        "valid double-submit via header",
@@ -56,11 +56,11 @@ func (s *CSRFMiddlewareSuite) TestDoubleSubmit() {
 			wantStatus:  http.StatusOK,
 		},
 		{
-			name:       "valid double-submit via form field",
-			method:     http.MethodPost,
+			name:        "valid double-submit via form field",
+			method:      http.MethodPost,
 			cookieToken: "VALID",
-			formToken:  "VALID",
-			wantStatus: http.StatusOK,
+			formToken:   "VALID",
+			wantStatus:  http.StatusOK,
 		},
 		{
 			name:        "missing cookie",

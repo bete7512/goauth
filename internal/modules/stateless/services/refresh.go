@@ -81,7 +81,7 @@ func (s *StatelessService) Refresh(ctx context.Context, req *dto.RefreshRequest)
 
 	// Save new nonce
 	tokenModel := &models.Token{
-		ID:        uuid.New().String(),
+		ID:        uuid.Must(uuid.NewV7()).String(),
 		UserID:    user.ID,
 		Type:      "refresh_nonce",
 		Token:     newJti,

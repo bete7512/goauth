@@ -60,10 +60,10 @@ func (s *AdminAuthMiddlewareSuite) TestAdminAuth() {
 	regularUser.IsSuperAdmin = false
 
 	tests := []struct {
-		name       string
-		userID     string // empty = no user ID in context
-		setup      func(*mocks.MockStorage, *mocks.MockCoreStorage, *mocks.MockUserRepository)
-		wantStatus int
+		name        string
+		userID      string // empty = no user ID in context
+		setup       func(*mocks.MockStorage, *mocks.MockCoreStorage, *mocks.MockUserRepository)
+		wantStatus  int
 		wantErrCode string
 	}{
 		{

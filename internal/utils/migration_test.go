@@ -9,12 +9,12 @@ import (
 
 func TestParseMigrations(t *testing.T) {
 	fs := fstest.MapFS{
-		"migrations/postgres/000_init_up.sql":       {Data: []byte("CREATE TABLE users (id TEXT);")},
-		"migrations/postgres/000_init_down.sql":     {Data: []byte("DROP TABLE users;")},
-		"migrations/postgres/001_add_roles_up.sql":  {Data: []byte("ALTER TABLE users ADD COLUMN role TEXT;")},
+		"migrations/postgres/000_init_up.sql":        {Data: []byte("CREATE TABLE users (id TEXT);")},
+		"migrations/postgres/000_init_down.sql":      {Data: []byte("DROP TABLE users;")},
+		"migrations/postgres/001_add_roles_up.sql":   {Data: []byte("ALTER TABLE users ADD COLUMN role TEXT;")},
 		"migrations/postgres/001_add_roles_down.sql": {Data: []byte("ALTER TABLE users DROP COLUMN role;")},
-		"migrations/mysql/000_init_up.sql":          {Data: []byte("CREATE TABLE users (id VARCHAR(36));")},
-		"migrations/mysql/000_init_down.sql":        {Data: []byte("DROP TABLE users;")},
+		"migrations/mysql/000_init_up.sql":           {Data: []byte("CREATE TABLE users (id VARCHAR(36));")},
+		"migrations/mysql/000_init_down.sql":         {Data: []byte("DROP TABLE users;")},
 	}
 
 	result := ParseMigrations(fs)

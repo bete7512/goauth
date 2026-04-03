@@ -363,6 +363,23 @@ func (c *Config) Validate() error {
 	if c.Security.Session.RefreshTokenTTL <= 0 {
 		c.Security.Session.RefreshTokenTTL = 7 * 24 * time.Hour // Default to 7 days
 	}
+	if c.Security.Session.AccessTokenTTL <= 0 {
+		c.Security.Session.AccessTokenTTL = 15 * time.Minute
+	}
+	// Password policy defaults
+	if c.Security.PasswordPolicy.MinLength <= 0 {
+		c.Security.PasswordPolicy.MinLength = 8
+	}
+	if c.Security.PasswordPolicy.MaxLength <= 0 {
+		c.Security.PasswordPolicy.MaxLength = 128
+	}
+	// Lockout defaults (enabled by default for security)
+	if c.Security.Lockout.MaxAttempts <= 0 {
+		c.Security.Lockout.MaxAttempts = 5
+	}
+	if c.Security.Lockout.LockoutDuration <= 0 {
+		c.Security.Lockout.LockoutDuration = 15 * time.Minute
+	}
 	if c.BasePath == "" {
 		c.BasePath = "/auth"
 	}

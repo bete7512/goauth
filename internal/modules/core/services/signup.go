@@ -44,7 +44,7 @@ func (s *coreService) Signup(ctx context.Context, req *dto.SignupRequest) (*dto.
 	now := time.Now()
 	// Create user
 	user := &models.User{
-		ID:           uuid.New().String(),
+		ID:           uuid.Must(uuid.NewV7()).String(),
 		Email:        req.Email,
 		PasswordHash: string(hashedPassword),
 		Name:         req.Name,
@@ -71,13 +71,6 @@ func (s *coreService) Signup(ctx context.Context, req *dto.SignupRequest) (*dto.
 		return nil, types.NewInternalError(fmt.Sprintf("failed to create user: %v", err.Error()))
 	}
 
-	// Set extended attributes if provided
-	if req.ExtendedAttributes != nil {
-		for _, attr := range req.ExtendedAttributes {
-			_ = s.setAttribute(ctx, user.ID, attr.Name, attr.Value)
-		}
-	}
-
 	userDto := &dto.UserDTO{
 		ID:                  user.ID,
 		Email:               user.Email,
@@ -92,13 +85,6 @@ func (s *coreService) Signup(ctx context.Context, req *dto.SignupRequest) (*dto.
 		CreatedAt:           user.CreatedAt,
 		UpdatedAt:           user.UpdatedAt,
 		LastLoginAt:         user.LastLoginAt,
-		ExtendedAttributes: func() []dto.ExtendedAttributes {
-			attrs := make([]dto.ExtendedAttributes, len(user.ExtendedAttributes))
-			for i, attr := range user.ExtendedAttributes {
-				attrs[i] = dto.ExtendedAttributes{Name: attr.Name, Value: attr.Value}
-			}
-			return attrs
-		}(),
 	}
 
 	// Return user data only - authentication is handled by auth modules (session or stateless)
@@ -123,7 +109,7 @@ func (s *coreService) signupMessage(user *models.User) string {
 func (s *coreService) generateRandomUsername(email string) string {
 	parts := strings.Split(email, "@")
 	if len(parts) > 0 && parts[0] != "" {
-		return parts[0] + "-" + uuid.New().String()[:8]
+		return parts[0] + "-" + uuid.Must(uuid.NewV7()).String()[:8]
 	}
-	return "user-" + uuid.New().String()[:8]
+	return "user-" + uuid.Must(uuid.NewV7()).String()[:8]
 }

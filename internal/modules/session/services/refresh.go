@@ -12,8 +12,9 @@ import (
 
 // Refresh refreshes the access token using a refresh token
 func (s *sessionService) Refresh(ctx context.Context, req *dto.RefreshRequest) (dto.AuthResponse, *types.GoAuthError) {
-	// Find session by refresh token
-	session, err := s.sessionRepository.FindByToken(ctx, req.RefreshToken)
+	// Hash the incoming refresh token and look up by hash
+	tokenHash := s.securityManager.HashRefreshToken(req.RefreshToken)
+	session, err := s.sessionRepository.FindByToken(ctx, tokenHash)
 	if err != nil || session == nil {
 		return dto.AuthResponse{}, types.NewInvalidCredentialsError()
 	}
@@ -44,7 +45,7 @@ func (s *sessionService) Refresh(ctx context.Context, req *dto.RefreshRequest) (
 	}
 
 	// Generate new session ID for rotation
-	newSessionID := uuid.New().String()
+	newSessionID := uuid.Must(uuid.NewV7()).String()
 
 	// Merge interceptor claims with session_id
 	tokenClaims := map[string]interface{}{"session_id": newSessionID}
@@ -58,14 +59,14 @@ func (s *sessionService) Refresh(ctx context.Context, req *dto.RefreshRequest) (
 		return dto.AuthResponse{}, types.NewInternalError(fmt.Sprintf("failed to generate tokens: %s", err.Error()))
 	}
 
-	// Delete old session
-	if err := s.sessionRepository.DeleteByToken(ctx, req.RefreshToken); err != nil {
+	// Delete old session by hash
+	if err := s.sessionRepository.DeleteByToken(ctx, tokenHash); err != nil {
 		return dto.AuthResponse{}, types.NewInternalError(fmt.Sprintf("failed to rotate session: %s", err.Error()))
 	}
 
-	// Create new session with rotated refresh token
+	// Create new session with hashed rotated refresh token
 	session.ID = newSessionID
-	session.RefreshToken = newRefreshToken
+	session.RefreshToken = s.securityManager.HashRefreshToken(newRefreshToken)
 	session.RefreshTokenExpiresAt = time.Now().Add(s.deps.Config.Security.Session.RefreshTokenTTL)
 	session.ExpiresAt = time.Now().Add(s.deps.Config.Security.Session.SessionTTL)
 	session.CreatedAt = time.Now()

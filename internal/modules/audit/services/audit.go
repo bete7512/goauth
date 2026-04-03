@@ -82,7 +82,7 @@ func (s *auditService) GetMyLogins(ctx context.Context, userID string, opts mode
 
 	// Filter for login-related actions
 	var loginLogs []*models.AuditLog
-	// TODO: this is disaster filter have to be sent 
+	// TODO: this is disaster filter have to be sent
 	for _, log := range allLogs {
 		if strings.HasPrefix(log.Action, "auth.login") {
 			loginLogs = append(loginLogs, log)

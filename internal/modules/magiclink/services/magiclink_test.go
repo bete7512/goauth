@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bete7512/goauth/internal/interceptor"
 	"github.com/bete7512/goauth/internal/mocks"
 	magiclink_dto "github.com/bete7512/goauth/internal/modules/magiclink/handlers/dto"
 	"github.com/bete7512/goauth/internal/modules/magiclink/services"
@@ -54,10 +55,11 @@ func (s *MagicLinkServiceSuite) setupService(cfgOverride ...*config.MagicLinkMod
 	testCfg.APIURL = "http://localhost:8080"
 
 	deps := config.ModuleDependencies{
-		Config:          testCfg,
-		Events:          mockEvents,
-		Logger:          mockLogger,
-		SecurityManager: secMgr,
+		Config:           testCfg,
+		Events:           mockEvents,
+		Logger:           mockLogger,
+		SecurityManager:  secMgr,
+		AuthInterceptors: interceptor.NewRegistry(),
 	}
 
 	svc := services.NewMagicLinkService(deps, mockUserRepo, mockTokenRepo, secMgr, cfg)

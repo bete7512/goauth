@@ -68,7 +68,6 @@ type Storage interface {
 type CoreStorage interface {
 	Users() models.UserRepository
 	Tokens() models.TokenRepository
-	ExtendedAttributes() models.ExtendedAttributeRepository
 	WithTransaction(ctx context.Context, fn func(tx CoreStorage) error) error
 }
 
@@ -86,7 +85,6 @@ type StatelessStorage interface {
 // AdminStorage defines storage interface for the admin module
 type AdminStorage interface {
 }
-
 
 type AuditLogStorage interface {
 	AuditLogs() models.AuditLogRepository

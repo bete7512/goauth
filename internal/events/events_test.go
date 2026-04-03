@@ -49,12 +49,12 @@ func (s *EventBusSuite) TestUnsubscribe() {
 
 func (s *EventBusSuite) TestEmitSync() {
 	tests := []struct {
-		name        string
-		eventType   types.EventType
-		subscribe   bool
-		handlerErr  error
-		wantErr     bool
-		wantCalled  bool
+		name       string
+		eventType  types.EventType
+		subscribe  bool
+		handlerErr error
+		wantErr    bool
+		wantCalled bool
 	}{
 		{
 			name:       "handler called successfully",

@@ -79,9 +79,10 @@ func (s *sessionService) DeleteAllSessions(ctx context.Context, userID string) *
 	return nil
 }
 
-// FindSessionByToken finds a session by its refresh token
+// FindSessionByToken finds a session by its refresh token (hashes the token before lookup).
 func (s *sessionService) FindSessionByToken(ctx context.Context, token string) (*models.Session, *types.GoAuthError) {
-	session, err := s.sessionRepository.FindByToken(ctx, token)
+	tokenHash := s.securityManager.HashRefreshToken(token)
+	session, err := s.sessionRepository.FindByToken(ctx, tokenHash)
 	if err != nil || session == nil {
 		return nil, types.NewSessionNotFoundError()
 	}

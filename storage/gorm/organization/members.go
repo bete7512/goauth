@@ -26,7 +26,7 @@ func NewMemberRepo(db *gorm.DB) *MemberRepo {
 // Create creates a new organization member
 func (r *MemberRepo) Create(ctx context.Context, member *models.OrganizationMember) error {
 	if member.ID == "" {
-		member.ID = uuid.New().String()
+		member.ID = uuid.Must(uuid.NewV7()).String()
 	}
 	if member.JoinedAt.IsZero() {
 		member.JoinedAt = time.Now()

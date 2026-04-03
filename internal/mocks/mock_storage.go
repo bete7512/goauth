@@ -206,20 +206,6 @@ func (m *MockCoreStorage) EXPECT() *MockCoreStorageMockRecorder {
 	return m.recorder
 }
 
-// ExtendedAttributes mocks base method.
-func (m *MockCoreStorage) ExtendedAttributes() models.ExtendedAttributeRepository {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ExtendedAttributes")
-	ret0, _ := ret[0].(models.ExtendedAttributeRepository)
-	return ret0
-}
-
-// ExtendedAttributes indicates an expected call of ExtendedAttributes.
-func (mr *MockCoreStorageMockRecorder) ExtendedAttributes() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExtendedAttributes", reflect.TypeOf((*MockCoreStorage)(nil).ExtendedAttributes))
-}
-
 // Tokens mocks base method.
 func (m *MockCoreStorage) Tokens() models.TokenRepository {
 	m.ctrl.T.Helper()

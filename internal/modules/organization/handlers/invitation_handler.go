@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/bete7512/goauth/internal/modules/organization/handlers/dto"
 	"github.com/bete7512/goauth/internal/modules/organization/services"
 	http_utils "github.com/bete7512/goauth/internal/utils/http"
 	"github.com/bete7512/goauth/pkg/config"
@@ -30,9 +31,13 @@ func (h *InvitationHandler) Invite(w http.ResponseWriter, r *http.Request) {
 	orgID, _ := r.Context().Value(types.OrgIDKey).(string)
 	inviterID, _ := r.Context().Value(types.UserIDKey).(string)
 
-	var req services.InviteRequest
+	var req dto.InviteRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidJSON), "Invalid request body")
+		return
+	}
+	if err := req.Validate(); err != nil {
+		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidRequestBody), err.Error())
 		return
 	}
 
@@ -42,7 +47,7 @@ func (h *InvitationHandler) Invite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http_utils.RespondCreated(w, invitation, nil)
+	http_utils.RespondCreated(w, dto.InvitationToDTO(invitation), nil)
 }
 
 func (h *InvitationHandler) ListInvitations(w http.ResponseWriter, r *http.Request) {
@@ -66,7 +71,7 @@ func (h *InvitationHandler) ListInvitations(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	http_utils.RespondList(w, invitations, total, opts.SortField, opts.SortDir)
+	http_utils.RespondList(w, dto.InvitationsToDTO(invitations), total, opts.SortField, opts.SortDir)
 }
 
 func (h *InvitationHandler) CancelInvitation(w http.ResponseWriter, r *http.Request) {
@@ -90,7 +95,6 @@ func (h *InvitationHandler) CancelInvitation(w http.ResponseWriter, r *http.Requ
 func (h *InvitationHandler) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
 	userID, _ := r.Context().Value(types.UserIDKey).(string)
 
-	// Get user email
 	userRepo := h.deps.Storage.Core().Users()
 	user, err := userRepo.FindByID(r.Context(), userID)
 	if err != nil || user == nil {
@@ -98,11 +102,13 @@ func (h *InvitationHandler) AcceptInvitation(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	var req struct {
-		Token string `json:"token"`
+	var req dto.AcceptInvitationRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidJSON), "Invalid request body")
+		return
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Token == "" {
-		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidJSON), "token is required")
+	if err := req.Validate(); err != nil {
+		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidRequestBody), err.Error())
 		return
 	}
 
@@ -112,17 +118,19 @@ func (h *InvitationHandler) AcceptInvitation(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	http_utils.RespondSuccess(w, member, nil)
+	http_utils.RespondSuccess(w, dto.MemberCreatedToDTO(member), nil)
 }
 
 func (h *InvitationHandler) DeclineInvitation(w http.ResponseWriter, r *http.Request) {
 	userID, _ := r.Context().Value(types.UserIDKey).(string)
 
-	var req struct {
-		Token string `json:"token"`
+	var req dto.DeclineInvitationRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidJSON), "Invalid request body")
+		return
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Token == "" {
-		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidJSON), "token is required")
+	if err := req.Validate(); err != nil {
+		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidRequestBody), err.Error())
 		return
 	}
 
@@ -150,5 +158,5 @@ func (h *InvitationHandler) MyInvitations(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	http_utils.RespondSuccess(w, invitations, nil)
+	http_utils.RespondSuccess(w, dto.InvitationsToDTO(invitations), nil)
 }

@@ -1,10 +1,15 @@
 package security
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"fmt"
+	"io"
 	"time"
 
 	"github.com/bete7512/goauth/pkg/models"
@@ -158,15 +163,91 @@ func (t *SecurityManager) ValidateHashedToken(hashedToken, token string) error {
 	return bcrypt.CompareHashAndPassword([]byte(hashedToken), []byte(token))
 }
 
-func (t *SecurityManager) Encrypt(data string) (string, error) {
-	// do some research on how to encrypt and encrypt data in better way
-	//TODO: encryptedData, err := t.Config.EncryptionKey.Encrypt([]byte(data))
-	return data, nil
+// HashRefreshToken produces a hex-encoded SHA-256 hash of a refresh token.
+// SHA-256 is appropriate here because refresh tokens have high entropy (unlike
+// passwords), so brute-force attacks are infeasible even without a slow hash.
+func (t *SecurityManager) HashRefreshToken(token string) string {
+	h := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(h[:])
 }
 
+// HashRefreshToken is a package-level convenience for SHA-256 hashing of refresh tokens.
+func HashRefreshToken(token string) string {
+	h := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(h[:])
+}
+
+// Encrypt encrypts plaintext using AES-256-GCM. The encryption key is derived
+// from Config.EncryptionKey via SHA-256 to ensure a 32-byte key.
+// Output format: base64(nonce || ciphertext).
+func (t *SecurityManager) Encrypt(data string) (string, error) {
+	if t.Config.EncryptionKey == "" {
+		return "", fmt.Errorf("encryption key not configured")
+	}
+
+	key := deriveKey(t.Config.EncryptionKey)
+
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return "", fmt.Errorf("failed to create cipher: %w", err)
+	}
+
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return "", fmt.Errorf("failed to create GCM: %w", err)
+	}
+
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		return "", fmt.Errorf("failed to generate nonce: %w", err)
+	}
+
+	ciphertext := gcm.Seal(nonce, nonce, []byte(data), nil)
+	return base64.StdEncoding.EncodeToString(ciphertext), nil
+}
+
+// Decrypt decrypts data produced by Encrypt using AES-256-GCM.
 func (t *SecurityManager) Decrypt(data string) (string, error) {
-	//TODO: decryptedData, err := t.Config.Security.EncryptionKey.Decrypt([]byte(data))
-	return data, nil
+	if t.Config.EncryptionKey == "" {
+		return "", fmt.Errorf("encryption key not configured")
+	}
+
+	key := deriveKey(t.Config.EncryptionKey)
+
+	raw, err := base64.StdEncoding.DecodeString(data)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode ciphertext: %w", err)
+	}
+
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return "", fmt.Errorf("failed to create cipher: %w", err)
+	}
+
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return "", fmt.Errorf("failed to create GCM: %w", err)
+	}
+
+	nonceSize := gcm.NonceSize()
+	if len(raw) < nonceSize {
+		return "", fmt.Errorf("ciphertext too short")
+	}
+
+	nonce, ciphertext := raw[:nonceSize], raw[nonceSize:]
+	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		return "", fmt.Errorf("decryption failed: %w", err)
+	}
+
+	return string(plaintext), nil
+}
+
+// deriveKey produces a 32-byte AES-256 key from an arbitrary-length passphrase
+// using SHA-256.
+func deriveKey(passphrase string) []byte {
+	hash := sha256.Sum256([]byte(passphrase))
+	return hash[:]
 }
 
 // GenerateStatelessRefreshToken generates a JWT refresh token with a random JTI

@@ -104,7 +104,7 @@ func (eb *EventBus) EmitAsync(_ context.Context, eventType types.EventType, data
 
 	bgCtx := context.Background()
 	event := &types.Event{
-		ID:        uuid.New().String(),
+		ID:        uuid.Must(uuid.NewV7()).String(),
 		Type:      eventType,
 		Data:      data,
 		Context:   bgCtx,
@@ -158,7 +158,7 @@ func (eb *EventBus) EmitSync(ctx context.Context, eventType types.EventType, dat
 	}
 
 	event := &types.Event{
-		ID:        uuid.New().String(),
+		ID:        uuid.Must(uuid.NewV7()).String(),
 		Type:      eventType,
 		Data:      data,
 		Context:   ctx,

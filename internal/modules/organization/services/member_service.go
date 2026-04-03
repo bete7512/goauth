@@ -4,19 +4,15 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/bete7512/goauth/internal/modules/organization/handlers/dto"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
 )
 
-type MemberWithUser struct {
-	models.OrganizationMember
-	User *models.User `json:"user,omitempty"`
-}
-
 type MemberService interface {
-	ListMembers(ctx context.Context, orgID string, opts models.MemberListOpts) ([]*MemberWithUser, int64, *types.GoAuthError)
-	GetMember(ctx context.Context, orgID, userID string) (*MemberWithUser, *types.GoAuthError)
+	ListMembers(ctx context.Context, orgID string, opts models.MemberListOpts) ([]*dto.MemberWithUser, int64, *types.GoAuthError)
+	GetMember(ctx context.Context, orgID, userID string) (*dto.MemberWithUser, *types.GoAuthError)
 	UpdateRole(ctx context.Context, orgID, targetUserID string, newRole types.OrgRole, actorID string) *types.GoAuthError
 	RemoveMember(ctx context.Context, orgID, targetUserID, actorID string) *types.GoAuthError
 }
@@ -33,18 +29,17 @@ func NewMemberService(deps config.ModuleDependencies, memberRepo models.Organiza
 	return &memberService{deps: deps, memberRepo: memberRepo, orgRepo: orgRepo, userRepo: userRepo, maxMembers: maxMembers}
 }
 
-func (s *memberService) ListMembers(ctx context.Context, orgID string, opts models.MemberListOpts) ([]*MemberWithUser, int64, *types.GoAuthError) {
+func (s *memberService) ListMembers(ctx context.Context, orgID string, opts models.MemberListOpts) ([]*dto.MemberWithUser, int64, *types.GoAuthError) {
 	members, total, err := s.memberRepo.ListByOrg(ctx, orgID, opts)
 	if err != nil {
 		return nil, 0, types.NewInternalError(fmt.Sprintf("failed to list members: %v", err))
 	}
 
-	result := make([]*MemberWithUser, 0, len(members))
+	result := make([]*dto.MemberWithUser, 0, len(members))
 	for _, m := range members {
-		mwu := &MemberWithUser{OrganizationMember: *m}
+		mwu := &dto.MemberWithUser{OrganizationMember: *m}
 		user, err := s.userRepo.FindByID(ctx, m.UserID)
 		if err == nil && user != nil {
-			// Clear sensitive data
 			user.PasswordHash = ""
 			mwu.User = user
 		}
@@ -54,13 +49,13 @@ func (s *memberService) ListMembers(ctx context.Context, orgID string, opts mode
 	return result, total, nil
 }
 
-func (s *memberService) GetMember(ctx context.Context, orgID, userID string) (*MemberWithUser, *types.GoAuthError) {
+func (s *memberService) GetMember(ctx context.Context, orgID, userID string) (*dto.MemberWithUser, *types.GoAuthError) {
 	member, err := s.memberRepo.FindByOrgAndUser(ctx, orgID, userID)
 	if err != nil || member == nil {
 		return nil, types.NewOrgMemberNotFoundError()
 	}
 
-	mwu := &MemberWithUser{OrganizationMember: *member}
+	mwu := &dto.MemberWithUser{OrganizationMember: *member}
 	user, err := s.userRepo.FindByID(ctx, member.UserID)
 	if err == nil && user != nil {
 		user.PasswordHash = ""

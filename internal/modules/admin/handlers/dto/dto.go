@@ -9,29 +9,22 @@ import (
 
 // AdminUserDTO represents user data in admin responses with additional privileged fields
 type AdminUserDTO struct {
-	ID                  string               `json:"id"`
-	FirstName           string               `json:"first_name,omitempty"`
-	LastName            string               `json:"last_name,omitempty"`
-	Name                string               `json:"name,omitempty"`
-	Email               string               `json:"email"`
-	Username            string               `json:"username,omitempty"`
-	Avatar              string               `json:"avatar,omitempty"`
-	PhoneNumber         string               `json:"phone_number,omitempty"`
-	Active              bool                 `json:"active"`
-	EmailVerified       bool                 `json:"email_verified"`
-	PhoneNumberVerified bool                 `json:"phone_number_verified"`
-	IsSuperAdmin        bool                 `json:"is_super_admin"`
-	TokenVersion        int                  `json:"token_version"`
-	CreatedAt           time.Time            `json:"created_at"`
-	UpdatedAt           *time.Time           `json:"updated_at"`
-	LastLoginAt         *time.Time           `json:"last_login_at,omitempty"`
-	ExtendedAttributes  []ExtendedAttributes `json:"extended_attributes,omitempty"`
-}
-
-type ExtendedAttributes struct {
-	ID    string `json:"id"`
-	Name  string `json:"name"`
-	Value string `json:"value"`
+	ID                  string     `json:"id"`
+	FirstName           string     `json:"first_name,omitempty"`
+	LastName            string     `json:"last_name,omitempty"`
+	Name                string     `json:"name,omitempty"`
+	Email               string     `json:"email"`
+	Username            string     `json:"username,omitempty"`
+	Avatar              string     `json:"avatar,omitempty"`
+	PhoneNumber         string     `json:"phone_number,omitempty"`
+	Active              bool       `json:"active"`
+	EmailVerified       bool       `json:"email_verified"`
+	PhoneNumberVerified bool       `json:"phone_number_verified"`
+	IsSuperAdmin        bool       `json:"is_super_admin"`
+	TokenVersion        int        `json:"token_version"`
+	CreatedAt           time.Time  `json:"created_at"`
+	UpdatedAt           *time.Time `json:"updated_at"`
+	LastLoginAt         *time.Time `json:"last_login_at,omitempty"`
 }
 
 // UpdateUserRequest represents admin user update request
@@ -102,14 +95,6 @@ func UserToAdminDTO(user *models.User) *AdminUserDTO {
 	if user == nil {
 		return nil
 	}
-	attrs := make([]ExtendedAttributes, len(user.ExtendedAttributes))
-	for i, attr := range user.ExtendedAttributes {
-		attrs[i] = ExtendedAttributes{
-			ID:    attr.ID,
-			Name:  attr.Name,
-			Value: attr.Value,
-		}
-	}
 	return &AdminUserDTO{
 		ID:                  user.ID,
 		FirstName:           user.FirstName,
@@ -127,7 +112,6 @@ func UserToAdminDTO(user *models.User) *AdminUserDTO {
 		CreatedAt:           user.CreatedAt,
 		UpdatedAt:           user.UpdatedAt,
 		LastLoginAt:         user.LastLoginAt,
-		ExtendedAttributes:  attrs,
 	}
 }
 

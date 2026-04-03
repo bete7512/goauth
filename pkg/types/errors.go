@@ -54,8 +54,8 @@ const (
 	ErrValidation         ErrorCode = "VALIDATION_ERROR"
 
 	// Authorization errors
-	ErrUnauthorized ErrorCode = "UNAUTHORIZED"
-	ErrForbidden    ErrorCode = "FORBIDDEN"
+	ErrUnauthorized    ErrorCode = "UNAUTHORIZED"
+	ErrForbidden       ErrorCode = "FORBIDDEN"
 	ErrInvalidCSRF     ErrorCode = "INVALID_CSRF"
 	ErrCaptchaRequired ErrorCode = "CAPTCHA_REQUIRED"
 	ErrCaptchaFailed   ErrorCode = "CAPTCHA_FAILED"
@@ -86,19 +86,19 @@ const (
 	ErrVerificationCodeExpired  ErrorCode = "VERIFICATION_CODE_EXPIRED"
 
 	// OAuth errors
-	ErrOAuthProviderNotFound  ErrorCode = "OAUTH_PROVIDER_NOT_FOUND"
-	ErrOAuthProviderDisabled  ErrorCode = "OAUTH_PROVIDER_DISABLED"
-	ErrOAuthInvalidState      ErrorCode = "OAUTH_INVALID_STATE"
-	ErrOAuthStateExpired      ErrorCode = "OAUTH_STATE_EXPIRED"
-	ErrOAuthStateUsed         ErrorCode = "OAUTH_STATE_USED"
-	ErrOAuthTokenExchange     ErrorCode = "OAUTH_TOKEN_EXCHANGE_FAILED"
-	ErrOAuthUserInfo          ErrorCode = "OAUTH_USER_INFO_FAILED"
-	ErrOAuthEmailExists       ErrorCode = "OAUTH_EMAIL_EXISTS"
-	ErrOAuthSignupDisabled    ErrorCode = "OAUTH_SIGNUP_DISABLED"
-	ErrOAuthProviderError     ErrorCode = "OAUTH_PROVIDER_ERROR"
-	ErrOAuthNotLinked         ErrorCode = "OAUTH_NOT_LINKED"
-	ErrOAuthAlreadyLinked     ErrorCode = "OAUTH_ALREADY_LINKED"
-	ErrOAuthEmailRequired     ErrorCode = "OAUTH_EMAIL_REQUIRED"
+	ErrOAuthProviderNotFound       ErrorCode = "OAUTH_PROVIDER_NOT_FOUND"
+	ErrOAuthProviderDisabled       ErrorCode = "OAUTH_PROVIDER_DISABLED"
+	ErrOAuthInvalidState           ErrorCode = "OAUTH_INVALID_STATE"
+	ErrOAuthStateExpired           ErrorCode = "OAUTH_STATE_EXPIRED"
+	ErrOAuthStateUsed              ErrorCode = "OAUTH_STATE_USED"
+	ErrOAuthTokenExchange          ErrorCode = "OAUTH_TOKEN_EXCHANGE_FAILED"
+	ErrOAuthUserInfo               ErrorCode = "OAUTH_USER_INFO_FAILED"
+	ErrOAuthEmailExists            ErrorCode = "OAUTH_EMAIL_EXISTS"
+	ErrOAuthSignupDisabled         ErrorCode = "OAUTH_SIGNUP_DISABLED"
+	ErrOAuthProviderError          ErrorCode = "OAUTH_PROVIDER_ERROR"
+	ErrOAuthNotLinked              ErrorCode = "OAUTH_NOT_LINKED"
+	ErrOAuthAlreadyLinked          ErrorCode = "OAUTH_ALREADY_LINKED"
+	ErrOAuthEmailRequired          ErrorCode = "OAUTH_EMAIL_REQUIRED"
 	ErrOAuthAccountLinkingDisabled ErrorCode = "OAUTH_ACCOUNT_LINKING_DISABLED"
 
 	// Organization errors

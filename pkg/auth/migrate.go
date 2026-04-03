@@ -95,7 +95,7 @@ func (a *Auth) ApplyMigrations(ctx context.Context) error {
 			return fmt.Errorf("exec migration %s v%d (%s): %w", p.moduleName, p.version, p.name, err)
 		}
 		record := types.MigrationRecord{
-			ID:         uuid.NewString(),
+			ID:         uuid.Must(uuid.NewV7()).String(),
 			ModuleName: p.moduleName,
 			Version:    p.version,
 			Name:       p.name,

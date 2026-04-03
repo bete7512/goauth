@@ -32,7 +32,6 @@ func (s *MeServiceSuite) setupService() (
 
 	mockUserRepo := mocks.NewMockUserRepository(ctrl)
 	mockTokenRepo := mocks.NewMockTokenRepository(ctrl)
-	mockExtAttrRepo := mocks.NewMockExtendedAttributeRepository(ctrl)
 	mockEvents := mocks.NewMockEventBus(ctrl)
 	mockLogger := mocks.NewMockLogger(ctrl)
 
@@ -46,7 +45,7 @@ func (s *MeServiceSuite) setupService() (
 		SecurityManager: secMgr,
 	}
 
-	svc := core_services.NewCoreService(deps, mockUserRepo, mockExtAttrRepo, mockTokenRepo, mockLogger, secMgr, cfg)
+	svc := core_services.NewCoreService(deps, mockUserRepo, mockTokenRepo, mockLogger, secMgr, cfg)
 	return svc, mockUserRepo
 }
 
@@ -72,9 +71,6 @@ func (s *MeServiceSuite) TestGetCurrentUser() {
 				u.Username = "testuser"
 				u.PhoneNumber = "+1234567890"
 				u.Avatar = "https://example.com/avatar.png"
-				u.ExtendedAttributes = []models.ExtendedAttributes{
-					{Name: "role", Value: "admin"},
-				}
 				ur.EXPECT().FindByID(gomock.Any(), u.ID).Return(u, nil)
 			},
 		},

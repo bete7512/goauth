@@ -26,7 +26,7 @@ func NewInvitationRepo(db *gorm.DB) *InvitationRepo {
 // Create creates a new invitation
 func (r *InvitationRepo) Create(ctx context.Context, invitation *models.Invitation) error {
 	if invitation.ID == "" {
-		invitation.ID = uuid.New().String()
+		invitation.ID = uuid.Must(uuid.NewV7()).String()
 	}
 	if invitation.CreatedAt.IsZero() {
 		invitation.CreatedAt = time.Now()

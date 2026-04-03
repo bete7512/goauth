@@ -5,19 +5,15 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/bete7512/goauth/internal/modules/organization/handlers/dto"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
 	"github.com/google/uuid"
 )
 
-type InviteRequest struct {
-	Email string `json:"email"`
-	Role  string `json:"role,omitempty"`
-}
-
 type InvitationService interface {
-	Invite(ctx context.Context, orgID string, req *InviteRequest, inviterID string) (*models.Invitation, *types.GoAuthError)
+	Invite(ctx context.Context, orgID string, req *dto.InviteRequest, inviterID string) (*models.Invitation, *types.GoAuthError)
 	ListInvitations(ctx context.Context, orgID string, opts models.InvitationListOpts) ([]*models.Invitation, int64, *types.GoAuthError)
 	CancelInvitation(ctx context.Context, orgID, invID string) *types.GoAuthError
 	AcceptInvitation(ctx context.Context, userID, userEmail, token string) (*models.OrganizationMember, *types.GoAuthError)
@@ -58,11 +54,7 @@ func NewInvitationService(
 	}
 }
 
-func (s *invitationService) Invite(ctx context.Context, orgID string, req *InviteRequest, inviterID string) (*models.Invitation, *types.GoAuthError) {
-	if req.Email == "" {
-		return nil, types.NewMissingFieldsError("email")
-	}
-
+func (s *invitationService) Invite(ctx context.Context, orgID string, req *dto.InviteRequest, inviterID string) (*models.Invitation, *types.GoAuthError) {
 	role := req.Role
 	if role == "" {
 		role = string(types.OrgRoleMember)
@@ -116,7 +108,7 @@ func (s *invitationService) Invite(ctx context.Context, orgID string, req *Invit
 	}
 
 	invitation := &models.Invitation{
-		ID:        uuid.New().String(),
+		ID:        uuid.Must(uuid.NewV7()).String(),
 		OrgID:     orgID,
 		Email:     req.Email,
 		Role:      role,
@@ -193,7 +185,7 @@ func (s *invitationService) AcceptInvitation(ctx context.Context, userID, userEm
 
 	now := time.Now()
 	member := &models.OrganizationMember{
-		ID:       uuid.New().String(),
+		ID:       uuid.Must(uuid.NewV7()).String(),
 		OrgID:    inv.OrgID,
 		UserID:   userID,
 		Role:     inv.Role,

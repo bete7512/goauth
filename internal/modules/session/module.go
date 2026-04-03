@@ -11,8 +11,8 @@ import (
 	"github.com/bete7512/goauth/internal/modules/session/middlewares"
 	"github.com/bete7512/goauth/internal/modules/session/services"
 	"github.com/bete7512/goauth/internal/security"
-	"github.com/bete7512/goauth/internal/utils"
 	cookie_security "github.com/bete7512/goauth/internal/security/cookie"
+	"github.com/bete7512/goauth/internal/utils"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/types"
 )

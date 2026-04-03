@@ -33,7 +33,6 @@ func (s *ProfileServiceSuite) setupService() (
 
 	mockUserRepo := mocks.NewMockUserRepository(ctrl)
 	mockTokenRepo := mocks.NewMockTokenRepository(ctrl)
-	mockExtAttrRepo := mocks.NewMockExtendedAttributeRepository(ctrl)
 	mockEvents := mocks.NewMockEventBus(ctrl)
 	mockLogger := mocks.NewMockLogger(ctrl)
 
@@ -47,7 +46,7 @@ func (s *ProfileServiceSuite) setupService() (
 		SecurityManager: secMgr,
 	}
 
-	svc := core_services.NewCoreService(deps, mockUserRepo, mockExtAttrRepo, mockTokenRepo, mockLogger, secMgr, cfg)
+	svc := core_services.NewCoreService(deps, mockUserRepo, mockTokenRepo, mockLogger, secMgr, cfg)
 	return svc, mockUserRepo
 }
 

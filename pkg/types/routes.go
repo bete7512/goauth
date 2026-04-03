@@ -54,11 +54,11 @@ const (
 	RouteTwoFactorAuthEmail RouteName = "twofactor.auth.email"
 
 	// Admin Routes
-	RouteAdminListUsers      RouteName = "admin.users.list"
-	RouteAdminGetUser        RouteName = "admin.users.get"
-	RouteAdminCreateUser     RouteName = "admin.users.create"
-	RouteAdminUpdateUser     RouteName = "admin.users.update"
-	RouteAdminDeleteUser     RouteName = "admin.users.delete"
+	RouteAdminListUsers        RouteName = "admin.users.list"
+	RouteAdminGetUser          RouteName = "admin.users.get"
+	RouteAdminCreateUser       RouteName = "admin.users.create"
+	RouteAdminUpdateUser       RouteName = "admin.users.update"
+	RouteAdminDeleteUser       RouteName = "admin.users.delete"
 	RouteAdminListAuditLogs    RouteName = "admin.audit.list"
 	RouteAdminGetUserAudit     RouteName = "admin.audit.user"
 	RouteAdminGetActionAudit   RouteName = "admin.audit.action"
@@ -75,12 +75,12 @@ const (
 	RouteCSRFToken RouteName = "csrf.get_token"
 
 	// Organization Routes
-	RouteOrgCreate  RouteName = "org.create"
-	RouteOrgMyOrgs  RouteName = "org.my"
-	RouteOrgGet     RouteName = "org.get"
-	RouteOrgUpdate  RouteName = "org.update"
-	RouteOrgDelete  RouteName = "org.delete"
-	RouteOrgSwitch  RouteName = "org.switch"
+	RouteOrgCreate RouteName = "org.create"
+	RouteOrgMyOrgs RouteName = "org.my"
+	RouteOrgGet    RouteName = "org.get"
+	RouteOrgUpdate RouteName = "org.update"
+	RouteOrgDelete RouteName = "org.delete"
+	RouteOrgSwitch RouteName = "org.switch"
 
 	// Organization Member Routes
 	RouteOrgListMembers  RouteName = "org.members.list"

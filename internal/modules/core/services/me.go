@@ -29,12 +29,5 @@ func (s *coreService) GetCurrentUser(ctx context.Context, userID string) (*dto.U
 		CreatedAt:           user.CreatedAt,
 		UpdatedAt:           user.UpdatedAt,
 		LastLoginAt:         user.LastLoginAt,
-		ExtendedAttributes: func() []dto.ExtendedAttributes {
-			attrs := make([]dto.ExtendedAttributes, len(user.ExtendedAttributes))
-			for i, attr := range user.ExtendedAttributes {
-				attrs[i] = dto.ExtendedAttributes{Name: attr.Name, Value: attr.Value}
-			}
-			return attrs
-		}(),
 	}, nil
 }

@@ -33,4 +33,3 @@ func NewStatelessService(
 		Config:          cfg,
 	}
 }
-

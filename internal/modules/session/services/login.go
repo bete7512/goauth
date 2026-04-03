@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/bete7512/goauth/internal/modules/session/handlers/dto"
+	"github.com/bete7512/goauth/internal/security"
 	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
 	"github.com/google/uuid"
@@ -26,10 +27,19 @@ func (s *sessionService) Login(ctx context.Context, req *dto.LoginRequest, metad
 		}
 	}
 
+	// Check account lockout
+	lockoutCfg := security.NormalizeLockoutConfig(s.deps.Config.Security.Lockout)
+	if authErr := security.CheckLockout(user, lockoutCfg); authErr != nil {
+		return dto.AuthResponse{}, authErr
+	}
+
 	// Verify password
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
-		return dto.AuthResponse{}, types.NewInvalidCredentialsError()
+		return dto.AuthResponse{}, security.HandleFailedLogin(ctx, user, lockoutCfg, s.userRepository, s.deps.Events, s.deps.Logger)
 	}
+
+	// Clear any failed-attempt state on successful password check
+	security.RecordSuccessfulLogin(user)
 
 	// Run auth interceptors (2FA challenges, org enrichment, etc.)
 	interceptClaims, challenges, interceptErr := s.deps.AuthInterceptors.Run(ctx, &types.InterceptParams{
@@ -51,7 +61,7 @@ func (s *sessionService) Login(ctx context.Context, req *dto.LoginRequest, metad
 	}
 
 	// Generate session ID first so it can be embedded in the JWT
-	sessionID := uuid.New().String()
+	sessionID := uuid.Must(uuid.NewV7()).String()
 
 	// Merge interceptor claims with session_id
 	tokenClaims := map[string]interface{}{"session_id": sessionID}
@@ -65,11 +75,11 @@ func (s *sessionService) Login(ctx context.Context, req *dto.LoginRequest, metad
 		return dto.AuthResponse{}, types.NewInternalError(fmt.Sprintf("failed to generate tokens: %s", err.Error()))
 	}
 
-	// Create session
+	// Create session — store a SHA-256 hash of the refresh token, not the raw token
 	session := &models.Session{
 		ID:                    sessionID,
 		UserID:                user.ID,
-		RefreshToken:          refreshToken,
+		RefreshToken:          security.HashRefreshToken(refreshToken),
 		RefreshTokenExpiresAt: time.Now().Add(s.deps.Config.Security.Session.RefreshTokenTTL),
 		ExpiresAt:             time.Now().Add(s.deps.Config.Security.Session.SessionTTL),
 		UserAgent:             metadata.UserAgent,

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/bete7512/goauth/internal/modules/stateless/handlers/dto"
+	"github.com/bete7512/goauth/internal/security"
 	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
 	"github.com/google/uuid"
@@ -26,10 +27,19 @@ func (s *StatelessService) Login(ctx context.Context, req *dto.LoginRequest) (dt
 		}
 	}
 
+	// Check account lockout
+	lockoutCfg := security.NormalizeLockoutConfig(s.Deps.Config.Security.Lockout)
+	if authErr := security.CheckLockout(user, lockoutCfg); authErr != nil {
+		return dto.AuthResponse{}, authErr
+	}
+
 	// Verify password
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
-		return dto.AuthResponse{}, types.NewInvalidCredentialsError()
+		return dto.AuthResponse{}, security.HandleFailedLogin(ctx, user, lockoutCfg, s.UserRepository, s.Deps.Events, s.Deps.Logger)
 	}
+
+	// Clear any failed-attempt state on successful password check
+	security.RecordSuccessfulLogin(user)
 
 	// Run auth interceptors (2FA challenges, org enrichment, etc.)
 	interceptClaims, challenges, interceptErr := s.Deps.AuthInterceptors.Run(ctx, &types.InterceptParams{
@@ -67,7 +77,7 @@ func (s *StatelessService) Login(ctx context.Context, req *dto.LoginRequest) (dt
 
 	// Store the JTI (nonce) in the tokens table for revocation checks
 	tokenModel := &models.Token{
-		ID:        uuid.New().String(),
+		ID:        uuid.Must(uuid.NewV7()).String(),
 		UserID:    user.ID,
 		Type:      "refresh_nonce",
 		Token:     jti,

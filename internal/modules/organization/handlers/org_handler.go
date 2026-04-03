@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/bete7512/goauth/internal/modules/organization/handlers/dto"
 	"github.com/bete7512/goauth/internal/modules/organization/services"
 	http_utils "github.com/bete7512/goauth/internal/utils/http"
 	"github.com/bete7512/goauth/pkg/config"
@@ -27,9 +28,13 @@ func (h *OrgHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req services.CreateOrgRequest
+	var req dto.CreateOrgRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidJSON), "Invalid request body")
+		return
+	}
+	if err := req.Validate(); err != nil {
+		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidRequestBody), err.Error())
 		return
 	}
 
@@ -39,7 +44,7 @@ func (h *OrgHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http_utils.RespondCreated(w, org, nil)
+	http_utils.RespondCreated(w, dto.OrgToDTO(org), nil)
 }
 
 func (h *OrgHandler) MyOrgs(w http.ResponseWriter, r *http.Request) {
@@ -55,7 +60,7 @@ func (h *OrgHandler) MyOrgs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http_utils.RespondSuccess(w, orgs, nil)
+	http_utils.RespondSuccess(w, dto.OrgsToDTO(orgs), nil)
 }
 
 func (h *OrgHandler) Get(w http.ResponseWriter, r *http.Request) {
@@ -64,11 +69,10 @@ func (h *OrgHandler) Get(w http.ResponseWriter, r *http.Request) {
 		http_utils.RespondError(w, http.StatusNotFound, string(types.ErrOrgNotFound), "Organization not found")
 		return
 	}
-	http_utils.RespondSuccess(w, org, nil)
+	http_utils.RespondSuccess(w, dto.OrgToDTO(org), nil)
 }
 
 func (h *OrgHandler) Update(w http.ResponseWriter, r *http.Request) {
-	// Check role: admin or owner
 	role, _ := r.Context().Value(types.OrgRoleKey).(string)
 	if !types.HasMinimumRole(role, types.OrgRoleAdmin) {
 		http_utils.RespondError(w, http.StatusForbidden, string(types.ErrOrgInsufficientRole), "Insufficient role")
@@ -77,9 +81,13 @@ func (h *OrgHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	orgID, _ := r.Context().Value(types.OrgIDKey).(string)
 
-	var req services.UpdateOrgRequest
+	var req dto.UpdateOrgRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidJSON), "Invalid request body")
+		return
+	}
+	if err := req.Validate(); err != nil {
+		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidRequestBody), err.Error())
 		return
 	}
 
@@ -89,7 +97,7 @@ func (h *OrgHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http_utils.RespondSuccess(w, org, nil)
+	http_utils.RespondSuccess(w, dto.OrgToDTO(org), nil)
 }
 
 func (h *OrgHandler) Delete(w http.ResponseWriter, r *http.Request) {
@@ -113,7 +121,6 @@ func (h *OrgHandler) Switch(w http.ResponseWriter, r *http.Request) {
 	userID, _ := r.Context().Value(types.UserIDKey).(string)
 	user, _ := r.Context().Value(types.UserKey).(*models.User)
 	if user == nil {
-		// Fallback: load user
 		userRepo := h.deps.Storage.Core().Users()
 		var err error
 		user, err = userRepo.FindByID(r.Context(), userID)
@@ -123,11 +130,13 @@ func (h *OrgHandler) Switch(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	var req struct {
-		OrgID string `json:"org_id"`
+	var req dto.SwitchOrgRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidJSON), "Invalid request body")
+		return
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.OrgID == "" {
-		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidJSON), "org_id is required")
+	if err := req.Validate(); err != nil {
+		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidRequestBody), err.Error())
 		return
 	}
 
@@ -137,8 +146,8 @@ func (h *OrgHandler) Switch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http_utils.RespondSuccess(w, map[string]string{
-		"access_token":  accessToken,
-		"refresh_token": refreshToken,
+	http_utils.RespondSuccess(w, &dto.SwitchOrgResponse{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
 	}, nil)
 }

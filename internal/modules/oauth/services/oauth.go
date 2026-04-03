@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/bete7512/goauth/internal/modules/oauth/providers"
+	"github.com/bete7512/goauth/internal/security"
 	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
 	"github.com/google/uuid"
@@ -55,7 +56,7 @@ func (s *oauthService) InitiateLogin(ctx context.Context, providerName, clientRe
 	// Store state + PKCE verifier in Token table
 	// We use Code field to store the verifier, and Email field to store client redirect URI
 	stateToken := &models.Token{
-		ID:        uuid.New().String(),
+		ID:        uuid.Must(uuid.NewV7()).String(),
 		UserID:    "", // No user yet
 		Type:      models.TokenTypeOAuthState,
 		Token:     state,
@@ -186,7 +187,7 @@ func (s *oauthService) HandleCallback(ctx context.Context, providerName, code, s
 	// 8. Generate auth tokens (session-based or stateless)
 	if s.useSessionAuth() {
 		// Session-based: create session record and embed session_id in JWT
-		sessionID = uuid.New().String()
+		sessionID = uuid.Must(uuid.NewV7()).String()
 
 		tokenClaims := map[string]interface{}{
 			"oauth_provider": providerName,
@@ -202,11 +203,11 @@ func (s *oauthService) HandleCallback(ctx context.Context, providerName, code, s
 			return nil, types.NewInternalError("failed to generate authentication tokens")
 		}
 
-		// Create session record
+		// Create session record — store hashed refresh token
 		session := &models.Session{
 			ID:                    sessionID,
 			UserID:                user.ID,
-			RefreshToken:          refreshToken,
+			RefreshToken:          security.HashRefreshToken(refreshToken),
 			RefreshTokenExpiresAt: time.Now().Add(s.deps.Config.Security.Session.RefreshTokenTTL),
 			ExpiresAt:             time.Now().Add(s.deps.Config.Security.Session.SessionTTL),
 			UserAgent:             metadata.UserAgent,
@@ -336,7 +337,7 @@ func (s *oauthService) findOrCreateUser(ctx context.Context, providerName string
 
 	now := time.Now()
 	user := &models.User{
-		ID:            uuid.New().String(),
+		ID:            uuid.Must(uuid.NewV7()).String(),
 		Email:         info.Email,
 		Name:          info.Name,
 		FirstName:     info.FirstName,
@@ -380,7 +381,7 @@ func (s *oauthService) findOrCreateUser(ctx context.Context, providerName string
 func (s *oauthService) linkProviderToUser(ctx context.Context, userID, providerName, providerUserID string, tokenResp *providers.TokenResponse) error {
 	now := time.Now()
 	account := &models.Account{
-		ID:                uuid.New().String(),
+		ID:                uuid.Must(uuid.NewV7()).String(),
 		UserID:            userID,
 		Provider:          providerName,
 		ProviderAccountID: providerUserID,
@@ -391,7 +392,7 @@ func (s *oauthService) linkProviderToUser(ctx context.Context, userID, providerN
 
 	// Store provider tokens if configured
 	if s.config.StoreProviderTokens && tokenResp != nil {
-		// TODO: in the future encrypt those sensitive infos
+		// FIX: in the future encrypt those sensitive infos
 		account.AccessToken = tokenResp.AccessToken
 		account.RefreshToken = tokenResp.RefreshToken
 		account.TokenType = tokenResp.TokenType
@@ -515,7 +516,7 @@ func (s *oauthService) generateUsername(email string) string {
 	// Extract local part of email
 	parts := strings.Split(email, "@")
 	if len(parts) == 0 {
-		return uuid.New().String()[:8]
+		return uuid.Must(uuid.NewV7()).String()[:8]
 	}
 
 	base := strings.ToLower(parts[0])
@@ -533,5 +534,5 @@ func (s *oauthService) generateUsername(email string) string {
 	}
 
 	// Add random suffix to ensure uniqueness
-	return fmt.Sprintf("%s_%s", base, uuid.New().String()[:6])
+	return fmt.Sprintf("%s_%s", base, uuid.Must(uuid.NewV7()).String()[:6])
 }

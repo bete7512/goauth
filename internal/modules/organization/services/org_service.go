@@ -7,27 +7,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bete7512/goauth/internal/modules/organization/handlers/dto"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
 	"github.com/google/uuid"
 )
 
-type CreateOrgRequest struct {
-	Name string `json:"name"`
-	Slug string `json:"slug,omitempty"`
-}
-
-type UpdateOrgRequest struct {
-	Name     *string `json:"name,omitempty"`
-	LogoURL  *string `json:"logo_url,omitempty"`
-	Metadata *string `json:"metadata,omitempty"`
-}
-
 type OrgService interface {
-	Create(ctx context.Context, userID string, req *CreateOrgRequest) (*models.Organization, *types.GoAuthError)
+	Create(ctx context.Context, userID string, req *dto.CreateOrgRequest) (*models.Organization, *types.GoAuthError)
 	Get(ctx context.Context, orgID string) (*models.Organization, *types.GoAuthError)
-	Update(ctx context.Context, orgID string, req *UpdateOrgRequest) (*models.Organization, *types.GoAuthError)
+	Update(ctx context.Context, orgID string, req *dto.UpdateOrgRequest) (*models.Organization, *types.GoAuthError)
 	Delete(ctx context.Context, orgID string) *types.GoAuthError
 	ListByUser(ctx context.Context, userID string) ([]*models.Organization, *types.GoAuthError)
 	SwitchOrg(ctx context.Context, user *models.User, targetOrgID string) (string, string, *types.GoAuthError)
@@ -44,11 +34,7 @@ func NewOrgService(deps config.ModuleDependencies, orgRepo models.OrganizationRe
 	return &orgService{deps: deps, orgRepo: orgRepo, memberRepo: memberRepo, userRepo: userRepo}
 }
 
-func (s *orgService) Create(ctx context.Context, userID string, req *CreateOrgRequest) (*models.Organization, *types.GoAuthError) {
-	if req.Name == "" {
-		return nil, types.NewMissingFieldsError("name")
-	}
-
+func (s *orgService) Create(ctx context.Context, userID string, req *dto.CreateOrgRequest) (*models.Organization, *types.GoAuthError) {
 	slug := req.Slug
 	if slug == "" {
 		slug = generateSlug(req.Name)
@@ -64,7 +50,7 @@ func (s *orgService) Create(ctx context.Context, userID string, req *CreateOrgRe
 
 	now := time.Now()
 	org := &models.Organization{
-		ID:        uuid.New().String(),
+		ID:        uuid.Must(uuid.NewV7()).String(),
 		Name:      req.Name,
 		Slug:      slug,
 		OwnerID:   userID,
@@ -78,7 +64,7 @@ func (s *orgService) Create(ctx context.Context, userID string, req *CreateOrgRe
 
 	// Add creator as owner
 	member := &models.OrganizationMember{
-		ID:       uuid.New().String(),
+		ID:       uuid.Must(uuid.NewV7()).String(),
 		OrgID:    org.ID,
 		UserID:   userID,
 		Role:     string(types.OrgRoleOwner),
@@ -108,7 +94,7 @@ func (s *orgService) Get(ctx context.Context, orgID string) (*models.Organizatio
 	return org, nil
 }
 
-func (s *orgService) Update(ctx context.Context, orgID string, req *UpdateOrgRequest) (*models.Organization, *types.GoAuthError) {
+func (s *orgService) Update(ctx context.Context, orgID string, req *dto.UpdateOrgRequest) (*models.Organization, *types.GoAuthError) {
 	org, err := s.orgRepo.FindByID(ctx, orgID)
 	if err != nil || org == nil {
 		return nil, types.NewOrgNotFoundError()
@@ -213,7 +199,7 @@ func generateSlug(name string) string {
 	slug = nonAlphanumRegex.ReplaceAllString(slug, "")
 	slug = strings.Trim(slug, "-")
 	if slug == "" {
-		slug = uuid.New().String()[:8]
+		slug = uuid.Must(uuid.NewV7()).String()[:8]
 	}
 	return slug
 }

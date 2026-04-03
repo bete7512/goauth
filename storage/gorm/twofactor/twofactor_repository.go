@@ -19,7 +19,7 @@ func NewTwoFactorRepository(db *gorm.DB) models.TwoFactorRepository {
 
 func (r *twoFactorRepository) Create(ctx context.Context, tf *models.TwoFactor) error {
 	if tf.ID == "" {
-		tf.ID = uuid.New().String()
+		tf.ID = uuid.Must(uuid.NewV7()).String()
 	}
 	return r.db.WithContext(ctx).Create(tf).Error
 }
@@ -58,7 +58,7 @@ func NewBackupCodeRepository(db *gorm.DB) models.BackupCodeRepository {
 func (r *backupCodeRepository) CreateBatch(ctx context.Context, codes []*models.BackupCode) error {
 	for _, code := range codes {
 		if code.ID == "" {
-			code.ID = uuid.New().String()
+			code.ID = uuid.Must(uuid.NewV7()).String()
 		}
 	}
 	return r.db.WithContext(ctx).Create(codes).Error

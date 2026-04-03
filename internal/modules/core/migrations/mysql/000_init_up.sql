@@ -21,17 +21,6 @@ CREATE TABLE IF NOT EXISTS users (
     INDEX idx_users_is_super_admin (is_super_admin)
 );
 
-CREATE TABLE IF NOT EXISTS extended_attributes (
-    id VARCHAR(36) PRIMARY KEY,
-    user_id VARCHAR(36) NOT NULL,
-    name TEXT NOT NULL,
-    value TEXT NOT NULL,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_ea_user_id (user_id),
-    CONSTRAINT fk_ea_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
 CREATE TABLE IF NOT EXISTS tokens (
     id VARCHAR(36) PRIMARY KEY,
     user_id VARCHAR(36) NOT NULL,

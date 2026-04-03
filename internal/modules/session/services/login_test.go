@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/bete7512/goauth/internal/interceptor"
 	"github.com/bete7512/goauth/internal/mocks"
 	"github.com/bete7512/goauth/internal/modules/session/handlers/dto"
 	"github.com/bete7512/goauth/internal/modules/session/services"
@@ -43,10 +44,11 @@ func (s *LoginServiceSuite) setupService() (
 	cfg := testutil.TestSessionModuleConfig()
 
 	deps := config.ModuleDependencies{
-		Config:          testutil.TestConfig(),
-		Events:          mockEvents,
-		Logger:          mockLogger,
-		SecurityManager: secMgr,
+		Config:           testutil.TestConfig(),
+		Events:           mockEvents,
+		Logger:           mockLogger,
+		SecurityManager:  secMgr,
+		AuthInterceptors: interceptor.NewRegistry(),
 	}
 
 	svc := services.NewSessionService(deps, mockUserRepo, mockSessionRepo, mockLogger, secMgr, cfg)
@@ -69,7 +71,6 @@ func (s *LoginServiceSuite) TestLogin() {
 			metadata: &types.RequestMetadata{IPAddress: "127.0.0.1", UserAgent: "TestAgent/1.0"},
 			setup: func(u *models.User, ur *mocks.MockUserRepository, sr *mocks.MockSessionRepository, lg *mocks.MockLogger, me *mocks.MockEventBus) {
 				ur.EXPECT().FindByEmail(gomock.Any(), "test@example.com").Return(u, nil)
-				me.EXPECT().EmitSync(gomock.Any(), types.EventAfterPasswordVerified, gomock.Any()).Return(nil)
 				sr.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&models.Session{})).Return(nil)
 				ur.EXPECT().Update(gomock.Any(), gomock.AssignableToTypeOf(&models.User{})).Return(nil)
 			},
@@ -89,8 +90,10 @@ func (s *LoginServiceSuite) TestLogin() {
 			name:     "wrong password",
 			req:      &dto.LoginRequest{Email: "test@example.com", Password: "wrongpassword"},
 			metadata: &types.RequestMetadata{IPAddress: "127.0.0.1", UserAgent: "TestAgent/1.0"},
-			setup: func(u *models.User, ur *mocks.MockUserRepository, _ *mocks.MockSessionRepository, _ *mocks.MockLogger, _ *mocks.MockEventBus) {
+			setup: func(u *models.User, ur *mocks.MockUserRepository, _ *mocks.MockSessionRepository, lg *mocks.MockLogger, _ *mocks.MockEventBus) {
 				ur.EXPECT().FindByEmail(gomock.Any(), "test@example.com").Return(u, nil)
+				// Lockout: failed login records attempt and updates user
+				ur.EXPECT().Update(gomock.Any(), gomock.AssignableToTypeOf(&models.User{})).Return(nil)
 			},
 			wantErr:    true,
 			errCode:    types.ErrInvalidCredentials,
@@ -102,7 +105,6 @@ func (s *LoginServiceSuite) TestLogin() {
 			metadata: &types.RequestMetadata{IPAddress: "127.0.0.1", UserAgent: "TestAgent/1.0"},
 			setup: func(u *models.User, ur *mocks.MockUserRepository, sr *mocks.MockSessionRepository, _ *mocks.MockLogger, me *mocks.MockEventBus) {
 				ur.EXPECT().FindByEmail(gomock.Any(), "test@example.com").Return(u, nil)
-				me.EXPECT().EmitSync(gomock.Any(), types.EventAfterPasswordVerified, gomock.Any()).Return(nil)
 				sr.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&models.Session{})).Return(errors.New("db error"))
 			},
 			wantErr:    true,
@@ -115,7 +117,6 @@ func (s *LoginServiceSuite) TestLogin() {
 			metadata: &types.RequestMetadata{IPAddress: "127.0.0.1", UserAgent: "TestAgent/1.0"},
 			setup: func(u *models.User, ur *mocks.MockUserRepository, sr *mocks.MockSessionRepository, lg *mocks.MockLogger, me *mocks.MockEventBus) {
 				ur.EXPECT().FindByEmail(gomock.Any(), "test@example.com").Return(u, nil)
-				me.EXPECT().EmitSync(gomock.Any(), types.EventAfterPasswordVerified, gomock.Any()).Return(nil)
 				sr.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&models.Session{})).Return(nil)
 				ur.EXPECT().Update(gomock.Any(), gomock.AssignableToTypeOf(&models.User{})).Return(errors.New("update failed"))
 				lg.EXPECT().Errorf(gomock.Any(), gomock.Any())

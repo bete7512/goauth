@@ -285,7 +285,7 @@ func (m *AuditModule) createAuditLog(ctx context.Context, event *types.Event, ac
 
 	// Create audit log
 	auditLog := &models.AuditLog{
-		ID:        uuid.New().String(),
+		ID:        uuid.Must(uuid.NewV7()).String(),
 		Action:    action,
 		ActorID:   actorID,
 		ActorType: "user",
