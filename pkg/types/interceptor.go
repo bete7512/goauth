@@ -65,6 +65,11 @@ type InterceptResult struct {
 	// Challenge to present to the client. Only honored when Phase == PhaseLogin.
 	// Nil means no challenge from this interceptor.
 	Challenge *LoginChallenge
+
+	// ResponseData is module-specific data to include in the login response body.
+	// Merged into AuthResponse.Data. Does NOT go into the JWT.
+	// Example: org module puts {"organizations": [...], "active_organization": {...}}
+	ResponseData map[string]interface{}
 }
 
 // AuthInterceptor is a function that modules register to participate in the
@@ -76,7 +81,8 @@ type AuthInterceptorRegistry interface {
 	// Register adds an interceptor. Higher priority runs first.
 	Register(name string, interceptor AuthInterceptor, priority int)
 
-	// Run executes all interceptors and returns merged claims + any challenges.
+	// Run executes all interceptors and returns merged claims, challenges, and response data.
 	// Challenges are only collected when params.Phase == PhaseLogin.
-	Run(ctx context.Context, params *InterceptParams) (mergedClaims map[string]interface{}, challenges []LoginChallenge, err error)
+	// ResponseData is merged from all interceptors for inclusion in the login response body.
+	Run(ctx context.Context, params *InterceptParams) (mergedClaims map[string]interface{}, challenges []LoginChallenge, responseData map[string]interface{}, err error)
 }

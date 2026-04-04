@@ -180,7 +180,7 @@ func (s *magicLinkService) verifyToken(ctx context.Context, verification *models
 	}
 
 	// Run auth interceptors (org enrichment, etc.)
-	interceptClaims, challenges, interceptErr := s.deps.AuthInterceptors.Run(ctx, &types.InterceptParams{
+	interceptClaims, challenges, _, interceptErr := s.deps.AuthInterceptors.Run(ctx, &types.InterceptParams{
 		Phase: types.PhaseLogin,
 		User:  user,
 	})

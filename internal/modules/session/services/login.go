@@ -50,7 +50,7 @@ func (s *sessionService) Login(ctx context.Context, req *dto.LoginRequest, metad
 	security.RecordSuccessfulLogin(user)
 
 	// Run auth interceptors (2FA challenges, org enrichment, etc.)
-	interceptClaims, challenges, interceptErr := s.deps.AuthInterceptors.Run(ctx, &types.InterceptParams{
+	interceptClaims, challenges, responseData, interceptErr := s.deps.AuthInterceptors.Run(ctx, &types.InterceptParams{
 		Phase:    types.PhaseLogin,
 		User:     user,
 		Metadata: metadata,
@@ -108,11 +108,12 @@ func (s *sessionService) Login(ctx context.Context, req *dto.LoginRequest, metad
 	}
 
 	return dto.AuthResponse{
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
-		SessionID:    sessionID,
-		User:         dto.UserToDTO(user),
-		ExpiresIn:    int64(s.deps.Config.Security.Session.SessionTTL.Seconds()),
-		Message:      "Login successful",
+		AccessToken:        accessToken,
+		RefreshToken:       refreshToken,
+		SessionID:          sessionID,
+		User:               dto.UserToDTO(user),
+		ExpiresIn:          int64(s.deps.Config.Security.Session.SessionTTL.Seconds()),
+		Message:            "Login successful",
+		Data:               responseData,
 	}, nil
 }

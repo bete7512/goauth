@@ -164,7 +164,7 @@ func (s *oauthService) HandleCallback(ctx context.Context, providerName, code, s
 	}
 
 	// 7. Run auth interceptors (2FA challenges, org enrichment, etc.)
-	interceptClaims, challenges, interceptErr := s.deps.AuthInterceptors.Run(ctx, &types.InterceptParams{
+	interceptClaims, challenges, _, interceptErr := s.deps.AuthInterceptors.Run(ctx, &types.InterceptParams{
 		Phase:    types.PhaseLogin,
 		User:     user,
 		Metadata: metadata,

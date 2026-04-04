@@ -45,19 +45,20 @@ func (r *Registry) Register(name string, interceptor types.AuthInterceptor, prio
 	})
 }
 
-func (r *Registry) Run(ctx context.Context, params *types.InterceptParams) (map[string]interface{}, []types.LoginChallenge, error) {
+func (r *Registry) Run(ctx context.Context, params *types.InterceptParams) (map[string]interface{}, []types.LoginChallenge, map[string]interface{}, error) {
 	r.mu.RLock()
 	entries := make([]entry, len(r.entries))
 	copy(entries, r.entries)
 	r.mu.RUnlock()
 
 	mergedClaims := make(map[string]interface{})
+	responseData := make(map[string]interface{})
 	var challenges []types.LoginChallenge
 
 	for _, e := range entries {
 		result, err := e.interceptor(ctx, params)
 		if err != nil {
-			return nil, nil, fmt.Errorf("interceptor %q failed: %w", e.name, err)
+			return nil, nil, nil, fmt.Errorf("interceptor %q failed: %w", e.name, err)
 		}
 		if result == nil {
 			continue
@@ -68,11 +69,16 @@ func (r *Registry) Run(ctx context.Context, params *types.InterceptParams) (map[
 			mergedClaims[k] = v
 		}
 
+		// Merge response data (module-specific data for response body, NOT JWT)
+		for k, v := range result.ResponseData {
+			responseData[k] = v
+		}
+
 		// Only collect challenges during login phase
 		if params.Phase == types.PhaseLogin && result.Challenge != nil {
 			challenges = append(challenges, *result.Challenge)
 		}
 	}
 
-	return mergedClaims, challenges, nil
+	return mergedClaims, challenges, responseData, nil
 }

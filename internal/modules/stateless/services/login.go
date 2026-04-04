@@ -50,7 +50,7 @@ func (s *StatelessService) Login(ctx context.Context, req *dto.LoginRequest) (dt
 	security.RecordSuccessfulLogin(user)
 
 	// Run auth interceptors (2FA challenges, org enrichment, etc.)
-	interceptClaims, challenges, interceptErr := s.Deps.AuthInterceptors.Run(ctx, &types.InterceptParams{
+	interceptClaims, challenges, responseData, interceptErr := s.Deps.AuthInterceptors.Run(ctx, &types.InterceptParams{
 		Phase:    types.PhaseLogin,
 		User:     user,
 		Metadata: nil, // TODO: pass metadata from handler
@@ -104,10 +104,11 @@ func (s *StatelessService) Login(ctx context.Context, req *dto.LoginRequest) (dt
 	}
 
 	return dto.AuthResponse{
-		AccessToken:  &accessToken,
-		RefreshToken: &refreshToken,
-		User:         dto.UserToDTO(user),
-		ExpiresIn:    int64(s.Deps.Config.Security.Session.SessionTTL.Seconds()),
-		Message:      "Login successful",
+		AccessToken:        &accessToken,
+		RefreshToken:       &refreshToken,
+		User:               dto.UserToDTO(user),
+		ExpiresIn:          int64(s.Deps.Config.Security.Session.SessionTTL.Seconds()),
+		Message:            "Login successful",
+		Data:               responseData,
 	}, nil
 }

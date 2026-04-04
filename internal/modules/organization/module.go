@@ -84,18 +84,34 @@ func (m *OrganizationModule) Init(ctx context.Context, deps config.ModuleDepende
 			return &types.InterceptResult{}, nil
 		}
 
+		// Build org info list with names from the org repo
+		orgInfos := make([]types.OrgInfo, 0, len(memberships))
+		for _, m := range memberships {
+			info := types.OrgInfo{ID: m.OrgID, Role: m.Role}
+			org, orgErr := orgRepo.FindByID(ctx, m.OrgID)
+			if orgErr == nil && org != nil {
+				info.Name = org.Name
+				info.Slug = org.Slug
+			}
+			orgInfos = append(orgInfos, info)
+		}
+
+		// Pick default org: always use first membership
+		active := orgInfos[0]
+
 		claims := map[string]interface{}{
-			"active_org_id": memberships[0].OrgID,
-			"org_role":      memberships[0].Role,
+			"active_org_id":   active.ID,
+			"org_role":        active.Role,
+			"org_memberships": orgInfos, // also embedded in JWT for middleware use
 		}
 
-		orgList := make([]map[string]string, len(memberships))
-		for i, m := range memberships {
-			orgList[i] = map[string]string{"org_id": m.OrgID, "role": m.Role}
-		}
-		claims["org_memberships"] = orgList
-
-		return &types.InterceptResult{Claims: claims}, nil
+		return &types.InterceptResult{
+			Claims: claims,
+			ResponseData: map[string]interface{}{
+				"organizations":       orgInfos,
+				"active_organization": active,
+			},
+		}, nil
 	}, 50) // Lower priority than 2FA
 
 	deps.Logger.Info("Organization module initialized")

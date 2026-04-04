@@ -9,6 +9,15 @@ const (
 	OrgRoleMember OrgRole = "member"
 )
 
+// OrgInfo represents organization membership info returned in login responses.
+// This allows the client to display an org switcher without decoding the JWT.
+type OrgInfo struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Slug string `json:"slug"`
+	Role string `json:"role"`
+}
+
 // HasMinimumRole checks if the given role meets or exceeds the required minimum.
 // Role hierarchy: owner > admin > member.
 func HasMinimumRole(role string, minRole OrgRole) bool {

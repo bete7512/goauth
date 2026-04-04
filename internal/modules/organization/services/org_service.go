@@ -181,7 +181,7 @@ func (s *orgService) SwitchOrg(ctx context.Context, user *models.User, targetOrg
 	}
 
 	// Run interceptors for resume phase to get base claims (e.g. other module enrichments)
-	interceptClaims, _, interceptErr := s.deps.AuthInterceptors.Run(ctx, &types.InterceptParams{
+	interceptClaims, _, _, interceptErr := s.deps.AuthInterceptors.Run(ctx, &types.InterceptParams{
 		Phase: types.PhaseResume,
 		User:  user,
 	})

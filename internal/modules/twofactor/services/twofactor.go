@@ -394,7 +394,7 @@ func (s *twoFactorService) IssueAuthTokenAfter2FA(ctx context.Context, user *mod
 // issueSessionToken creates a session and returns tokens (session-based auth)
 func (s *twoFactorService) issueSessionToken(ctx context.Context, user *models.User, metadata *types.RequestMetadata, sessionStorage types.SessionStorage) (map[string]any, *types.GoAuthError) {
 	// Run auth interceptors for resume phase (enrichment only, e.g. org claims)
-	interceptClaims, _, interceptErr := s.deps.AuthInterceptors.Run(ctx, &types.InterceptParams{
+	interceptClaims, _, _, interceptErr := s.deps.AuthInterceptors.Run(ctx, &types.InterceptParams{
 		Phase:    types.PhaseResume,
 		User:     user,
 		Metadata: metadata,
@@ -463,7 +463,7 @@ func (s *twoFactorService) issueSessionToken(ctx context.Context, user *models.U
 // issueStatelessToken generates JWT tokens with nonce-based refresh token (stateless auth)
 func (s *twoFactorService) issueStatelessToken(ctx context.Context, user *models.User, metadata *types.RequestMetadata, statelessStorage types.StatelessStorage) (map[string]any, *types.GoAuthError) {
 	// Run auth interceptors for resume phase (enrichment only, e.g. org claims)
-	interceptClaims, _, interceptErr := s.deps.AuthInterceptors.Run(ctx, &types.InterceptParams{
+	interceptClaims, _, _, interceptErr := s.deps.AuthInterceptors.Run(ctx, &types.InterceptParams{
 		Phase:    types.PhaseResume,
 		User:     user,
 		Metadata: metadata,

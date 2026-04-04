@@ -43,7 +43,7 @@ func (s *sessionService) Refresh(ctx context.Context, req *dto.RefreshRequest) (
 	}
 
 	// Run auth interceptors for refresh (enrichment only, no challenges)
-	interceptClaims, _, interceptErr := s.deps.AuthInterceptors.Run(ctx, &types.InterceptParams{
+	interceptClaims, _, responseData, interceptErr := s.deps.AuthInterceptors.Run(ctx, &types.InterceptParams{
 		Phase: types.PhaseRefresh,
 		User:  user,
 	})
@@ -84,10 +84,11 @@ func (s *sessionService) Refresh(ctx context.Context, req *dto.RefreshRequest) (
 	}
 
 	return dto.AuthResponse{
-		AccessToken:  accessToken,
-		RefreshToken: newRefreshToken,
-		ExpiresIn:    int64(s.deps.Config.Security.Session.SessionTTL.Seconds()),
-		Message:      "Token refreshed successfully",
-		SessionID:    newSessionID,
+		AccessToken:        accessToken,
+		RefreshToken:       newRefreshToken,
+		ExpiresIn:          int64(s.deps.Config.Security.Session.SessionTTL.Seconds()),
+		Message:            "Token refreshed successfully",
+		SessionID:          newSessionID,
+		Data:               responseData,
 	}, nil
 }

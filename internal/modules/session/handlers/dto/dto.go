@@ -46,6 +46,7 @@ type AuthResponse struct {
 	ExpiresIn    int64                  `json:"expires_in,omitempty"`
 	Message      string                 `json:"message,omitempty"`
 	Challenges   []types.LoginChallenge `json:"challenges,omitempty"`
+	Data         map[string]interface{} `json:"data,omitempty"`
 }
 
 // UserDTO represents user data in responses

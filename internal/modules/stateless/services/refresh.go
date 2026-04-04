@@ -61,7 +61,7 @@ func (s *StatelessService) Refresh(ctx context.Context, req *dto.RefreshRequest)
 	}
 
 	// Run auth interceptors for refresh (enrichment only)
-	interceptClaims, _, interceptErr := s.Deps.AuthInterceptors.Run(ctx, &types.InterceptParams{
+	interceptClaims, _, responseData, interceptErr := s.Deps.AuthInterceptors.Run(ctx, &types.InterceptParams{
 		Phase:          types.PhaseRefresh,
 		User:           user,
 		ExistingClaims: claims,
@@ -99,9 +99,10 @@ func (s *StatelessService) Refresh(ctx context.Context, req *dto.RefreshRequest)
 	}
 
 	return dto.AuthResponse{
-		AccessToken:  &accessToken,
-		RefreshToken: &newRefreshToken,
-		ExpiresIn:    int64(s.Deps.Config.Security.Session.SessionTTL.Seconds()),
-		Message:      "Token refreshed successfully",
+		AccessToken:        &accessToken,
+		RefreshToken:       &newRefreshToken,
+		ExpiresIn:          int64(s.Deps.Config.Security.Session.SessionTTL.Seconds()),
+		Message:            "Token refreshed successfully",
+		Data:               responseData,
 	}, nil
 }
