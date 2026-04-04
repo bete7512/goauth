@@ -394,14 +394,34 @@ func (s *oauthService) linkProviderToUser(ctx context.Context, userID, providerN
 		UpdatedAt:         now,
 	}
 
-	// Store provider tokens if configured
+	// Store provider tokens if configured (encrypted at rest)
 	if s.config.StoreProviderTokens && tokenResp != nil {
-		// FIX: in the future encrypt those sensitive infos
-		account.AccessToken = tokenResp.AccessToken
-		account.RefreshToken = tokenResp.RefreshToken
+		if tokenResp.AccessToken != "" {
+			encrypted, err := s.securityManager.Encrypt(tokenResp.AccessToken)
+			if err != nil {
+				s.logger.Warnf("oauth: failed to encrypt access token, skipping storage: %v", err)
+			} else {
+				account.AccessToken = encrypted
+			}
+		}
+		if tokenResp.RefreshToken != "" {
+			encrypted, err := s.securityManager.Encrypt(tokenResp.RefreshToken)
+			if err != nil {
+				s.logger.Warnf("oauth: failed to encrypt refresh token, skipping storage: %v", err)
+			} else {
+				account.RefreshToken = encrypted
+			}
+		}
+		if tokenResp.IDToken != "" {
+			encrypted, err := s.securityManager.Encrypt(tokenResp.IDToken)
+			if err != nil {
+				s.logger.Warnf("oauth: failed to encrypt ID token, skipping storage: %v", err)
+			} else {
+				account.IDToken = encrypted
+			}
+		}
 		account.TokenType = tokenResp.TokenType
 		account.Scope = tokenResp.Scope
-		account.IDToken = tokenResp.IDToken
 		if tokenResp.ExpiresIn > 0 {
 			expiresAt := time.Now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second)
 			account.ExpiresAt = &expiresAt
@@ -411,19 +431,38 @@ func (s *oauthService) linkProviderToUser(ctx context.Context, userID, providerN
 	return s.accountRepo.Create(ctx, account)
 }
 
-// updateAccountTokens updates an existing account's OAuth tokens
+// updateAccountTokens updates an existing account's OAuth tokens (encrypted at rest)
 func (s *oauthService) updateAccountTokens(ctx context.Context, account *models.Account, tokenResp *providers.TokenResponse) {
 	if tokenResp == nil {
 		return
 	}
 
-	account.AccessToken = tokenResp.AccessToken
+	if tokenResp.AccessToken != "" {
+		encrypted, err := s.securityManager.Encrypt(tokenResp.AccessToken)
+		if err != nil {
+			s.logger.Warnf("oauth: failed to encrypt access token on update: %v", err)
+		} else {
+			account.AccessToken = encrypted
+		}
+	}
 	if tokenResp.RefreshToken != "" {
-		account.RefreshToken = tokenResp.RefreshToken
+		encrypted, err := s.securityManager.Encrypt(tokenResp.RefreshToken)
+		if err != nil {
+			s.logger.Warnf("oauth: failed to encrypt refresh token on update: %v", err)
+		} else {
+			account.RefreshToken = encrypted
+		}
+	}
+	if tokenResp.IDToken != "" {
+		encrypted, err := s.securityManager.Encrypt(tokenResp.IDToken)
+		if err != nil {
+			s.logger.Warnf("oauth: failed to encrypt ID token on update: %v", err)
+		} else {
+			account.IDToken = encrypted
+		}
 	}
 	account.TokenType = tokenResp.TokenType
 	account.Scope = tokenResp.Scope
-	account.IDToken = tokenResp.IDToken
 	if tokenResp.ExpiresIn > 0 {
 		expiresAt := time.Now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second)
 		account.ExpiresAt = &expiresAt

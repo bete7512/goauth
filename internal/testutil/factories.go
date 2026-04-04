@@ -87,8 +87,8 @@ func HashPassword(password string) string {
 // TestSecurityManager returns a SecurityManager configured for tests.
 func TestSecurityManager() *security.SecurityManager {
 	return security.NewSecurityManager(types.SecurityConfig{
-		JwtSecretKey:  "test-secret-key-for-unit-tests",
-		EncryptionKey: "test-encryption-key-for-tests!",
+		JwtSecretKey:  "test-secret-key-for-unit-tests!!",
+		EncryptionKey: "test-encryption-key-for-tests!!",
 		Session: types.SessionConfig{
 			Name:            "test_session",
 			SessionTTL:      30 * 24 * time.Hour,
@@ -127,8 +127,8 @@ func TestConfig() *config.Config {
 	return &config.Config{
 		BasePath: "/api/v1",
 		Security: types.SecurityConfig{
-			JwtSecretKey:  "test-secret-key-for-unit-tests",
-			EncryptionKey: "test-encryption-key-for-tests!",
+			JwtSecretKey:  "test-secret-key-for-unit-tests!!",
+			EncryptionKey: "test-encryption-key-for-tests!!",
 			Session: types.SessionConfig{
 				Name:            "test_session",
 				SessionTTL:      30 * 24 * time.Hour,
@@ -158,7 +158,7 @@ func GenerateTempToken(userID string) string {
 		"iat":     time.Now().Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, _ := token.SignedString([]byte("test-secret-key-for-unit-tests"))
+	tokenString, _ := token.SignedString([]byte("test-secret-key-for-unit-tests!!"))
 	return tokenString
 }
 
@@ -171,6 +171,6 @@ func GenerateExpiredTempToken(userID string, expiryOffset time.Duration) string 
 		"iat":     time.Now().Add(expiryOffset - time.Minute).Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, _ := token.SignedString([]byte("test-secret-key-for-unit-tests"))
+	tokenString, _ := token.SignedString([]byte("test-secret-key-for-unit-tests!!"))
 	return tokenString
 }

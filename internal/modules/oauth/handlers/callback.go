@@ -93,6 +93,11 @@ func (h *OAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if redirectURL != "" {
+		// Validate redirect URL against allowed origins to prevent open redirect
+		if !h.isAllowedRedirectURL(redirectURL) {
+			h.handleError(w, r, "invalid_redirect_url", "redirect URL is not allowed")
+			return
+		}
 		// Redirect to frontend with tokens in URL fragment
 		h.redirectWithTokens(w, r, redirectURL, authResponse)
 		return
@@ -160,6 +165,38 @@ func (h *OAuthHandler) redirectWithTokens(w http.ResponseWriter, r *http.Request
 	parsed.Fragment = fragment.Encode()
 
 	http.Redirect(w, r, parsed.String(), http.StatusFound)
+}
+
+// isAllowedRedirectURL validates that the redirect URL matches an allowed origin.
+// Only the scheme+host of the configured DefaultRedirectURL, ErrorRedirectURL,
+// or FrontendConfig.URL are allowed.
+func (h *OAuthHandler) isAllowedRedirectURL(redirectURL string) bool {
+	parsed, err := url.Parse(redirectURL)
+	if err != nil || parsed.Host == "" {
+		return false
+	}
+
+	// Build the list of allowed origin URLs
+	allowedURLs := []string{h.config.DefaultRedirectURL, h.config.ErrorRedirectURL}
+	if h.deps.Config.FrontendConfig != nil && h.deps.Config.FrontendConfig.URL != "" {
+		allowedURLs = append(allowedURLs, h.deps.Config.FrontendConfig.URL)
+	}
+
+	// Check against configured allowed origins
+	for _, allowed := range allowedURLs {
+		if allowed == "" {
+			continue
+		}
+		allowedParsed, err := url.Parse(allowed)
+		if err != nil {
+			continue
+		}
+		if parsed.Scheme == allowedParsed.Scheme && parsed.Host == allowedParsed.Host {
+			return true
+		}
+	}
+
+	return false
 }
 
 // setAuthCookies sets authentication cookies

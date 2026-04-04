@@ -63,6 +63,15 @@ func (h *AdminHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Restrict IsSuperAdmin changes to super admins only
+	if req.IsSuperAdmin != nil {
+		adminUser, ok := r.Context().Value(types.UserKey).(*models.User)
+		if !ok || adminUser == nil || !adminUser.IsSuperAdmin {
+			http_utils.RespondError(w, http.StatusForbidden, string(types.ErrForbidden), "Only super admins can change super admin status")
+			return
+		}
+	}
+
 	req.ApplyTo(user)
 
 	if authErr := h.service.UpdateUser(r.Context(), user); authErr != nil {

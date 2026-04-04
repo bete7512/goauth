@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/storage/gorm/helpers"
@@ -114,7 +115,13 @@ func (r *UserRepository) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
+// allowedAvailabilityFields whitelists column names to prevent SQL injection.
+var allowedAvailabilityFields = []string{"email", "username", "phone_number"}
+
 func (r *UserRepository) IsAvailable(ctx context.Context, field, value string) (bool, error) {
+	if !slices.Contains(allowedAvailabilityFields, field) {
+		return false, fmt.Errorf("user_repository.IsAvailable: invalid field %q", field)
+	}
 	var count int64
 	err := r.db.WithContext(ctx).Model(&models.User{}).Where(field+" = ?", value).Count(&count).Error
 	if err != nil {

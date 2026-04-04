@@ -129,7 +129,13 @@ func (s *twoFactorService) GetTwoFactorConfig(ctx context.Context, userID string
 	return tfConfig, nil
 }
 
-// VerifyCode verifies a TOTP code
+// maxTwoFactorAttempts is the number of failed 2FA attempts before lockout.
+const maxTwoFactorAttempts = 5
+
+// twoFactorLockoutDuration is how long 2FA stays locked after too many failures.
+const twoFactorLockoutDuration = 15 * time.Minute
+
+// VerifyCode verifies a TOTP code with brute-force rate limiting
 func (s *twoFactorService) VerifyCode(ctx context.Context, userID, code string) *types.GoAuthError {
 	// Get 2FA config
 	tfConfig, authErr := s.GetTwoFactorConfig(ctx, userID)
@@ -141,6 +147,14 @@ func (s *twoFactorService) VerifyCode(ctx context.Context, userID, code string) 
 		return types.NewTwoFactorNotEnabledError()
 	}
 
+	// Check if 2FA is locked due to too many failed attempts
+	if tfConfig.LockedUntil != nil && tfConfig.LockedUntil.After(time.Now()) {
+		s.deps.Logger.Warn("2FA verification blocked - account locked", "user_id", userID)
+		return types.NewAccountLockedError()
+	}
+
+	tfRepo := s.deps.Storage.TwoFactorAuth().TwoFactor()
+
 	// Verify TOTP code with time window tolerance (±1 period = 60s total window)
 	valid, err := totp.ValidateCustom(code, tfConfig.Secret, time.Now().UTC(), totp.ValidateOpts{
 		Period:    30,
@@ -150,8 +164,28 @@ func (s *twoFactorService) VerifyCode(ctx context.Context, userID, code string) 
 	})
 
 	if err != nil || !valid {
-		s.deps.Logger.Warn("Invalid 2FA code attempt", "user_id", userID)
+		// Increment failed attempts and potentially lock
+		tfConfig.FailedAttempts++
+		if tfConfig.FailedAttempts >= maxTwoFactorAttempts {
+			lockUntil := time.Now().Add(twoFactorLockoutDuration)
+			tfConfig.LockedUntil = &lockUntil
+			s.deps.Logger.Warn("2FA locked due to too many failed attempts", "user_id", userID, "attempts", tfConfig.FailedAttempts)
+		}
+		if updateErr := tfRepo.Update(ctx, tfConfig); updateErr != nil {
+			s.deps.Logger.Error("Failed to update 2FA failed attempts", "error", updateErr)
+		}
+
+		s.deps.Logger.Warn("Invalid 2FA code attempt", "user_id", userID, "attempts", tfConfig.FailedAttempts)
 		return types.NewTwoFactorInvalidError()
+	}
+
+	// On success: reset failed attempts and lockout
+	if tfConfig.FailedAttempts > 0 || tfConfig.LockedUntil != nil {
+		tfConfig.FailedAttempts = 0
+		tfConfig.LockedUntil = nil
+		if updateErr := tfRepo.Update(ctx, tfConfig); updateErr != nil {
+			s.deps.Logger.Error("Failed to reset 2FA failed attempts", "error", updateErr)
+		}
 	}
 
 	return nil

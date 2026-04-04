@@ -153,6 +153,7 @@ func (s *PasswordServiceSuite) TestForgotPassword() {
 			req:  &dto.ForgotPasswordRequest{Email: testUser.Email},
 			setup: func(ur *mocks.MockUserRepository, tr *mocks.MockTokenRepository, ev *mocks.MockEventBus) {
 				ur.EXPECT().FindByEmail(gomock.Any(), testUser.Email).Return(testUser, nil)
+				tr.EXPECT().FindByEmailAndType(gomock.Any(), testUser.Email, models.TokenTypePasswordReset).Return(nil, models.ErrNotFound)
 				tr.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&models.Token{})).Return(nil)
 				ev.EXPECT().EmitAsync(gomock.Any(), types.EventSendPasswordResetEmail, gomock.AssignableToTypeOf(&types.PasswordResetRequestData{})).Return(nil)
 			},

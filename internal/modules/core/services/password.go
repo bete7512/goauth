@@ -35,6 +35,15 @@ func (s *coreService) ForgotPassword(ctx context.Context, req *dto.ForgotPasswor
 		return nil, types.NewInternalError("failed to find user").Wrap(err)
 	}
 
+	// Rate limit: check if a recent reset token already exists for this email
+	existing, _ := s.TokenRepository.FindByEmailAndType(ctx, user.Email, models.TokenTypePasswordReset)
+	if existing != nil && !existing.Used && time.Since(existing.CreatedAt) < 2*time.Minute {
+		// Silently return success without creating another token to avoid revealing account info
+		return &dto.MessageResponse{
+			Message: "If an account exists, password reset instructions have been sent",
+		}, nil
+	}
+
 	// Generate token and OTP code
 	if req.Email != "" {
 		token, err = s.Deps.SecurityManager.GenerateRandomToken(32)
