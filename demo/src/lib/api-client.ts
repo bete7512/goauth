@@ -1,17 +1,22 @@
 class ApiClient {
   baseUrl: string;
   private token: string | null = null;
+  private refreshToken: string | null = null;
 
   constructor(baseUrl = 'http://localhost:8080/api/v1') {
     this.baseUrl = baseUrl;
-    // Restore from localStorage on init
     if (typeof window !== 'undefined') {
       this.token = localStorage.getItem('goauth_token');
+      this.refreshToken = localStorage.getItem('goauth_refresh_token');
     }
   }
 
   getToken(): string | null {
     return this.token;
+  }
+
+  getRefreshToken(): string | null {
+    return this.refreshToken;
   }
 
   setToken(token: string | null) {
@@ -20,6 +25,19 @@ class ApiClient {
       if (token) localStorage.setItem('goauth_token', token);
       else localStorage.removeItem('goauth_token');
     }
+  }
+
+  setRefreshToken(token: string | null) {
+    this.refreshToken = token;
+    if (typeof window !== 'undefined') {
+      if (token) localStorage.setItem('goauth_refresh_token', token);
+      else localStorage.removeItem('goauth_refresh_token');
+    }
+  }
+
+  clearTokens() {
+    this.setToken(null);
+    this.setRefreshToken(null);
   }
 
   private headers(): Record<string, string> {

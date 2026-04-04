@@ -16,7 +16,7 @@ export function AuditSection({ onResponse }: AuditSectionProps) {
 
   const handleMyAuditLogs = async () => {
     try {
-      const data = await api.get('/audit/me')
+      const data = await api.get('/me/audit')
       onResponse(data)
     } catch (e: any) {
       onResponse({ error: e.message })
@@ -25,7 +25,7 @@ export function AuditSection({ onResponse }: AuditSectionProps) {
 
   const handleMyLogins = async () => {
     try {
-      const data = await api.get('/audit/me/logins')
+      const data = await api.get('/me/audit/logins')
       onResponse(data)
     } catch (e: any) {
       onResponse({ error: e.message })
@@ -34,7 +34,7 @@ export function AuditSection({ onResponse }: AuditSectionProps) {
 
   const handleMyChanges = async () => {
     try {
-      const data = await api.get('/audit/me/changes')
+      const data = await api.get('/me/audit/changes')
       onResponse(data)
     } catch (e: any) {
       onResponse({ error: e.message })
@@ -43,7 +43,7 @@ export function AuditSection({ onResponse }: AuditSectionProps) {
 
   const handleMySecurity = async () => {
     try {
-      const data = await api.get('/audit/me/security')
+      const data = await api.get('/me/audit/security')
       onResponse(data)
     } catch (e: any) {
       onResponse({ error: e.message })
@@ -89,7 +89,7 @@ export function AuditSection({ onResponse }: AuditSectionProps) {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">My Audit Logs</CardTitle>
-          <CardDescription>Endpoints under /audit/me</CardDescription>
+          <CardDescription>Endpoints under /me/audit</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex gap-3 flex-wrap">

@@ -253,7 +253,7 @@ func (s *StatelessLoginSuite) TestRefresh_InvalidJWT() {
 	_, authErr := svc.Refresh(context.Background(), req)
 
 	s.NotNil(authErr)
-	s.Equal(types.ErrInvalidCredentials, authErr.Code)
+	s.Equal(types.ErrInvalidRefreshToken, authErr.Code)
 }
 
 func (s *StatelessLoginSuite) TestRefresh_JTINotFound() {
@@ -270,7 +270,7 @@ func (s *StatelessLoginSuite) TestRefresh_JTINotFound() {
 	_, authErr := svc.Refresh(context.Background(), req)
 
 	s.NotNil(authErr)
-	s.Equal(types.ErrInvalidCredentials, authErr.Code)
+	s.Equal(types.ErrInvalidRefreshToken, authErr.Code)
 }
 
 func (s *StatelessLoginSuite) TestRefresh_UserNotFound() {
@@ -288,7 +288,7 @@ func (s *StatelessLoginSuite) TestRefresh_UserNotFound() {
 	_, authErr := svc.Refresh(context.Background(), req)
 
 	s.NotNil(authErr)
-	s.Equal(types.ErrInvalidCredentials, authErr.Code)
+	s.Equal(types.ErrInvalidRefreshToken, authErr.Code)
 }
 
 func (s *StatelessLoginSuite) TestRefresh_DeleteOldNonceFails() {

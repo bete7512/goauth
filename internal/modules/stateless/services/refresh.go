@@ -16,24 +16,24 @@ func (s *StatelessService) Refresh(ctx context.Context, req *dto.RefreshRequest)
 	// Parse and validate JWT refresh token
 	claims, err := s.SecurityManager.ValidateJWTToken(req.RefreshToken)
 	if err != nil {
-		return dto.AuthResponse{}, types.NewInvalidCredentialsError()
+		return dto.AuthResponse{}, types.NewInvalidRefreshTokenError()
 	}
 
 	// Verify token type
 	if tokenType, ok := claims["type"].(string); !ok || tokenType != "refresh" {
-		return dto.AuthResponse{}, types.NewInvalidCredentialsError()
+		return dto.AuthResponse{}, types.NewInvalidRefreshTokenError()
 	}
 
 	// Get JTI (nonce)
 	jti, ok := claims["jti"].(string)
 	if !ok || jti == "" {
-		return dto.AuthResponse{}, types.NewInvalidCredentialsError()
+		return dto.AuthResponse{}, types.NewInvalidRefreshTokenError()
 	}
 
 	// Get User ID
 	userID, ok := claims["user_id"].(string)
 	if !ok || userID == "" {
-		return dto.AuthResponse{}, types.NewInvalidCredentialsError()
+		return dto.AuthResponse{}, types.NewInvalidRefreshTokenError()
 	}
 
 	// Check if JTI exists in database (is valid and not blacklisted/revoked)
@@ -41,7 +41,7 @@ func (s *StatelessService) Refresh(ctx context.Context, req *dto.RefreshRequest)
 	if err != nil {
 		if errors.Is(err, models.ErrNotFound) {
 			// If not found, it means it's revoked or never existed
-			return dto.AuthResponse{}, types.NewInvalidCredentialsError()
+			return dto.AuthResponse{}, types.NewInvalidRefreshTokenError()
 		}
 		return dto.AuthResponse{}, types.NewInternalError("failed to find token record").Wrap(err)
 	}
@@ -50,7 +50,7 @@ func (s *StatelessService) Refresh(ctx context.Context, req *dto.RefreshRequest)
 	user, err := s.UserRepository.FindByID(ctx, userID)
 	if err != nil {
 		if errors.Is(err, models.ErrNotFound) {
-			return dto.AuthResponse{}, types.NewInvalidCredentialsError()
+			return dto.AuthResponse{}, types.NewInvalidRefreshTokenError()
 		}
 		return dto.AuthResponse{}, types.NewInternalError("failed to find user").Wrap(err)
 	}
@@ -99,10 +99,10 @@ func (s *StatelessService) Refresh(ctx context.Context, req *dto.RefreshRequest)
 	}
 
 	return dto.AuthResponse{
-		AccessToken:        &accessToken,
-		RefreshToken:       &newRefreshToken,
-		ExpiresIn:          int64(s.Deps.Config.Security.Session.SessionTTL.Seconds()),
-		Message:            "Token refreshed successfully",
-		Data:               responseData,
+		AccessToken:  &accessToken,
+		RefreshToken: &newRefreshToken,
+		ExpiresIn:    int64(s.Deps.Config.Security.Session.SessionTTL.Seconds()),
+		Message:      "Token refreshed successfully",
+		Data:         responseData,
 	}, nil
 }

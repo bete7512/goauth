@@ -11,9 +11,10 @@ import type { AuthResponse, User, OrgInfo } from '@/types'
 interface AuthSectionProps {
   onLogin: (user: User, token: string, orgs: OrgInfo[]) => void
   onResponse: (data: unknown) => void
+  onChallenge?: (tempToken: string) => void
 }
 
-export function AuthSection({ onLogin, onResponse }: AuthSectionProps) {
+export function AuthSection({ onLogin, onResponse, onChallenge }: AuthSectionProps) {
   // Signup state
   const [signupEmail, setSignupEmail] = useState('')
   const [signupPassword, setSignupPassword] = useState('')
@@ -51,6 +52,7 @@ export function AuthSection({ onLogin, onResponse }: AuthSectionProps) {
       onResponse(data)
       if (data.access_token && data.user) {
         api.setToken(data.access_token)
+        if (data.refresh_token) api.setRefreshToken(data.refresh_token)
         const orgs = (data.data?.organizations as OrgInfo[]) || []
         onLogin(data.user, data.access_token, orgs)
       }
@@ -72,11 +74,16 @@ export function AuthSection({ onLogin, onResponse }: AuthSectionProps) {
       })
       onResponse(data)
       if (data.challenges && data.challenges.length > 0) {
-        // 2FA challenge - don't complete login yet
+        // Extract temp_token from 2FA challenge and notify parent
+        const tfaChallenge = data.challenges.find((c: any) => c.type === '2fa')
+        if (tfaChallenge?.data?.temp_token) {
+          onChallenge?.(tfaChallenge.data.temp_token)
+        }
         return
       }
       if (data.access_token && data.user) {
         api.setToken(data.access_token)
+        if (data.refresh_token) api.setRefreshToken(data.refresh_token)
         const orgs = (data.data?.organizations as OrgInfo[]) || []
         onLogin(data.user, data.access_token, orgs)
       }

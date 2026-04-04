@@ -36,6 +36,7 @@ export default function DemoPage() {
   const [organizations, setOrganizations] = useState<OrgInfo[]>([])
   const [activeOrg, setActiveOrg] = useState<OrgInfo | null>(null)
   const [response, setResponse] = useState<unknown>(null)
+  const [tempToken2FA, setTempToken2FA] = useState<string>('')
 
   // Restore token on mount
   useEffect(() => {
@@ -64,7 +65,7 @@ export default function DemoPage() {
     } catch {
       // Ignore logout errors
     }
-    api.setToken(null)
+    api.clearTokens()
     setUser(null)
     setToken(null)
     setOrganizations([])
@@ -127,7 +128,14 @@ export default function DemoPage() {
             <SettingsSection onResponse={handleResponse} />
           )}
           {activeSection === 'auth' && (
-            <AuthSection onLogin={handleLogin} onResponse={handleResponse} />
+            <AuthSection
+              onLogin={handleLogin}
+              onResponse={handleResponse}
+              onChallenge={(tempToken) => {
+                setTempToken2FA(tempToken)
+                setActiveSection('2fa')
+              }}
+            />
           )}
           {activeSection === 'profile' && (
             <ProfileSection onResponse={handleResponse} />
@@ -151,7 +159,17 @@ export default function DemoPage() {
             />
           )}
           {activeSection === '2fa' && (
-            <TwoFactorSection onResponse={handleResponse} />
+            <TwoFactorSection
+              onResponse={handleResponse}
+              tempToken={tempToken2FA}
+              onLoginSuccess={(data) => {
+                if (data.user) {
+                  setUser(data.user)
+                  setToken(data.access_token)
+                }
+                setTempToken2FA('')
+              }}
+            />
           )}
           {activeSection === 'magiclink' && (
             <MagicLinkSection onLogin={handleLogin} onResponse={handleResponse} />

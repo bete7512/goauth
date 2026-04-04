@@ -114,7 +114,7 @@ func (s *RefreshServiceSuite) TestRefresh() {
 				sr.EXPECT().FindByToken(gomock.Any(), security.HashRefreshToken("unknown-token")).Return(nil, models.ErrNotFound)
 			},
 			wantErr:    true,
-			errCode:    types.ErrInvalidCredentials,
+			errCode:    types.ErrInvalidRefreshToken,
 			statusCode: 401,
 		},
 		{
@@ -124,7 +124,7 @@ func (s *RefreshServiceSuite) TestRefresh() {
 				sr.EXPECT().FindByToken(gomock.Any(), security.HashRefreshToken("expired-session-token")).Return(expiredSession, nil)
 			},
 			wantErr:    true,
-			errCode:    types.ErrInvalidCredentials,
+			errCode:    types.ErrSessionExpired,
 			statusCode: 401,
 		},
 		{
@@ -134,7 +134,7 @@ func (s *RefreshServiceSuite) TestRefresh() {
 				sr.EXPECT().FindByToken(gomock.Any(), security.HashRefreshToken("expired-refresh-token")).Return(expiredRefreshSession, nil)
 			},
 			wantErr:    true,
-			errCode:    types.ErrInvalidCredentials,
+			errCode:    types.ErrInvalidRefreshToken,
 			statusCode: 401,
 		},
 		{
@@ -146,7 +146,7 @@ func (s *RefreshServiceSuite) TestRefresh() {
 				ur.EXPECT().FindByID(gomock.Any(), testUser.ID).Return(nil, models.ErrNotFound)
 			},
 			wantErr:    true,
-			errCode:    types.ErrInvalidCredentials,
+			errCode:    types.ErrInvalidRefreshToken,
 			statusCode: 401,
 		},
 		{

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { QRCodeSVG } from 'qrcode.react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -9,19 +10,24 @@ import { api } from '@/lib/api-client'
 
 interface TwoFactorSectionProps {
   onResponse: (data: unknown) => void
+  tempToken?: string  // Auto-filled from login 2FA challenge
+  onLoginSuccess?: (data: any) => void  // Called after successful 2FA verify-login
 }
 
-export function TwoFactorSection({ onResponse }: TwoFactorSectionProps) {
+export function TwoFactorSection({ onResponse, tempToken: initialTempToken, onLoginSuccess }: TwoFactorSectionProps) {
   const [setupCode, setSetupCode] = useState('')
   const [loginCode, setLoginCode] = useState('')
+  const [loginTempToken, setLoginTempToken] = useState(initialTempToken || '')
   const [disableCode, setDisableCode] = useState('')
   const [qrUrl, setQrUrl] = useState('')
+  const [secret, setSecret] = useState('')
 
   const handleSetup = async () => {
     try {
       const data = await api.post<{ secret?: string; qr_url?: string }>('/2fa/setup')
       onResponse(data)
       if (data.qr_url) setQrUrl(data.qr_url)
+      if (data.secret) setSecret(data.secret)
     } catch (e: any) {
       onResponse({ error: e.message })
     }
@@ -29,7 +35,7 @@ export function TwoFactorSection({ onResponse }: TwoFactorSectionProps) {
 
   const handleVerifySetup = async () => {
     try {
-      const data = await api.post('/2fa/verify-setup', { code: setupCode })
+      const data = await api.post('/2fa/verify', { code: setupCode })
       onResponse(data)
     } catch (e: any) {
       onResponse({ error: e.message })
@@ -37,9 +43,22 @@ export function TwoFactorSection({ onResponse }: TwoFactorSectionProps) {
   }
 
   const handleVerifyLogin = async () => {
+    if (!loginTempToken) {
+      onResponse({ error: 'No temp_token. Log in first to get a 2FA challenge.' })
+      return
+    }
     try {
-      const data = await api.post('/2fa/verify-login', { code: loginCode })
+      const data: any = await api.post('/2fa/verify-login', {
+        temp_token: loginTempToken,
+        code: loginCode,
+      })
       onResponse(data)
+      // On success, update tokens
+      if (data.access_token) {
+        api.setToken(data.access_token)
+        if (data.refresh_token) api.setRefreshToken(data.refresh_token)
+        onLoginSuccess?.(data)
+      }
     } catch (e: any) {
       onResponse({ error: e.message })
     }
@@ -54,18 +73,9 @@ export function TwoFactorSection({ onResponse }: TwoFactorSectionProps) {
     }
   }
 
-  const handleGetBackupCodes = async () => {
+  const handleStatus = async () => {
     try {
-      const data = await api.get('/2fa/backup-codes')
-      onResponse(data)
-    } catch (e: any) {
-      onResponse({ error: e.message })
-    }
-  }
-
-  const handleRegenerateBackupCodes = async () => {
-    try {
-      const data = await api.post('/2fa/regenerate-backup-codes')
+      const data = await api.get('/2fa/status')
       onResponse(data)
     } catch (e: any) {
       onResponse({ error: e.message })
@@ -84,18 +94,23 @@ export function TwoFactorSection({ onResponse }: TwoFactorSectionProps) {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Setup 2FA</CardTitle>
-            <CardDescription>POST /2fa/setup, POST /2fa/verify-setup</CardDescription>
+            <CardDescription>POST /2fa/setup, POST /2fa/verify</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <Button onClick={handleSetup} className="w-full">Start Setup</Button>
 
             {qrUrl && (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <p className="text-sm font-medium">Scan this QR code with your authenticator app:</p>
-                <div className="p-2 bg-white border rounded flex justify-center">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={qrUrl} alt="2FA QR Code" className="max-w-[200px]" />
+                <div className="p-4 bg-white border rounded flex justify-center">
+                  <QRCodeSVG value={qrUrl} size={200} />
                 </div>
+                {secret && (
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Or enter this secret manually:</p>
+                    <code className="block text-xs bg-gray-100 p-2 rounded font-mono break-all select-all">{secret}</code>
+                  </div>
+                )}
               </div>
             )}
 
@@ -116,8 +131,17 @@ export function TwoFactorSection({ onResponse }: TwoFactorSectionProps) {
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              Use this after login returns a 2FA challenge.
+              Use this after login returns a 2FA challenge. The temp_token is auto-filled from the challenge response.
             </p>
+            <div className="space-y-1">
+              <Label>Temp Token</Label>
+              <Input
+                value={loginTempToken}
+                onChange={(e) => setLoginTempToken(e.target.value)}
+                placeholder="From login challenge response"
+                className="font-mono text-xs"
+              />
+            </div>
             <div className="space-y-1">
               <Label>2FA Code</Label>
               <Input value={loginCode} onChange={(e) => setLoginCode(e.target.value)} placeholder="6-digit code or backup code" />
@@ -143,15 +167,15 @@ export function TwoFactorSection({ onResponse }: TwoFactorSectionProps) {
           </CardContent>
         </Card>
 
-        {/* Backup Codes */}
+        {/* Status */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Backup Codes</CardTitle>
-            <CardDescription>GET /2fa/backup-codes, POST /2fa/regenerate-backup-codes</CardDescription>
+            <CardTitle className="text-base">2FA Status</CardTitle>
+            <CardDescription>GET /2fa/status</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Button onClick={handleGetBackupCodes} variant="outline" className="w-full">View Backup Codes</Button>
-            <Button onClick={handleRegenerateBackupCodes} variant="outline" className="w-full">Regenerate Backup Codes</Button>
+            <p className="text-sm text-muted-foreground">Check if 2FA is enabled and view configuration.</p>
+            <Button onClick={handleStatus} variant="outline" className="w-full">Check Status</Button>
           </CardContent>
         </Card>
       </div>

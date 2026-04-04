@@ -104,11 +104,11 @@ func (s *StatelessService) Login(ctx context.Context, req *dto.LoginRequest) (dt
 	}
 
 	return dto.AuthResponse{
-		AccessToken:        &accessToken,
-		RefreshToken:       &refreshToken,
-		User:               dto.UserToDTO(user),
-		ExpiresIn:          int64(s.Deps.Config.Security.Session.SessionTTL.Seconds()),
-		Message:            "Login successful",
-		Data:               responseData,
+		AccessToken:  &accessToken,
+		RefreshToken: &refreshToken,
+		User:         dto.UserToDTO(user),
+		ExpiresIn:    int64(s.Deps.Config.Security.Session.SessionTTL.Seconds()),
+		Message:      "Login successful",
+		Data:         responseData,
 	}, nil
 }

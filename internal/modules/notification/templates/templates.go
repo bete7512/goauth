@@ -93,7 +93,7 @@ func DefaultEmailTemplates() map[string]EmailTemplate {
 		"password_reset": {
 			Name:     "password_reset",
 			Subject:  "Password Reset Request - {{.Brand.AppName}}",
-			TextBody: "Hi {{.UserName}},\n\nClick here to reset your password: {{.ResetLink}}\n\nOr use this code: {{.Code}}\n\nThis link expires in {{.ExpiryTime}}.\n\n{{.Brand.FooterText}}",
+			TextBody: "Hi {{.UserName}},\n\nClick here to reset your password: {{.ResetLink}}\n{{if .Code}}\nOr use this code: {{.Code}}\n{{end}}\nThis link expires in {{.ExpiryTime}}.\n\n{{.Brand.FooterText}}",
 			HTMLBody: loadHTML("password_reset"),
 		},
 		"email_verification": {

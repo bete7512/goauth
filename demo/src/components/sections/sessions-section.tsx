@@ -54,10 +54,18 @@ export function SessionsSection({ onResponse }: SessionsSectionProps) {
   }
 
   const handleRefreshToken = async () => {
+    const rt = api.getRefreshToken()
+    if (!rt) {
+      onResponse({ error: 'No refresh token stored. Log in first.' })
+      return
+    }
     setRefreshLoading(true)
     try {
-      const data = await api.post('/refresh')
+      const data: any = await api.post('/refresh', { refresh_token: rt })
       onResponse(data)
+      // Update both tokens with the rotated values
+      if (data.access_token) api.setToken(data.access_token)
+      if (data.refresh_token) api.setRefreshToken(data.refresh_token)
     } catch (e: any) {
       onResponse({ error: e.message })
     } finally {

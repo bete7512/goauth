@@ -18,26 +18,26 @@ func (s *sessionService) Refresh(ctx context.Context, req *dto.RefreshRequest) (
 	session, err := s.sessionRepository.FindByToken(ctx, tokenHash)
 	if err != nil {
 		if errors.Is(err, models.ErrNotFound) {
-			return dto.AuthResponse{}, types.NewInvalidCredentialsError()
+			return dto.AuthResponse{}, types.NewInvalidRefreshTokenError()
 		}
 		return dto.AuthResponse{}, types.NewInternalError("failed to find session by token").Wrap(err)
 	}
 
 	// Check if session is expired
 	if session.ExpiresAt.Before(time.Now()) {
-		return dto.AuthResponse{}, types.NewInvalidCredentialsError()
+		return dto.AuthResponse{}, types.NewSessionExpiredError()
 	}
 
 	// Check if refresh token is expired
 	if session.RefreshTokenExpiresAt.Before(time.Now()) {
-		return dto.AuthResponse{}, types.NewInvalidCredentialsError()
+		return dto.AuthResponse{}, types.NewInvalidRefreshTokenError()
 	}
 
 	// Get user
 	user, err := s.userRepository.FindByID(ctx, session.UserID)
 	if err != nil {
 		if errors.Is(err, models.ErrNotFound) {
-			return dto.AuthResponse{}, types.NewInvalidCredentialsError()
+			return dto.AuthResponse{}, types.NewInvalidRefreshTokenError()
 		}
 		return dto.AuthResponse{}, types.NewInternalError("failed to find user").Wrap(err)
 	}
@@ -84,11 +84,11 @@ func (s *sessionService) Refresh(ctx context.Context, req *dto.RefreshRequest) (
 	}
 
 	return dto.AuthResponse{
-		AccessToken:        accessToken,
-		RefreshToken:       newRefreshToken,
-		ExpiresIn:          int64(s.deps.Config.Security.Session.SessionTTL.Seconds()),
-		Message:            "Token refreshed successfully",
-		SessionID:          newSessionID,
-		Data:               responseData,
+		AccessToken:  accessToken,
+		RefreshToken: newRefreshToken,
+		ExpiresIn:    int64(s.deps.Config.Security.Session.SessionTTL.Seconds()),
+		Message:      "Token refreshed successfully",
+		SessionID:    newSessionID,
+		Data:         responseData,
 	}, nil
 }
