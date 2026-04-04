@@ -77,7 +77,7 @@ store := storage.NewGormStorageFromDB(existingDB)
 ### SendGrid
 
 ```go
-import "github.com/bete7512/goauth/internal/modules/notification/services/senders"
+import "github.com/bete7512/goauth/pkg/modules/notification/senders"
 
 emailSender := senders.NewSendGridEmailSender(&senders.SendGridConfig{
     APIKey:      "your-sendgrid-api-key",
@@ -88,6 +88,8 @@ emailSender := senders.NewSendGridEmailSender(&senders.SendGridConfig{
 ### SMTP
 
 ```go
+import "github.com/bete7512/goauth/pkg/modules/notification/senders"
+
 emailSender := senders.NewSMTPEmailSender(&senders.SMTPConfig{
     Host:     "smtp.gmail.com",
     Port:     587,
@@ -99,6 +101,8 @@ emailSender := senders.NewSMTPEmailSender(&senders.SMTPConfig{
 ### Twilio (SMS)
 
 ```go
+import "github.com/bete7512/goauth/pkg/modules/notification/senders"
+
 smsSender := senders.NewTwilioSMSSender(&senders.TwilioConfig{
     AccountSID: "your-account-sid",
     AuthToken:  "your-auth-token",
@@ -135,8 +139,8 @@ func main() {
     defer store.Close()
 
     a, err := auth.New(&config.Config{
-        Storage:     store,
-        AutoMigrate: true,
+        Storage:   store,
+        Migration: config.MigrationConfig{Auto: true},
         Security: types.SecurityConfig{
             JwtSecretKey:  "your-secret-key-min-32-chars!!",
             EncryptionKey: "your-encryption-key-32-chars!!",
@@ -170,11 +174,11 @@ go mod tidy
 go get github.com/bete7512/goauth
 ```
 
-**Go version too old** — GoAuth requires Go 1.25+. Check with `go version`.
+**Go version too old** -- GoAuth requires Go 1.25+. Check with `go version`.
 
-**SQLite requires CGO** — On Linux, install `build-essential`. On macOS, install Xcode CLI tools: `xcode-select --install`.
+**SQLite requires CGO** -- On Linux, install `build-essential`. On macOS, install Xcode CLI tools: `xcode-select --install`.
 
 ## Next Steps
 
-- [Quick Start](quickstart.md) — Build your first auth system
-- [Core Module](modules/core.md) — Core module details
+- [Quick Start](quickstart.md) -- Build your first auth system
+- [Core Module](modules/core.md) -- Core module details

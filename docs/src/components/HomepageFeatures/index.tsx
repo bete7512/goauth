@@ -11,64 +11,70 @@ type FeatureItem = {
 
 const FeatureList: FeatureItem[] = [
   {
-    title: "Multiple Authentication Methods",
+    title: "Drop-in Authentication",
     Svg: require("@site/static/img/undraw_docusaurus_mountain.svg").default,
     description: (
       <>
-        Support for OAuth 2.0, JWT, Magic Links, and Two-Factor Authentication.
-        Choose the method that best fits your application's security
-        requirements.
+        Add signup, login, password reset, email verification, and session
+        management to any Go app with a few lines of code. GoAuth is a library
+        you import — not a separate service to deploy.
       </>
     ),
   },
   {
-    title: "Framework Integration",
+    title: "Plug In Your Own Infrastructure",
     Svg: require("@site/static/img/undraw_docusaurus_tree.svg").default,
     description: (
       <>
-        Native support for popular Go web frameworks including Gin, Echo, Fiber,
-        Chi, Gorilla Mux, and Iris. Easy integration with your existing
-        codebase.
+        GoAuth uses interfaces for everything: storage, event backends, email/SMS
+        delivery, and logging. Use the built-in GORM storage and worker pool, or
+        implement the interface to bring Kafka, NATS, Redis, MongoDB, SendGrid,
+        Twilio, or any custom provider.
       </>
     ),
   },
   {
-    title: "Enterprise Security",
+    title: "Session or Stateless — Your Choice",
     Svg: require("@site/static/img/undraw_docusaurus_react.svg").default,
     description: (
       <>
-        Built-in rate limiting, CSRF protection, reCAPTCHA integration, and
-        comprehensive security features. Production-ready from day one.
+        Choose server-side sessions with optional cookie-cache for fast
+        validation, or stateless JWT with nonce-based refresh token rotation.
+        Both support 2FA challenges, org-scoped claims, and account lockout.
       </>
     ),
   },
   {
-    title: "OAuth Providers",
+    title: "OAuth with PKCE",
     Svg: require("@site/static/img/undraw_docusaurus_mountain.svg").default,
     description: (
       <>
-        Pre-built integrations with Google, GitHub, Facebook, Microsoft, Apple,
-        Discord, LinkedIn, and Twitter. Easy social login implementation.
+        Built-in Google, GitHub, Microsoft, and Discord providers with automatic
+        PKCE. Users sign in via OAuth and GoAuth handles account creation,
+        linking, and token issuance.
       </>
     ),
   },
   {
-    title: "Flexible Storage",
+    title: "Multi-Organization Support",
     Svg: require("@site/static/img/undraw_docusaurus_tree.svg").default,
     description: (
       <>
-        Support for PostgreSQL, MySQL, SQLite, and custom storage backends.
-        Redis integration for caching and session management.
+        Built-in organization module with roles (owner, admin, member),
+        invitations with expiry, org-scoped JWT claims, and org switching.
+        Build SaaS products without writing org management from scratch.
       </>
     ),
   },
   {
-    title: "Developer Experience",
+    title: "Event-Driven Hooks",
     Svg: require("@site/static/img/undraw_docusaurus_react.svg").default,
     description: (
       <>
-        Comprehensive documentation, examples, and testing utilities. Built with
-        Go developers in mind for maximum productivity.
+        Subscribe to before/after events on any operation. Multiple handlers per
+        event with priority ordering, async processing via worker pool, retry
+        policies, and dead letter queue. Intercept signups, enrich JWT claims,
+        send notifications — all through events.
       </>
     ),
   },

@@ -12,14 +12,25 @@ description: GoAuth usage examples
 Minimal setup with Core module and stateless JWT (default):
 
 ```go
+import (
+    "context"
+    "net/http"
+
+    "github.com/bete7512/goauth/pkg/auth"
+    "github.com/bete7512/goauth/pkg/config"
+    "github.com/bete7512/goauth/pkg/types"
+    "github.com/bete7512/goauth/pkg/adapters/stdhttp"
+    "github.com/bete7512/goauth/storage/gorm"
+)
+
 store, _ := storage.NewGormStorage(storage.GormConfig{
     Dialect: types.DialectTypeSqlite,
     DSN:     "auth.db",
 })
 
 a, _ := auth.New(&config.Config{
-    Storage:     store,
-    AutoMigrate: true,
+    Storage: store,
+    Migration: config.MigrationConfig{Auto: true},
     Security: types.SecurityConfig{
         JwtSecretKey:  "your-secret-key-min-32-chars!!",
         EncryptionKey: "your-encryption-key-32-chars!!",
@@ -37,9 +48,11 @@ http.ListenAndServe(":8080", mux)
 
 ## Session-Based Auth
 
-Server-side sessions with cookie strategy:
+Server-side sessions with cookie-cache strategy:
 
 ```go
+import "github.com/bete7512/goauth/pkg/modules/session"
+
 a.Use(session.New(&config.SessionModuleConfig{
     EnableSessionManagement: true,
     Strategy:                types.SessionStrategyCookieCache,
@@ -55,6 +68,11 @@ a.Use(session.New(&config.SessionModuleConfig{
 Add email notifications for signup, password reset, and login alerts:
 
 ```go
+import (
+    "github.com/bete7512/goauth/pkg/modules/notification"
+    "github.com/bete7512/goauth/pkg/modules/notification/senders"
+)
+
 a.Use(notification.New(&notification.Config{
     EmailSender: senders.NewSendGridEmailSender(&senders.SendGridConfig{
         APIKey:      "SG.xxxxx",
@@ -73,7 +91,9 @@ a.Use(notification.New(&notification.Config{
 TOTP-based 2FA with backup codes:
 
 ```go
-a.Use(twofactor.New(&twofactor.TwoFactorConfig{
+import "github.com/bete7512/goauth/pkg/modules/twofactor"
+
+a.Use(twofactor.New(&config.TwoFactorConfig{
     Issuer:           "MyApp",
     BackupCodesCount: 10,
     CodeLength:       8,
@@ -87,10 +107,23 @@ a.Use(twofactor.New(&twofactor.TwoFactorConfig{
 All modules together:
 
 ```go
+import (
+    "github.com/bete7512/goauth/pkg/auth"
+    "github.com/bete7512/goauth/pkg/config"
+    "github.com/bete7512/goauth/pkg/types"
+    "github.com/bete7512/goauth/pkg/adapters/ginadapter"
+    "github.com/bete7512/goauth/pkg/modules/admin"
+    "github.com/bete7512/goauth/pkg/modules/notification"
+    "github.com/bete7512/goauth/pkg/modules/twofactor"
+    "github.com/bete7512/goauth/pkg/modules/captcha"
+    "github.com/bete7512/goauth/pkg/modules/csrf"
+    "github.com/bete7512/goauth/pkg/modules/organization"
+)
+
 a, _ := auth.New(&config.Config{
-    Storage:     store,
-    AutoMigrate: true,
-    BasePath:    "/api/v1",
+    Storage:  store,
+    Migration: config.MigrationConfig{Auto: true},
+    BasePath: "/api/v1",
     Security: types.SecurityConfig{
         JwtSecretKey:  os.Getenv("JWT_SECRET_KEY"),
         EncryptionKey: os.Getenv("ENCRYPTION_KEY"),
@@ -109,10 +142,11 @@ a, _ := auth.New(&config.Config{
 })
 
 a.Use(notification.New(&notification.Config{...}))
-a.Use(twofactor.New(&twofactor.TwoFactorConfig{...}))
-a.Use(captcha.New(&captcha.CaptchaConfig{...}))
-a.Use(csrf.New(&csrf.CSRFConfig{...}))
-a.Use(admin.New(nil, nil))
+a.Use(twofactor.New(&config.TwoFactorConfig{...}))
+a.Use(captcha.New(&config.CaptchaModuleConfig{...}))
+a.Use(csrf.New(&config.CSRFModuleConfig{...}))
+a.Use(admin.New(nil))
+a.Use(organization.New(nil))
 
 a.Initialize(context.Background())
 

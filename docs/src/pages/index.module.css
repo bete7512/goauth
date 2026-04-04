@@ -24,6 +24,14 @@
   flex-wrap: wrap;
 }
 
+.heroDescription {
+  max-width: 640px;
+  margin: 1rem auto 2rem;
+  font-size: 1.1rem;
+  line-height: 1.6;
+  opacity: 0.9;
+}
+
 .stats {
   padding: 3rem 0;
   text-align: center;
