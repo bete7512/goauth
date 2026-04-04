@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Go-Auth Demo',
-  description: 'Interactive demo of the Go-Auth authentication system',
+  title: 'GoAuth Demo',
+  description: 'Testing UI for GoAuth authentication library',
 }
 
 export default function RootLayout({
@@ -13,7 +13,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body className="min-h-screen bg-gray-50">{children}</body>
     </html>
   )
 }

@@ -135,10 +135,6 @@ a, _ := auth.New(&config.Config{
     Core: &config.CoreConfig{
         RequireEmailVerification: true,
     },
-    CORS: &config.CORSConfig{
-        Enabled:        true,
-        AllowedOrigins: []string{"http://localhost:3000"},
-    },
 })
 
 a.Use(notification.New(&notification.Config{...}))
