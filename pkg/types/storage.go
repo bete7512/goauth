@@ -1,6 +1,6 @@
 package types
 
-//go:generate mockgen -destination=../../internal/mocks/mock_storage.go -package=mocks github.com/bete7512/goauth/pkg/types Storage,CoreStorage,SessionStorage,StatelessStorage,AdminStorage,OAuthStorage,TwoFactorStorage
+//go:generate mockgen -destination=../../internal/mocks/mock_storage.go -package=mocks github.com/bete7512/goauth/pkg/types Storage,CoreStorage,SessionStorage,StatelessStorage,AdminStorage,OAuthStorage,TwoFactorStorage,OrganizationStorage
 
 import (
 	"context"
@@ -53,9 +53,9 @@ type Storage interface {
 	// Audit Log
 	AuditLog() AuditLogStorage
 
-	// Migrate runs database migrations for the provided models
-	// Models should be collected from registered modules via their Models() method
-	Migrate(ctx context.Context, models []interface{}) error
+	// Organization returns storage for the organization module
+	// Returns nil if organization storage is not needed/available
+	Organization() OrganizationStorage
 
 	// Close closes all storage connections
 	Close() error
@@ -68,7 +68,6 @@ type Storage interface {
 type CoreStorage interface {
 	Users() models.UserRepository
 	Tokens() models.TokenRepository
-	ExtendedAttributes() models.ExtendedAttributeRepository
 	WithTransaction(ctx context.Context, fn func(tx CoreStorage) error) error
 }
 
@@ -87,7 +86,6 @@ type StatelessStorage interface {
 type AdminStorage interface {
 }
 
-
 type AuditLogStorage interface {
 	AuditLogs() models.AuditLogRepository
 	WithTransaction(ctx context.Context, fn func(tx AuditLogStorage) error) error
@@ -104,4 +102,12 @@ type TwoFactorStorage interface {
 	TwoFactor() models.TwoFactorRepository
 	BackupCodes() models.BackupCodeRepository
 	WithTransaction(ctx context.Context, fn func(tx TwoFactorStorage) error) error
+}
+
+// OrganizationStorage defines storage interface for the organization module
+type OrganizationStorage interface {
+	Organizations() models.OrganizationRepository
+	Members() models.OrganizationMemberRepository
+	Invitations() models.InvitationRepository
+	WithTransaction(ctx context.Context, fn func(tx OrganizationStorage) error) error
 }

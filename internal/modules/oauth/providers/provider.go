@@ -1,5 +1,7 @@
 package providers
 
+//go:generate mockgen -destination=../../../mocks/mock_oauth_provider.go -package=mocks github.com/bete7512/goauth/internal/modules/oauth/providers OAuthProvider
+
 import (
 	"context"
 	"crypto/rand"
@@ -185,6 +187,23 @@ func (p *BaseProvider) BuildAuthURL(state string, opts AuthCodeURLOptions, extra
 // HTTPClient returns the HTTP client for making requests
 func (p *BaseProvider) HTTPClient() *http.Client {
 	return p.httpClient
+}
+
+// SetHTTPClient overrides the HTTP client used for token exchange and userinfo
+// requests. Use this in tests to inject a client with a custom transport.
+func (p *BaseProvider) SetHTTPClient(client *http.Client) {
+	p.httpClient = client
+}
+
+// OverrideURLs replaces the token and userinfo endpoint URLs.
+// Use this in integration tests to point at a fake OAuth server.
+func (p *BaseProvider) OverrideURLs(tokenURL, userInfoURL string) {
+	if tokenURL != "" {
+		p.tokenURL = tokenURL
+	}
+	if userInfoURL != "" {
+		p.userInfoURL = userInfoURL
+	}
 }
 
 // TokenURL returns the token endpoint URL

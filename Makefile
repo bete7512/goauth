@@ -1,9 +1,11 @@
-.PHONY: mocks test test-unit test-integration test-coverage lint build clean
+.PHONY: mocks test test-unit test-integration test-coverage test-bench lint build clean
 
 # Generate all mocks via go:generate directives
 mocks:
 	go generate ./...
 
+fmt:
+	go fmt ./...
 # Run all unit tests (excludes integration)
 test: test-unit
 
@@ -27,16 +29,6 @@ test-coverage:
 test-coverage-html: test-coverage
 	go tool cover -html=coverage.out -o coverage.html
 
-# Run specific package tests
-test-core:
-	go test ./internal/modules/core/services/ -v -count=1
-
-test-session:
-	go test ./internal/modules/session/services/ -v -count=1
-
-test-events:
-	go test ./internal/events/ -v -count=1
-
 # Build
 build:
 	go build ./...
@@ -44,6 +36,11 @@ build:
 # Lint (requires golangci-lint)
 lint:
 	golangci-lint run ./...
+
+# Run benchmarks
+.PHONY: test-bench
+test-bench:
+	go test ./tests/benchmarks/ -bench=. -benchmem -count=3
 
 # Clean generated files
 clean:

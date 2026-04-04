@@ -1,468 +1,148 @@
 ---
 slug: enterprise-authentication-features
-title: Enterprise-Grade Authentication Features in GoAuth
+title: Enterprise-Ready Features in GoAuth
 authors: [goauth-team]
-tags: [enterprise, security, compliance, sso, ldap]
+tags: [enterprise, security, compliance, organizations, audit]
 ---
 
-# Enterprise-Grade Authentication Features in GoAuth 🏢
+# Enterprise-Ready Features in GoAuth
 
-Modern enterprises require robust, scalable, and compliant authentication solutions. GoAuth has evolved beyond basic JWT functionality to provide comprehensive enterprise features that meet the demanding requirements of large organizations.
+GoAuth includes several modules and capabilities aimed at organizations that need more than basic signup/login. This post covers what is available today for multi-tenant setups, compliance, and advanced security.
 
 <!-- truncate -->
 
-## Enterprise Authentication Challenges
+## Organization Module
 
-Enterprise environments face unique challenges that go beyond simple user authentication:
+The organization module provides multi-org support:
 
-- **Scale**: Supporting thousands of concurrent users
-- **Compliance**: Meeting regulatory requirements (GDPR, SOC2, HIPAA)
-- **Integration**: Connecting with existing enterprise systems
-- **Security**: Implementing advanced security measures
-- **Auditing**: Comprehensive logging and monitoring
-- **Multi-tenancy**: Supporting multiple organizations
-
-## Single Sign-On (SSO) Integration
-
-GoAuth provides robust SSO capabilities that integrate seamlessly with enterprise identity providers:
-
-### SAML 2.0 Support
+- **Create organizations** with metadata and settings
+- **Role-based membership** -- assign roles (owner, admin, member, or custom) to users within an organization
+- **Invitations** -- invite users to organizations via email with configurable expiration
+- **Multiple memberships** -- users can belong to multiple organizations
 
 ```go
-package main
+import "github.com/bete7512/goauth/pkg/modules/organization"
 
-import (
-    "github.com/your-org/goauth"
-    "github.com/your-org/goauth/saml"
-)
+a.Use(organization.New(nil))
+```
 
-func main() {
-    auth := goauth.New(&goauth.Config{
-        SSOProvider: "saml",
-        SAMLConfig: &saml.Config{
-            IDPMetadataURL: "https://idp.company.com/metadata",
-            EntityID:       "https://app.company.com",
-            ACSURL:         "https://app.company.com/auth/saml/callback",
-            X509Cert:       "path/to/cert.pem",
-            PrivateKey:     "path/to/private.key",
+The organization module adds its own API endpoints for creating orgs, managing members, sending invitations, and switching organization context.
+
+## Audit Logging
+
+The audit module tracks security-relevant events across your system:
+
+- Login attempts (successful and failed)
+- Password changes and resets
+- 2FA enrollment and verification
+- Admin actions on user accounts
+- Session creation and revocation
+
+Each audit entry includes timestamp, actor ID, action, IP address, user agent, and severity level.
+
+### Retention Policies
+
+Audit logs support configurable retention with automatic cleanup:
+
+```go
+import "github.com/bete7512/goauth/pkg/modules/audit"
+
+a.Use(audit.New(&audit.Config{
+    RetentionDays: 90,
+    CleanupInterval: 24 * time.Hour,
+}))
+```
+
+The cleanup runs as a background goroutine that respects context cancellation for graceful shutdown.
+
+## Two-Factor Authentication
+
+GoAuth's 2FA implementation includes:
+
+- **TOTP** (RFC 6238) with configurable issuer, digits, and period
+- **Encrypted secret storage** -- TOTP secrets are encrypted with AES-256-GCM before being written to the database
+- **Backup codes** -- configurable count (default 10) and length (default 8 characters)
+- **Code reuse prevention** -- each TOTP code can only be used once within its validity window
+- **Sync intercept** -- during login, 2FA verification is enforced via `EmitSync` so the login flow blocks until the code is verified
+
+```go
+import "github.com/bete7512/goauth/pkg/modules/twofactor"
+
+a.Use(twofactor.New(&config.TwoFactorConfig{
+    Issuer:           "MyCompany",
+    BackupCodesCount: 10,
+    CodeLength:       8,
+}))
+```
+
+## OAuth with PKCE
+
+The OAuth module supports 4 providers -- Google, GitHub, Microsoft, and Discord -- with PKCE (Proof Key for Code Exchange) for secure authorization code flows:
+
+```go
+import "github.com/bete7512/goauth/pkg/modules/oauth"
+
+a.Use(oauth.New(&config.OAuthModuleConfig{
+    Providers: []config.OAuthProvider{
+        {
+            Name:         "google",
+            ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
+            ClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
+            RedirectURL:  "https://app.example.com/auth/oauth/google/callback",
         },
-    })
-
-    // Handle SAML authentication
-    http.HandleFunc("/auth/saml", auth.SAMLHandler)
-    http.HandleFunc("/auth/saml/callback", auth.SAMLCallbackHandler)
-}
+    },
+}, nil))
 ```
 
-### OAuth 2.0 / OpenID Connect
+## Event Hooks
+
+GoAuth's event system supports enterprise integration patterns:
+
+- **Multiple handlers per event** -- attach several handlers to the same event type
+- **Priority ordering** -- handlers execute in priority order (higher priority runs first)
+- **Retry policies** -- configure retries for failed event handlers
+- **Dead-letter queue** -- events that exhaust retries are sent to a DLQ for inspection
+- **Custom async backend** -- replace the default in-memory worker pool with your own `types.AsyncBackend` implementation (e.g., backed by a message queue)
 
 ```go
-func configureOIDC(auth *goauth.Auth) {
-    oidcConfig := &goauth.OIDCConfig{
-        ProviderURL:     "https://accounts.google.com",
-        ClientID:        os.Getenv("GOOGLE_CLIENT_ID"),
-        ClientSecret:    os.Getenv("GOOGLE_CLIENT_SECRET"),
-        RedirectURL:     "https://app.company.com/auth/callback",
-        Scopes:          []string{"openid", "email", "profile"},
-        AllowedDomains:  []string{"company.com", "subsidiary.com"},
-    }
-
-    auth.ConfigureOIDC(oidcConfig)
-}
-```
-
-## LDAP/Active Directory Integration
-
-For organizations with existing directory services, GoAuth provides seamless LDAP integration:
-
-```go
-type LDAPConfig struct {
-    ServerURL      string
-    BindDN         string
-    BindPassword   string
-    BaseDN         string
-    UserFilter     string
-    GroupFilter    string
-    Attributes     []string
-}
-
-func configureLDAP(auth *goauth.Auth) {
-    ldapConfig := &goauth.LDAPConfig{
-        ServerURL:    "ldaps://ldap.company.com:636",
-        BindDN:       "cn=service-account,dc=company,dc=com",
-        BindPassword: os.Getenv("LDAP_PASSWORD"),
-        BaseDN:       "dc=company,dc=com",
-        UserFilter:   "(&(objectClass=person)(sAMAccountName=%s))",
-        GroupFilter:  "(&(objectClass=group)(member=%s))",
-        Attributes:   []string{"cn", "mail", "memberOf", "department"},
-    }
-
-    auth.ConfigureLDAP(ldapConfig)
-}
-```
-
-## Multi-Factor Authentication (MFA)
-
-Enterprise security requires multiple layers of authentication:
-
-### TOTP (Time-based One-Time Password)
-
-```go
-func setupTOTP(user *User) (*goauth.TOTPConfig, error) {
-    config := &goauth.TOTPConfig{
-        Issuer:      "Company App",
-        AccountName: user.Email,
-        Algorithm:   "SHA1",
-        Digits:      6,
-        Period:      30,
-    }
-
-    secret, qrCode, err := auth.GenerateTOTPSecret(config)
-    if err != nil {
-        return nil, err
-    }
-
-    // Store secret securely for user
-    user.TOTPSecret = secret
-    user.TOTPEnabled = true
-
-    return &goauth.TOTPConfig{
-        Secret:  secret,
-        QRCode:  qrCode,
-        Config:  config,
-    }, nil
-}
-
-func verifyTOTP(user *User, token string) error {
-    return auth.VerifyTOTP(user.TOTPSecret, token)
-}
-```
-
-### SMS/Email Verification
-
-```go
-func sendVerificationCode(user *User, method string) error {
-    code := generateSecureCode(6)
-
-    // Store code with expiration
-    verification := &goauth.VerificationCode{
-        UserID:    user.ID,
-        Code:      code,
-        Method:    method,
-        ExpiresAt: time.Now().Add(time.Minute * 10),
-    }
-
-    if err := storeVerificationCode(verification); err != nil {
-        return err
-    }
-
-    // Send via appropriate method
-    switch method {
-    case "sms":
-        return sendSMSCode(user.Phone, code)
-    case "email":
-        return sendEmailCode(user.Email, code)
-    default:
-        return fmt.Errorf("unsupported verification method: %s", method)
-    }
-}
-```
-
-## Role-Based Access Control (RBAC)
-
-Enterprise applications require sophisticated permission management:
-
-```go
-type Role struct {
-    ID          string            `json:"id"`
-    Name        string            `json:"name"`
-    Description string            `json:"description"`
-    Permissions []Permission      `json:"permissions"`
-    Metadata    map[string]string `json:"metadata"`
-}
-
-type Permission struct {
-    Resource string   `json:"resource"`
-    Actions  []string `json:"actions"`
-    Scope    string   `json:"scope"` // global, organization, team, user
-}
-
-func checkPermission(user *User, resource, action string) bool {
-    for _, role := range user.Roles {
-        for _, permission := range role.Permissions {
-            if permission.Resource == resource {
-                for _, allowedAction := range permission.Actions {
-                    if allowedAction == action || allowedAction == "*" {
-                        return true
-                    }
-                }
-            }
-        }
-    }
-    return false
-}
-```
-
-## Compliance and Auditing
-
-Enterprise applications must meet strict compliance requirements:
-
-### Comprehensive Logging
-
-```go
-type AuditLog struct {
-    ID          string                 `json:"id"`
-    Timestamp   time.Time              `json:"timestamp"`
-    UserID      string                 `json:"user_id"`
-    Action      string                 `json:"action"`
-    Resource    string                 `json:"resource"`
-    ResourceID  string                 `json:"resource_id"`
-    IPAddress   string                 `json:"ip_address"`
-    UserAgent   string                 `json:"user_agent"`
-    Metadata    map[string]interface{} `json:"metadata"`
-    Success     bool                   `json:"success"`
-    Error       string                 `json:"error,omitempty"`
-}
-
-func logAuditEvent(event *AuditLog) error {
-    // Ensure compliance with retention policies
-    if err := validateRetentionPolicy(event); err != nil {
-        return err
-    }
-
-    // Store in secure, tamper-evident storage
-    if err := storeAuditLog(event); err != nil {
-        return err
-    }
-
-    // Send to SIEM systems if configured
-    if siemEnabled {
-        go sendToSIEM(event)
-    }
-
+a.On(types.EventAfterSignup, func(ctx context.Context, data interface{}) error {
+    // sync new user to external systems
     return nil
-}
+})
 ```
 
-### Data Retention and Privacy
+## Pluggable Storage
+
+GoAuth's storage layer is interface-based:
+
+- **Built-in**: GORM backend supporting PostgreSQL, MySQL, and SQLite
+- **Cache decorator**: In-memory cache for reducing database load
+- **Custom backends**: Implement `types.Storage` (with `Core()`, `Session()`, `Stateless()` sub-interfaces) to use any data store
+
+This means you can use GoAuth with existing enterprise databases or non-SQL backends without forking the library.
+
+## What GoAuth Does Not Provide
+
+To be clear about scope:
+
+- **No SAML or LDAP** -- GoAuth handles OAuth 2.0 for social login. For SAML/LDAP, integrate at the identity provider level and use GoAuth for session management.
+- **No RBAC system** -- The organization module has roles for org membership. For application-level permissions, implement your own authorization layer on top of GoAuth's user/org identities.
+- **No built-in Redis or RabbitMQ** -- The `AsyncBackend` and storage interfaces are pluggable, but GoAuth does not ship with Redis or message queue implementations. The in-memory worker pool and GORM storage are the built-in defaults.
+- **No Prometheus metrics or Kubernetes operators** -- GoAuth is a library, not a service. Instrument it with your existing observability stack.
+
+## Getting Started
+
+Add the modules you need:
 
 ```go
-type RetentionPolicy struct {
-    DataType    string        `json:"data_type"`
-    Retention   time.Duration `json:"retention"`
-    AutoDelete  bool          `json:"auto_delete"`
-    LegalHold   bool          `json:"legal_hold"`
-    Encryption  bool          `json:"encryption"`
-}
-
-func enforceRetentionPolicies() {
-    ticker := time.NewTicker(time.Hour * 24) // Daily
-    defer ticker.Stop()
-
-    for range ticker.C {
-        policies := getRetentionPolicies()
-
-        for _, policy := range policies {
-            if policy.AutoDelete && !policy.LegalHold {
-                deleteExpiredData(policy)
-            }
-        }
-    }
-}
+a.Use(organization.New(nil))
+a.Use(audit.New(&audit.Config{RetentionDays: 90}))
+a.Use(twofactor.New())
+a.Use(oauth.New(&config.OAuthModuleConfig{...}, nil))
 ```
 
-## Multi-Tenancy Support
-
-Enterprise applications often serve multiple organizations:
-
-```go
-type Tenant struct {
-    ID              string            `json:"id"`
-    Name            string            `json:"name"`
-    Domain          string            `json:"domain"`
-    Settings        map[string]string `json:"settings"`
-    Features        []string          `json:"features"`
-    Quotas          map[string]int    `json:"quotas"`
-    CreatedAt       time.Time         `json:"created_at"`
-    Status          string            `json:"status"`
-}
-
-func getTenantFromRequest(r *http.Request) (*Tenant, error) {
-    // Extract tenant from subdomain
-    host := r.Host
-    subdomain := strings.Split(host, ".")[0]
-
-    // Or from custom header
-    tenantID := r.Header.Get("X-Tenant-ID")
-
-    if tenantID == "" {
-        tenantID = subdomain
-    }
-
-    return getTenantByID(tenantID)
-}
-
-func applyTenantContext(ctx context.Context, tenant *Tenant) context.Context {
-    return context.WithValue(ctx, "tenant", tenant)
-}
-```
-
-## High Availability and Scaling
-
-Enterprise applications require 99.9%+ uptime:
-
-### Load Balancing and Failover
-
-```go
-type ClusterConfig struct {
-    Nodes           []string          `json:"nodes"`
-    HealthCheckURL  string            `json:"health_check_url"`
-    LoadBalancer    string            `json:"load_balancer"`
-    FailoverPolicy  string            `json:"failover_policy"`
-    SessionSticky  bool              `json:"session_sticky"`
-}
-
-func setupHighAvailability() {
-    // Health check all nodes
-    go healthCheckNodes()
-
-    // Setup automatic failover
-    go monitorClusterHealth()
-
-    // Configure session replication
-    setupSessionReplication()
-}
-```
-
-### Database Sharding and Replication
-
-```go
-type DatabaseConfig struct {
-    Primary   string   `json:"primary"`
-    Replicas  []string `json:"replicas"`
-    Shards    []string `json:"shards"`
-    Strategy  string   `json:"strategy"`
-}
-
-func setupDatabaseCluster(config *DatabaseConfig) {
-    // Setup read replicas
-    for _, replica := range config.Replicas {
-        setupReadReplica(replica)
-    }
-
-    // Setup sharding
-    if len(config.Shards) > 0 {
-        setupSharding(config.Shards, config.Strategy)
-    }
-
-    // Setup automatic failover
-    setupDatabaseFailover(config.Primary, config.Replicas)
-}
-```
-
-## Security Hardening
-
-Enterprise applications require additional security measures:
-
-### API Rate Limiting and DDoS Protection
-
-```go
-type SecurityConfig struct {
-    RateLimitPerIP     int           `json:"rate_limit_per_ip"`
-    RateLimitPerUser   int           `json:"rate_limit_per_user"`
-    MaxLoginAttempts   int           `json:"max_login_attempts"`
-    LockoutDuration    time.Duration `json:"lockout_duration"`
-    IPWhitelist        []string      `json:"ip_whitelist"`
-    IPBlacklist        []string      `json:"ip_blacklist"`
-}
-
-func setupSecurityMiddleware(config *SecurityConfig) {
-    // Rate limiting
-    limiter := rate.NewLimiter(rate.Every(time.Second), config.RateLimitPerIP)
-
-    // IP filtering
-    ipFilter := createIPFilter(config.IPWhitelist, config.IPBlacklist)
-
-    // Brute force protection
-    bruteForceProtection := createBruteForceProtection(config.MaxLoginAttempts, config.LockoutDuration)
-
-    // Apply middleware
-    http.HandleFunc("/auth/", applySecurityMiddleware(
-        authHandler,
-        limiter,
-        ipFilter,
-        bruteForceProtection,
-    ))
-}
-```
-
-### Encryption at Rest and in Transit
-
-```go
-type EncryptionConfig struct {
-    Algorithm     string `json:"algorithm"`
-    KeySize       int    `json:"key_size"`
-    KeyRotation   bool   `json:"key_rotation"`
-    HSMEnabled    bool   `json:"hsm_enabled"`
-}
-
-func setupEncryption(config *EncryptionConfig) {
-    // Generate encryption keys
-    if config.HSMEnabled {
-        setupHSMEncryption(config)
-    } else {
-        setupSoftwareEncryption(config)
-    }
-
-    // Setup automatic key rotation
-    if config.KeyRotation {
-        go scheduleKeyRotation(config)
-    }
-
-    // Encrypt sensitive data
-    setupDataEncryption(config)
-}
-```
-
-## Monitoring and Alerting
-
-Enterprise applications require comprehensive monitoring:
-
-```go
-type MonitoringConfig struct {
-    MetricsEndpoint string            `json:"metrics_endpoint"`
-    HealthChecks    []string          `json:"health_checks"`
-    AlertingRules   []AlertingRule    `json:"alerting_rules"`
-    Dashboards      []string          `json:"dashboards"`
-}
-
-func setupMonitoring(config *MonitoringConfig) {
-    // Expose metrics for Prometheus
-    http.HandleFunc("/metrics", promhttp.Handler())
-
-    // Setup health checks
-    for _, check := range config.HealthChecks {
-        setupHealthCheck(check)
-    }
-
-    // Setup alerting
-    for _, rule := range config.AlertingRules {
-        setupAlertingRule(rule)
-    }
-
-    // Setup dashboards
-    setupDashboards(config.Dashboards)
-}
-```
-
-## Conclusion
-
-GoAuth's enterprise features provide the foundation for building secure, scalable, and compliant authentication systems. From SSO integration to advanced security measures, GoAuth addresses the complex requirements of modern enterprise environments.
-
-## Next Steps
-
-Ready to implement enterprise-grade authentication? Check out our [Enterprise Deployment Guide](/docs/enterprise) and [Compliance Documentation](/docs/compliance).
+See the [Examples](/docs/showcase) page for complete setup patterns and the individual module docs for configuration details.
 
 ---
 
-_For more enterprise insights and best practices, follow our blog and join our community discussions on GitHub._
+_Follow development on [GitHub](https://github.com/bete7512/goauth)._

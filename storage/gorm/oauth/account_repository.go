@@ -2,6 +2,7 @@ package oauth
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/bete7512/goauth/pkg/models"
 	"gorm.io/gorm"
@@ -19,7 +20,10 @@ func NewAccountRepository(db *gorm.DB) *AccountRepository {
 
 // Create creates a new account
 func (r *AccountRepository) Create(ctx context.Context, account *models.Account) error {
-	return r.db.WithContext(ctx).Create(account).Error
+	if err := r.db.WithContext(ctx).Create(account).Error; err != nil {
+		return fmt.Errorf("account_repository.Create: %w", err)
+	}
+	return nil
 }
 
 // FindByID finds an account by its ID
@@ -27,10 +31,10 @@ func (r *AccountRepository) FindByID(ctx context.Context, id string) (*models.Ac
 	var account models.Account
 	err := r.db.WithContext(ctx).Where("id = ?", id).First(&account).Error
 	if err == gorm.ErrRecordNotFound {
-		return nil, nil
+		return nil, fmt.Errorf("account_repository.FindByID: %w", models.ErrNotFound)
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("account_repository.FindByID: %w", err)
 	}
 	return &account, nil
 }
@@ -42,10 +46,10 @@ func (r *AccountRepository) FindByProviderAndAccountID(ctx context.Context, prov
 		Where("provider = ? AND provider_account_id = ?", provider, providerAccountID).
 		First(&account).Error
 	if err == gorm.ErrRecordNotFound {
-		return nil, nil
+		return nil, fmt.Errorf("account_repository.FindByProviderAndAccountID: %w", models.ErrNotFound)
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("account_repository.FindByProviderAndAccountID: %w", err)
 	}
 	return &account, nil
 }
@@ -53,12 +57,11 @@ func (r *AccountRepository) FindByProviderAndAccountID(ctx context.Context, prov
 // FindByUserID finds all accounts for a user
 func (r *AccountRepository) FindByUserID(ctx context.Context, userID string) ([]*models.Account, error) {
 	var accounts []*models.Account
-	err := r.db.WithContext(ctx).
+	if err := r.db.WithContext(ctx).
 		Where("user_id = ?", userID).
 		Order("created_at DESC").
-		Find(&accounts).Error
-	if err != nil {
-		return nil, err
+		Find(&accounts).Error; err != nil {
+		return nil, fmt.Errorf("account_repository.FindByUserID: %w", err)
 	}
 	return accounts, nil
 }
@@ -70,36 +73,47 @@ func (r *AccountRepository) FindByUserIDAndProvider(ctx context.Context, userID,
 		Where("user_id = ? AND provider = ?", userID, provider).
 		First(&account).Error
 	if err == gorm.ErrRecordNotFound {
-		return nil, nil
+		return nil, fmt.Errorf("account_repository.FindByUserIDAndProvider: %w", models.ErrNotFound)
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("account_repository.FindByUserIDAndProvider: %w", err)
 	}
 	return &account, nil
 }
 
 // Update updates an account
 func (r *AccountRepository) Update(ctx context.Context, account *models.Account) error {
-	return r.db.WithContext(ctx).Save(account).Error
+	if err := r.db.WithContext(ctx).Save(account).Error; err != nil {
+		return fmt.Errorf("account_repository.Update: %w", err)
+	}
+	return nil
 }
 
 // Delete deletes an account by ID
 func (r *AccountRepository) Delete(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).Delete(&models.Account{}, "id = ?", id).Error
+	if err := r.db.WithContext(ctx).Delete(&models.Account{}, "id = ?", id).Error; err != nil {
+		return fmt.Errorf("account_repository.Delete: %w", err)
+	}
+	return nil
 }
 
 // DeleteByUserIDAndProvider deletes a user's account for a specific provider
 func (r *AccountRepository) DeleteByUserIDAndProvider(ctx context.Context, userID, provider string) error {
-	return r.db.WithContext(ctx).
-		Delete(&models.Account{}, "user_id = ? AND provider = ?", userID, provider).Error
+	if err := r.db.WithContext(ctx).
+		Delete(&models.Account{}, "user_id = ? AND provider = ?", userID, provider).Error; err != nil {
+		return fmt.Errorf("account_repository.DeleteByUserIDAndProvider: %w", err)
+	}
+	return nil
 }
 
 // CountByUserID counts the number of accounts for a user
 func (r *AccountRepository) CountByUserID(ctx context.Context, userID string) (int64, error) {
 	var count int64
-	err := r.db.WithContext(ctx).
+	if err := r.db.WithContext(ctx).
 		Model(&models.Account{}).
 		Where("user_id = ?", userID).
-		Count(&count).Error
-	return count, err
+		Count(&count).Error; err != nil {
+		return 0, fmt.Errorf("account_repository.CountByUserID: %w", err)
+	}
+	return count, nil
 }

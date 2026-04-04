@@ -6,16 +6,7 @@ import (
 
 // Storage is an alias for types.Storage
 // Use storage/gorm.NewStorage() or storage.NewGormStorage() to create instances
-type Storage = types.Storage
-
-// CoreStorage is an alias for types.CoreStorage
-type CoreStorage = types.CoreStorage
-
-// SessionStorage is an alias for types.SessionStorage
-type SessionStorage = types.SessionStorage
-
-// StatelessStorage is an alias for types.StatelessStorage
-type StatelessStorage = types.StatelessStorage
+// type Storage = types.Storage
 
 // StorageConfig holds storage configuration
 // Deprecated: Use storage/gorm.Config directly instead
@@ -33,9 +24,6 @@ type StorageConfig struct {
 	MaxOpenConns    int
 	MaxIdleConns    int
 	ConnMaxLifetime int
-
-	// AutoMigrate enables automatic database migration
-	AutoMigrate bool
 
 	// LogLevel for database operations
 	LogLevel string

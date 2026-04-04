@@ -27,7 +27,7 @@ func RespondCreated[T any](w http.ResponseWriter, data T, message *string) {
 	writeJSON(w, http.StatusCreated, response)
 }
 
-// 
+//
 
 // Error response
 func RespondError(w http.ResponseWriter, statusCode int, code, message string) {

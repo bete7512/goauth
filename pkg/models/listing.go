@@ -73,6 +73,43 @@ func (o *AuditLogListOpts) Normalize(maxLimit int) {
 	o.ListingOpts.Normalize(maxLimit, auditLogSortFields)
 }
 
+// OrganizationListOpts extends ListingOpts with organization-specific filters.
+type OrganizationListOpts struct {
+	ListingOpts
+	OwnerID string // filter by owner
+	Query   string // search name/slug
+}
+
+// Normalize validates and clamps all fields.
+func (o *OrganizationListOpts) Normalize(maxLimit int) {
+	o.ListingOpts.Normalize(maxLimit, orgSortFields)
+	o.Query = strings.TrimSpace(o.Query)
+}
+
+// MemberListOpts extends ListingOpts with member-specific filters.
+type MemberListOpts struct {
+	ListingOpts
+	Role string // filter by role
+}
+
+// Normalize validates and clamps all fields.
+func (o *MemberListOpts) Normalize(maxLimit int) {
+	o.ListingOpts.Normalize(maxLimit, memberSortFields)
+	o.Role = strings.TrimSpace(o.Role)
+}
+
+// InvitationListOpts extends ListingOpts with invitation-specific filters.
+type InvitationListOpts struct {
+	ListingOpts
+	Status string // filter by status
+}
+
+// Normalize validates and clamps all fields.
+func (o *InvitationListOpts) Normalize(maxLimit int) {
+	o.ListingOpts.Normalize(maxLimit, invitationSortFields)
+	o.Status = strings.TrimSpace(o.Status)
+}
+
 // --- Sort field allowlists (unexported — accessed via entity Normalize) ---
 var userSortFields = map[string]bool{
 	"created_at": true,
@@ -92,4 +129,20 @@ var auditLogSortFields = map[string]bool{
 	"action":     true,
 	"severity":   true,
 	"actor_id":   true,
+}
+
+var orgSortFields = map[string]bool{
+	"created_at": true,
+	"name":       true,
+}
+
+var memberSortFields = map[string]bool{
+	"joined_at": true,
+	"role":      true,
+}
+
+var invitationSortFields = map[string]bool{
+	"created_at": true,
+	"expires_at": true,
+	"status":     true,
 }

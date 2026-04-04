@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 
 	"github.com/bete7512/goauth/internal/modules/session/handlers/dto"
 	"github.com/bete7512/goauth/pkg/models"
@@ -12,7 +13,7 @@ import (
 func (s *sessionService) ListSessions(ctx context.Context, userID string, currentSessionID string, opts models.SessionListOpts) ([]dto.SessionDTO, int64, *types.GoAuthError) {
 	sessions, total, err := s.sessionRepository.FindByUserID(ctx, userID, opts)
 	if err != nil {
-		return nil, 0, types.NewInternalError("Failed to fetch sessions")
+		return nil, 0, types.NewInternalError("failed to fetch sessions").Wrap(err)
 	}
 
 	sessionDTOs := make([]dto.SessionDTO, len(sessions))
@@ -33,8 +34,11 @@ func (s *sessionService) ListSessions(ctx context.Context, userID string, curren
 // GetSession returns a specific session by ID
 func (s *sessionService) GetSession(ctx context.Context, userID, sessionID string) (*dto.SessionDTO, *types.GoAuthError) {
 	session, err := s.sessionRepository.FindByID(ctx, sessionID)
-	if err != nil || session == nil {
-		return nil, types.NewSessionNotFoundError()
+	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			return nil, types.NewSessionNotFoundError()
+		}
+		return nil, types.NewInternalError("failed to find session").Wrap(err)
 	}
 
 	// Ensure the session belongs to the user
@@ -54,8 +58,11 @@ func (s *sessionService) GetSession(ctx context.Context, userID, sessionID strin
 // DeleteSession deletes a specific session by ID
 func (s *sessionService) DeleteSession(ctx context.Context, userID, sessionID string) *types.GoAuthError {
 	session, err := s.sessionRepository.FindByID(ctx, sessionID)
-	if err != nil || session == nil {
-		return types.NewSessionNotFoundError()
+	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			return types.NewSessionNotFoundError()
+		}
+		return types.NewInternalError("failed to find session").Wrap(err)
 	}
 
 	// Ensure the session belongs to the user
@@ -64,7 +71,7 @@ func (s *sessionService) DeleteSession(ctx context.Context, userID, sessionID st
 	}
 
 	if err := s.sessionRepository.Delete(ctx, sessionID); err != nil {
-		return types.NewInternalError("Failed to delete session")
+		return types.NewInternalError("failed to delete session").Wrap(err)
 	}
 
 	return nil
@@ -73,17 +80,21 @@ func (s *sessionService) DeleteSession(ctx context.Context, userID, sessionID st
 // DeleteAllSessions deletes all sessions for a user
 func (s *sessionService) DeleteAllSessions(ctx context.Context, userID string) *types.GoAuthError {
 	if err := s.sessionRepository.DeleteByUserID(ctx, userID); err != nil {
-		return types.NewInternalError("Failed to delete sessions")
+		return types.NewInternalError("failed to delete sessions").Wrap(err)
 	}
 
 	return nil
 }
 
-// FindSessionByToken finds a session by its refresh token
+// FindSessionByToken finds a session by its refresh token (hashes the token before lookup).
 func (s *sessionService) FindSessionByToken(ctx context.Context, token string) (*models.Session, *types.GoAuthError) {
-	session, err := s.sessionRepository.FindByToken(ctx, token)
-	if err != nil || session == nil {
-		return nil, types.NewSessionNotFoundError()
+	tokenHash := s.securityManager.HashRefreshToken(token)
+	session, err := s.sessionRepository.FindByToken(ctx, tokenHash)
+	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			return nil, types.NewSessionNotFoundError()
+		}
+		return nil, types.NewInternalError("failed to find session by token").Wrap(err)
 	}
 	return session, nil
 }

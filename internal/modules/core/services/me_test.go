@@ -2,7 +2,6 @@ package core_services_test
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/bete7512/goauth/internal/mocks"
@@ -32,7 +31,6 @@ func (s *MeServiceSuite) setupService() (
 
 	mockUserRepo := mocks.NewMockUserRepository(ctrl)
 	mockTokenRepo := mocks.NewMockTokenRepository(ctrl)
-	mockExtAttrRepo := mocks.NewMockExtendedAttributeRepository(ctrl)
 	mockEvents := mocks.NewMockEventBus(ctrl)
 	mockLogger := mocks.NewMockLogger(ctrl)
 
@@ -46,7 +44,7 @@ func (s *MeServiceSuite) setupService() (
 		SecurityManager: secMgr,
 	}
 
-	svc := core_services.NewCoreService(deps, mockUserRepo, mockExtAttrRepo, mockTokenRepo, mockLogger, secMgr, cfg)
+	svc := core_services.NewCoreService(deps, mockUserRepo, mockTokenRepo, mockLogger, secMgr, cfg)
 	return svc, mockUserRepo
 }
 
@@ -72,9 +70,6 @@ func (s *MeServiceSuite) TestGetCurrentUser() {
 				u.Username = "testuser"
 				u.PhoneNumber = "+1234567890"
 				u.Avatar = "https://example.com/avatar.png"
-				u.ExtendedAttributes = []models.ExtendedAttributes{
-					{Name: "role", Value: "admin"},
-				}
 				ur.EXPECT().FindByID(gomock.Any(), u.ID).Return(u, nil)
 			},
 		},
@@ -82,7 +77,7 @@ func (s *MeServiceSuite) TestGetCurrentUser() {
 			name:       "user not found",
 			overrideID: "nonexistent",
 			setup: func(_ *models.User, ur *mocks.MockUserRepository) {
-				ur.EXPECT().FindByID(gomock.Any(), "nonexistent").Return(nil, errors.New("not found"))
+				ur.EXPECT().FindByID(gomock.Any(), "nonexistent").Return(nil, models.ErrNotFound)
 			},
 			wantErr: true,
 			errCode: types.ErrUserNotFound,
@@ -91,7 +86,7 @@ func (s *MeServiceSuite) TestGetCurrentUser() {
 			name:       "nil user returned",
 			overrideID: "some-id",
 			setup: func(_ *models.User, ur *mocks.MockUserRepository) {
-				ur.EXPECT().FindByID(gomock.Any(), "some-id").Return(nil, nil)
+				ur.EXPECT().FindByID(gomock.Any(), "some-id").Return(nil, models.ErrNotFound)
 			},
 			wantErr: true,
 			errCode: types.ErrUserNotFound,

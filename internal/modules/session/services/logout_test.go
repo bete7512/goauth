@@ -9,6 +9,7 @@ import (
 	"github.com/bete7512/goauth/internal/modules/session/services"
 	"github.com/bete7512/goauth/internal/testutil"
 	"github.com/bete7512/goauth/pkg/config"
+	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
@@ -74,7 +75,7 @@ func (s *LogoutServiceSuite) TestLogout() {
 			userID:    testUser.ID,
 			sessionID: "nonexistent",
 			setup: func(sr *mocks.MockSessionRepository) {
-				sr.EXPECT().FindByID(gomock.Any(), "nonexistent").Return(nil, errors.New("not found"))
+				sr.EXPECT().FindByID(gomock.Any(), "nonexistent").Return(nil, models.ErrNotFound)
 			},
 			wantErr: true,
 			errCode: types.ErrSessionNotFound,

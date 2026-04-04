@@ -2,7 +2,7 @@ package services
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"time"
 
 	"github.com/bete7512/goauth/internal/modules/stateless/handlers/dto"
@@ -37,41 +37,57 @@ func (s *StatelessService) Refresh(ctx context.Context, req *dto.RefreshRequest)
 	}
 
 	// Check if JTI exists in database (is valid and not blacklisted/revoked)
-	tokenRecord, err := s.TokenRepository.FindByToken(ctx, jti)
-	if err != nil || tokenRecord == nil {
-		// If not found, it means it's revoked or never existed
-		return dto.AuthResponse{}, types.NewInvalidCredentialsError()
+	_, err = s.TokenRepository.FindByToken(ctx, jti)
+	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			// If not found, it means it's revoked or never existed
+			return dto.AuthResponse{}, types.NewInvalidCredentialsError()
+		}
+		return dto.AuthResponse{}, types.NewInternalError("failed to find token record").Wrap(err)
 	}
 
 	// Check if user exists
 	user, err := s.UserRepository.FindByID(ctx, userID)
-	if err != nil || user == nil {
-		return dto.AuthResponse{}, types.NewInvalidCredentialsError()
+	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			return dto.AuthResponse{}, types.NewInvalidCredentialsError()
+		}
+		return dto.AuthResponse{}, types.NewInternalError("failed to find user").Wrap(err)
 	}
 
 	// Revoke old nonce (delete from database - this is the rotation)
 	if err := s.TokenRepository.Delete(ctx, jti); err != nil {
-		return dto.AuthResponse{}, types.NewInternalError(fmt.Sprintf("failed to revoke used token: %s", err.Error()))
+		return dto.AuthResponse{}, types.NewInternalError("failed to revoke used token").Wrap(err)
 	}
 
-	// Generate new access token
+	// Run auth interceptors for refresh (enrichment only)
+	interceptClaims, _, responseData, interceptErr := s.Deps.AuthInterceptors.Run(ctx, &types.InterceptParams{
+		Phase:          types.PhaseRefresh,
+		User:           user,
+		ExistingClaims: claims,
+	})
+	if interceptErr != nil {
+		return dto.AuthResponse{}, types.NewInternalError("Token refresh interrupted")
+	}
+
+	// Generate new access token with enriched claims
 	accessToken, err := s.SecurityManager.GenerateAccessToken(
 		*user,
-		map[string]interface{}{},
+		interceptClaims,
 	)
 	if err != nil {
-		return dto.AuthResponse{}, types.NewInternalError(fmt.Sprintf("failed to generate access token: %s", err.Error()))
+		return dto.AuthResponse{}, types.NewInternalError("failed to generate access token").Wrap(err)
 	}
 
 	// Generate new refresh token with new JTI
 	newRefreshToken, newJti, err := s.SecurityManager.GenerateStatelessRefreshToken(user)
 	if err != nil {
-		return dto.AuthResponse{}, types.NewInternalError(fmt.Sprintf("failed to generate refresh token: %s", err.Error()))
+		return dto.AuthResponse{}, types.NewInternalError("failed to generate refresh token").Wrap(err)
 	}
 
 	// Save new nonce
 	tokenModel := &models.Token{
-		ID:        uuid.New().String(),
+		ID:        uuid.Must(uuid.NewV7()).String(),
 		UserID:    user.ID,
 		Type:      "refresh_nonce",
 		Token:     newJti,
@@ -79,13 +95,14 @@ func (s *StatelessService) Refresh(ctx context.Context, req *dto.RefreshRequest)
 		CreatedAt: time.Now(),
 	}
 	if err := s.TokenRepository.Create(ctx, tokenModel); err != nil {
-		return dto.AuthResponse{}, types.NewInternalError(fmt.Sprintf("failed to save refresh token nonce: %s", err.Error()))
+		return dto.AuthResponse{}, types.NewInternalError("failed to save refresh token nonce").Wrap(err)
 	}
 
 	return dto.AuthResponse{
-		AccessToken:  &accessToken,
-		RefreshToken: &newRefreshToken,
-		ExpiresIn:    int64(s.Deps.Config.Security.Session.SessionTTL.Seconds()),
-		Message:      "Token refreshed successfully",
+		AccessToken:        &accessToken,
+		RefreshToken:       &newRefreshToken,
+		ExpiresIn:          int64(s.Deps.Config.Security.Session.SessionTTL.Seconds()),
+		Message:            "Token refreshed successfully",
+		Data:               responseData,
 	}, nil
 }

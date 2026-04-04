@@ -15,6 +15,7 @@ const (
 	CaptchaModule      ModuleName = "captcha"
 	ReportModule       ModuleName = "report"
 	NotificationModule ModuleName = "notification"
+	OrganizationModule ModuleName = "organization"
 )
 
 // CaptchaProvider represents a supported captcha provider.

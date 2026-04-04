@@ -2,7 +2,7 @@ package core_services
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"time"
 
 	"github.com/bete7512/goauth/internal/modules/core/handlers/dto"
@@ -26,24 +26,27 @@ func (s *coreService) ForgotPassword(ctx context.Context, req *dto.ForgotPasswor
 		return nil, types.NewGoAuthError(types.ErrInvalidRequestBody, "email or phone is required", 400)
 	}
 
-	if err != nil || user == nil {
-		return &dto.MessageResponse{
-			Message: "If an account exists, password reset instructions have been sent",
-		}, nil
+	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			return &dto.MessageResponse{
+				Message: "If an account exists, password reset instructions have been sent",
+			}, nil
+		}
+		return nil, types.NewInternalError("failed to find user").Wrap(err)
 	}
 
 	// Generate token and OTP code
 	if req.Email != "" {
 		token, err = s.Deps.SecurityManager.GenerateRandomToken(32)
 		if err != nil {
-			return nil, types.NewInternalError(fmt.Sprintf("failed to generate token: %v", err))
+			return nil, types.NewInternalError("failed to generate token").Wrap(err)
 		}
 	}
 
 	if req.Phone != "" {
 		code, err = s.Deps.SecurityManager.GenerateNumericOTP(6)
 		if err != nil {
-			return nil, types.NewInternalError(fmt.Sprintf("failed to generate OTP: %v", err))
+			return nil, types.NewInternalError("failed to generate OTP").Wrap(err)
 		}
 	}
 
@@ -51,7 +54,7 @@ func (s *coreService) ForgotPassword(ctx context.Context, req *dto.ForgotPasswor
 
 	// Create password reset token
 	verificationToken := &models.Token{
-		ID:          uuid.New().String(),
+		ID:          uuid.Must(uuid.NewV7()).String(),
 		UserID:      user.ID,
 		Token:       token,
 		Code:        code,
@@ -64,7 +67,7 @@ func (s *coreService) ForgotPassword(ctx context.Context, req *dto.ForgotPasswor
 	}
 
 	if err := s.TokenRepository.Create(ctx, verificationToken); err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to create reset token: %v", err))
+		return nil, types.NewInternalError("failed to create reset token").Wrap(err)
 	}
 
 	// Emit event for notification delivery
@@ -90,13 +93,19 @@ func (s *coreService) ResetPassword(ctx context.Context, req *dto.ResetPasswordR
 	// Find reset token
 	if req.Token != "" {
 		verification, err = s.TokenRepository.FindByToken(ctx, req.Token)
-		if err != nil || verification == nil {
-			return nil, types.NewInvalidTokenError()
+		if err != nil {
+			if errors.Is(err, models.ErrNotFound) {
+				return nil, types.NewInvalidTokenError()
+			}
+			return nil, types.NewInternalError("failed to find reset token").Wrap(err)
 		}
 	} else if req.Code != "" {
 		verification, err = s.TokenRepository.FindByCode(ctx, req.Code, models.TokenTypePasswordReset)
-		if err != nil || verification == nil {
-			return nil, types.NewInvalidTokenError()
+		if err != nil {
+			if errors.Is(err, models.ErrNotFound) {
+				return nil, types.NewInvalidTokenError()
+			}
+			return nil, types.NewInternalError("failed to find reset code").Wrap(err)
 		}
 	} else {
 		return nil, types.NewGoAuthError(types.ErrInvalidRequestBody, "reset token or code is required", 400)
@@ -112,25 +121,30 @@ func (s *coreService) ResetPassword(ctx context.Context, req *dto.ResetPasswordR
 
 	// Find user
 	user, err := s.UserRepository.FindByID(ctx, verification.UserID)
-	if err != nil || user == nil {
-		return nil, types.NewUserNotFoundError()
+	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			return nil, types.NewUserNotFoundError()
+		}
+		return nil, types.NewInternalError("failed to find user").Wrap(err)
 	}
 
 	now := time.Now()
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
 	if err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to hash password: %v", err))
+		return nil, types.NewInternalError("failed to hash password").Wrap(err)
 	}
 
 	user.PasswordHash = string(hashedPassword)
 	user.UpdatedAt = &now
 
 	if err := s.UserRepository.Update(ctx, user); err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to update password: %v", err))
+		return nil, types.NewInternalError("failed to update password").Wrap(err)
 	}
 
 	// Mark token as used instead of deleting
-	s.TokenRepository.MarkAsUsed(ctx, verification.ID)
+	if err := s.TokenRepository.MarkAsUsed(ctx, verification.ID); err != nil {
+		return nil, types.NewInternalError("failed to mark reset token as used").Wrap(err)
+	}
 
 	// Emit event
 	s.Deps.Events.EmitAsync(ctx, types.EventAfterResetPassword, &types.PasswordChangedData{
@@ -148,8 +162,11 @@ func (s *coreService) ResetPassword(ctx context.Context, req *dto.ResetPasswordR
 // ChangePassword changes password (requires old password)
 func (s *coreService) ChangePassword(ctx context.Context, userID string, req *dto.ChangePasswordRequest) (*dto.MessageResponse, *types.GoAuthError) {
 	user, err := s.UserRepository.FindByID(ctx, userID)
-	if err != nil || user == nil {
-		return nil, types.NewUserNotFoundError()
+	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			return nil, types.NewUserNotFoundError()
+		}
+		return nil, types.NewInternalError("failed to find user").Wrap(err)
 	}
 
 	now := time.Now()
@@ -159,14 +176,14 @@ func (s *coreService) ChangePassword(ctx context.Context, userID string, req *dt
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
 	if err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to hash password: %v", err))
+		return nil, types.NewInternalError("failed to hash password").Wrap(err)
 	}
 
 	user.PasswordHash = string(hashedPassword)
 	user.UpdatedAt = &now
 
 	if err := s.UserRepository.Update(ctx, user); err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to update password: %v", err))
+		return nil, types.NewInternalError("failed to update password").Wrap(err)
 	}
 
 	s.Deps.Events.EmitAsync(ctx, types.EventAfterChangePassword, &types.PasswordChangedData{

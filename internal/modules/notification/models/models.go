@@ -1,5 +1,7 @@
 package models
 
+//go:generate mockgen -destination=../../../mocks/mock_email_sender.go -package=mocks github.com/bete7512/goauth/internal/modules/notification/models EmailSender,SMSSender
+
 import "context"
 
 // EmailMessage represents an email to be sent

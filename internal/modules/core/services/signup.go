@@ -2,7 +2,7 @@ package core_services
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"strings"
 	"time"
 
@@ -17,19 +17,28 @@ import (
 func (s *coreService) Signup(ctx context.Context, req *dto.SignupRequest) (*dto.AuthResponse, *types.GoAuthError) {
 	// Check if user already exists
 	if req.Email != "" {
-		existing, _ := s.UserRepository.FindByEmail(ctx, req.Email)
+		existing, err := s.UserRepository.FindByEmail(ctx, req.Email)
+		if err != nil && !errors.Is(err, models.ErrNotFound) {
+			return nil, types.NewInternalError("failed to check existing user by email").Wrap(err)
+		}
 		if existing != nil {
 			return nil, types.NewUserAlreadyExistsError()
 		}
 	}
 	if req.Username != "" {
-		existing, _ := s.UserRepository.FindByUsername(ctx, req.Username)
+		existing, err := s.UserRepository.FindByUsername(ctx, req.Username)
+		if err != nil && !errors.Is(err, models.ErrNotFound) {
+			return nil, types.NewInternalError("failed to check existing user by username").Wrap(err)
+		}
 		if existing != nil {
 			return nil, types.NewUsernameAlreadyExistsError()
 		}
 	}
 	if req.PhoneNumber != "" && s.Config.UniquePhoneNumber {
-		existing, _ := s.UserRepository.FindByPhoneNumber(ctx, req.PhoneNumber)
+		existing, err := s.UserRepository.FindByPhoneNumber(ctx, req.PhoneNumber)
+		if err != nil && !errors.Is(err, models.ErrNotFound) {
+			return nil, types.NewInternalError("failed to check existing user by phone").Wrap(err)
+		}
 		if existing != nil {
 			return nil, types.NewPhoneAlreadyInUseError()
 		}
@@ -38,13 +47,13 @@ func (s *coreService) Signup(ctx context.Context, req *dto.SignupRequest) (*dto.
 	// Hash password
 	hashedPassword, err := s.SecurityManager.HashPassword(req.Password)
 	if err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to hash password: %v", err.Error()))
+		return nil, types.NewInternalError("failed to hash password").Wrap(err)
 	}
 
 	now := time.Now()
 	// Create user
 	user := &models.User{
-		ID:           uuid.New().String(),
+		ID:           uuid.Must(uuid.NewV7()).String(),
 		Email:        req.Email,
 		PasswordHash: string(hashedPassword),
 		Name:         req.Name,
@@ -68,14 +77,7 @@ func (s *coreService) Signup(ctx context.Context, req *dto.SignupRequest) (*dto.
 	}
 
 	if err := s.UserRepository.Create(ctx, user); err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to create user: %v", err.Error()))
-	}
-
-	// Set extended attributes if provided
-	if req.ExtendedAttributes != nil {
-		for _, attr := range req.ExtendedAttributes {
-			_ = s.setAttribute(ctx, user.ID, attr.Name, attr.Value)
-		}
+		return nil, types.NewInternalError("failed to create user").Wrap(err)
 	}
 
 	userDto := &dto.UserDTO{
@@ -92,13 +94,6 @@ func (s *coreService) Signup(ctx context.Context, req *dto.SignupRequest) (*dto.
 		CreatedAt:           user.CreatedAt,
 		UpdatedAt:           user.UpdatedAt,
 		LastLoginAt:         user.LastLoginAt,
-		ExtendedAttributes: func() []dto.ExtendedAttributes {
-			attrs := make([]dto.ExtendedAttributes, len(user.ExtendedAttributes))
-			for i, attr := range user.ExtendedAttributes {
-				attrs[i] = dto.ExtendedAttributes{Name: attr.Name, Value: attr.Value}
-			}
-			return attrs
-		}(),
 	}
 
 	// Return user data only - authentication is handled by auth modules (session or stateless)
@@ -123,7 +118,7 @@ func (s *coreService) signupMessage(user *models.User) string {
 func (s *coreService) generateRandomUsername(email string) string {
 	parts := strings.Split(email, "@")
 	if len(parts) > 0 && parts[0] != "" {
-		return parts[0] + "-" + uuid.New().String()[:8]
+		return parts[0] + "-" + uuid.Must(uuid.NewV7()).String()[:8]
 	}
-	return "user-" + uuid.New().String()[:8]
+	return "user-" + uuid.Must(uuid.NewV7()).String()[:8]
 }

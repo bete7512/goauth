@@ -3,10 +3,10 @@ package services
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/bete7512/goauth/internal/modules/session/handlers/dto"
+	"github.com/bete7512/goauth/internal/security"
 	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
 	"github.com/google/uuid"
@@ -17,53 +17,77 @@ import (
 func (s *sessionService) Login(ctx context.Context, req *dto.LoginRequest, metadata *types.RequestMetadata) (dto.AuthResponse, *types.GoAuthError) {
 	// Find user
 	user, err := s.userRepository.FindByEmail(ctx, req.Email)
-	if err != nil || user == nil {
-		// Try by username if email not found
+	if err != nil {
+		if !errors.Is(err, models.ErrNotFound) {
+			return dto.AuthResponse{}, types.NewInternalError("failed to find user").Wrap(err)
+		}
+		// user not found by email, try username
 		if req.Username != "" {
 			user, err = s.userRepository.FindByUsername(ctx, req.Username)
-		}
-		if err != nil || user == nil {
+			if err != nil {
+				if !errors.Is(err, models.ErrNotFound) {
+					return dto.AuthResponse{}, types.NewInternalError("failed to find user by username").Wrap(err)
+				}
+				return dto.AuthResponse{}, types.NewInvalidCredentialsError()
+			}
+		} else {
 			return dto.AuthResponse{}, types.NewInvalidCredentialsError()
 		}
 	}
 
-	// Verify password
-	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
-		return dto.AuthResponse{}, types.NewInvalidCredentialsError()
+	// Check account lockout
+	lockoutCfg := security.NormalizeLockoutConfig(s.deps.Config.Security.Lockout)
+	if authErr := security.CheckLockout(user, lockoutCfg); authErr != nil {
+		return dto.AuthResponse{}, authErr
 	}
 
-	// Emit password verified event (allows 2FA module to intercept)
-	if eventErr := s.deps.Events.EmitSync(ctx, types.EventAfterPasswordVerified, &types.PasswordVerifiedEventData{
+	// Verify password
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
+		return dto.AuthResponse{}, security.HandleFailedLogin(ctx, user, lockoutCfg, s.userRepository, s.deps.Events, s.deps.Logger)
+	}
+
+	// Clear any failed-attempt state on successful password check
+	security.RecordSuccessfulLogin(user)
+
+	// Run auth interceptors (2FA challenges, org enrichment, etc.)
+	interceptClaims, challenges, responseData, interceptErr := s.deps.AuthInterceptors.Run(ctx, &types.InterceptParams{
+		Phase:    types.PhaseLogin,
 		User:     user,
 		Metadata: metadata,
-	}); eventErr != nil {
-		// Check if this is a 2FA required error (special case - not really an error)
-		// Use errors.As because the event bus wraps errors with fmt.Errorf("%w")
-		var goAuthErr *types.GoAuthError
-		if errors.As(eventErr, &goAuthErr) && goAuthErr.Code == types.ErrTwoFactorRequired {
-			return dto.AuthResponse{}, goAuthErr
-		}
-		// Other errors should block login
-		s.logger.Errorf("session: password verified event handler failed: %v", eventErr)
+	})
+	if interceptErr != nil {
+		s.logger.Errorf("session: auth interceptor failed: %v", interceptErr)
 		return dto.AuthResponse{}, types.NewInternalError("Authentication flow interrupted")
 	}
 
-	// Generate session ID first so it can be embedded in the JWT
-	sessionID := uuid.New().String()
-
-	// Generate tokens with session_id in JWT claims
-	accessToken, refreshToken, err := s.securityManager.GenerateTokens(user, map[string]interface{}{
-		"session_id": sessionID,
-	})
-	if err != nil {
-		return dto.AuthResponse{}, types.NewInternalError(fmt.Sprintf("failed to generate tokens: %s", err.Error()))
+	// If any challenges were issued, return them without tokens
+	if len(challenges) > 0 {
+		return dto.AuthResponse{
+			Challenges: challenges,
+			Message:    "Authentication challenge required",
+		}, nil
 	}
 
-	// Create session
+	// Generate session ID first so it can be embedded in the JWT
+	sessionID := uuid.Must(uuid.NewV7()).String()
+
+	// Merge interceptor claims with session_id
+	tokenClaims := map[string]interface{}{"session_id": sessionID}
+	for k, v := range interceptClaims {
+		tokenClaims[k] = v
+	}
+
+	// Generate tokens with enriched claims
+	accessToken, refreshToken, err := s.securityManager.GenerateTokens(user, tokenClaims)
+	if err != nil {
+		return dto.AuthResponse{}, types.NewInternalError("failed to generate tokens").Wrap(err)
+	}
+
+	// Create session — store a SHA-256 hash of the refresh token, not the raw token
 	session := &models.Session{
 		ID:                    sessionID,
 		UserID:                user.ID,
-		RefreshToken:          refreshToken,
+		RefreshToken:          security.HashRefreshToken(refreshToken),
 		RefreshTokenExpiresAt: time.Now().Add(s.deps.Config.Security.Session.RefreshTokenTTL),
 		ExpiresAt:             time.Now().Add(s.deps.Config.Security.Session.SessionTTL),
 		UserAgent:             metadata.UserAgent,
@@ -73,7 +97,7 @@ func (s *sessionService) Login(ctx context.Context, req *dto.LoginRequest, metad
 	}
 
 	if err := s.sessionRepository.Create(ctx, session); err != nil {
-		return dto.AuthResponse{}, types.NewInternalError(fmt.Sprintf("failed to create session: %s", err.Error()))
+		return dto.AuthResponse{}, types.NewInternalError("failed to create session").Wrap(err)
 	}
 
 	// Update last login time
@@ -84,11 +108,12 @@ func (s *sessionService) Login(ctx context.Context, req *dto.LoginRequest, metad
 	}
 
 	return dto.AuthResponse{
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
-		SessionID:    sessionID,
-		User:         dto.UserToDTO(user),
-		ExpiresIn:    int64(s.deps.Config.Security.Session.SessionTTL.Seconds()),
-		Message:      "Login successful",
+		AccessToken:        accessToken,
+		RefreshToken:       refreshToken,
+		SessionID:          sessionID,
+		User:               dto.UserToDTO(user),
+		ExpiresIn:          int64(s.deps.Config.Security.Session.SessionTTL.Seconds()),
+		Message:            "Login successful",
+		Data:               responseData,
 	}, nil
 }

@@ -34,38 +34,28 @@ type CoreService interface {
 }
 
 type coreService struct {
-	Deps                            config.ModuleDependencies
-	Config                          *config.CoreConfig
-	UserRepository                  models.UserRepository
-	UserExtendedAttributeRepository models.ExtendedAttributeRepository
-	TokenRepository                 models.TokenRepository
-	Logger                          logger.Logger
-	SecurityManager                 *security.SecurityManager
+	Deps            config.ModuleDependencies
+	Config          *config.CoreConfig
+	UserRepository  models.UserRepository
+	TokenRepository models.TokenRepository
+	Logger          logger.Logger
+	SecurityManager *security.SecurityManager
 }
 
 func NewCoreService(
 	deps config.ModuleDependencies,
 	userRepository models.UserRepository,
-	userAttrRepo models.ExtendedAttributeRepository,
 	tokenRepository models.TokenRepository,
 	logger logger.Logger,
 	securityManager *security.SecurityManager,
 	config *config.CoreConfig,
 ) *coreService {
 	return &coreService{
-		Deps:                            deps,
-		UserRepository:                  userRepository,
-		UserExtendedAttributeRepository: userAttrRepo,
-		TokenRepository:                 tokenRepository,
-		Logger:                          deps.Logger,
-		SecurityManager:                 securityManager,
-		Config:                          config,
+		Deps:            deps,
+		UserRepository:  userRepository,
+		TokenRepository: tokenRepository,
+		Logger:          deps.Logger,
+		SecurityManager: securityManager,
+		Config:          config,
 	}
-}
-
-func (s *coreService) setAttribute(ctx context.Context, userID string, name string, value string) error {
-	if s.UserExtendedAttributeRepository == nil {
-		return nil
-	}
-	return s.UserExtendedAttributeRepository.Upsert(ctx, userID, name, value)
 }

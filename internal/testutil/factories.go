@@ -16,7 +16,7 @@ import (
 func TestUser() *models.User {
 	now := time.Now()
 	return &models.User{
-		ID:            uuid.New().String(),
+		ID:            uuid.Must(uuid.NewV7()).String(),
 		Email:         "test@example.com",
 		Username:      "testuser",
 		Name:          "Test User",
@@ -32,9 +32,9 @@ func TestUser() *models.User {
 func TestSession(userID string) *models.Session {
 	now := time.Now()
 	return &models.Session{
-		ID:                    uuid.New().String(),
+		ID:                    uuid.Must(uuid.NewV7()).String(),
 		UserID:                userID,
-		RefreshToken:          uuid.New().String(),
+		RefreshToken:          uuid.Must(uuid.NewV7()).String(),
 		RefreshTokenExpiresAt: now.Add(7 * 24 * time.Hour),
 		ExpiresAt:             now.Add(30 * 24 * time.Hour),
 		UserAgent:             "TestAgent/1.0",
@@ -47,10 +47,10 @@ func TestSession(userID string) *models.Session {
 // TestToken creates a token with sensible defaults.
 func TestToken(userID, tokenType string) *models.Token {
 	return &models.Token{
-		ID:        uuid.New().String(),
+		ID:        uuid.Must(uuid.NewV7()).String(),
 		UserID:    userID,
 		Type:      tokenType,
-		Token:     uuid.New().String(),
+		Token:     uuid.Must(uuid.NewV7()).String(),
 		ExpiresAt: time.Now().Add(1 * time.Hour),
 		CreatedAt: time.Now(),
 	}
@@ -125,8 +125,7 @@ func TestSessionModuleConfig() *config.SessionModuleConfig {
 // TestConfig returns a full Config for tests.
 func TestConfig() *config.Config {
 	return &config.Config{
-		AutoMigrate: false,
-		BasePath:    "/api/v1",
+		BasePath: "/api/v1",
 		Security: types.SecurityConfig{
 			JwtSecretKey:  "test-secret-key-for-unit-tests",
 			EncryptionKey: "test-encryption-key-for-tests!",

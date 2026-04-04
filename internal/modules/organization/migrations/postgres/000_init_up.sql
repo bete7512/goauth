@@ -1,0 +1,40 @@
+CREATE TABLE IF NOT EXISTS organizations (
+    id VARCHAR(36) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    slug VARCHAR(255) NOT NULL,
+    owner_id VARCHAR(36) NOT NULL,
+    logo_url VARCHAR(512),
+    metadata TEXT,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_organizations_slug ON organizations (slug);
+CREATE INDEX IF NOT EXISTS idx_organizations_owner_id ON organizations (owner_id);
+
+CREATE TABLE IF NOT EXISTS organization_members (
+    id VARCHAR(36) PRIMARY KEY,
+    org_id VARCHAR(36) NOT NULL,
+    user_id VARCHAR(36) NOT NULL,
+    role VARCHAR(50) NOT NULL DEFAULT 'member',
+    joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_org_member ON organization_members (org_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_organization_members_user_id ON organization_members (user_id);
+
+CREATE TABLE IF NOT EXISTS invitations (
+    id VARCHAR(36) PRIMARY KEY,
+    org_id VARCHAR(36) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    role VARCHAR(50) NOT NULL DEFAULT 'member',
+    inviter_id VARCHAR(36) NOT NULL,
+    token VARCHAR(255) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    accepted_at TIMESTAMPTZ
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_invitations_token ON invitations (token);
+CREATE INDEX IF NOT EXISTS idx_invitations_org_id ON invitations (org_id);
+CREATE INDEX IF NOT EXISTS idx_invitations_email ON invitations (email);

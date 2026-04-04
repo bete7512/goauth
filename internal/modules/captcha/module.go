@@ -90,10 +90,6 @@ func (m *CaptchaModule) Middlewares() []config.MiddlewareConfig {
 	}
 }
 
-func (m *CaptchaModule) Models() []interface{} {
-	return nil
-}
-
 func (m *CaptchaModule) RegisterHooks(_ types.EventBus) error {
 	return nil
 }
@@ -114,4 +110,8 @@ func (m *CaptchaModule) GetSiteKey() string {
 // GetProvider returns the configured provider.
 func (m *CaptchaModule) GetProvider() types.CaptchaProvider {
 	return m.config.Provider
+}
+
+func (m *CaptchaModule) Migrations() types.ModuleMigrations {
+	return types.ModuleMigrations{}
 }

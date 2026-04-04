@@ -2,7 +2,6 @@ package core_services
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/bete7512/goauth/internal/modules/core/handlers/dto"
 	"github.com/bete7512/goauth/pkg/types"
@@ -24,7 +23,7 @@ func (s *coreService) CheckAvailability(ctx context.Context, req *dto.CheckAvail
 
 	available, err := s.UserRepository.IsAvailable(ctx, column, value)
 	if err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to check %s availability: %v", field, err))
+		return nil, types.NewInternalError("failed to check " + field + " availability").Wrap(err)
 	}
 
 	return &dto.CheckAvailabilityResponse{

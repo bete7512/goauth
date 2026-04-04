@@ -6,9 +6,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bete7512/goauth/internal/interceptor"
 	"github.com/bete7512/goauth/internal/mocks"
 	"github.com/bete7512/goauth/internal/modules/session/handlers/dto"
 	"github.com/bete7512/goauth/internal/modules/session/services"
+	"github.com/bete7512/goauth/internal/security"
 	"github.com/bete7512/goauth/internal/testutil"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/models"
@@ -42,10 +44,11 @@ func (s *RefreshServiceSuite) setupService() (
 	cfg := testutil.TestSessionModuleConfig()
 
 	deps := config.ModuleDependencies{
-		Config:          testutil.TestConfig(),
-		Events:          mockEvents,
-		Logger:          mockLogger,
-		SecurityManager: secMgr,
+		Config:           testutil.TestConfig(),
+		Events:           mockEvents,
+		Logger:           mockLogger,
+		SecurityManager:  secMgr,
+		AuthInterceptors: interceptor.NewRegistry(),
 	}
 
 	svc := services.NewSessionService(deps, mockUserRepo, mockSessionRepo, mockLogger, secMgr, cfg)
@@ -97,9 +100,10 @@ func (s *RefreshServiceSuite) TestRefresh() {
 			name: "success",
 			req:  &dto.RefreshRequest{RefreshToken: "valid-refresh-token"},
 			setup: func(ur *mocks.MockUserRepository, sr *mocks.MockSessionRepository) {
-				sr.EXPECT().FindByToken(gomock.Any(), "valid-refresh-token").Return(validSession, nil)
+				h := security.HashRefreshToken("valid-refresh-token")
+				sr.EXPECT().FindByToken(gomock.Any(), h).Return(validSession, nil)
 				ur.EXPECT().FindByID(gomock.Any(), testUser.ID).Return(testUser, nil)
-				sr.EXPECT().DeleteByToken(gomock.Any(), "valid-refresh-token").Return(nil)
+				sr.EXPECT().DeleteByToken(gomock.Any(), h).Return(nil)
 				sr.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&models.Session{})).Return(nil)
 			},
 		},
@@ -107,7 +111,7 @@ func (s *RefreshServiceSuite) TestRefresh() {
 			name: "session not found",
 			req:  &dto.RefreshRequest{RefreshToken: "unknown-token"},
 			setup: func(_ *mocks.MockUserRepository, sr *mocks.MockSessionRepository) {
-				sr.EXPECT().FindByToken(gomock.Any(), "unknown-token").Return(nil, errors.New("not found"))
+				sr.EXPECT().FindByToken(gomock.Any(), security.HashRefreshToken("unknown-token")).Return(nil, models.ErrNotFound)
 			},
 			wantErr:    true,
 			errCode:    types.ErrInvalidCredentials,
@@ -117,7 +121,7 @@ func (s *RefreshServiceSuite) TestRefresh() {
 			name: "session expired",
 			req:  &dto.RefreshRequest{RefreshToken: "expired-session-token"},
 			setup: func(_ *mocks.MockUserRepository, sr *mocks.MockSessionRepository) {
-				sr.EXPECT().FindByToken(gomock.Any(), "expired-session-token").Return(expiredSession, nil)
+				sr.EXPECT().FindByToken(gomock.Any(), security.HashRefreshToken("expired-session-token")).Return(expiredSession, nil)
 			},
 			wantErr:    true,
 			errCode:    types.ErrInvalidCredentials,
@@ -127,7 +131,7 @@ func (s *RefreshServiceSuite) TestRefresh() {
 			name: "refresh token expired",
 			req:  &dto.RefreshRequest{RefreshToken: "expired-refresh-token"},
 			setup: func(_ *mocks.MockUserRepository, sr *mocks.MockSessionRepository) {
-				sr.EXPECT().FindByToken(gomock.Any(), "expired-refresh-token").Return(expiredRefreshSession, nil)
+				sr.EXPECT().FindByToken(gomock.Any(), security.HashRefreshToken("expired-refresh-token")).Return(expiredRefreshSession, nil)
 			},
 			wantErr:    true,
 			errCode:    types.ErrInvalidCredentials,
@@ -137,8 +141,9 @@ func (s *RefreshServiceSuite) TestRefresh() {
 			name: "user not found",
 			req:  &dto.RefreshRequest{RefreshToken: "valid-refresh-token"},
 			setup: func(ur *mocks.MockUserRepository, sr *mocks.MockSessionRepository) {
-				sr.EXPECT().FindByToken(gomock.Any(), "valid-refresh-token").Return(validSession, nil)
-				ur.EXPECT().FindByID(gomock.Any(), testUser.ID).Return(nil, errors.New("not found"))
+				h := security.HashRefreshToken("valid-refresh-token")
+				sr.EXPECT().FindByToken(gomock.Any(), h).Return(validSession, nil)
+				ur.EXPECT().FindByID(gomock.Any(), testUser.ID).Return(nil, models.ErrNotFound)
 			},
 			wantErr:    true,
 			errCode:    types.ErrInvalidCredentials,
@@ -148,9 +153,10 @@ func (s *RefreshServiceSuite) TestRefresh() {
 			name: "delete old session fails",
 			req:  &dto.RefreshRequest{RefreshToken: "valid-refresh-token"},
 			setup: func(ur *mocks.MockUserRepository, sr *mocks.MockSessionRepository) {
-				sr.EXPECT().FindByToken(gomock.Any(), "valid-refresh-token").Return(validSession, nil)
+				h := security.HashRefreshToken("valid-refresh-token")
+				sr.EXPECT().FindByToken(gomock.Any(), h).Return(validSession, nil)
 				ur.EXPECT().FindByID(gomock.Any(), testUser.ID).Return(testUser, nil)
-				sr.EXPECT().DeleteByToken(gomock.Any(), "valid-refresh-token").Return(errors.New("db error"))
+				sr.EXPECT().DeleteByToken(gomock.Any(), h).Return(errors.New("db error"))
 			},
 			wantErr:    true,
 			errCode:    types.ErrInternalError,
@@ -160,9 +166,10 @@ func (s *RefreshServiceSuite) TestRefresh() {
 			name: "create new session fails",
 			req:  &dto.RefreshRequest{RefreshToken: "valid-refresh-token"},
 			setup: func(ur *mocks.MockUserRepository, sr *mocks.MockSessionRepository) {
-				sr.EXPECT().FindByToken(gomock.Any(), "valid-refresh-token").Return(validSession, nil)
+				h := security.HashRefreshToken("valid-refresh-token")
+				sr.EXPECT().FindByToken(gomock.Any(), h).Return(validSession, nil)
 				ur.EXPECT().FindByID(gomock.Any(), testUser.ID).Return(testUser, nil)
-				sr.EXPECT().DeleteByToken(gomock.Any(), "valid-refresh-token").Return(nil)
+				sr.EXPECT().DeleteByToken(gomock.Any(), h).Return(nil)
 				sr.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&models.Session{})).Return(errors.New("db error"))
 			},
 			wantErr:    true,

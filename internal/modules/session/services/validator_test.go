@@ -117,7 +117,7 @@ func (s *ValidatorSuite) TestValidateFromDB_Found() {
 }
 
 func (s *ValidatorSuite) TestValidateFromDB_NotFound() {
-	s.sessionRepo.EXPECT().FindByID(gomock.Any(), "sess-gone").Return(nil, nil)
+	s.sessionRepo.EXPECT().FindByID(gomock.Any(), "sess-gone").Return(nil, models.ErrNotFound)
 
 	result := s.validator.ValidateFromDB(context.Background(), "sess-gone")
 	s.False(result.Valid)

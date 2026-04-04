@@ -19,12 +19,13 @@ type SecurityManager interface {
 	ValidateJWTToken(tokenString string) (map[string]interface{}, error)
 
 	// Opaque token generation
-	GenerateRandomToken(length int) (string, error)   // hex-encoded
-	GenerateNumericOTP(length int) (string, error)    // digit string
-	GenerateBase64Token(length int) (string, error)   // base64url
+	GenerateRandomToken(length int) (string, error) // hex-encoded
+	GenerateNumericOTP(length int) (string, error)  // digit string
+	GenerateBase64Token(length int) (string, error) // base64url
 
 	// Opaque token hashing / verification (bcrypt)
 	HashToken(token string) (string, error)
+	HashRefreshToken(token string) string
 	ValidateHashedToken(hashedToken, token string) error
 
 	// Symmetric encryption (stub — implement before relying on this)

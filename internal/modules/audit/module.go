@@ -2,13 +2,14 @@ package audit
 
 import (
 	"context"
-	_ "embed"
+	"embed"
 	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/bete7512/goauth/internal/modules/audit/handlers"
 	"github.com/bete7512/goauth/internal/modules/audit/services"
+	"github.com/bete7512/goauth/internal/utils"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
@@ -17,6 +18,9 @@ import (
 
 //go:embed docs/openapi.yml
 var openapiSpec []byte
+
+//go:embed migrations
+var migrationFS embed.FS
 
 type AuditModule struct {
 	deps     config.ModuleDependencies
@@ -124,12 +128,6 @@ func (m *AuditModule) Routes() []config.RouteInfo {
 
 func (m *AuditModule) Middlewares() []config.MiddlewareConfig {
 	return []config.MiddlewareConfig{}
-}
-
-func (m *AuditModule) Models() []any {
-	return []any{
-		&models.AuditLog{},
-	}
 }
 
 func (m *AuditModule) RegisterHooks(events types.EventBus) error {
@@ -287,7 +285,7 @@ func (m *AuditModule) createAuditLog(ctx context.Context, event *types.Event, ac
 
 	// Create audit log
 	auditLog := &models.AuditLog{
-		ID:        uuid.New().String(),
+		ID:        uuid.Must(uuid.NewV7()).String(),
 		Action:    action,
 		ActorID:   actorID,
 		ActorType: "user",
@@ -318,4 +316,8 @@ func (m *AuditModule) Dependencies() []string {
 
 func (m *AuditModule) OpenAPISpecs() []byte {
 	return openapiSpec
+}
+
+func (m *AuditModule) Migrations() types.ModuleMigrations {
+	return utils.ParseMigrations(migrationFS)
 }

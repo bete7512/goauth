@@ -191,4 +191,16 @@ const (
 	EventOAuthLinkAdded   EventType = "oauth.link.added"
 	EventOAuthLinkRemoved EventType = "oauth.link.removed"
 	EventOAuthError       EventType = "oauth.error"
+
+	// Organization Events
+	EventOrgCreated            EventType = "org.created"
+	EventOrgUpdated            EventType = "org.updated"
+	EventOrgDeleted            EventType = "org.deleted"
+	EventOrgMemberAdded        EventType = "org.member.added"
+	EventOrgMemberRemoved      EventType = "org.member.removed"
+	EventOrgMemberRoleChanged  EventType = "org.member.role.changed"
+	EventOrgInvitationSent     EventType = "org.invitation.sent"
+	EventOrgInvitationAccepted EventType = "org.invitation.accepted"
+	EventOrgInvitationDeclined EventType = "org.invitation.declined"
+	EventOrgSwitched           EventType = "org.switched"
 )

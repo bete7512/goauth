@@ -129,7 +129,7 @@ func (s *AdminServiceSuite) TestGetUser() {
 			name:   "user not found",
 			userID: "nonexistent",
 			setup: func(ur *mocks.MockUserRepository) {
-				ur.EXPECT().FindByID(gomock.Any(), "nonexistent").Return(nil, errors.New("not found"))
+				ur.EXPECT().FindByID(gomock.Any(), "nonexistent").Return(nil, models.ErrNotFound)
 			},
 			wantErr: true,
 		},
@@ -251,7 +251,7 @@ func (s *AdminServiceSuite) TestDeleteUser() {
 			ctx:    testutil.ContextWithAdminUser(context.Background(), adminUser),
 			userID: "nonexistent",
 			setup: func(ur *mocks.MockUserRepository, ev *mocks.MockEventBus) {
-				ur.EXPECT().FindByID(gomock.Any(), "nonexistent").Return(nil, errors.New("not found"))
+				ur.EXPECT().FindByID(gomock.Any(), "nonexistent").Return(nil, models.ErrNotFound)
 			},
 			wantErr: true,
 		},

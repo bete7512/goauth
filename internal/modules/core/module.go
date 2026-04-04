@@ -4,14 +4,14 @@ import (
 	"context"
 	"errors"
 
-	_ "embed"
+	"embed"
 
 	"github.com/bete7512/goauth/internal/modules/core/handlers"
 	"github.com/bete7512/goauth/internal/modules/core/middlewares"
 	core_services "github.com/bete7512/goauth/internal/modules/core/services"
 	"github.com/bete7512/goauth/internal/security"
+	"github.com/bete7512/goauth/internal/utils"
 	"github.com/bete7512/goauth/pkg/config"
-	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
 )
 
@@ -24,6 +24,9 @@ type CoreModule struct {
 
 //go:embed docs/openapi.yml
 var openapiSpec []byte
+
+//go:embed migrations
+var migrationFS embed.FS
 
 var _ config.Module = (*CoreModule)(nil)
 
@@ -67,7 +70,6 @@ func (m *CoreModule) Init(ctx context.Context, deps config.ModuleDependencies) e
 		core_services.NewCoreService(
 			m.deps,
 			coreStorage.Users(),
-			coreStorage.ExtendedAttributes(),
 			coreStorage.Tokens(),
 			m.deps.Logger,
 			securityManager,
@@ -107,20 +109,16 @@ func (m *CoreModule) Middlewares() []config.MiddlewareConfig {
 	}
 }
 
-func (m *CoreModule) Models() []interface{} {
-	return []interface{}{
-		&models.User{},
-		&models.ExtendedAttributes{},
-		&models.Token{},
-	}
-}
-
 func (m *CoreModule) RegisterHooks(events types.EventBus) error {
 	return nil
 }
 
 func (m *CoreModule) Dependencies() []string {
 	return nil
+}
+
+func (m *CoreModule) Migrations() types.ModuleMigrations {
+	return utils.ParseMigrations(migrationFS)
 }
 
 func (m *CoreModule) updateConfigFromDeps() {

@@ -40,8 +40,9 @@ type OAuthResult struct {
 	Provider             string
 	ProviderAccessToken  string
 	ProviderRefreshToken string
-	ClientRedirectURI    string // Client-provided redirect URI for frontend redirect
-	SessionID            string // Session ID if session-based auth is used
+	ClientRedirectURI    string                 // Client-provided redirect URI for frontend redirect
+	SessionID            string                 // Session ID if session-based auth is used
+	Challenges           []types.LoginChallenge // Login challenges (2FA, org select, etc.)
 }
 
 // oauthService implements OAuthService

@@ -1,9 +1,7 @@
 package models
 
-type Blacklist struct{
-
+type Blacklist struct {
 }
 
-type BlacklistRepository interface{
-	
+type BlacklistRepository interface {
 }

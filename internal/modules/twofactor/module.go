@@ -2,15 +2,15 @@ package twofactor
 
 import (
 	"context"
-	_ "embed"
+	"embed"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/bete7512/goauth/internal/modules/twofactor/handlers"
 	"github.com/bete7512/goauth/internal/modules/twofactor/services"
+	"github.com/bete7512/goauth/internal/utils"
 	"github.com/bete7512/goauth/pkg/config"
-	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -22,11 +22,12 @@ type TwoFactorModule struct {
 	config   *config.TwoFactorConfig
 }
 
-
-
 var (
 	//go:embed docs/openapi.yml
 	openapiSpec []byte
+
+	//go:embed migrations
+	migrationFS embed.FS
 )
 var _ config.Module = (*TwoFactorModule)(nil)
 
@@ -62,15 +63,49 @@ func (m *TwoFactorModule) Init(ctx context.Context, deps config.ModuleDependenci
 	m.deps = deps
 
 	// Initialize service
-	m.service = services.NewTwoFactorService(
+	svc := services.NewTwoFactorService(
 		deps,
 		m.config.Issuer,
 		m.config.BackupCodesCount,
 		m.config.CodeLength,
 	)
+	m.service = svc
 
 	// Initialize handlers
 	m.handlers = handlers.NewTwoFactorHandler(deps, m.service)
+
+	// Register auth interceptor for 2FA challenge
+	deps.AuthInterceptors.Register("twofactor", func(ctx context.Context, params *types.InterceptParams) (*types.InterceptResult, error) {
+		// Only challenge on login phase
+		if params.Phase != types.PhaseLogin {
+			return &types.InterceptResult{}, nil
+		}
+
+		tfConfig, authErr := m.service.GetTwoFactorConfig(ctx, params.User.ID)
+		if authErr != nil || tfConfig == nil || !tfConfig.Enabled {
+			return &types.InterceptResult{}, nil
+		}
+
+		m.deps.Logger.Info("2FA required for user", "user_id", params.User.ID)
+
+		tempToken, err := m.generateTempToken(params.User.ID)
+		if err != nil {
+			m.deps.Logger.Error("Failed to generate temp 2FA token", "error", err)
+			return &types.InterceptResult{}, nil
+		}
+
+		return &types.InterceptResult{
+			Challenge: &types.LoginChallenge{
+				Type: types.ChallengeTwoFactor,
+				Data: map[string]interface{}{
+					"requires_2fa": true,
+					"temp_token":   tempToken,
+					"user_id":      params.User.ID,
+					"message":      "Two-factor authentication required. Please provide your 2FA code.",
+				},
+			},
+		}, nil
+	}, 100) // High priority — 2FA challenges checked first
 
 	return nil
 }
@@ -131,58 +166,13 @@ func (m *TwoFactorModule) Middlewares() []config.MiddlewareConfig {
 	}
 }
 
-func (m *TwoFactorModule) Models() []interface{} {
-	return []interface{}{
-		&models.TwoFactor{},
-		&models.BackupCode{},
-	}
-}
-
 func (m *TwoFactorModule) RegisterHooks(events types.EventBus) error {
-	m.deps.Logger.Info("Registering 2FA hooks")
+	// 2FA login interception is now handled via AuthInterceptors (registered in Init).
+	// Only keep event-based hooks for non-login flows.
 
-	// Hook into password verification to intercept login flow
-	// This runs SYNCHRONOUSLY to allow us to prevent token issuance if 2FA is required
-	events.Subscribe(types.EventAfterPasswordVerified, types.EventHandler(func(ctx context.Context, event *types.Event) error {
-		// Extract user from event
-		data, ok := types.EventDataAs[*types.PasswordVerifiedEventData](event)
-		if !ok {
-			m.deps.Logger.Warn("Failed to extract PasswordVerifiedEventData")
-			return nil // Don't block login on event parsing failure
-		}
-
-		// Check if user has 2FA enabled
-		tfConfig, authErr := m.service.GetTwoFactorConfig(ctx, data.User.ID)
-		if authErr != nil || tfConfig == nil || !tfConfig.Enabled {
-			// No 2FA configured or not enabled - allow normal login
-			return nil
-		}
-
-		m.deps.Logger.Info("2FA required for user", "user_id", data.User.ID)
-
-		// Generate temporary token for 2FA flow
-		tempToken, err := m.generateTempToken(data.User.ID)
-		if err != nil {
-			m.deps.Logger.Error("Failed to generate temp 2FA token", "error", err)
-			// Fail gracefully - allow login without 2FA
-			return nil
-		}
-
-		// Return special error to interrupt login flow
-		// Core module will catch this and return the challenge to the user
-		return types.NewTwoFactorRequiredError(map[string]any{
-			"requires_2fa": true,
-			"temp_token":   tempToken,
-			"user_id":      data.User.ID,
-			"message":      "Two-factor authentication required. Please provide your 2FA code.",
-		})
-	}))
-
-	// If 2FA is required for all users, hook into signup
 	if m.config.Required {
 		events.Subscribe(types.EventAfterSignup, types.EventHandler(func(ctx context.Context, event *types.Event) error {
 			m.deps.Logger.Info("2FA is required for all users - new user must set up 2FA")
-			// TODO: Could send email prompting 2FA setup
 			return nil
 		}))
 	}
@@ -226,4 +216,8 @@ func (m *TwoFactorModule) verify2FAMiddleware(next http.Handler) http.Handler {
 
 func (m *TwoFactorModule) OpenAPISpecs() []byte {
 	return openapiSpec
+}
+
+func (m *TwoFactorModule) Migrations() types.ModuleMigrations {
+	return utils.ParseMigrations(migrationFS)
 }

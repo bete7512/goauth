@@ -13,15 +13,15 @@ var _ types.AuditLogStorage = (*GormAuditLogStorage)(nil)
 
 // GormAuditLogStorage implements types.AuditLogStorage using GORM
 type GormAuditLogStorage struct {
-	db              *gorm.DB
-	auditLogRepo    *GormAuditLogRepository
+	db           *gorm.DB
+	auditLogRepo *GormAuditLogRepository
 }
 
 // NewAuditLogStorage creates a new GormAuditLogStorage
 func NewAuditLogStorage(db *gorm.DB) *GormAuditLogStorage {
 	return &GormAuditLogStorage{
-		db:              db,
-		auditLogRepo:    NewAuditLogRepository(db),
+		db:           db,
+		auditLogRepo: NewAuditLogRepository(db),
 	}
 }
 

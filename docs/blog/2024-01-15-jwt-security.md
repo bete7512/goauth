@@ -1,218 +1,119 @@
 ---
 slug: jwt-security-best-practices
-title: JWT Security Best Practices for Go Applications
+title: JWT Security in GoAuth
 authors: [goauth-team]
 tags: [security, jwt, best-practices, go]
 ---
 
-# JWT Security Best Practices for Go Applications 🔐
+# JWT Security in GoAuth
 
-In today's digital landscape, securing your applications is more critical than ever. JSON Web Tokens (JWTs) have become a popular choice for authentication and authorization, but they come with their own set of security considerations. In this post, we'll explore essential JWT security best practices specifically tailored for Go applications.
+This post covers how GoAuth handles JWT security -- the signing approach, token lifecycle, refresh token rotation, and the protective measures built into the library.
 
 <!-- truncate -->
 
-## Understanding JWT Security Risks
+## Signing and Algorithms
 
-JWTs are stateless and can be vulnerable to several security threats if not implemented correctly:
-
-- **Token Theft**: JWTs can be intercepted if transmitted over insecure channels
-- **Token Replay**: Expired tokens might be reused if proper validation is missing
-- **Algorithm Confusion**: Attackers might try to use different signing algorithms
-- **Secret Exposure**: Weak or exposed secrets can compromise the entire system
-
-## Best Practices Implementation
-
-### 1. Use Strong Signing Algorithms
-
-Always use strong, asymmetric algorithms like RS256 or ES256 instead of symmetric algorithms like HS256 for production applications:
+GoAuth uses **HS256** (HMAC-SHA256) for JWT signing. The secret key is configured via `SecurityConfig.JwtSecretKey` and must be at least 32 characters. The library validates algorithm headers on every token parse to prevent algorithm confusion attacks.
 
 ```go
-// Good: Use RS256 for production
-claims := jwt.MapClaims{
-    "user_id": user.ID,
-    "exp":     time.Now().Add(time.Hour * 24).Unix(),
-    "iat":     time.Now().Unix(),
-}
-
-token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
-tokenString, err := token.SignedString(privateKey)
-
-// Avoid: HS256 in production
-// token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+a, _ := auth.New(&config.Config{
+    Storage: store,
+    Migration: config.MigrationConfig{Auto: true},
+    Security: types.SecurityConfig{
+        JwtSecretKey:  os.Getenv("JWT_SECRET"),       // min 32 chars
+        EncryptionKey: os.Getenv("ENCRYPTION_KEY"),   // for AES-256-GCM
+    },
+})
 ```
 
-### 2. Implement Proper Token Expiration
+## Access and Refresh Token Pair
 
-Set reasonable expiration times and implement refresh token mechanisms:
+GoAuth issues two tokens on login:
+
+- **Access token** -- Short-lived (default 15 minutes). Carries user claims. Used for API authorization.
+- **Refresh token** -- Longer-lived (default 7 days). Used only to obtain a new access token.
+
+The TTLs are configurable:
 
 ```go
-type TokenPair struct {
-    AccessToken  string `json:"access_token"`
-    RefreshToken string `json:"refresh_token"`
-    ExpiresIn   int64  `json:"expires_in"`
-}
-
-func GenerateTokenPair(user *User) (*TokenPair, error) {
-    // Access token: short-lived (15 minutes)
-    accessClaims := jwt.MapClaims{
-        "user_id": user.ID,
-        "exp":     time.Now().Add(time.Minute * 15).Unix(),
-        "type":    "access",
-    }
-
-    // Refresh token: longer-lived (7 days)
-    refreshClaims := jwt.MapClaims{
-        "user_id": user.ID,
-        "exp":     time.Now().AddDate(0, 0, 7).Unix(),
-        "type":    "refresh",
-    }
-
-    // Implementation details...
-}
+Security: types.SecurityConfig{
+    JwtSecretKey: os.Getenv("JWT_SECRET"),
+    Session: types.SessionConfig{
+        AccessTokenTTL:  15 * time.Minute,
+        RefreshTokenTTL: 7 * 24 * time.Hour,
+    },
+},
 ```
 
-### 3. Validate Token Claims
+## Refresh Token Rotation
 
-Always validate all claims, especially expiration and issuer:
+How refresh tokens are secured depends on the authentication strategy:
+
+**Stateless module**: Each refresh token includes a JTI (JWT ID) nonce. The JTI is stored in the database. When a refresh token is used, the old JTI is invalidated and a new token with a fresh JTI is issued. This provides one-time-use semantics -- replaying an old refresh token fails.
+
+**Session module**: Refresh tokens are hashed with SHA-256 before storage. The raw token is only returned to the client; the database never holds the plaintext. On refresh, the incoming token is hashed and compared against the stored hash.
+
+## Account Lockout
+
+GoAuth includes brute-force protection via account lockout:
+
+- **Max attempts**: 5 failed login attempts (configurable)
+- **Lockout window**: 15 minutes (configurable)
+- **Lockout behavior**: Returns a `429` status with time remaining until unlock
+
+This is configured via `Config.Validate()` defaults or explicitly:
 
 ```go
-func ValidateToken(tokenString string, publicKey *rsa.PublicKey) (*jwt.Token, error) {
-    token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-        // Validate algorithm
-        if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
-            return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-        }
-        return publicKey, nil
-    })
-
-    if err != nil {
-        return nil, err
-    }
-
-    // Validate claims
-    if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-        // Check expiration
-        if exp, ok := claims["exp"].(float64); ok {
-            if time.Unix(int64(exp), 0).Before(time.Now()) {
-                return nil, fmt.Errorf("token expired")
-            }
-        }
-
-        // Check issuer (if applicable)
-        if iss, ok := claims["iss"].(string); ok {
-            if iss != "goauth-service" {
-                return nil, fmt.Errorf("invalid issuer")
-            }
-        }
-
-        return token, nil
-    }
-
-    return nil, fmt.Errorf("invalid token")
-}
+Lockout: types.LockoutConfig{
+    MaxAttempts:     5,
+    LockoutDuration: 15 * time.Minute,
+},
 ```
 
-### 4. Secure Token Storage
+## Password Policy
 
-Store tokens securely on the client side:
+GoAuth enforces password requirements at the config level:
 
-```go
-// Server-side: Set secure cookie attributes
-func SetSecureCookie(w http.ResponseWriter, name, value string) {
-    cookie := &http.Cookie{
-        Name:     name,
-        Value:    value,
-        Path:     "/",
-        HttpOnly: true,
-        Secure:   true, // HTTPS only
-        SameSite: http.SameSiteStrictMode,
-        MaxAge:   3600, // 1 hour
-    }
-    http.SetCookie(w, cookie)
-}
-```
+- Minimum length: 8 characters (default)
+- Maximum length: 128 characters (default)
+- Configurable via `PasswordPolicy` in the config
 
-### 5. Implement Rate Limiting
+Passwords are hashed with **bcrypt**. The cost factor is configurable through `SecurityConfig`.
 
-Protect your JWT endpoints from brute force attacks:
+## Encryption of Sensitive Data
 
-```go
-func RateLimitMiddleware(next http.Handler) http.Handler {
-    limiter := rate.NewLimiter(rate.Every(time.Second), 10) // 10 requests per second
+Beyond passwords and JWTs, GoAuth encrypts sensitive fields using AES-256-GCM:
 
-    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-        if !limiter.Allow() {
-            http.Error(w, "Too many requests", http.StatusTooManyRequests)
-            return
-        }
-        next.ServeHTTP(w, r)
-    })
-}
-```
+- TOTP secrets stored in the database
+- OAuth provider tokens
 
-## GoAuth Library Features
+The encryption key is set via `SecurityConfig.EncryptionKey` (32 characters for AES-256).
 
-Our GoAuth library implements these best practices out of the box:
+## Token Storage on the Client
 
-- **Automatic algorithm validation** with configurable allowed methods
-- **Built-in claim validation** including expiration and issuer checks
-- **Secure token generation** with proper entropy
-- **Rate limiting support** for authentication endpoints
-- **Comprehensive logging** for security monitoring
+GoAuth sets tokens in HTTP-only, secure cookies with `SameSite` attributes when using the session module. For stateless JWT, tokens are returned in JSON response bodies for the client to store as appropriate.
 
-## Example Implementation
+## What GoAuth Does Not Do
 
-Here's how to use GoAuth with these security practices:
+To set expectations clearly:
 
-```go
-package main
-
-import (
-    "log"
-    "net/http"
-
-    "github.com/your-org/goauth"
-    "github.com/your-org/goauth/middleware"
-)
-
-func main() {
-    // Initialize GoAuth with secure defaults
-    auth := goauth.New(&goauth.Config{
-        Algorithm:        "RS256",
-        AccessTokenTTL:   time.Minute * 15,
-        RefreshTokenTTL:  time.Hour * 24 * 7,
-        Issuer:          "goauth-service",
-        RateLimit:       true,
-        RateLimitPerSec: 10,
-    })
-
-    // Apply security middleware
-    http.HandleFunc("/auth/login", middleware.RateLimit(auth.LoginHandler))
-    http.HandleFunc("/auth/refresh", middleware.RateLimit(auth.RefreshHandler))
-
-    log.Fatal(http.ListenAndServe(":8080", nil))
-}
-```
+- **No RS256/ES256** -- GoAuth uses HS256 only. If you need asymmetric signing, you would need to implement a custom security manager satisfying the `types.SecurityManager` interface.
+- **No built-in rate limiting middleware** -- Account lockout handles brute-force at the application level. For network-level rate limiting, use your reverse proxy or a dedicated middleware.
+- **No token blacklisting for access tokens** -- Access tokens are short-lived by design. The stateless module blacklists refresh token JTIs on revocation.
 
 ## Security Checklist
 
-Before deploying your JWT implementation, ensure you've covered:
+Before deploying:
 
-- [ ] Strong signing algorithms (RS256/ES256)
-- [ ] Proper token expiration times
-- [ ] Claim validation (exp, iat, iss, aud)
-- [ ] Secure token storage (HttpOnly cookies)
-- [ ] Rate limiting on auth endpoints
-- [ ] HTTPS enforcement
-- [ ] Regular secret rotation
-- [ ] Security monitoring and logging
-
-## Conclusion
-
-JWT security requires careful attention to implementation details. By following these best practices and using the GoAuth library, you can build secure, production-ready authentication systems in Go.
-
-Remember: Security is not a one-time setup but an ongoing process. Stay updated with the latest security recommendations and regularly audit your JWT implementation.
+- [ ] Set `JwtSecretKey` to a strong, random 32+ character value from environment variables
+- [ ] Set `EncryptionKey` to a separate strong, random 32-character value
+- [ ] Configure appropriate `AccessTokenTTL` (shorter is safer; 15 minutes is a good default)
+- [ ] Enable HTTPS in production (GoAuth sets `Secure` flag on cookies)
+- [ ] Enable account lockout (on by default)
+- [ ] Enable email verification if your app requires confirmed email addresses
+- [ ] Use the CSRF module for browser-based applications
+- [ ] Review audit logs regularly if using the audit module
 
 ---
 
-_For more security insights and updates, follow our blog and join our community discussions on GitHub._
+_For more details, see the [Stateless Module](/docs/modules/stateless) and [Session Module](/docs/modules/session) documentation._

@@ -30,7 +30,7 @@ Follow the existing patterns:
 - Exported interface / unexported struct for services
 - `types.GoAuthError` for error returns
 - Dot-notation route names (e.g., `core.signup`)
-- Embedded swagger specs per module
+- Embedded OpenAPI specs per module
 - `config.Module` interface (8 methods) for all modules
 
 ### Adding a Module

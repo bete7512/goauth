@@ -244,7 +244,7 @@ func RequestID() MiddlewareFunc {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			requestID := r.Header.Get("X-Request-ID")
 			if requestID == "" {
-				requestID = uuid.NewString()
+				requestID = uuid.Must(uuid.NewV7()).String()
 			}
 			w.Header().Set("X-Request-ID", requestID)
 			next.ServeHTTP(w, r)

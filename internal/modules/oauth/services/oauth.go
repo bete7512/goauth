@@ -2,11 +2,13 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/bete7512/goauth/internal/modules/oauth/providers"
+	"github.com/bete7512/goauth/internal/security"
 	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
 	"github.com/google/uuid"
@@ -30,14 +32,14 @@ func (s *oauthService) InitiateLogin(ctx context.Context, providerName, clientRe
 	state, err := providers.GenerateState()
 	if err != nil {
 		s.logger.Errorf("oauth: failed to generate state: %v", err)
-		return "", types.NewInternalError("failed to generate OAuth state")
+		return "", types.NewInternalError("failed to generate OAuth state").Wrap(err)
 	}
 
 	// Generate PKCE code verifier
 	codeVerifier, err := providers.GenerateCodeVerifier()
 	if err != nil {
 		s.logger.Errorf("oauth: failed to generate PKCE verifier: %v", err)
-		return "", types.NewInternalError("failed to generate PKCE verifier")
+		return "", types.NewInternalError("failed to generate PKCE verifier").Wrap(err)
 	}
 
 	// Generate PKCE code challenge
@@ -55,7 +57,7 @@ func (s *oauthService) InitiateLogin(ctx context.Context, providerName, clientRe
 	// Store state + PKCE verifier in Token table
 	// We use Code field to store the verifier, and Email field to store client redirect URI
 	stateToken := &models.Token{
-		ID:        uuid.New().String(),
+		ID:        uuid.Must(uuid.NewV7()).String(),
 		UserID:    "", // No user yet
 		Type:      models.TokenTypeOAuthState,
 		Token:     state,
@@ -68,7 +70,7 @@ func (s *oauthService) InitiateLogin(ctx context.Context, providerName, clientRe
 
 	if err := s.tokenRepo.Create(ctx, stateToken); err != nil {
 		s.logger.Errorf("oauth: failed to store state: %v", err)
-		return "", types.NewInternalError("failed to store OAuth state")
+		return "", types.NewInternalError("failed to store OAuth state").Wrap(err)
 	}
 
 	// Build authorization URL
@@ -87,8 +89,11 @@ func (s *oauthService) InitiateLogin(ctx context.Context, providerName, clientRe
 func (s *oauthService) HandleCallback(ctx context.Context, providerName, code, state string, metadata *types.RequestMetadata) (*OAuthResult, *types.GoAuthError) {
 	// 1. Validate state and retrieve PKCE verifier
 	stateToken, err := s.tokenRepo.FindByToken(ctx, state)
-	if err != nil || stateToken == nil {
-		return nil, types.NewOAuthInvalidStateError()
+	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			return nil, types.NewOAuthInvalidStateError()
+		}
+		return nil, types.NewInternalError("failed to find OAuth state").Wrap(err)
 	}
 
 	if stateToken.Type != models.TokenTypeOAuthState {
@@ -158,28 +163,55 @@ func (s *oauthService) HandleCallback(ctx context.Context, providerName, code, s
 		s.logger.Warnf("oauth: failed to update last login time: %v", err)
 	}
 
+	// 7. Run auth interceptors (2FA challenges, org enrichment, etc.)
+	interceptClaims, challenges, _, interceptErr := s.deps.AuthInterceptors.Run(ctx, &types.InterceptParams{
+		Phase:    types.PhaseLogin,
+		User:     user,
+		Metadata: metadata,
+	})
+	if interceptErr != nil {
+		s.logger.Errorf("oauth: auth interceptor failed: %v", interceptErr)
+		return nil, types.NewInternalError("Authentication flow interrupted").Wrap(interceptErr)
+	}
+
+	// If challenges were issued, return them without generating tokens
+	if len(challenges) > 0 {
+		return &OAuthResult{
+			User:              user,
+			IsNewUser:         isNewUser,
+			Provider:          providerName,
+			ClientRedirectURI: clientRedirectURI,
+			Challenges:        challenges,
+		}, nil
+	}
+
 	var accessToken, refreshToken, sessionID string
 	var expiresIn int64
 
-	// 7. Generate auth tokens (session-based or stateless)
+	// 8. Generate auth tokens (session-based or stateless)
 	if s.useSessionAuth() {
 		// Session-based: create session record and embed session_id in JWT
-		sessionID = uuid.New().String()
+		sessionID = uuid.Must(uuid.NewV7()).String()
 
-		accessToken, refreshToken, err = s.securityManager.GenerateTokens(user, map[string]interface{}{
+		tokenClaims := map[string]interface{}{
 			"oauth_provider": providerName,
 			"session_id":     sessionID,
-		})
-		if err != nil {
-			s.logger.Errorf("oauth: failed to generate tokens: %v", err)
-			return nil, types.NewInternalError("failed to generate authentication tokens")
+		}
+		for k, v := range interceptClaims {
+			tokenClaims[k] = v
 		}
 
-		// Create session record
+		accessToken, refreshToken, err = s.securityManager.GenerateTokens(user, tokenClaims)
+		if err != nil {
+			s.logger.Errorf("oauth: failed to generate tokens: %v", err)
+			return nil, types.NewInternalError("failed to generate authentication tokens").Wrap(err)
+		}
+
+		// Create session record — store hashed refresh token
 		session := &models.Session{
 			ID:                    sessionID,
 			UserID:                user.ID,
-			RefreshToken:          refreshToken,
+			RefreshToken:          security.HashRefreshToken(refreshToken),
 			RefreshTokenExpiresAt: time.Now().Add(s.deps.Config.Security.Session.RefreshTokenTTL),
 			ExpiresAt:             time.Now().Add(s.deps.Config.Security.Session.SessionTTL),
 			UserAgent:             metadata.UserAgent,
@@ -190,18 +222,23 @@ func (s *oauthService) HandleCallback(ctx context.Context, providerName, code, s
 
 		if err := s.sessionRepo.Create(ctx, session); err != nil {
 			s.logger.Errorf("oauth: failed to create session: %v", err)
-			return nil, types.NewInternalError("failed to create session")
+			return nil, types.NewInternalError("failed to create session").Wrap(err)
 		}
 
 		expiresIn = int64(s.deps.Config.Security.Session.SessionTTL.Seconds())
 	} else {
 		// Stateless: just generate JWT tokens
-		accessToken, refreshToken, err = s.securityManager.GenerateTokens(user, map[string]interface{}{
+		tokenClaims := map[string]interface{}{
 			"oauth_provider": providerName,
-		})
+		}
+		for k, v := range interceptClaims {
+			tokenClaims[k] = v
+		}
+
+		accessToken, refreshToken, err = s.securityManager.GenerateTokens(user, tokenClaims)
 		if err != nil {
 			s.logger.Errorf("oauth: failed to generate tokens: %v", err)
-			return nil, types.NewInternalError("failed to generate authentication tokens")
+			return nil, types.NewInternalError("failed to generate authentication tokens").Wrap(err)
 		}
 
 		expiresIn = int64(s.deps.Config.Security.Session.AccessTokenTTL.Seconds())
@@ -304,7 +341,7 @@ func (s *oauthService) findOrCreateUser(ctx context.Context, providerName string
 
 	now := time.Now()
 	user := &models.User{
-		ID:            uuid.New().String(),
+		ID:            uuid.Must(uuid.NewV7()).String(),
 		Email:         info.Email,
 		Name:          info.Name,
 		FirstName:     info.FirstName,
@@ -320,7 +357,7 @@ func (s *oauthService) findOrCreateUser(ctx context.Context, providerName string
 
 	if err := s.userRepo.Create(ctx, user); err != nil {
 		s.logger.Errorf("oauth: failed to create user: %v", err)
-		return nil, false, types.NewInternalError("failed to create user")
+		return nil, false, types.NewInternalError("failed to create user").Wrap(err)
 	}
 
 	// Link OAuth provider
@@ -348,7 +385,7 @@ func (s *oauthService) findOrCreateUser(ctx context.Context, providerName string
 func (s *oauthService) linkProviderToUser(ctx context.Context, userID, providerName, providerUserID string, tokenResp *providers.TokenResponse) error {
 	now := time.Now()
 	account := &models.Account{
-		ID:                uuid.New().String(),
+		ID:                uuid.Must(uuid.NewV7()).String(),
 		UserID:            userID,
 		Provider:          providerName,
 		ProviderAccountID: providerUserID,
@@ -359,7 +396,7 @@ func (s *oauthService) linkProviderToUser(ctx context.Context, userID, providerN
 
 	// Store provider tokens if configured
 	if s.config.StoreProviderTokens && tokenResp != nil {
-		// TODO: in the future encrypt those sensitive infos
+		// FIX: in the future encrypt those sensitive infos
 		account.AccessToken = tokenResp.AccessToken
 		account.RefreshToken = tokenResp.RefreshToken
 		account.TokenType = tokenResp.TokenType
@@ -402,15 +439,21 @@ func (s *oauthService) updateAccountTokens(ctx context.Context, account *models.
 func (s *oauthService) UnlinkProvider(ctx context.Context, userID, providerName string) *types.GoAuthError {
 	// Check if the account link exists
 	account, err := s.accountRepo.FindByUserIDAndProvider(ctx, userID, providerName)
-	if err != nil || account == nil {
-		return types.NewOAuthNotLinkedError(providerName)
+	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			return types.NewOAuthNotLinkedError(providerName)
+		}
+		return types.NewInternalError("failed to find OAuth account").Wrap(err)
 	}
 
 	// Check if user has password or another OAuth provider
 	// (Don't allow unlinking if it would leave the user with no login method)
 	user, err := s.userRepo.FindByID(ctx, userID)
 	if err != nil {
-		return types.NewInternalError("failed to find user")
+		if errors.Is(err, models.ErrNotFound) {
+			return types.NewUserNotFoundError()
+		}
+		return types.NewInternalError("failed to find user").Wrap(err)
 	}
 
 	if user.PasswordHash == "" {
@@ -435,7 +478,7 @@ func (s *oauthService) UnlinkProvider(ctx context.Context, userID, providerName 
 	// Delete the account
 	if err := s.accountRepo.Delete(ctx, account.ID); err != nil {
 		s.logger.Errorf("oauth: failed to unlink provider: %v", err)
-		return types.NewInternalError("failed to unlink provider")
+		return types.NewInternalError("failed to unlink provider").Wrap(err)
 	}
 
 	// Emit event
@@ -456,7 +499,7 @@ func (s *oauthService) GetLinkedProviders(ctx context.Context, userID string) ([
 	accounts, err := s.accountRepo.FindByUserID(ctx, userID)
 	if err != nil {
 		s.logger.Errorf("oauth: failed to get linked providers: %v", err)
-		return nil, types.NewInternalError("failed to get linked providers")
+		return nil, types.NewInternalError("failed to get linked providers").Wrap(err)
 	}
 
 	var linked []string
@@ -483,7 +526,7 @@ func (s *oauthService) generateUsername(email string) string {
 	// Extract local part of email
 	parts := strings.Split(email, "@")
 	if len(parts) == 0 {
-		return uuid.New().String()[:8]
+		return uuid.Must(uuid.NewV7()).String()[:8]
 	}
 
 	base := strings.ToLower(parts[0])
@@ -501,5 +544,5 @@ func (s *oauthService) generateUsername(email string) string {
 	}
 
 	// Add random suffix to ensure uniqueness
-	return fmt.Sprintf("%s_%s", base, uuid.New().String()[:6])
+	return fmt.Sprintf("%s_%s", base, uuid.Must(uuid.NewV7()).String()[:6])
 }

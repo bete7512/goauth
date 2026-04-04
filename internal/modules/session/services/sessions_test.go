@@ -139,7 +139,7 @@ func (s *SessionsServiceSuite) TestGetSession() {
 			userID:    testUser.ID,
 			sessionID: "nonexistent",
 			setup: func(sr *mocks.MockSessionRepository) {
-				sr.EXPECT().FindByID(gomock.Any(), "nonexistent").Return(nil, errors.New("not found"))
+				sr.EXPECT().FindByID(gomock.Any(), "nonexistent").Return(nil, models.ErrNotFound)
 			},
 			wantErr: true,
 			errCode: types.ErrSessionNotFound,
@@ -202,7 +202,7 @@ func (s *SessionsServiceSuite) TestDeleteSession() {
 			userID:    testUser.ID,
 			sessionID: "nonexistent",
 			setup: func(sr *mocks.MockSessionRepository) {
-				sr.EXPECT().FindByID(gomock.Any(), "nonexistent").Return(nil, errors.New("not found"))
+				sr.EXPECT().FindByID(gomock.Any(), "nonexistent").Return(nil, models.ErrNotFound)
 			},
 			wantErr: true,
 			errCode: types.ErrSessionNotFound,

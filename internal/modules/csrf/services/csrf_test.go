@@ -60,9 +60,9 @@ func (s *CSRFServiceSuite) TestGenerateTokenUniqueness() {
 
 func (s *CSRFServiceSuite) TestValidateToken() {
 	tests := []struct {
-		name    string
-		token   func(services.CSRFService) string
-		want    bool
+		name  string
+		token func(services.CSRFService) string
+		want  bool
 	}{
 		{
 			name: "valid token",

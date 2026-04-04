@@ -142,6 +142,42 @@ type Auth2FAVerifiedEventData struct {
 	Metadata *RequestMetadata `json:"metadata"`
 }
 
+// OrgEventData is used for organization lifecycle events (created, updated, deleted).
+type OrgEventData struct {
+	Organization *models.Organization `json:"organization"`
+	ActorID      string               `json:"actor_id"`
+	Metadata     *RequestMetadata     `json:"metadata,omitempty"`
+}
+
+// OrgMemberEventData is used for organization membership events.
+type OrgMemberEventData struct {
+	OrgID   string `json:"org_id"`
+	OrgName string `json:"org_name"`
+	UserID  string `json:"user_id"`
+	Email   string `json:"email"`
+	Role    string `json:"role"`
+	ActorID string `json:"actor_id"`
+}
+
+// OrgInvitationEventData is used for organization invitation events.
+type OrgInvitationEventData struct {
+	OrgID       string    `json:"org_id"`
+	OrgName     string    `json:"org_name"`
+	Email       string    `json:"email"`
+	Role        string    `json:"role"`
+	InviterID   string    `json:"inviter_id"`
+	InviterName string    `json:"inviter_name"`
+	InviteLink  string    `json:"invite_link"`
+	ExpiresAt   time.Time `json:"expires_at"`
+}
+
+// OrgSwitchEventData is used for org.switched events.
+type OrgSwitchEventData struct {
+	UserID    string `json:"user_id"`
+	FromOrgID string `json:"from_org_id,omitempty"`
+	ToOrgID   string `json:"to_org_id"`
+}
+
 // EventDataAs extracts typed event data from an Event.
 // Returns the typed data and true if the assertion succeeds.
 //

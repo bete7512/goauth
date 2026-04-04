@@ -60,4 +60,3 @@ func (h *StatelessHandler) clearTokenCookies(w http.ResponseWriter) {
 		MaxAge:   -1,
 	})
 }
-

@@ -3,12 +3,14 @@ package gorm
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/bete7512/goauth/pkg/types"
 	"github.com/bete7512/goauth/storage/gorm/auditlog"
 	"github.com/bete7512/goauth/storage/gorm/core"
 	"github.com/bete7512/goauth/storage/gorm/oauth"
+	"github.com/bete7512/goauth/storage/gorm/organization"
 	"github.com/bete7512/goauth/storage/gorm/session"
 	"github.com/bete7512/goauth/storage/gorm/twofactor"
 	"gorm.io/driver/mysql"
@@ -18,8 +20,9 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-// Compile-time check: GormStorage implements types.Storage
+// Compile-time checks
 var _ types.Storage = (*GormStorage)(nil)
+var _ types.MigrationApplier = (*GormStorage)(nil)
 
 // Config holds GORM storage configuration
 type Config struct {
@@ -46,12 +49,14 @@ type Config struct {
 //	store, _ := gorm.NewStorage(gorm.Config{...})
 //	auth.New(&config.Config{Storage: store})
 type GormStorage struct {
-	db               *gorm.DB
-	coreStorage      *core.GormCoreStorage
-	sessionStorage   *session.GormSessionStorage
-	auditLogStoarage *auditlog.GormAuditLogStorage
-	oauthStorage     *oauth.GormOAuthStorage
-	twoFactorStorage *twofactor.TwoFactorStorage
+	db                  *gorm.DB
+	dialect             types.DialectType
+	coreStorage         *core.GormCoreStorage
+	sessionStorage      *session.GormSessionStorage
+	auditLogStoarage    *auditlog.GormAuditLogStorage
+	oauthStorage        *oauth.GormOAuthStorage
+	twoFactorStorage    *twofactor.TwoFactorStorage
+	organizationStorage *organization.GormOrganizationStorage
 }
 
 // NewStorage creates a new GORM storage from configuration
@@ -109,19 +114,22 @@ func NewStorage(config Config) (*GormStorage, error) {
 		sqlDB.SetConnMaxLifetime(5 * time.Minute)
 	}
 
-	return NewStorageFromDB(db), nil
+	storage := NewStorageFromDB(db)
+	storage.dialect = config.Dialect
+	return storage, nil
 }
 
 // NewStorageFromDB creates a new GORM storage from an existing *gorm.DB
 // Use this if you already have a database connection
 func NewStorageFromDB(db *gorm.DB) *GormStorage {
 	return &GormStorage{
-		db:               db,
-		coreStorage:      core.NewCoreStorage(db),
-		sessionStorage:   session.NewSessionStorage(db),
-		auditLogStoarage: auditlog.NewAuditLogStorage(db),
-		oauthStorage:     oauth.NewOAuthStorage(db),
-		twoFactorStorage: twofactor.NewTwoFactorStorage(db),
+		db:                  db,
+		coreStorage:         core.NewCoreStorage(db),
+		sessionStorage:      session.NewSessionStorage(db),
+		auditLogStoarage:    auditlog.NewAuditLogStorage(db),
+		oauthStorage:        oauth.NewOAuthStorage(db),
+		twoFactorStorage:    twofactor.NewTwoFactorStorage(db),
+		organizationStorage: organization.NewOrganizationStorage(db),
 	}
 }
 
@@ -161,13 +169,9 @@ func (s *GormStorage) TwoFactorAuth() types.TwoFactorStorage {
 	return s.twoFactorStorage
 }
 
-// Migrate runs database migrations for the provided models
-// Models are collected from registered modules via their Models() method
-func (s *GormStorage) Migrate(ctx context.Context, models []interface{}) error {
-	if len(models) == 0 {
-		return nil
-	}
-	return s.db.WithContext(ctx).AutoMigrate(models...)
+// Organization returns storage for the organization module
+func (s *GormStorage) Organization() types.OrganizationStorage {
+	return s.organizationStorage
 }
 
 // Close closes the database connection
@@ -182,4 +186,83 @@ func (s *GormStorage) Close() error {
 // DB returns the underlying *gorm.DB connection
 func (s *GormStorage) DB() any {
 	return s.db
+}
+
+// ─── MigrationApplier implementation ────────────────────────────────────────
+
+// Dialect returns the DB dialect set during construction.
+// Falls back to GORM's dialector name when constructed via NewStorageFromDB (no dialect stored).
+func (s *GormStorage) Dialect() types.DialectType {
+	if s.dialect != "" {
+		return s.dialect
+	}
+	return types.DialectType(s.db.Dialector.Name())
+}
+
+// EnsureMigrationsTable creates the goauth_migrations tracking table if it does not exist.
+func (s *GormStorage) EnsureMigrationsTable(ctx context.Context) error {
+	return s.db.WithContext(ctx).AutoMigrate(&gormMigrationRecord{})
+}
+
+// AppliedMigrations returns all rows from the goauth_migrations table ordered by module and version.
+func (s *GormStorage) AppliedMigrations(ctx context.Context) ([]types.MigrationRecord, error) {
+	var rows []gormMigrationRecord
+	if err := s.db.WithContext(ctx).Order("module_name, version").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	records := make([]types.MigrationRecord, len(rows))
+	for i, r := range rows {
+		records[i] = types.MigrationRecord{
+			ID:         r.ID,
+			ModuleName: r.ModuleName,
+			Version:    r.Version,
+			Name:       r.Name,
+			Dialect:    r.Dialect,
+			AppliedAt:  r.AppliedAt,
+		}
+	}
+	return records, nil
+}
+
+// ExecMigration executes a raw SQL script by splitting on ";" and running each statement.
+// Sufficient for DDL-only migration files (no semicolons inside string literals or comments).
+func (s *GormStorage) ExecMigration(ctx context.Context, sql []byte) error {
+	for _, stmt := range splitSQLStatements(string(sql)) {
+		if err := s.db.WithContext(ctx).Exec(stmt).Error; err != nil {
+			return fmt.Errorf("migration statement failed: %w\nSQL: %s", err, stmt)
+		}
+	}
+	return nil
+}
+
+// RecordMigration inserts a migration record into goauth_migrations.
+func (s *GormStorage) RecordMigration(ctx context.Context, record types.MigrationRecord) error {
+	row := gormMigrationRecord{
+		ID:         record.ID,
+		ModuleName: record.ModuleName,
+		Version:    record.Version,
+		Name:       record.Name,
+		Dialect:    record.Dialect,
+		AppliedAt:  record.AppliedAt,
+	}
+	return s.db.WithContext(ctx).Create(&row).Error
+}
+
+// RemoveMigrationRecord deletes a migration record by module name and version (used on rollback).
+func (s *GormStorage) RemoveMigrationRecord(ctx context.Context, moduleName string, version int) error {
+	return s.db.WithContext(ctx).
+		Where("module_name = ? AND version = ?", moduleName, version).
+		Delete(&gormMigrationRecord{}).Error
+}
+
+// splitSQLStatements splits a SQL script on ";" and returns non-empty trimmed statements.
+func splitSQLStatements(script string) []string {
+	parts := strings.Split(script, ";")
+	result := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if s := strings.TrimSpace(p); s != "" {
+			result = append(result, s)
+		}
+	}
+	return result
 }

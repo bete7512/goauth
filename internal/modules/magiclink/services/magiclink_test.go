@@ -2,10 +2,10 @@ package services_test
 
 import (
 	"context"
-	"errors"
 	"testing"
 	"time"
 
+	"github.com/bete7512/goauth/internal/interceptor"
 	"github.com/bete7512/goauth/internal/mocks"
 	magiclink_dto "github.com/bete7512/goauth/internal/modules/magiclink/handlers/dto"
 	"github.com/bete7512/goauth/internal/modules/magiclink/services"
@@ -54,10 +54,11 @@ func (s *MagicLinkServiceSuite) setupService(cfgOverride ...*config.MagicLinkMod
 	testCfg.APIURL = "http://localhost:8080"
 
 	deps := config.ModuleDependencies{
-		Config:          testCfg,
-		Events:          mockEvents,
-		Logger:          mockLogger,
-		SecurityManager: secMgr,
+		Config:           testCfg,
+		Events:           mockEvents,
+		Logger:           mockLogger,
+		SecurityManager:  secMgr,
+		AuthInterceptors: interceptor.NewRegistry(),
 	}
 
 	svc := services.NewMagicLinkService(deps, mockUserRepo, mockTokenRepo, secMgr, cfg)
@@ -78,7 +79,7 @@ func (s *MagicLinkServiceSuite) TestSendMagicLink() {
 			req:  &magiclink_dto.MagicLinkSendRequest{Email: "test@example.com"},
 			setup: func(ur *mocks.MockUserRepository, tr *mocks.MockTokenRepository, ev *mocks.MockEventBus, lg *mocks.MockLogger) {
 				ur.EXPECT().FindByEmail(gomock.Any(), "test@example.com").Return(testutil.TestUser(), nil)
-				tr.EXPECT().FindByEmailAndType(gomock.Any(), "test@example.com", models.TokenTypeMagicLink).Return(nil, errors.New("not found"))
+				tr.EXPECT().FindByEmailAndType(gomock.Any(), "test@example.com", models.TokenTypeMagicLink).Return(nil, models.ErrNotFound)
 				tr.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&models.Token{})).Return(nil)
 				ev.EXPECT().EmitAsync(gomock.Any(), types.EventSendMagicLink, gomock.Any()).Return(nil)
 			},
@@ -88,7 +89,7 @@ func (s *MagicLinkServiceSuite) TestSendMagicLink() {
 			name: "user not found - no auto register",
 			req:  &magiclink_dto.MagicLinkSendRequest{Email: "unknown@example.com"},
 			setup: func(ur *mocks.MockUserRepository, tr *mocks.MockTokenRepository, ev *mocks.MockEventBus, lg *mocks.MockLogger) {
-				ur.EXPECT().FindByEmail(gomock.Any(), "unknown@example.com").Return(nil, errors.New("not found"))
+				ur.EXPECT().FindByEmail(gomock.Any(), "unknown@example.com").Return(nil, models.ErrNotFound)
 			},
 			wantMsg: "If an account exists, a magic link has been sent",
 		},
@@ -100,10 +101,10 @@ func (s *MagicLinkServiceSuite) TestSendMagicLink() {
 				AutoRegister: true,
 			},
 			setup: func(ur *mocks.MockUserRepository, tr *mocks.MockTokenRepository, ev *mocks.MockEventBus, lg *mocks.MockLogger) {
-				ur.EXPECT().FindByEmail(gomock.Any(), "new@example.com").Return(nil, errors.New("not found"))
+				ur.EXPECT().FindByEmail(gomock.Any(), "new@example.com").Return(nil, models.ErrNotFound)
 				ur.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&models.User{})).Return(nil)
 				lg.EXPECT().Infof(gomock.Any(), gomock.Any()).AnyTimes()
-				tr.EXPECT().FindByEmailAndType(gomock.Any(), "new@example.com", models.TokenTypeMagicLink).Return(nil, errors.New("not found"))
+				tr.EXPECT().FindByEmailAndType(gomock.Any(), "new@example.com", models.TokenTypeMagicLink).Return(nil, models.ErrNotFound)
 				tr.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&models.Token{})).Return(nil)
 				ev.EXPECT().EmitAsync(gomock.Any(), types.EventSendMagicLink, gomock.Any()).Return(nil)
 			},
@@ -185,7 +186,7 @@ func (s *MagicLinkServiceSuite) TestVerifyMagicLink() {
 			name:  "invalid token",
 			token: "bad-token",
 			setup: func(ur *mocks.MockUserRepository, tr *mocks.MockTokenRepository, ev *mocks.MockEventBus, lg *mocks.MockLogger) {
-				tr.EXPECT().FindByToken(gomock.Any(), "bad-token").Return(nil, errors.New("not found"))
+				tr.EXPECT().FindByToken(gomock.Any(), "bad-token").Return(nil, models.ErrNotFound)
 			},
 			wantErr: true,
 			errCode: types.ErrInvalidToken,
@@ -225,7 +226,7 @@ func (s *MagicLinkServiceSuite) TestVerifyMagicLink() {
 				token.Token = "orphan-token"
 
 				tr.EXPECT().FindByToken(gomock.Any(), "orphan-token").Return(token, nil)
-				ur.EXPECT().FindByID(gomock.Any(), "nonexistent-user").Return(nil, errors.New("not found"))
+				ur.EXPECT().FindByID(gomock.Any(), "nonexistent-user").Return(nil, models.ErrNotFound)
 			},
 			wantErr: true,
 			errCode: types.ErrUserNotFound,
@@ -281,7 +282,7 @@ func (s *MagicLinkServiceSuite) TestVerifyByCode() {
 			name: "invalid code",
 			req:  &magiclink_dto.MagicLinkVerifyByCodeRequest{Email: "test@example.com", Code: "000000"},
 			setup: func(ur *mocks.MockUserRepository, tr *mocks.MockTokenRepository, ev *mocks.MockEventBus, lg *mocks.MockLogger) {
-				tr.EXPECT().FindByCode(gomock.Any(), "000000", models.TokenTypeMagicLink).Return(nil, errors.New("not found"))
+				tr.EXPECT().FindByCode(gomock.Any(), "000000", models.TokenTypeMagicLink).Return(nil, models.ErrNotFound)
 			},
 			wantErr: true,
 			errCode: types.ErrInvalidToken,

@@ -54,9 +54,9 @@ func main() {
 
     // 2. Create auth instance (Core module auto-registered)
     a, err := auth.New(&config.Config{
-        Storage:     store,
-        AutoMigrate: true,
-        BasePath:    "/api/v1",
+        Storage:   store,
+        Migration: config.MigrationConfig{Auto: true},
+        BasePath:  "/api/v1",
         Security: types.SecurityConfig{
             JwtSecretKey:  "your-secret-key-min-32-chars!!!!",
             EncryptionKey: "your-encryption-key-32-chars!",
@@ -140,14 +140,14 @@ curl http://localhost:8080/api/v1/me \
 ## Three-Phase Pattern
 
 ```go
-// 1. Create — Core module auto-registered
+// 1. Create -- Core module auto-registered
 a, _ := auth.New(&config.Config{...})
 
 // 2. Register optional modules
 a.Use(notification.New(&notification.Config{...}))
-a.Use(twofactor.New(&twofactor.TwoFactorConfig{...}))
+a.Use(twofactor.New()) // variadic config, safe defaults if omitted
 
-// 3. Initialize — runs migrations, wires hooks, builds routes
+// 3. Initialize -- runs migrations, wires hooks, builds routes
 a.Initialize(context.Background())
 
 // Then register routes with a framework adapter
@@ -161,7 +161,7 @@ stdhttp.Register(mux, a)
 By default, GoAuth uses stateless JWT. To switch to server-side sessions:
 
 ```go
-import "github.com/bete7512/goauth/internal/modules/session"
+import "github.com/bete7512/goauth/pkg/modules/session"
 
 a.Use(session.New(&config.SessionModuleConfig{
     EnableSessionManagement: true,
@@ -174,8 +174,8 @@ a.Use(session.New(&config.SessionModuleConfig{
 
 ```go
 import (
-    "github.com/bete7512/goauth/internal/modules/notification"
-    "github.com/bete7512/goauth/internal/modules/notification/services/senders"
+    "github.com/bete7512/goauth/pkg/modules/notification"
+    "github.com/bete7512/goauth/pkg/modules/notification/senders"
 )
 
 a.Use(notification.New(&notification.Config{
@@ -193,13 +193,17 @@ a.Use(notification.New(&notification.Config{
 ### Two-Factor Auth
 
 ```go
-import "github.com/bete7512/goauth/internal/modules/twofactor"
+import "github.com/bete7512/goauth/pkg/modules/twofactor"
 
-a.Use(twofactor.New(&twofactor.TwoFactorConfig{
+// With custom config:
+a.Use(twofactor.New(&config.TwoFactorConfig{
     Issuer:           "MyApp",
     Required:         false,
     BackupCodesCount: 10,
 }))
+
+// Or with safe defaults (no config needed):
+a.Use(twofactor.New())
 ```
 
 ## Framework Integration
@@ -277,6 +281,6 @@ a, _ := auth.New(&config.Config{
 
 ## Next Steps
 
-- [Core Module](/docs/modules/core) — Full Core module docs
-- [Notification Module](/docs/modules/notification) — Email/SMS setup
-- [API Reference](/docs/api/endpoints) — All endpoints
+- [Core Module](/docs/modules/core) -- Full Core module docs
+- [Notification Module](/docs/modules/notification) -- Email/SMS setup
+- [API Reference](/docs/api/endpoints) -- All endpoints

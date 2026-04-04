@@ -22,15 +22,15 @@ const (
 type Account struct {
 	ID                string     `json:"id" gorm:"primaryKey"`
 	UserID            string     `json:"user_id" gorm:"not null;index"`
-	Provider          string     `json:"provider" gorm:"not null;index"`          // google, github, microsoft, discord
-	ProviderAccountID string     `json:"provider_account_id" gorm:"not null"`     // Provider's unique user ID
-	Type              string     `json:"type" gorm:"not null"`                    // oauth, oidc
-	AccessToken       string     `json:"-" gorm:"type:text"`                      // Encrypted provider access token
-	RefreshToken      string     `json:"-" gorm:"type:text"`                      // Encrypted provider refresh token
-	ExpiresAt         *time.Time `json:"expires_at,omitempty"`                    // Provider token expiry
-	TokenType         string     `json:"token_type,omitempty"`                    // Usually "Bearer"
-	Scope             string     `json:"scope,omitempty"`                         // Granted scopes
-	IDToken           string     `json:"-" gorm:"type:text"`                      // OIDC ID token (for reference)
+	Provider          string     `json:"provider" gorm:"not null;index"`      // google, github, microsoft, discord
+	ProviderAccountID string     `json:"provider_account_id" gorm:"not null"` // Provider's unique user ID
+	Type              string     `json:"type" gorm:"not null"`                // oauth, oidc
+	AccessToken       string     `json:"-" gorm:"type:text"`                  // Encrypted provider access token
+	RefreshToken      string     `json:"-" gorm:"type:text"`                  // Encrypted provider refresh token
+	ExpiresAt         *time.Time `json:"expires_at,omitempty"`                // Provider token expiry
+	TokenType         string     `json:"token_type,omitempty"`                // Usually "Bearer"
+	Scope             string     `json:"scope,omitempty"`                     // Granted scopes
+	IDToken           string     `json:"-" gorm:"type:text"`                  // OIDC ID token (for reference)
 	CreatedAt         time.Time  `json:"created_at"`
 	UpdatedAt         time.Time  `json:"updated_at"`
 }

@@ -4,6 +4,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -55,7 +56,7 @@ func (s *magicLinkService) SendMagicLink(ctx context.Context, req *dto.MagicLink
 	genericMsg := &coredto.MessageResponse{Message: "If an account exists, a magic link has been sent"}
 
 	user, err := s.userRepository.FindByEmail(ctx, req.Email)
-	if err != nil || user == nil {
+	if err != nil || user == nil { //nolint:gocritic // intentionally combined: both DB error and not-found trigger auto-register or generic message
 		if s.config.AutoRegister {
 			newUser, authErr := s.autoRegister(ctx, req.Email)
 			if authErr != nil {
@@ -77,8 +78,11 @@ func (s *magicLinkService) ResendMagicLink(ctx context.Context, req *dto.MagicLi
 
 func (s *magicLinkService) VerifyMagicLink(ctx context.Context, tokenStr string) (*coredto.AuthResponse, *types.GoAuthError) {
 	verification, err := s.tokenRepository.FindByToken(ctx, tokenStr)
-	if err != nil || verification == nil {
-		return nil, types.NewGoAuthError(types.ErrInvalidToken, "invalid magic link token", 400)
+	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			return nil, types.NewGoAuthError(types.ErrInvalidToken, "invalid magic link token", 400)
+		}
+		return nil, types.NewInternalError("failed to find magic link token").Wrap(err)
 	}
 
 	return s.verifyToken(ctx, verification)
@@ -86,8 +90,11 @@ func (s *magicLinkService) VerifyMagicLink(ctx context.Context, tokenStr string)
 
 func (s *magicLinkService) VerifyByCode(ctx context.Context, req *dto.MagicLinkVerifyByCodeRequest) (*coredto.AuthResponse, *types.GoAuthError) {
 	verification, err := s.tokenRepository.FindByCode(ctx, req.Code, models.TokenTypeMagicLink)
-	if err != nil || verification == nil {
-		return nil, types.NewGoAuthError(types.ErrInvalidToken, "invalid magic link code", 400)
+	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			return nil, types.NewGoAuthError(types.ErrInvalidToken, "invalid magic link code", 400)
+		}
+		return nil, types.NewInternalError("failed to find magic link code").Wrap(err)
 	}
 
 	if verification.Email != req.Email {
@@ -109,16 +116,16 @@ func (s *magicLinkService) sendMagicLinkForUser(ctx context.Context, user *model
 	// Generate token + OTP code
 	token, err := s.securityManager.GenerateRandomToken(32)
 	if err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to generate token: %v", err))
+		return nil, types.NewInternalError("failed to generate token").Wrap(err)
 	}
 
 	code, err := s.securityManager.GenerateNumericOTP(6)
 	if err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to generate code: %v", err))
+		return nil, types.NewInternalError("failed to generate code").Wrap(err)
 	}
 
 	magicLinkToken := &models.Token{
-		ID:        uuid.New().String(),
+		ID:        uuid.Must(uuid.NewV7()).String(),
 		UserID:    user.ID,
 		Token:     token,
 		Code:      code,
@@ -130,7 +137,7 @@ func (s *magicLinkService) sendMagicLinkForUser(ctx context.Context, user *model
 	}
 
 	if err := s.tokenRepository.Create(ctx, magicLinkToken); err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to create magic link token: %v", err))
+		return nil, types.NewInternalError("failed to create magic link token").Wrap(err)
 	}
 
 	magicLink := s.buildMagicLink(token)
@@ -160,19 +167,39 @@ func (s *magicLinkService) verifyToken(ctx context.Context, verification *models
 	}
 
 	user, err := s.userRepository.FindByID(ctx, verification.UserID)
-	if err != nil || user == nil {
-		return nil, types.NewUserNotFoundError()
+	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			return nil, types.NewUserNotFoundError()
+		}
+		return nil, types.NewInternalError("failed to find user").Wrap(err)
 	}
 
 	// Mark token as used
 	if err := s.tokenRepository.MarkAsUsed(ctx, verification.ID); err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to mark token as used: %v", err))
+		return nil, types.NewInternalError("failed to mark token as used").Wrap(err)
 	}
 
-	// Generate auth tokens
-	accessToken, refreshToken, err := s.securityManager.GenerateTokens(user, map[string]interface{}{})
+	// Run auth interceptors (org enrichment, etc.)
+	interceptClaims, challenges, _, interceptErr := s.deps.AuthInterceptors.Run(ctx, &types.InterceptParams{
+		Phase: types.PhaseLogin,
+		User:  user,
+	})
+	if interceptErr != nil {
+		return nil, types.NewInternalError("auth interceptor failed").Wrap(interceptErr)
+	}
+
+	// If challenges were issued, return them without tokens
+	if len(challenges) > 0 {
+		return &coredto.AuthResponse{
+			Challenges: challenges,
+			Message:    "Authentication challenge required",
+		}, nil
+	}
+
+	// Generate auth tokens with enriched claims
+	accessToken, refreshToken, err := s.securityManager.GenerateTokens(user, interceptClaims)
 	if err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to generate tokens: %v", err))
+		return nil, types.NewInternalError("failed to generate tokens").Wrap(err)
 	}
 
 	// Update last login
@@ -201,7 +228,7 @@ func (s *magicLinkService) verifyToken(ctx context.Context, verification *models
 func (s *magicLinkService) autoRegister(ctx context.Context, email string) (*models.User, *types.GoAuthError) {
 	now := time.Now()
 	user := &models.User{
-		ID:            uuid.New().String(),
+		ID:            uuid.Must(uuid.NewV7()).String(),
 		Email:         email,
 		Username:      generateUsernameFromEmail(email),
 		Active:        true,
@@ -211,7 +238,7 @@ func (s *magicLinkService) autoRegister(ctx context.Context, email string) (*mod
 	}
 
 	if err := s.userRepository.Create(ctx, user); err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to auto-register user: %v", err))
+		return nil, types.NewInternalError("failed to auto-register user").Wrap(err)
 	}
 
 	s.logger.Infof("magiclink: auto-registered user %s", email)
@@ -236,9 +263,9 @@ func (s *magicLinkService) buildMagicLink(token string) string {
 func generateUsernameFromEmail(email string) string {
 	parts := strings.Split(email, "@")
 	if len(parts) > 0 && parts[0] != "" {
-		return parts[0] + "-" + uuid.New().String()[:8]
+		return parts[0] + "-" + uuid.Must(uuid.NewV7()).String()[:8]
 	}
-	return "user-" + uuid.New().String()[:8]
+	return "user-" + uuid.Must(uuid.NewV7()).String()[:8]
 }
 
 func userToDTO(user *models.User) *coredto.UserDTO {

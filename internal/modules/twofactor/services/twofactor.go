@@ -5,6 +5,7 @@ package services
 import (
 	"context"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -75,7 +76,7 @@ func (s *twoFactorService) GenerateSecret(ctx context.Context, userEmail string)
 	})
 	if err != nil {
 		s.deps.Logger.Error("Failed to generate TOTP secret", "error", err)
-		return "", "", types.NewInternalError("Failed to generate 2FA secret")
+		return "", "", types.NewInternalError("Failed to generate 2FA secret").Wrap(err)
 	}
 
 	return key.Secret(), key.URL(), nil
@@ -87,9 +88,9 @@ func (s *twoFactorService) SaveTwoFactorConfig(ctx context.Context, tfConfig *mo
 
 	// Check if config already exists
 	existing, err := tfRepo.GetByUserID(ctx, tfConfig.UserID)
-	if err != nil {
+	if err != nil && !errors.Is(err, models.ErrNotFound) {
 		s.deps.Logger.Error("Failed to check existing 2FA config", "error", err)
-		return types.NewInternalError("Failed to save 2FA configuration")
+		return types.NewInternalError("Failed to save 2FA configuration").Wrap(err)
 	}
 
 	if existing != nil {
@@ -98,14 +99,14 @@ func (s *twoFactorService) SaveTwoFactorConfig(ctx context.Context, tfConfig *mo
 		tfConfig.CreatedAt = existing.CreatedAt
 		if err := tfRepo.Update(ctx, tfConfig); err != nil {
 			s.deps.Logger.Error("Failed to update 2FA config", "error", err)
-			return types.NewInternalError("Failed to update 2FA configuration")
+			return types.NewInternalError("Failed to update 2FA configuration").Wrap(err)
 		}
 	} else {
 		// Create new
-		tfConfig.ID = uuid.New().String()
+		tfConfig.ID = uuid.Must(uuid.NewV7()).String()
 		if err := tfRepo.Create(ctx, tfConfig); err != nil {
 			s.deps.Logger.Error("Failed to create 2FA config", "error", err)
-			return types.NewInternalError("Failed to save 2FA configuration")
+			return types.NewInternalError("Failed to save 2FA configuration").Wrap(err)
 		}
 	}
 
@@ -118,12 +119,11 @@ func (s *twoFactorService) GetTwoFactorConfig(ctx context.Context, userID string
 
 	tfConfig, err := tfRepo.GetByUserID(ctx, userID)
 	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			return nil, types.NewTwoFactorNotFoundError()
+		}
 		s.deps.Logger.Error("Failed to get 2FA config", "error", err)
-		return nil, types.NewInternalError("Failed to retrieve 2FA configuration")
-	}
-
-	if tfConfig == nil {
-		return nil, types.NewTwoFactorNotFoundError()
+		return nil, types.NewInternalError("Failed to retrieve 2FA configuration").Wrap(err)
 	}
 
 	return tfConfig, nil
@@ -154,7 +154,6 @@ func (s *twoFactorService) VerifyCode(ctx context.Context, userID, code string) 
 		return types.NewTwoFactorInvalidError()
 	}
 
-	// TODO: Add code reuse prevention (cache used codes for 60s) in future version
 	return nil
 }
 
@@ -164,12 +163,11 @@ func (s *twoFactorService) EnableTwoFactor(ctx context.Context, userID string) *
 
 	tfConfig, err := tfRepo.GetByUserID(ctx, userID)
 	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			return types.NewTwoFactorNotFoundError()
+		}
 		s.deps.Logger.Error("Failed to get 2FA config", "error", err)
-		return types.NewInternalError("Failed to enable 2FA")
-	}
-
-	if tfConfig == nil {
-		return types.NewTwoFactorNotFoundError()
+		return types.NewInternalError("Failed to enable 2FA").Wrap(err)
 	}
 
 	tfConfig.Enabled = true
@@ -177,7 +175,7 @@ func (s *twoFactorService) EnableTwoFactor(ctx context.Context, userID string) *
 
 	if err := tfRepo.Update(ctx, tfConfig); err != nil {
 		s.deps.Logger.Error("Failed to enable 2FA", "error", err)
-		return types.NewInternalError("Failed to enable 2FA")
+		return types.NewInternalError("Failed to enable 2FA").Wrap(err)
 	}
 
 	return nil
@@ -204,7 +202,7 @@ func (s *twoFactorService) DisableTwoFactor(ctx context.Context, userID string) 
 
 	if err != nil {
 		s.deps.Logger.Error("Failed to disable 2FA", "error", err)
-		return types.NewInternalError("Failed to disable 2FA")
+		return types.NewInternalError("Failed to disable 2FA").Wrap(err)
 	}
 
 	return nil
@@ -218,7 +216,7 @@ func (s *twoFactorService) GenerateBackupCodes(ctx context.Context, userID strin
 		code, err := s.generateRandomCode(s.codeLength)
 		if err != nil {
 			s.deps.Logger.Error("Failed to generate backup code", "error", err)
-			return nil, types.NewInternalError("Failed to generate backup codes")
+			return nil, types.NewInternalError("Failed to generate backup codes").Wrap(err)
 		}
 		plainCodes[i] = code
 	}
@@ -233,7 +231,7 @@ func (s *twoFactorService) SaveBackupCodes(ctx context.Context, userID string, p
 	// First, delete any existing backup codes for this user
 	if err := bcRepo.DeleteByUserID(ctx, userID); err != nil {
 		s.deps.Logger.Error("Failed to delete old backup codes", "error", err)
-		return types.NewInternalError("Failed to save backup codes")
+		return types.NewInternalError("Failed to save backup codes").Wrap(err)
 	}
 
 	// Hash and create backup code models
@@ -242,11 +240,11 @@ func (s *twoFactorService) SaveBackupCodes(ctx context.Context, userID string, p
 		hashedCode, err := bcrypt.GenerateFromPassword([]byte(plainCode), bcrypt.DefaultCost)
 		if err != nil {
 			s.deps.Logger.Error("Failed to hash backup code", "error", err)
-			return types.NewInternalError("Failed to save backup codes")
+			return types.NewInternalError("Failed to save backup codes").Wrap(err)
 		}
 
 		backupCodes[i] = &models.BackupCode{
-			ID:     uuid.New().String(),
+			ID:     uuid.Must(uuid.NewV7()).String(),
 			UserID: userID,
 			Code:   string(hashedCode),
 			Used:   false,
@@ -256,7 +254,7 @@ func (s *twoFactorService) SaveBackupCodes(ctx context.Context, userID string, p
 	// Save batch
 	if err := bcRepo.CreateBatch(ctx, backupCodes); err != nil {
 		s.deps.Logger.Error("Failed to save backup codes", "error", err)
-		return types.NewInternalError("Failed to save backup codes")
+		return types.NewInternalError("Failed to save backup codes").Wrap(err)
 	}
 
 	return nil
@@ -270,7 +268,7 @@ func (s *twoFactorService) UseBackupCode(ctx context.Context, userID, plainCode 
 	backupCodes, err := bcRepo.GetUnusedByUserID(ctx, userID)
 	if err != nil {
 		s.deps.Logger.Error("Failed to get backup codes", "error", err)
-		return types.NewInternalError("Failed to verify backup code")
+		return types.NewInternalError("Failed to verify backup code").Wrap(err)
 	}
 
 	if len(backupCodes) == 0 {
@@ -284,7 +282,7 @@ func (s *twoFactorService) UseBackupCode(ctx context.Context, userID, plainCode 
 			// Match found! Mark as used
 			if err := bcRepo.MarkUsed(ctx, bc.ID); err != nil {
 				s.deps.Logger.Error("Failed to mark backup code as used", "error", err)
-				return types.NewInternalError("Failed to use backup code")
+				return types.NewInternalError("Failed to use backup code").Wrap(err)
 			}
 			return nil
 		}
@@ -365,9 +363,12 @@ func (s *twoFactorService) VerifyCodeManual(ctx context.Context, secret, code st
 // GetUser retrieves user by ID (delegates to core user repository)
 func (s *twoFactorService) GetUser(ctx context.Context, userID string) (*models.User, *types.GoAuthError) {
 	user, err := s.deps.Storage.Core().Users().FindByID(ctx, userID)
-	if err != nil || user == nil {
+	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			return nil, types.NewUserNotFoundError()
+		}
 		s.deps.Logger.Error("Failed to get user", "user_id", userID, "error", err)
-		return nil, types.NewUserNotFoundError()
+		return nil, types.NewInternalError("failed to get user").Wrap(err)
 	}
 	return user, nil
 }
@@ -392,22 +393,37 @@ func (s *twoFactorService) IssueAuthTokenAfter2FA(ctx context.Context, user *mod
 
 // issueSessionToken creates a session and returns tokens (session-based auth)
 func (s *twoFactorService) issueSessionToken(ctx context.Context, user *models.User, metadata *types.RequestMetadata, sessionStorage types.SessionStorage) (map[string]any, *types.GoAuthError) {
-	sessionID := uuid.New().String()
-
-	// Generate tokens with session_id in JWT claims
-	accessToken, refreshToken, err := s.deps.SecurityManager.GenerateTokens(user, map[string]interface{}{
-		"session_id": sessionID,
+	// Run auth interceptors for resume phase (enrichment only, e.g. org claims)
+	interceptClaims, _, _, interceptErr := s.deps.AuthInterceptors.Run(ctx, &types.InterceptParams{
+		Phase:    types.PhaseResume,
+		User:     user,
+		Metadata: metadata,
 	})
-	if err != nil {
-		s.deps.Logger.Error("Failed to generate session tokens after 2FA", "error", err)
-		return nil, types.NewInternalError("Failed to generate authentication tokens")
+	if interceptErr != nil {
+		s.deps.Logger.Error("Auth interceptor failed after 2FA", "error", interceptErr)
+		return nil, types.NewInternalError("Authentication flow interrupted").Wrap(interceptErr)
 	}
 
-	// Create session
+	sessionID := uuid.Must(uuid.NewV7()).String()
+
+	// Merge interceptor claims with session_id
+	tokenClaims := map[string]interface{}{"session_id": sessionID}
+	for k, v := range interceptClaims {
+		tokenClaims[k] = v
+	}
+
+	// Generate tokens with enriched claims
+	accessToken, refreshToken, err := s.deps.SecurityManager.GenerateTokens(user, tokenClaims)
+	if err != nil {
+		s.deps.Logger.Error("Failed to generate session tokens after 2FA", "error", err)
+		return nil, types.NewInternalError("Failed to generate authentication tokens").Wrap(err)
+	}
+
+	// Create session — store hashed refresh token
 	session := &models.Session{
 		ID:                    sessionID,
 		UserID:                user.ID,
-		RefreshToken:          refreshToken,
+		RefreshToken:          s.deps.SecurityManager.HashRefreshToken(refreshToken),
 		RefreshTokenExpiresAt: time.Now().Add(s.deps.Config.Security.Session.RefreshTokenTTL),
 		ExpiresAt:             time.Now().Add(s.deps.Config.Security.Session.SessionTTL),
 		UserAgent:             metadata.UserAgent,
@@ -418,7 +434,7 @@ func (s *twoFactorService) issueSessionToken(ctx context.Context, user *models.U
 
 	if err := sessionStorage.Sessions().Create(ctx, session); err != nil {
 		s.deps.Logger.Error("Failed to create session after 2FA", "error", err)
-		return nil, types.NewInternalError("Failed to create session")
+		return nil, types.NewInternalError("Failed to create session").Wrap(err)
 	}
 
 	// Update last login time
@@ -446,23 +462,34 @@ func (s *twoFactorService) issueSessionToken(ctx context.Context, user *models.U
 
 // issueStatelessToken generates JWT tokens with nonce-based refresh token (stateless auth)
 func (s *twoFactorService) issueStatelessToken(ctx context.Context, user *models.User, metadata *types.RequestMetadata, statelessStorage types.StatelessStorage) (map[string]any, *types.GoAuthError) {
-	// Generate access token
-	accessToken, err := s.deps.SecurityManager.GenerateAccessToken(*user, map[string]interface{}{})
+	// Run auth interceptors for resume phase (enrichment only, e.g. org claims)
+	interceptClaims, _, _, interceptErr := s.deps.AuthInterceptors.Run(ctx, &types.InterceptParams{
+		Phase:    types.PhaseResume,
+		User:     user,
+		Metadata: metadata,
+	})
+	if interceptErr != nil {
+		s.deps.Logger.Error("Auth interceptor failed after 2FA", "error", interceptErr)
+		return nil, types.NewInternalError("Authentication flow interrupted").Wrap(interceptErr)
+	}
+
+	// Generate access token with enriched claims
+	accessToken, err := s.deps.SecurityManager.GenerateAccessToken(*user, interceptClaims)
 	if err != nil {
 		s.deps.Logger.Error("Failed to generate access token after 2FA", "error", err)
-		return nil, types.NewInternalError("Failed to generate authentication tokens")
+		return nil, types.NewInternalError("Failed to generate authentication tokens").Wrap(err)
 	}
 
 	// Generate stateless refresh token with JTI (nonce)
 	refreshToken, jti, err := s.deps.SecurityManager.GenerateStatelessRefreshToken(user)
 	if err != nil {
 		s.deps.Logger.Error("Failed to generate refresh token after 2FA", "error", err)
-		return nil, types.NewInternalError("Failed to generate authentication tokens")
+		return nil, types.NewInternalError("Failed to generate authentication tokens").Wrap(err)
 	}
 
 	// Store the JTI (nonce) in the tokens table for revocation checks
 	tokenModel := &models.Token{
-		ID:        uuid.New().String(),
+		ID:        uuid.Must(uuid.NewV7()).String(),
 		UserID:    user.ID,
 		Type:      "refresh_nonce",
 		Token:     jti,
@@ -471,7 +498,7 @@ func (s *twoFactorService) issueStatelessToken(ctx context.Context, user *models
 	}
 	if err := s.deps.Storage.Core().Tokens().Create(ctx, tokenModel); err != nil {
 		s.deps.Logger.Error("Failed to save refresh token nonce after 2FA", "error", err)
-		return nil, types.NewInternalError("Failed to complete authentication")
+		return nil, types.NewInternalError("Failed to complete authentication").Wrap(err)
 	}
 
 	// Update last login time

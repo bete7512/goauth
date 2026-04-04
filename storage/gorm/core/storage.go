@@ -13,19 +13,17 @@ var _ types.CoreStorage = (*GormCoreStorage)(nil)
 
 // GormCoreStorage implements types.CoreStorage
 type GormCoreStorage struct {
-	db                 *gorm.DB
-	users              *UserRepository
-	tokens             *TokenRepository
-	extendedAttributes *ExtendedAttributeRepository
+	db     *gorm.DB
+	users  *UserRepository
+	tokens *TokenRepository
 }
 
 // NewCoreStorage creates a new core storage instance
 func NewCoreStorage(db *gorm.DB) *GormCoreStorage {
 	return &GormCoreStorage{
-		db:                 db,
-		users:              &UserRepository{db: db},
-		tokens:             &TokenRepository{db: db},
-		extendedAttributes: &ExtendedAttributeRepository{db: db},
+		db:     db,
+		users:  &UserRepository{db: db},
+		tokens: &TokenRepository{db: db},
 	}
 }
 
@@ -35,10 +33,6 @@ func (s *GormCoreStorage) Users() models.UserRepository {
 
 func (s *GormCoreStorage) Tokens() models.TokenRepository {
 	return s.tokens
-}
-
-func (s *GormCoreStorage) ExtendedAttributes() models.ExtendedAttributeRepository {
-	return s.extendedAttributes
 }
 
 func (s *GormCoreStorage) WithTransaction(ctx context.Context, fn func(tx types.CoreStorage) error) error {

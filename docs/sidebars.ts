@@ -34,6 +34,7 @@ const sidebars: SidebarsConfig = {
         "modules/captcha",
         "modules/csrf",
         "modules/magiclink",
+        "modules/organization",
       ],
     },
     
@@ -59,7 +60,12 @@ const sidebars: SidebarsConfig = {
     {
       type: "category",
       label: "API Reference",
-      items: ["api/endpoints"],
+      items: [
+        "api/api-auth",
+        "api/endpoints",
+        "api/errors",
+        "api/models",
+      ],
     },
     
     "showcase",

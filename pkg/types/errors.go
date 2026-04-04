@@ -1,6 +1,9 @@
 package types
 
-import "net/http"
+import (
+	"fmt"
+	"net/http"
+)
 
 // ErrorCode represents a specific error type
 type ErrorCode string
@@ -11,6 +14,7 @@ type GoAuthError struct {
 	Message    string    `json:"message"`
 	StatusCode int       `json:"-"`
 	Details    any       `json:"details,omitempty"`
+	Err        error     `json:"-"`
 }
 
 const (
@@ -54,8 +58,8 @@ const (
 	ErrValidation         ErrorCode = "VALIDATION_ERROR"
 
 	// Authorization errors
-	ErrUnauthorized ErrorCode = "UNAUTHORIZED"
-	ErrForbidden    ErrorCode = "FORBIDDEN"
+	ErrUnauthorized    ErrorCode = "UNAUTHORIZED"
+	ErrForbidden       ErrorCode = "FORBIDDEN"
 	ErrInvalidCSRF     ErrorCode = "INVALID_CSRF"
 	ErrCaptchaRequired ErrorCode = "CAPTCHA_REQUIRED"
 	ErrCaptchaFailed   ErrorCode = "CAPTCHA_FAILED"
@@ -86,20 +90,34 @@ const (
 	ErrVerificationCodeExpired  ErrorCode = "VERIFICATION_CODE_EXPIRED"
 
 	// OAuth errors
-	ErrOAuthProviderNotFound  ErrorCode = "OAUTH_PROVIDER_NOT_FOUND"
-	ErrOAuthProviderDisabled  ErrorCode = "OAUTH_PROVIDER_DISABLED"
-	ErrOAuthInvalidState      ErrorCode = "OAUTH_INVALID_STATE"
-	ErrOAuthStateExpired      ErrorCode = "OAUTH_STATE_EXPIRED"
-	ErrOAuthStateUsed         ErrorCode = "OAUTH_STATE_USED"
-	ErrOAuthTokenExchange     ErrorCode = "OAUTH_TOKEN_EXCHANGE_FAILED"
-	ErrOAuthUserInfo          ErrorCode = "OAUTH_USER_INFO_FAILED"
-	ErrOAuthEmailExists       ErrorCode = "OAUTH_EMAIL_EXISTS"
-	ErrOAuthSignupDisabled    ErrorCode = "OAUTH_SIGNUP_DISABLED"
-	ErrOAuthProviderError     ErrorCode = "OAUTH_PROVIDER_ERROR"
-	ErrOAuthNotLinked         ErrorCode = "OAUTH_NOT_LINKED"
-	ErrOAuthAlreadyLinked     ErrorCode = "OAUTH_ALREADY_LINKED"
-	ErrOAuthEmailRequired     ErrorCode = "OAUTH_EMAIL_REQUIRED"
+	ErrOAuthProviderNotFound       ErrorCode = "OAUTH_PROVIDER_NOT_FOUND"
+	ErrOAuthProviderDisabled       ErrorCode = "OAUTH_PROVIDER_DISABLED"
+	ErrOAuthInvalidState           ErrorCode = "OAUTH_INVALID_STATE"
+	ErrOAuthStateExpired           ErrorCode = "OAUTH_STATE_EXPIRED"
+	ErrOAuthStateUsed              ErrorCode = "OAUTH_STATE_USED"
+	ErrOAuthTokenExchange          ErrorCode = "OAUTH_TOKEN_EXCHANGE_FAILED"
+	ErrOAuthUserInfo               ErrorCode = "OAUTH_USER_INFO_FAILED"
+	ErrOAuthEmailExists            ErrorCode = "OAUTH_EMAIL_EXISTS"
+	ErrOAuthSignupDisabled         ErrorCode = "OAUTH_SIGNUP_DISABLED"
+	ErrOAuthProviderError          ErrorCode = "OAUTH_PROVIDER_ERROR"
+	ErrOAuthNotLinked              ErrorCode = "OAUTH_NOT_LINKED"
+	ErrOAuthAlreadyLinked          ErrorCode = "OAUTH_ALREADY_LINKED"
+	ErrOAuthEmailRequired          ErrorCode = "OAUTH_EMAIL_REQUIRED"
 	ErrOAuthAccountLinkingDisabled ErrorCode = "OAUTH_ACCOUNT_LINKING_DISABLED"
+
+	// Organization errors
+	ErrOrgNotFound             ErrorCode = "ORG_NOT_FOUND"
+	ErrOrgSlugTaken            ErrorCode = "ORG_SLUG_TAKEN"
+	ErrOrgMemberExists         ErrorCode = "ORG_MEMBER_EXISTS"
+	ErrOrgMemberNotFound       ErrorCode = "ORG_MEMBER_NOT_FOUND"
+	ErrOrgNotMember            ErrorCode = "ORG_NOT_MEMBER"
+	ErrOrgInsufficientRole     ErrorCode = "ORG_INSUFFICIENT_ROLE"
+	ErrOrgCannotRemoveOwner    ErrorCode = "ORG_CANNOT_REMOVE_OWNER"
+	ErrOrgMaxMembers           ErrorCode = "ORG_MAX_MEMBERS"
+	ErrInvitationNotFound      ErrorCode = "INVITATION_NOT_FOUND"
+	ErrInvitationExpired       ErrorCode = "INVITATION_EXPIRED"
+	ErrInvitationExists        ErrorCode = "INVITATION_ALREADY_EXISTS"
+	ErrInvitationEmailMismatch ErrorCode = "INVITATION_EMAIL_MISMATCH"
 
 	// unknown error
 	ErrUnknown ErrorCode = "UNKNOWN_ERROR"
@@ -110,7 +128,21 @@ const (
 
 // Error implements the error interface
 func (e *GoAuthError) Error() string {
+	if e.Err != nil {
+		return fmt.Sprintf("%s: %s", e.Message, e.Err.Error())
+	}
 	return e.Message
+}
+
+// Unwrap returns the underlying error for errors.Is/As support
+func (e *GoAuthError) Unwrap() error {
+	return e.Err
+}
+
+// Wrap sets the underlying error and returns the GoAuthError for chaining
+func (e *GoAuthError) Wrap(err error) *GoAuthError {
+	e.Err = err
+	return e
 }
 
 // NewGoAuthError creates a new API error
@@ -687,4 +719,54 @@ func NewOAuthAccountLinkingDisabledError() *GoAuthError {
 		Message:    "Account linking via OAuth is disabled",
 		StatusCode: http.StatusForbidden,
 	}
+}
+
+// Organization error factory functions
+
+func NewOrgNotFoundError() *GoAuthError {
+	return &GoAuthError{Code: ErrOrgNotFound, Message: "Organization not found", StatusCode: http.StatusNotFound}
+}
+
+func NewOrgSlugTakenError() *GoAuthError {
+	return &GoAuthError{Code: ErrOrgSlugTaken, Message: "Organization slug is already taken", StatusCode: http.StatusConflict}
+}
+
+func NewOrgMemberExistsError() *GoAuthError {
+	return &GoAuthError{Code: ErrOrgMemberExists, Message: "User is already a member of this organization", StatusCode: http.StatusConflict}
+}
+
+func NewOrgMemberNotFoundError() *GoAuthError {
+	return &GoAuthError{Code: ErrOrgMemberNotFound, Message: "Organization member not found", StatusCode: http.StatusNotFound}
+}
+
+func NewOrgNotMemberError() *GoAuthError {
+	return &GoAuthError{Code: ErrOrgNotMember, Message: "You are not a member of this organization", StatusCode: http.StatusForbidden}
+}
+
+func NewOrgInsufficientRoleError() *GoAuthError {
+	return &GoAuthError{Code: ErrOrgInsufficientRole, Message: "Insufficient role for this operation", StatusCode: http.StatusForbidden}
+}
+
+func NewOrgCannotRemoveOwnerError() *GoAuthError {
+	return &GoAuthError{Code: ErrOrgCannotRemoveOwner, Message: "Cannot remove the organization owner", StatusCode: http.StatusForbidden}
+}
+
+func NewOrgMaxMembersError() *GoAuthError {
+	return &GoAuthError{Code: ErrOrgMaxMembers, Message: "Organization has reached the maximum number of members", StatusCode: http.StatusForbidden}
+}
+
+func NewInvitationNotFoundError() *GoAuthError {
+	return &GoAuthError{Code: ErrInvitationNotFound, Message: "Invitation not found", StatusCode: http.StatusNotFound}
+}
+
+func NewInvitationExpiredError() *GoAuthError {
+	return &GoAuthError{Code: ErrInvitationExpired, Message: "Invitation has expired", StatusCode: http.StatusBadRequest}
+}
+
+func NewInvitationExistsError() *GoAuthError {
+	return &GoAuthError{Code: ErrInvitationExists, Message: "A pending invitation already exists for this email", StatusCode: http.StatusConflict}
+}
+
+func NewInvitationEmailMismatchError() *GoAuthError {
+	return &GoAuthError{Code: ErrInvitationEmailMismatch, Message: "Your email does not match the invitation", StatusCode: http.StatusForbidden}
 }

@@ -63,10 +63,6 @@ func (m *CSRFModule) Middlewares() []config.MiddlewareConfig {
 	}
 }
 
-func (m *CSRFModule) Models() []interface{} {
-	return nil
-}
-
 func (m *CSRFModule) RegisterHooks(_ types.EventBus) error {
 	return nil
 }
@@ -77,4 +73,8 @@ func (m *CSRFModule) Dependencies() []string {
 
 func (m *CSRFModule) OpenAPISpecs() []byte {
 	return openapiSpec
+}
+
+func (m *CSRFModule) Migrations() types.ModuleMigrations {
+	return types.ModuleMigrations{}
 }

@@ -38,8 +38,16 @@ type SecurityConfig struct {
 	CustomClaimsProvider CustomClaimsProvider
 	Session              SessionConfig
 	PasswordPolicy       PasswordPolicy
+	Lockout              LockoutConfig
 	AuthMode             AuthMode // Authentication mode (cookie, bearer, both, custom)
 	AuthStrategy         AuthStrategy
+}
+
+// LockoutConfig controls account lockout after repeated failed login attempts.
+type LockoutConfig struct {
+	Enabled         bool          // Whether lockout is enabled (default: true)
+	MaxAttempts     int           // Failed attempts before locking (default: 5)
+	LockoutDuration time.Duration // How long the account stays locked (default: 15m)
 }
 
 // AuthStrategy determines the authentication strategy

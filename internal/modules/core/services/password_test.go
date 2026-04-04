@@ -36,7 +36,6 @@ func (s *PasswordServiceSuite) setupService() (
 
 	mockUserRepo := mocks.NewMockUserRepository(ctrl)
 	mockTokenRepo := mocks.NewMockTokenRepository(ctrl)
-	mockExtAttrRepo := mocks.NewMockExtendedAttributeRepository(ctrl)
 	mockEvents := mocks.NewMockEventBus(ctrl)
 	mockLogger := mocks.NewMockLogger(ctrl)
 
@@ -50,7 +49,7 @@ func (s *PasswordServiceSuite) setupService() (
 		SecurityManager: secMgr,
 	}
 
-	svc := core_services.NewCoreService(deps, mockUserRepo, mockExtAttrRepo, mockTokenRepo, mockLogger, secMgr, cfg)
+	svc := core_services.NewCoreService(deps, mockUserRepo, mockTokenRepo, mockLogger, secMgr, cfg)
 	return svc, mockUserRepo, mockTokenRepo, mockEvents
 }
 
@@ -80,7 +79,7 @@ func (s *PasswordServiceSuite) TestChangePassword() {
 			overrideID: "nonexistent",
 			req:        &dto.ChangePasswordRequest{OldPassword: "password123", NewPassword: "newpassword456"},
 			setup: func(_ *models.User, ur *mocks.MockUserRepository, _ *mocks.MockEventBus) {
-				ur.EXPECT().FindByID(gomock.Any(), "nonexistent").Return(nil, errors.New("not found"))
+				ur.EXPECT().FindByID(gomock.Any(), "nonexistent").Return(nil, models.ErrNotFound)
 			},
 			wantErr:    true,
 			errCode:    types.ErrUserNotFound,
@@ -162,7 +161,7 @@ func (s *PasswordServiceSuite) TestForgotPassword() {
 			name: "user not found - does not reveal",
 			req:  &dto.ForgotPasswordRequest{Email: "unknown@example.com"},
 			setup: func(ur *mocks.MockUserRepository, _ *mocks.MockTokenRepository, _ *mocks.MockEventBus) {
-				ur.EXPECT().FindByEmail(gomock.Any(), "unknown@example.com").Return(nil, errors.New("not found"))
+				ur.EXPECT().FindByEmail(gomock.Any(), "unknown@example.com").Return(nil, models.ErrNotFound)
 			},
 			wantErr: false,
 		},
@@ -223,7 +222,7 @@ func (s *PasswordServiceSuite) TestResetPassword() {
 			name: "invalid token",
 			req:  &dto.ResetPasswordRequest{Token: "invalid-token", NewPassword: "newpassword456"},
 			setup: func(_ *mocks.MockUserRepository, tr *mocks.MockTokenRepository, _ *mocks.MockEventBus) {
-				tr.EXPECT().FindByToken(gomock.Any(), "invalid-token").Return(nil, errors.New("not found"))
+				tr.EXPECT().FindByToken(gomock.Any(), "invalid-token").Return(nil, models.ErrNotFound)
 			},
 			wantErr: true,
 			errCode: types.ErrInvalidToken,
@@ -257,7 +256,7 @@ func (s *PasswordServiceSuite) TestResetPassword() {
 					CreatedAt: time.Now(),
 				}
 				tr.EXPECT().FindByToken(gomock.Any(), "orphan-token").Return(tok, nil)
-				ur.EXPECT().FindByID(gomock.Any(), "deleted-user").Return(nil, errors.New("not found"))
+				ur.EXPECT().FindByID(gomock.Any(), "deleted-user").Return(nil, models.ErrNotFound)
 			},
 			wantErr: true,
 			errCode: types.ErrUserNotFound,
