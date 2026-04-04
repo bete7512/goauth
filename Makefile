@@ -4,6 +4,8 @@
 mocks:
 	go generate ./...
 
+fmt:
+	go fmt ./...
 # Run all unit tests (excludes integration)
 test: test-unit
 

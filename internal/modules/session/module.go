@@ -139,7 +139,7 @@ func (m *SessionModule) Middlewares() []config.MiddlewareConfig {
 	if m.validator == nil {
 		return nil
 	}
-	// TODO: add a 
+
 	return []config.MiddlewareConfig{{
 		Name: "session.validate",
 		Middleware: middlewares.NewSessionValidateMiddleware(
