@@ -119,11 +119,15 @@ Allowed sort fields — Users: `created_at`, `email`, `username`, `name` · Sess
 
 - Framework: testify/suite + uber/mock (mockgen)
 - Generate mocks: `make mocks` · Unit tests: `make test` · Specific: `make test-core`, `make test-session`
-- Integration: `make test-integration` (needs `GOAUTH_TEST_DSN`)
+- Integration: `go test -tags=integration ./tests/integration/... -v` (uses in-memory SQLite, no external DB needed)
+- Benchmarks: `make test-bench`
+- All 12 modules have unit tests. Integration tests cover full auth lifecycle.
+- Test setup **must** set `AuthInterceptors: interceptor.NewRegistry()` in `ModuleDependencies`
+- Integration test helpers live in `tests/integration/testhelpers/` (setup factories, HTTP helpers, reusable actions)
 
 ## Build
 
-- `make build` · `make lint` · `make clean`
+- `make build` · `make lint` · `make clean` · `make test-bench`
 - Always run `make build` to catch compilation errors before committing.
 
 ## Before You Build Anything
@@ -132,9 +136,10 @@ Surface what the change enables, what it costs, and what adjacent concerns it ra
 
 ## Current State
 
-Branch: `dev`. Recent completed work:
-- **Public API surface**: `pkg/types/logger.go` + `pkg/types/security_manager.go` promoted to public interfaces; `pkg/config` no longer imports `internal/` types
-- **Proxy packages**: `pkg/modules/` created for all bundled modules — external consumers must use these, not `internal/modules/`
-- **OpenAPI naming**: all `docs/swagger.yml` → `docs/openapi.yml`; vars `swaggerSpec` → `openapiSpec`; types `SwaggerServer` → `OpenAPIServer`, `SwaggerSecurityScheme` → `OpenAPISecurityScheme`; method `GenerateSwaggerDocs` → `GenerateOpenAPIDocs`
-- **Audit module**: `POST /admin/audit/cleanup` endpoint added; 24h background cleanup goroutine wired in `Init()`
-- **Signup**: now returns 201 Created via `http_utils.RespondCreated`
+Branch: `dev`. Security and testing infrastructure complete:
+- **P0 Security**: TOTP code reuse prevention, account lockout, rate limiting module, AES-256-GCM encryption, refresh token hashing (SHA-256)
+- **Config defaults**: `Validate()` sets PasswordPolicy (MinLength:8, MaxLength:128), Lockout (MaxAttempts:5, 15min), AccessTokenTTL (15min)
+- **Test coverage**: All 12 modules tested (134+ unit tests), 28 integration/e2e/security tests, 9 benchmarks
+- **Integration tests**: Modular structure in `tests/integration/` — one file per concern (auth, session, profile, security, ratelimit, validation)
+- **OpenAPI**: All modules have `docs/openapi.yml` including stateless module
+- **Proxy packages**: `pkg/modules/` for all bundled modules — external consumers must use these, not `internal/modules/`
