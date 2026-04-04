@@ -98,9 +98,6 @@ type Config struct {
 	// If nil, a default logrus logger will be used.
 	Logger types.Logger
 
-	// CORS Configuration
-	CORS *CORSConfig
-
 	// AsyncBackend for async event processing
 	// If nil, uses default worker pool (10 workers, 1000 queue size)
 	// Users can provide Redis, RabbitMQ, Kafka, or custom implementations
@@ -334,15 +331,6 @@ type TwoFactorConfig struct {
 	CodeLength       int    // Length of backup codes
 }
 
-// CORSConfig holds CORS configuration
-type CORSConfig struct {
-	Enabled          bool
-	AllowedOrigins   []string
-	AllowedMethods   []string
-	AllowedHeaders   []string
-	AllowCredentials bool
-}
-
 // Validate validates the configuration
 func (c *Config) Validate() error {
 	if c.Storage == nil {
@@ -385,13 +373,6 @@ func (c *Config) Validate() error {
 	}
 	if c.ModuleConfigs == nil {
 		c.ModuleConfigs = make(map[string]interface{})
-	}
-
-	// Set default CORS if not provided
-	if c.CORS == nil {
-		c.CORS = &CORSConfig{
-			Enabled: false,
-		}
 	}
 
 	return nil

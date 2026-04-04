@@ -65,15 +65,9 @@ func New(cfg *config.Config) (*Auth, error) {
 	// Initialize middleware manager
 	middlewareManager := middleware.NewManager()
 
-	// Register global middlewares if CORS is enabled
-	if cfg.CORS != nil && cfg.CORS.Enabled {
-		middlewareManager.Register(middleware.MiddlewareConfig{
-			Name:       "cors",
-			Middleware: middleware.CORS(cfg.CORS.AllowedOrigins, cfg.CORS.AllowedMethods, cfg.CORS.AllowedHeaders),
-			Priority:   100,
-			Global:     true,
-		})
-	}
+	// Note: CORS is NOT handled by GoAuth. Apply your own CORS middleware
+	// at the framework level (e.g., wrap the mux, use gin-contrib/cors, etc.).
+	// See examples/main.go for a reference implementation.
 
 	// Add request ID middleware
 	middlewareManager.Register(middleware.MiddlewareConfig{

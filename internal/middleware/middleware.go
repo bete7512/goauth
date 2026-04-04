@@ -199,45 +199,6 @@ func matchPattern(pattern types.RouteName, routeName string) bool {
 
 // Common middleware helpers
 
-// CORS creates a CORS middleware
-func CORS(allowedOrigins []string, allowedMethods []string, allowedHeaders []string) MiddlewareFunc {
-	// Default headers if none provided
-	headers := "Content-Type, Authorization"
-	if len(allowedHeaders) > 0 {
-		headers = strings.Join(allowedHeaders, ", ")
-	}
-
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			origin := r.Header.Get("Origin")
-
-			// Check if origin is allowed
-			allowed := false
-			for _, allowedOrigin := range allowedOrigins {
-				if allowedOrigin == "*" || allowedOrigin == origin {
-					allowed = true
-					break
-				}
-			}
-
-			if allowed {
-				w.Header().Set("Access-Control-Allow-Origin", origin)
-				w.Header().Set("Access-Control-Allow-Methods", strings.Join(allowedMethods, ", "))
-				w.Header().Set("Access-Control-Allow-Headers", headers)
-				w.Header().Set("Access-Control-Allow-Credentials", "true")
-			}
-
-			// Handle preflight requests
-			if r.Method == "OPTIONS" {
-				w.WriteHeader(http.StatusNoContent)
-				return
-			}
-
-			next.ServeHTTP(w, r)
-		})
-	}
-}
-
 // RequestID adds a unique request ID to each request
 func RequestID() MiddlewareFunc {
 	return func(next http.Handler) http.Handler {

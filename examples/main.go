@@ -81,13 +81,6 @@ func main() {
 			RequirePhoneNumber:       false, // Phone number is optional
 			UniquePhoneNumber:        true,  // Phone numbers must be unique
 		},
-		// In production, replace "*" with your actual frontend origin
-		CORS: &config.CORSConfig{
-			Enabled:        true,
-			AllowedOrigins: []string{"*"},
-			AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-			AllowedHeaders: []string{"Content-Type", "Authorization", "X-Captcha-Token", "X-CSRF-Token"},
-		},
 		FrontendConfig: &config.FrontendConfig{
 			URL:                     "http://localhost:3000",
 			Domain:                  "localhost",
@@ -252,6 +245,7 @@ func main() {
 	// net/http (stdlib):
 	mux := http.NewServeMux()
 	handler := stdhttp.Register(mux, authInstance)
+	handler = CORSMiddleware(handler, []string{"*"})
 	handler = LoggingMiddleware(handler)
 	log.Println("Server running on :8080")
 	http.ListenAndServe(":8080", handler)
@@ -275,22 +269,52 @@ func main() {
 	//   fiberadapter.Register(app, authInstance)
 	//   app.Listen(":8080")
 }
+// CORSMiddleware handles CORS headers and OPTIONS preflight requests.
+// Apply this BEFORE the mux so that OPTIONS requests are handled before
+// Go 1.22 ServeMux rejects them for not matching a method-specific route.
+func CORSMiddleware(next http.Handler, allowedOrigins []string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		origin := r.Header.Get("Origin")
+		for _, o := range allowedOrigins {
+			if o == "*" || o == origin {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+				w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Captcha-Token, X-CSRF-Token")
+				w.Header().Set("Access-Control-Allow-Credentials", "true")
+				break
+			}
+		}
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// statusWriter wraps http.ResponseWriter to capture the status code.
+type statusWriter struct {
+	http.ResponseWriter
+	status int
+}
+
+func (w *statusWriter) WriteHeader(code int) {
+	w.status = code
+	w.ResponseWriter.WriteHeader(code)
+}
+
 func LoggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sw := &statusWriter{ResponseWriter: w, status: 200}
 		startTime := time.Now()
-
-		// Call the next handler in the chain
-		next.ServeHTTP(w, r)
-
-		// Log details after the handler has finished
+		next.ServeHTTP(sw, r)
 		duration := time.Since(startTime)
-		// Use slog for structured, key-value pair logging
-		log.Printf("method=%s path=%s ip=%s duration=%s",
+		log.Printf("method=%s status=%d path=%s ip=%s duration=%s",
 			r.Method,
-			r.URL.Path,
+			sw.status,
+			r.URL.RequestURI(),
 			r.RemoteAddr,
 			duration,
 		)
-
 	})
 }

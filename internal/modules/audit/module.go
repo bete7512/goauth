@@ -253,10 +253,30 @@ func (m *AuditModule) subscribeSecurityEvents(events types.EventBus) {
 
 // createAuditLog is a helper to create audit log entries from events
 func (m *AuditModule) createAuditLog(ctx context.Context, event *types.Event, action, severity string) error {
-	// Extract data from event
-	data, ok := event.Data.(map[string]interface{})
-	if !ok {
-		data = map[string]interface{}{}
+	// Extract data from event.
+	// Data may be map[string]interface{} (in-memory worker pool) or
+	// json.RawMessage (after deserialization from external backends like NATS).
+	var data map[string]interface{}
+	switch v := event.Data.(type) {
+	case map[string]interface{}:
+		data = v
+	case json.RawMessage:
+		if err := json.Unmarshal(v, &data); err != nil {
+			data = map[string]interface{}{}
+		}
+	case []byte:
+		if err := json.Unmarshal(v, &data); err != nil {
+			data = map[string]interface{}{}
+		}
+	default:
+		// Try JSON round-trip for typed structs
+		b, err := json.Marshal(v)
+		if err == nil {
+			json.Unmarshal(b, &data)
+		}
+		if data == nil {
+			data = map[string]interface{}{}
+		}
 	}
 
 	// Get actor ID (user who performed the action)

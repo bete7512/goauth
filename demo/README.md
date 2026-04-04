@@ -9,6 +9,7 @@ This demo application demonstrates GoAuth's **Core Module** - the foundation of 
 ### Core Module Features Demonstrated
 
 ✅ **User Registration (Signup)**
+
 - Email/password registration
 - Optional username support
 - Optional phone number support
@@ -16,32 +17,38 @@ This demo application demonstrates GoAuth's **Core Module** - the foundation of 
 - Real-time availability checking
 
 ✅ **User Authentication (Login)**
+
 - Email/password login
 - JWT token generation
 - Refresh token support
 - Session management
 
 ✅ **Profile Management**
+
 - View user profile
 - Update profile information
 - Change password
 - Extended attributes support
 
 ✅ **Password Reset Flow**
+
 - Request password reset
 - Email-based reset tokens
 - Secure password reset
 
 ✅ **Email Verification**
+
 - Send verification emails
 - Verify email addresses
 - Frontend callback handling
 
 ✅ **Phone Verification**
+
 - Send verification codes
 - Verify phone numbers
 
 ✅ **Availability Checking**
+
 - Real-time email availability
 - Username availability
 - Phone number availability
@@ -115,8 +122,8 @@ The demo includes an interactive API configuration panel, but you can also set d
 ```typescript
 export const DEMO_CONFIG = {
   api: {
-    baseUrl: 'http://localhost:8080',  // Your GoAuth server
-    basePath: '/api/v1',               // Your API base path
+    baseUrl: "http://localhost:8080", // Your GoAuth server
+    basePath: "/api/v1", // Your API base path
     timeout: 10000,
   },
   features: {
@@ -126,7 +133,7 @@ export const DEMO_CONFIG = {
     enablePhoneNumber: true,
     enableExtendedAttributes: true,
   },
-}
+};
 ```
 
 ### 3. Start Development Server
@@ -216,22 +223,22 @@ The demo includes a visual API configuration panel in the top-right corner. You 
 ```typescript
 export const DEMO_CONFIG = {
   api: {
-    baseUrl: 'http://localhost:8080',    // GoAuth server URL
-    basePath: '/api/v1',                 // API base path
-    timeout: 10000,                      // Request timeout (ms)
+    baseUrl: "http://localhost:8080", // GoAuth server URL
+    basePath: "/api/v1", // API base path
+    timeout: 10000, // Request timeout (ms)
   },
   features: {
-    enableEmailVerification: true,       // Show email verification
-    enablePhoneVerification: true,       // Show phone verification
-    enableUsername: true,                // Show username field
-    enablePhoneNumber: true,             // Show phone field
-    enableExtendedAttributes: true,      // Show extended attributes
+    enableEmailVerification: true, // Show email verification
+    enablePhoneVerification: true, // Show phone verification
+    enableUsername: true, // Show username field
+    enablePhoneNumber: true, // Show phone field
+    enableExtendedAttributes: true, // Show extended attributes
   },
   ui: {
-    showApiEndpoints: true,              // Show endpoint reference
-    animateTransitions: true,            // Enable animations
+    showApiEndpoints: true, // Show endpoint reference
+    animateTransitions: true, // Enable animations
   },
-}
+};
 ```
 
 ### Backend Configuration
@@ -252,10 +259,6 @@ a, _ := auth.New(&config.Config{
         VerifyEmailCallbackPath: "/verify-email",
         ResetPasswordPath:       "/reset-password",
     },
-    CORS: &config.CORSConfig{
-        Enabled:        true,
-        AllowedOrigins: []string{"http://localhost:3000"},
-    },
 })
 ```
 
@@ -264,29 +267,35 @@ a, _ := auth.New(&config.Config{
 The demo connects to these GoAuth endpoints:
 
 ### Authentication
+
 - `POST /api/v1/signup` - User registration
 - `POST /api/v1/login` - User authentication
 - `POST /api/v1/logout` - User logout
 
 ### Profile Management
+
 - `GET /api/v1/me` - Get current user
 - `GET /api/v1/profile` - Get user profile
 - `PUT /api/v1/profile` - Update user profile
 - `PUT /api/v1/change-password` - Change password
 
 ### Password Reset
+
 - `POST /api/v1/forgot-password` - Request password reset
 - `POST /api/v1/reset-password` - Reset password with token
 
 ### Email Verification
+
 - `POST /api/v1/send-verification-email` - Send verification email
 - `GET /api/v1/verify-email?token=xxx` - Verify email (redirects to frontend)
 
 ### Phone Verification
+
 - `POST /api/v1/send-verification-phone` - Send phone verification code
 - `POST /api/v1/verify-phone` - Verify phone with code
 
 ### Availability Checking
+
 - `POST /api/v1/availability/email` - Check email availability
 - `POST /api/v1/availability/username` - Check username availability
 - `POST /api/v1/availability/phone` - Check phone availability
@@ -296,28 +305,31 @@ The demo connects to these GoAuth endpoints:
 ### Example: Adding Two-Factor Authentication UI
 
 1. **Add types** (`src/types/twofactor.ts`):
+
 ```typescript
 export interface TwoFactorSetupResponse {
-  secret: string
-  qr_url: string
-  backup_codes: string[]
+  secret: string;
+  qr_url: string;
+  backup_codes: string[];
 }
 ```
 
 2. **Create API service** (`src/services/twofactor-api.ts`):
+
 ```typescript
 export class TwoFactorApiService {
   async setup(): Promise<TwoFactorSetupResponse> {
-    return apiClient.post('/2fa/setup')
+    return apiClient.post("/2fa/setup");
   }
-  
+
   async verify(code: string) {
-    return apiClient.post('/2fa/verify', { code })
+    return apiClient.post("/2fa/verify", { code });
   }
 }
 ```
 
 3. **Create UI component** (`src/components/twofactor/setup-form.tsx`):
+
 ```typescript
 export function TwoFactorSetup() {
   // Component implementation
@@ -325,14 +337,16 @@ export function TwoFactorSetup() {
 ```
 
 4. **Add to main page** (`src/app/page.tsx`):
+
 ```typescript
-import { TwoFactorSetup } from '@/components/twofactor/setup-form'
+import { TwoFactorSetup } from "@/components/twofactor/setup-form";
 // Add to tab navigation
 ```
 
 ### Example: Adding OAuth Buttons
 
 1. **Create OAuth component** (`src/components/oauth/oauth-buttons.tsx`):
+
 ```typescript
 export function OAuthButtons() {
   return (
@@ -353,11 +367,13 @@ export function OAuthButtons() {
 ## 📦 Dependencies
 
 ### Core Dependencies
+
 - **Next.js 14**: React framework with App Router
 - **React 18**: UI library
 - **TypeScript**: Type safety
 
 ### UI & Styling
+
 - **Tailwind CSS**: Utility-first CSS
 - **shadcn/ui**: Component library
 - **Lucide React**: Icon library
@@ -365,6 +381,7 @@ export function OAuthButtons() {
 - **tailwind-merge**: Merge Tailwind classes
 
 ### Development
+
 - **ESLint**: Code linting
 - **TypeScript**: Type checking
 
@@ -395,6 +412,7 @@ NEXT_PUBLIC_API_BASE_PATH=/api/v1
 ## 📱 Responsive Design
 
 The demo is fully responsive and works on:
+
 - 📱 Mobile devices (320px+)
 - 📱 Tablets (768px+)
 - 💻 Desktop (1024px+)

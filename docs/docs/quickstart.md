@@ -269,14 +269,7 @@ security := types.SecurityConfig{
 ### CORS
 
 ```go
-a, _ := auth.New(&config.Config{
-    // ...
-    CORS: &config.CORSConfig{
-        Enabled:        true,
-        AllowedOrigins: []string{"http://localhost:3000"},
-        AllowedMethods: []string{"GET", "POST", "PUT", "DELETE"},
-    },
-})
+a, _ := auth.New(&config.Config{})
 ```
 
 ## Next Steps

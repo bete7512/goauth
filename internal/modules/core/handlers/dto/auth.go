@@ -189,8 +189,8 @@ func (r *ResetPasswordRequest) Validate() error {
 	if r.Token == "" && r.Code == "" {
 		return fmt.Errorf("reset token or code is required")
 	}
-	if r.Email == "" && r.Phone == "" {
-		return fmt.Errorf("email or phone is required")
+	if r.Code != "" && r.Phone == "" {
+		return fmt.Errorf("phone is required when using reset code")
 	}
 	if r.NewPassword == "" {
 		return fmt.Errorf("new password is required")

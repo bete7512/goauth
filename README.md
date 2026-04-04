@@ -397,13 +397,6 @@ userID := r.Context().Value(types.UserIDKey).(string)
         VerifyEmailCallbackPath: "/verify-email",
     },
 
-    CORS: &config.CORSConfig{
-        Enabled:        true,
-        AllowedOrigins: []string{"https://app.example.com"},
-        AllowedMethods: []string{"GET", "POST", "PUT", "DELETE"},
-        AllowedHeaders: []string{"Content-Type", "Authorization"},
-    },
-
     Logger: myLogger, // implements types.Logger; defaults to logrus
 }
 ```
