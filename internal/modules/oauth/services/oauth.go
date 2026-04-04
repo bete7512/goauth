@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -31,14 +32,14 @@ func (s *oauthService) InitiateLogin(ctx context.Context, providerName, clientRe
 	state, err := providers.GenerateState()
 	if err != nil {
 		s.logger.Errorf("oauth: failed to generate state: %v", err)
-		return "", types.NewInternalError("failed to generate OAuth state")
+		return "", types.NewInternalError("failed to generate OAuth state").Wrap(err)
 	}
 
 	// Generate PKCE code verifier
 	codeVerifier, err := providers.GenerateCodeVerifier()
 	if err != nil {
 		s.logger.Errorf("oauth: failed to generate PKCE verifier: %v", err)
-		return "", types.NewInternalError("failed to generate PKCE verifier")
+		return "", types.NewInternalError("failed to generate PKCE verifier").Wrap(err)
 	}
 
 	// Generate PKCE code challenge
@@ -69,7 +70,7 @@ func (s *oauthService) InitiateLogin(ctx context.Context, providerName, clientRe
 
 	if err := s.tokenRepo.Create(ctx, stateToken); err != nil {
 		s.logger.Errorf("oauth: failed to store state: %v", err)
-		return "", types.NewInternalError("failed to store OAuth state")
+		return "", types.NewInternalError("failed to store OAuth state").Wrap(err)
 	}
 
 	// Build authorization URL
@@ -88,8 +89,11 @@ func (s *oauthService) InitiateLogin(ctx context.Context, providerName, clientRe
 func (s *oauthService) HandleCallback(ctx context.Context, providerName, code, state string, metadata *types.RequestMetadata) (*OAuthResult, *types.GoAuthError) {
 	// 1. Validate state and retrieve PKCE verifier
 	stateToken, err := s.tokenRepo.FindByToken(ctx, state)
-	if err != nil || stateToken == nil {
-		return nil, types.NewOAuthInvalidStateError()
+	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			return nil, types.NewOAuthInvalidStateError()
+		}
+		return nil, types.NewInternalError("failed to find OAuth state").Wrap(err)
 	}
 
 	if stateToken.Type != models.TokenTypeOAuthState {
@@ -167,7 +171,7 @@ func (s *oauthService) HandleCallback(ctx context.Context, providerName, code, s
 	})
 	if interceptErr != nil {
 		s.logger.Errorf("oauth: auth interceptor failed: %v", interceptErr)
-		return nil, types.NewInternalError("Authentication flow interrupted")
+		return nil, types.NewInternalError("Authentication flow interrupted").Wrap(interceptErr)
 	}
 
 	// If challenges were issued, return them without generating tokens
@@ -200,7 +204,7 @@ func (s *oauthService) HandleCallback(ctx context.Context, providerName, code, s
 		accessToken, refreshToken, err = s.securityManager.GenerateTokens(user, tokenClaims)
 		if err != nil {
 			s.logger.Errorf("oauth: failed to generate tokens: %v", err)
-			return nil, types.NewInternalError("failed to generate authentication tokens")
+			return nil, types.NewInternalError("failed to generate authentication tokens").Wrap(err)
 		}
 
 		// Create session record — store hashed refresh token
@@ -218,7 +222,7 @@ func (s *oauthService) HandleCallback(ctx context.Context, providerName, code, s
 
 		if err := s.sessionRepo.Create(ctx, session); err != nil {
 			s.logger.Errorf("oauth: failed to create session: %v", err)
-			return nil, types.NewInternalError("failed to create session")
+			return nil, types.NewInternalError("failed to create session").Wrap(err)
 		}
 
 		expiresIn = int64(s.deps.Config.Security.Session.SessionTTL.Seconds())
@@ -234,7 +238,7 @@ func (s *oauthService) HandleCallback(ctx context.Context, providerName, code, s
 		accessToken, refreshToken, err = s.securityManager.GenerateTokens(user, tokenClaims)
 		if err != nil {
 			s.logger.Errorf("oauth: failed to generate tokens: %v", err)
-			return nil, types.NewInternalError("failed to generate authentication tokens")
+			return nil, types.NewInternalError("failed to generate authentication tokens").Wrap(err)
 		}
 
 		expiresIn = int64(s.deps.Config.Security.Session.AccessTokenTTL.Seconds())
@@ -353,7 +357,7 @@ func (s *oauthService) findOrCreateUser(ctx context.Context, providerName string
 
 	if err := s.userRepo.Create(ctx, user); err != nil {
 		s.logger.Errorf("oauth: failed to create user: %v", err)
-		return nil, false, types.NewInternalError("failed to create user")
+		return nil, false, types.NewInternalError("failed to create user").Wrap(err)
 	}
 
 	// Link OAuth provider
@@ -435,15 +439,21 @@ func (s *oauthService) updateAccountTokens(ctx context.Context, account *models.
 func (s *oauthService) UnlinkProvider(ctx context.Context, userID, providerName string) *types.GoAuthError {
 	// Check if the account link exists
 	account, err := s.accountRepo.FindByUserIDAndProvider(ctx, userID, providerName)
-	if err != nil || account == nil {
-		return types.NewOAuthNotLinkedError(providerName)
+	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			return types.NewOAuthNotLinkedError(providerName)
+		}
+		return types.NewInternalError("failed to find OAuth account").Wrap(err)
 	}
 
 	// Check if user has password or another OAuth provider
 	// (Don't allow unlinking if it would leave the user with no login method)
 	user, err := s.userRepo.FindByID(ctx, userID)
 	if err != nil {
-		return types.NewInternalError("failed to find user")
+		if errors.Is(err, models.ErrNotFound) {
+			return types.NewUserNotFoundError()
+		}
+		return types.NewInternalError("failed to find user").Wrap(err)
 	}
 
 	if user.PasswordHash == "" {
@@ -468,7 +478,7 @@ func (s *oauthService) UnlinkProvider(ctx context.Context, userID, providerName 
 	// Delete the account
 	if err := s.accountRepo.Delete(ctx, account.ID); err != nil {
 		s.logger.Errorf("oauth: failed to unlink provider: %v", err)
-		return types.NewInternalError("failed to unlink provider")
+		return types.NewInternalError("failed to unlink provider").Wrap(err)
 	}
 
 	// Emit event
@@ -489,7 +499,7 @@ func (s *oauthService) GetLinkedProviders(ctx context.Context, userID string) ([
 	accounts, err := s.accountRepo.FindByUserID(ctx, userID)
 	if err != nil {
 		s.logger.Errorf("oauth: failed to get linked providers: %v", err)
-		return nil, types.NewInternalError("failed to get linked providers")
+		return nil, types.NewInternalError("failed to get linked providers").Wrap(err)
 	}
 
 	var linked []string

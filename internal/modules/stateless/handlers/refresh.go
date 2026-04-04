@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"strings"
 
 	"github.com/bete7512/goauth/internal/modules/stateless/handlers/dto"
 	http_utils "github.com/bete7512/goauth/internal/utils/http"
@@ -22,14 +21,6 @@ func (h *StatelessHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie(refreshTokenName)
 		if err == nil && cookie.Value != "" {
 			req.RefreshToken = cookie.Value
-		}
-
-		// Try to get from Authorization header
-		if req.RefreshToken == "" {
-			bearerToken := r.Header.Get("Authorization")
-			if len(bearerToken) > 7 && strings.ToUpper(bearerToken[0:7]) == "BEARER " {
-				req.RefreshToken = bearerToken[7:]
-			}
 		}
 	}
 

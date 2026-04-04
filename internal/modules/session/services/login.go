@@ -2,7 +2,7 @@ package services
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"time"
 
 	"github.com/bete7512/goauth/internal/modules/session/handlers/dto"
@@ -17,12 +17,20 @@ import (
 func (s *sessionService) Login(ctx context.Context, req *dto.LoginRequest, metadata *types.RequestMetadata) (dto.AuthResponse, *types.GoAuthError) {
 	// Find user
 	user, err := s.userRepository.FindByEmail(ctx, req.Email)
-	if err != nil || user == nil {
-		// Try by username if email not found
+	if err != nil {
+		if !errors.Is(err, models.ErrNotFound) {
+			return dto.AuthResponse{}, types.NewInternalError("failed to find user").Wrap(err)
+		}
+		// user not found by email, try username
 		if req.Username != "" {
 			user, err = s.userRepository.FindByUsername(ctx, req.Username)
-		}
-		if err != nil || user == nil {
+			if err != nil {
+				if !errors.Is(err, models.ErrNotFound) {
+					return dto.AuthResponse{}, types.NewInternalError("failed to find user by username").Wrap(err)
+				}
+				return dto.AuthResponse{}, types.NewInvalidCredentialsError()
+			}
+		} else {
 			return dto.AuthResponse{}, types.NewInvalidCredentialsError()
 		}
 	}
@@ -72,7 +80,7 @@ func (s *sessionService) Login(ctx context.Context, req *dto.LoginRequest, metad
 	// Generate tokens with enriched claims
 	accessToken, refreshToken, err := s.securityManager.GenerateTokens(user, tokenClaims)
 	if err != nil {
-		return dto.AuthResponse{}, types.NewInternalError(fmt.Sprintf("failed to generate tokens: %s", err.Error()))
+		return dto.AuthResponse{}, types.NewInternalError("failed to generate tokens").Wrap(err)
 	}
 
 	// Create session — store a SHA-256 hash of the refresh token, not the raw token
@@ -89,7 +97,7 @@ func (s *sessionService) Login(ctx context.Context, req *dto.LoginRequest, metad
 	}
 
 	if err := s.sessionRepository.Create(ctx, session); err != nil {
-		return dto.AuthResponse{}, types.NewInternalError(fmt.Sprintf("failed to create session: %s", err.Error()))
+		return dto.AuthResponse{}, types.NewInternalError("failed to create session").Wrap(err)
 	}
 
 	// Update last login time

@@ -72,7 +72,7 @@ func (s *ProfileServiceSuite) TestGetProfile() {
 			name:       "user not found",
 			overrideID: "nonexistent",
 			setup: func(_ *models.User, ur *mocks.MockUserRepository) {
-				ur.EXPECT().FindByID(gomock.Any(), "nonexistent").Return(nil, errors.New("not found"))
+				ur.EXPECT().FindByID(gomock.Any(), "nonexistent").Return(nil, models.ErrNotFound)
 			},
 			wantErr: true,
 			errCode: types.ErrUserNotFound,
@@ -81,7 +81,7 @@ func (s *ProfileServiceSuite) TestGetProfile() {
 			name:       "nil user returned",
 			overrideID: "some-id",
 			setup: func(_ *models.User, ur *mocks.MockUserRepository) {
-				ur.EXPECT().FindByID(gomock.Any(), "some-id").Return(nil, nil)
+				ur.EXPECT().FindByID(gomock.Any(), "some-id").Return(nil, models.ErrNotFound)
 			},
 			wantErr: true,
 			errCode: types.ErrUserNotFound,
@@ -175,7 +175,7 @@ func (s *ProfileServiceSuite) TestUpdateProfile() {
 			overrideID: "nonexistent",
 			req:        &dto.UpdateProfileRequest{Name: "Updated Name"},
 			setup: func(_ *models.User, ur *mocks.MockUserRepository) {
-				ur.EXPECT().FindByID(gomock.Any(), "nonexistent").Return(nil, errors.New("not found"))
+				ur.EXPECT().FindByID(gomock.Any(), "nonexistent").Return(nil, models.ErrNotFound)
 			},
 			wantErr: true,
 			errCode: types.ErrUserNotFound,

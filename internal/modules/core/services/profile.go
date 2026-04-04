@@ -2,18 +2,22 @@ package core_services
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"time"
 
 	"github.com/bete7512/goauth/internal/modules/core/handlers/dto"
+	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
 )
 
 // GetProfile retrieves user profile
 func (s *coreService) GetProfile(ctx context.Context, userID string) (*dto.UserDTO, *types.GoAuthError) {
 	user, err := s.UserRepository.FindByID(ctx, userID)
-	if err != nil || user == nil {
-		return nil, types.NewUserNotFoundError()
+	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			return nil, types.NewUserNotFoundError()
+		}
+		return nil, types.NewInternalError("failed to find user").Wrap(err)
 	}
 
 	return &dto.UserDTO{
@@ -30,8 +34,11 @@ func (s *coreService) GetProfile(ctx context.Context, userID string) (*dto.UserD
 func (s *coreService) UpdateProfile(ctx context.Context, userID string, req *dto.UpdateProfileRequest) (*dto.UserDTO, *types.GoAuthError) {
 	// Find user
 	user, err := s.UserRepository.FindByID(ctx, userID)
-	if err != nil || user == nil {
-		return nil, types.NewUserNotFoundError()
+	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			return nil, types.NewUserNotFoundError()
+		}
+		return nil, types.NewInternalError("failed to find user").Wrap(err)
 	}
 	now := time.Now()
 	// Update fields
@@ -48,7 +55,7 @@ func (s *coreService) UpdateProfile(ctx context.Context, userID string, req *dto
 	user.UpdatedAt = &now
 
 	if err := s.UserRepository.Update(ctx, user); err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to update profile: %v", err))
+		return nil, types.NewInternalError("failed to update profile").Wrap(err)
 	}
 
 	return &dto.UserDTO{

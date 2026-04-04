@@ -2,7 +2,7 @@ package services
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"regexp"
 	"strings"
 	"time"
@@ -42,7 +42,7 @@ func (s *orgService) Create(ctx context.Context, userID string, req *dto.CreateO
 
 	available, err := s.orgRepo.IsSlugAvailable(ctx, slug)
 	if err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to check slug availability: %v", err))
+		return nil, types.NewInternalError("failed to check slug availability").Wrap(err)
 	}
 	if !available {
 		return nil, types.NewOrgSlugTakenError()
@@ -59,7 +59,7 @@ func (s *orgService) Create(ctx context.Context, userID string, req *dto.CreateO
 	}
 
 	if err := s.orgRepo.Create(ctx, org); err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to create organization: %v", err))
+		return nil, types.NewInternalError("failed to create organization").Wrap(err)
 	}
 
 	// Add creator as owner
@@ -71,7 +71,7 @@ func (s *orgService) Create(ctx context.Context, userID string, req *dto.CreateO
 		JoinedAt: now,
 	}
 	if err := s.memberRepo.Create(ctx, member); err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to add owner membership: %v", err))
+		return nil, types.NewInternalError("failed to add owner membership").Wrap(err)
 	}
 
 	// Emit events
@@ -88,16 +88,22 @@ func (s *orgService) Create(ctx context.Context, userID string, req *dto.CreateO
 
 func (s *orgService) Get(ctx context.Context, orgID string) (*models.Organization, *types.GoAuthError) {
 	org, err := s.orgRepo.FindByID(ctx, orgID)
-	if err != nil || org == nil {
-		return nil, types.NewOrgNotFoundError()
+	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			return nil, types.NewOrgNotFoundError()
+		}
+		return nil, types.NewInternalError("failed to get organization").Wrap(err)
 	}
 	return org, nil
 }
 
 func (s *orgService) Update(ctx context.Context, orgID string, req *dto.UpdateOrgRequest) (*models.Organization, *types.GoAuthError) {
 	org, err := s.orgRepo.FindByID(ctx, orgID)
-	if err != nil || org == nil {
-		return nil, types.NewOrgNotFoundError()
+	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			return nil, types.NewOrgNotFoundError()
+		}
+		return nil, types.NewInternalError("failed to get organization").Wrap(err)
 	}
 
 	if req.Name != nil {
@@ -113,7 +119,7 @@ func (s *orgService) Update(ctx context.Context, orgID string, req *dto.UpdateOr
 	org.UpdatedAt = &now
 
 	if err := s.orgRepo.Update(ctx, org); err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to update organization: %v", err))
+		return nil, types.NewInternalError("failed to update organization").Wrap(err)
 	}
 
 	s.deps.Events.EmitAsync(ctx, types.EventOrgUpdated, &types.OrgEventData{Organization: org})
@@ -123,12 +129,15 @@ func (s *orgService) Update(ctx context.Context, orgID string, req *dto.UpdateOr
 
 func (s *orgService) Delete(ctx context.Context, orgID string) *types.GoAuthError {
 	org, err := s.orgRepo.FindByID(ctx, orgID)
-	if err != nil || org == nil {
-		return types.NewOrgNotFoundError()
+	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			return types.NewOrgNotFoundError()
+		}
+		return types.NewInternalError("failed to get organization").Wrap(err)
 	}
 
 	if err := s.orgRepo.Delete(ctx, orgID); err != nil {
-		return types.NewInternalError(fmt.Sprintf("failed to delete organization: %v", err))
+		return types.NewInternalError("failed to delete organization").Wrap(err)
 	}
 
 	s.deps.Events.EmitAsync(ctx, types.EventOrgDeleted, &types.OrgEventData{Organization: org})
@@ -139,7 +148,7 @@ func (s *orgService) Delete(ctx context.Context, orgID string) *types.GoAuthErro
 func (s *orgService) ListByUser(ctx context.Context, userID string) ([]*models.Organization, *types.GoAuthError) {
 	memberships, err := s.memberRepo.ListByUser(ctx, userID)
 	if err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to list memberships: %v", err))
+		return nil, types.NewInternalError("failed to list memberships").Wrap(err)
 	}
 
 	if len(memberships) == 0 {
@@ -149,7 +158,10 @@ func (s *orgService) ListByUser(ctx context.Context, userID string) ([]*models.O
 	var orgs []*models.Organization
 	for _, m := range memberships {
 		org, err := s.orgRepo.FindByID(ctx, m.OrgID)
-		if err != nil || org == nil {
+		if err != nil {
+			if !errors.Is(err, models.ErrNotFound) {
+				s.deps.Logger.Warn("failed to get organization for membership", "org_id", m.OrgID, "error", err)
+			}
 			continue
 		}
 		orgs = append(orgs, org)
@@ -161,8 +173,11 @@ func (s *orgService) ListByUser(ctx context.Context, userID string) ([]*models.O
 func (s *orgService) SwitchOrg(ctx context.Context, user *models.User, targetOrgID string) (string, string, *types.GoAuthError) {
 	// Validate membership
 	member, err := s.memberRepo.FindByOrgAndUser(ctx, targetOrgID, user.ID)
-	if err != nil || member == nil {
-		return "", "", types.NewOrgNotMemberError()
+	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			return "", "", types.NewOrgNotMemberError()
+		}
+		return "", "", types.NewInternalError("failed to find membership").Wrap(err)
 	}
 
 	// Run interceptors for resume phase to get base claims (e.g. other module enrichments)
@@ -171,7 +186,7 @@ func (s *orgService) SwitchOrg(ctx context.Context, user *models.User, targetOrg
 		User:  user,
 	})
 	if interceptErr != nil {
-		return "", "", types.NewInternalError(fmt.Sprintf("auth interceptor failed: %v", interceptErr))
+		return "", "", types.NewInternalError("auth interceptor failed").Wrap(interceptErr)
 	}
 
 	// Override org-specific claims with the target org (not the default from interceptor)
@@ -180,7 +195,7 @@ func (s *orgService) SwitchOrg(ctx context.Context, user *models.User, targetOrg
 
 	accessToken, refreshToken, tokenErr := s.deps.SecurityManager.GenerateTokens(user, interceptClaims)
 	if tokenErr != nil {
-		return "", "", types.NewInternalError(fmt.Sprintf("failed to generate tokens: %v", tokenErr))
+		return "", "", types.NewInternalError("failed to generate tokens").Wrap(tokenErr)
 	}
 
 	s.deps.Events.EmitAsync(ctx, types.EventOrgSwitched, &types.OrgSwitchEventData{

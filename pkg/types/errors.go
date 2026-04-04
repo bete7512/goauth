@@ -1,6 +1,9 @@
 package types
 
-import "net/http"
+import (
+	"fmt"
+	"net/http"
+)
 
 // ErrorCode represents a specific error type
 type ErrorCode string
@@ -11,6 +14,7 @@ type GoAuthError struct {
 	Message    string    `json:"message"`
 	StatusCode int       `json:"-"`
 	Details    any       `json:"details,omitempty"`
+	Err        error     `json:"-"`
 }
 
 const (
@@ -124,7 +128,21 @@ const (
 
 // Error implements the error interface
 func (e *GoAuthError) Error() string {
+	if e.Err != nil {
+		return fmt.Sprintf("%s: %s", e.Message, e.Err.Error())
+	}
 	return e.Message
+}
+
+// Unwrap returns the underlying error for errors.Is/As support
+func (e *GoAuthError) Unwrap() error {
+	return e.Err
+}
+
+// Wrap sets the underlying error and returns the GoAuthError for chaining
+func (e *GoAuthError) Wrap(err error) *GoAuthError {
+	e.Err = err
+	return e
 }
 
 // NewGoAuthError creates a new API error

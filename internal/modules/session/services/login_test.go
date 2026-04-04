@@ -80,7 +80,7 @@ func (s *LoginServiceSuite) TestLogin() {
 			req:      &dto.LoginRequest{Email: "unknown@example.com", Password: "password123"},
 			metadata: &types.RequestMetadata{IPAddress: "127.0.0.1", UserAgent: "TestAgent/1.0"},
 			setup: func(_ *models.User, ur *mocks.MockUserRepository, _ *mocks.MockSessionRepository, _ *mocks.MockLogger, _ *mocks.MockEventBus) {
-				ur.EXPECT().FindByEmail(gomock.Any(), "unknown@example.com").Return(nil, errors.New("not found"))
+				ur.EXPECT().FindByEmail(gomock.Any(), "unknown@example.com").Return(nil, models.ErrNotFound)
 			},
 			wantErr:    true,
 			errCode:    types.ErrInvalidCredentials,

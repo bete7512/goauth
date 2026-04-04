@@ -2,7 +2,7 @@ package services
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
 	"github.com/bete7512/goauth/internal/modules/organization/handlers/dto"
 	"github.com/bete7512/goauth/pkg/config"
@@ -32,7 +32,7 @@ func NewMemberService(deps config.ModuleDependencies, memberRepo models.Organiza
 func (s *memberService) ListMembers(ctx context.Context, orgID string, opts models.MemberListOpts) ([]*dto.MemberWithUser, int64, *types.GoAuthError) {
 	members, total, err := s.memberRepo.ListByOrg(ctx, orgID, opts)
 	if err != nil {
-		return nil, 0, types.NewInternalError(fmt.Sprintf("failed to list members: %v", err))
+		return nil, 0, types.NewInternalError("failed to list members").Wrap(err)
 	}
 
 	result := make([]*dto.MemberWithUser, 0, len(members))
@@ -51,8 +51,11 @@ func (s *memberService) ListMembers(ctx context.Context, orgID string, opts mode
 
 func (s *memberService) GetMember(ctx context.Context, orgID, userID string) (*dto.MemberWithUser, *types.GoAuthError) {
 	member, err := s.memberRepo.FindByOrgAndUser(ctx, orgID, userID)
-	if err != nil || member == nil {
-		return nil, types.NewOrgMemberNotFoundError()
+	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			return nil, types.NewOrgMemberNotFoundError()
+		}
+		return nil, types.NewInternalError("failed to find member").Wrap(err)
 	}
 
 	mwu := &dto.MemberWithUser{OrganizationMember: *member}
@@ -72,8 +75,11 @@ func (s *memberService) UpdateRole(ctx context.Context, orgID, targetUserID stri
 
 	// Get org to check ownership
 	org, err := s.orgRepo.FindByID(ctx, orgID)
-	if err != nil || org == nil {
-		return types.NewOrgNotFoundError()
+	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			return types.NewOrgNotFoundError()
+		}
+		return types.NewInternalError("failed to get organization").Wrap(err)
 	}
 
 	// Cannot change owner's role
@@ -82,13 +88,16 @@ func (s *memberService) UpdateRole(ctx context.Context, orgID, targetUserID stri
 	}
 
 	member, err := s.memberRepo.FindByOrgAndUser(ctx, orgID, targetUserID)
-	if err != nil || member == nil {
-		return types.NewOrgMemberNotFoundError()
+	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			return types.NewOrgMemberNotFoundError()
+		}
+		return types.NewInternalError("failed to find member").Wrap(err)
 	}
 
 	member.Role = string(newRole)
 	if err := s.memberRepo.Update(ctx, member); err != nil {
-		return types.NewInternalError(fmt.Sprintf("failed to update member role: %v", err))
+		return types.NewInternalError("failed to update member role").Wrap(err)
 	}
 
 	s.deps.Events.EmitAsync(ctx, types.EventOrgMemberRoleChanged, &types.OrgMemberEventData{
@@ -100,8 +109,11 @@ func (s *memberService) UpdateRole(ctx context.Context, orgID, targetUserID stri
 
 func (s *memberService) RemoveMember(ctx context.Context, orgID, targetUserID, actorID string) *types.GoAuthError {
 	org, err := s.orgRepo.FindByID(ctx, orgID)
-	if err != nil || org == nil {
-		return types.NewOrgNotFoundError()
+	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			return types.NewOrgNotFoundError()
+		}
+		return types.NewInternalError("failed to get organization").Wrap(err)
 	}
 
 	// Cannot remove owner
@@ -109,13 +121,16 @@ func (s *memberService) RemoveMember(ctx context.Context, orgID, targetUserID, a
 		return types.NewOrgCannotRemoveOwnerError()
 	}
 
-	member, err := s.memberRepo.FindByOrgAndUser(ctx, orgID, targetUserID)
-	if err != nil || member == nil {
-		return types.NewOrgMemberNotFoundError()
+	_, err = s.memberRepo.FindByOrgAndUser(ctx, orgID, targetUserID)
+	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			return types.NewOrgMemberNotFoundError()
+		}
+		return types.NewInternalError("failed to find member").Wrap(err)
 	}
 
 	if err := s.memberRepo.DeleteByOrgAndUser(ctx, orgID, targetUserID); err != nil {
-		return types.NewInternalError(fmt.Sprintf("failed to remove member: %v", err))
+		return types.NewInternalError("failed to remove member").Wrap(err)
 	}
 
 	s.deps.Events.EmitAsync(ctx, types.EventOrgMemberRemoved, &types.OrgMemberEventData{

@@ -2,7 +2,6 @@ package core_services_test
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/bete7512/goauth/internal/mocks"
@@ -78,7 +77,7 @@ func (s *MeServiceSuite) TestGetCurrentUser() {
 			name:       "user not found",
 			overrideID: "nonexistent",
 			setup: func(_ *models.User, ur *mocks.MockUserRepository) {
-				ur.EXPECT().FindByID(gomock.Any(), "nonexistent").Return(nil, errors.New("not found"))
+				ur.EXPECT().FindByID(gomock.Any(), "nonexistent").Return(nil, models.ErrNotFound)
 			},
 			wantErr: true,
 			errCode: types.ErrUserNotFound,
@@ -87,7 +86,7 @@ func (s *MeServiceSuite) TestGetCurrentUser() {
 			name:       "nil user returned",
 			overrideID: "some-id",
 			setup: func(_ *models.User, ur *mocks.MockUserRepository) {
-				ur.EXPECT().FindByID(gomock.Any(), "some-id").Return(nil, nil)
+				ur.EXPECT().FindByID(gomock.Any(), "some-id").Return(nil, models.ErrNotFound)
 			},
 			wantErr: true,
 			errCode: types.ErrUserNotFound,

@@ -10,7 +10,7 @@ import (
 func (s *StatelessService) Logout(ctx context.Context, userID string) *types.GoAuthError {
 	// Delete all refresh nonces for the user (effectively blacklisting all refresh tokens)
 	if err := s.TokenRepository.DeleteByUserID(ctx, userID); err != nil {
-		return types.NewInternalError("Failed to revoke tokens")
+		return types.NewInternalError("failed to revoke tokens").Wrap(err)
 	}
 
 	return nil

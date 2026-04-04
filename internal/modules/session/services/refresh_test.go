@@ -111,7 +111,7 @@ func (s *RefreshServiceSuite) TestRefresh() {
 			name: "session not found",
 			req:  &dto.RefreshRequest{RefreshToken: "unknown-token"},
 			setup: func(_ *mocks.MockUserRepository, sr *mocks.MockSessionRepository) {
-				sr.EXPECT().FindByToken(gomock.Any(), security.HashRefreshToken("unknown-token")).Return(nil, errors.New("not found"))
+				sr.EXPECT().FindByToken(gomock.Any(), security.HashRefreshToken("unknown-token")).Return(nil, models.ErrNotFound)
 			},
 			wantErr:    true,
 			errCode:    types.ErrInvalidCredentials,
@@ -143,7 +143,7 @@ func (s *RefreshServiceSuite) TestRefresh() {
 			setup: func(ur *mocks.MockUserRepository, sr *mocks.MockSessionRepository) {
 				h := security.HashRefreshToken("valid-refresh-token")
 				sr.EXPECT().FindByToken(gomock.Any(), h).Return(validSession, nil)
-				ur.EXPECT().FindByID(gomock.Any(), testUser.ID).Return(nil, errors.New("not found"))
+				ur.EXPECT().FindByID(gomock.Any(), testUser.ID).Return(nil, models.ErrNotFound)
 			},
 			wantErr:    true,
 			errCode:    types.ErrInvalidCredentials,

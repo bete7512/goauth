@@ -2,7 +2,7 @@ package services
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"time"
 
 	"github.com/bete7512/goauth/internal/modules/stateless/handlers/dto"
@@ -17,12 +17,20 @@ import (
 func (s *StatelessService) Login(ctx context.Context, req *dto.LoginRequest) (dto.AuthResponse, *types.GoAuthError) {
 	// Find user
 	user, err := s.UserRepository.FindByEmail(ctx, req.Email)
-	if err != nil || user == nil {
-		// Try by username if email not found
+	if err != nil {
+		if !errors.Is(err, models.ErrNotFound) {
+			return dto.AuthResponse{}, types.NewInternalError("failed to find user").Wrap(err)
+		}
+		// user not found by email, try username
 		if req.Username != "" {
 			user, err = s.UserRepository.FindByUsername(ctx, req.Username)
-		}
-		if err != nil || user == nil {
+			if err != nil {
+				if !errors.Is(err, models.ErrNotFound) {
+					return dto.AuthResponse{}, types.NewInternalError("failed to find user by username").Wrap(err)
+				}
+				return dto.AuthResponse{}, types.NewInvalidCredentialsError()
+			}
+		} else {
 			return dto.AuthResponse{}, types.NewInvalidCredentialsError()
 		}
 	}
@@ -66,13 +74,13 @@ func (s *StatelessService) Login(ctx context.Context, req *dto.LoginRequest) (dt
 		interceptClaims,
 	)
 	if err != nil {
-		return dto.AuthResponse{}, types.NewInternalError(fmt.Sprintf("failed to generate access token: %s", err.Error()))
+		return dto.AuthResponse{}, types.NewInternalError("failed to generate access token").Wrap(err)
 	}
 
 	// Generate stateless refresh token with JTI (nonce)
 	refreshToken, jti, err := s.SecurityManager.GenerateStatelessRefreshToken(user)
 	if err != nil {
-		return dto.AuthResponse{}, types.NewInternalError(fmt.Sprintf("failed to generate refresh token: %s", err.Error()))
+		return dto.AuthResponse{}, types.NewInternalError("failed to generate refresh token").Wrap(err)
 	}
 
 	// Store the JTI (nonce) in the tokens table for revocation checks
@@ -85,7 +93,7 @@ func (s *StatelessService) Login(ctx context.Context, req *dto.LoginRequest) (dt
 		CreatedAt: time.Now(),
 	}
 	if err := s.TokenRepository.Create(ctx, tokenModel); err != nil {
-		return dto.AuthResponse{}, types.NewInternalError(fmt.Sprintf("failed to save refresh token nonce: %s", err.Error()))
+		return dto.AuthResponse{}, types.NewInternalError("failed to save refresh token nonce").Wrap(err)
 	}
 
 	// Update last login time

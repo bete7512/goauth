@@ -92,7 +92,7 @@ func (v *SessionValidator) ValidateFromCookie(cookieValue string) ValidationResu
 // Always sets ShouldRefresh=true so the caller re-issues the session cookie.
 func (v *SessionValidator) ValidateFromDB(ctx context.Context, sessionID string) ValidationResult {
 	session, err := v.sessionRepo.FindByID(ctx, sessionID)
-	if err != nil || session == nil {
+	if err != nil {
 		return ValidationResult{Error: ErrSessionRevoked}
 	}
 

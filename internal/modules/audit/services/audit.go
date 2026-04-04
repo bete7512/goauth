@@ -4,7 +4,6 @@ package services
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
@@ -46,7 +45,7 @@ func NewAuditService(
 // CreateAuditLog creates a new audit log entry
 func (s *auditService) CreateAuditLog(ctx context.Context, log *models.AuditLog) *types.GoAuthError {
 	if err := s.auditLogRepo.Create(ctx, log); err != nil {
-		return types.NewInternalError(fmt.Sprintf("failed to create audit log: %v", err))
+		return types.NewInternalError("failed to create audit log").Wrap(err)
 	}
 	return nil
 }
@@ -56,14 +55,14 @@ func (s *auditService) GetMyAuditLogs(ctx context.Context, userID string, opts m
 	// Get logs where user is the actor
 	actorLogs, _, err := s.auditLogRepo.FindByActorID(ctx, userID, opts)
 	if err != nil {
-		return nil, 0, types.NewInternalError(fmt.Sprintf("failed to get actor logs: %v", err))
+		return nil, 0, types.NewInternalError("failed to get actor logs").Wrap(err)
 	}
 
 	// Get logs where user is the target
 	targetOpts := opts
 	targetLogs, _, err := s.auditLogRepo.FindByTargetID(ctx, userID, targetOpts)
 	if err != nil {
-		return nil, 0, types.NewInternalError(fmt.Sprintf("failed to get target logs: %v", err))
+		return nil, 0, types.NewInternalError("failed to get target logs").Wrap(err)
 	}
 
 	// Merge and deduplicate
@@ -77,7 +76,7 @@ func (s *auditService) GetMyLogins(ctx context.Context, userID string, opts mode
 	fetchOpts.Limit = opts.Limit * 2
 	allLogs, _, err := s.auditLogRepo.FindByActorID(ctx, userID, fetchOpts)
 	if err != nil {
-		return nil, 0, types.NewInternalError(fmt.Sprintf("failed to get logs: %v", err))
+		return nil, 0, types.NewInternalError("failed to get logs").Wrap(err)
 	}
 
 	// Filter for login-related actions
@@ -101,7 +100,7 @@ func (s *auditService) GetMyChanges(ctx context.Context, userID string, opts mod
 	fetchOpts.Limit = opts.Limit * 2
 	allLogs, _, err := s.auditLogRepo.FindByActorID(ctx, userID, fetchOpts)
 	if err != nil {
-		return nil, 0, types.NewInternalError(fmt.Sprintf("failed to get logs: %v", err))
+		return nil, 0, types.NewInternalError("failed to get logs").Wrap(err)
 	}
 
 	// Filter for profile change actions
@@ -124,7 +123,7 @@ func (s *auditService) GetMySecurity(ctx context.Context, userID string, opts mo
 	fetchOpts.Limit = opts.Limit * 2
 	allLogs, _, err := s.auditLogRepo.FindByActorID(ctx, userID, fetchOpts)
 	if err != nil {
-		return nil, 0, types.NewInternalError(fmt.Sprintf("failed to get logs: %v", err))
+		return nil, 0, types.NewInternalError("failed to get logs").Wrap(err)
 	}
 
 	// Filter for security events
@@ -147,7 +146,7 @@ func (s *auditService) GetMySecurity(ctx context.Context, userID string, opts mo
 func (s *auditService) ListAllAuditLogs(ctx context.Context, opts models.AuditLogListOpts) ([]*models.AuditLog, int64, *types.GoAuthError) {
 	logs, total, err := s.auditLogRepo.List(ctx, opts)
 	if err != nil {
-		return nil, 0, types.NewInternalError(fmt.Sprintf("failed to list audit logs: %v", err))
+		return nil, 0, types.NewInternalError("failed to list audit logs").Wrap(err)
 	}
 	return logs, total, nil
 }
@@ -157,7 +156,7 @@ func (s *auditService) GetUserAuditLogs(ctx context.Context, userID string, opts
 	// Get logs where user is the actor
 	actorLogs, _, err := s.auditLogRepo.FindByActorID(ctx, userID, opts)
 	if err != nil {
-		return nil, 0, types.NewInternalError(fmt.Sprintf("failed to get actor logs: %v", err))
+		return nil, 0, types.NewInternalError("failed to get actor logs").Wrap(err)
 	}
 
 	// Get logs where user is the target
@@ -166,7 +165,7 @@ func (s *auditService) GetUserAuditLogs(ctx context.Context, userID string, opts
 	targetOpts.Offset = 0
 	targetLogs, _, err := s.auditLogRepo.FindByTargetID(ctx, userID, targetOpts)
 	if err != nil {
-		return nil, 0, types.NewInternalError(fmt.Sprintf("failed to get target logs: %v", err))
+		return nil, 0, types.NewInternalError("failed to get target logs").Wrap(err)
 	}
 
 	// Merge
@@ -178,7 +177,7 @@ func (s *auditService) GetUserAuditLogs(ctx context.Context, userID string, opts
 func (s *auditService) GetAuditLogsByAction(ctx context.Context, action string, opts models.AuditLogListOpts) ([]*models.AuditLog, int64, *types.GoAuthError) {
 	logs, total, err := s.auditLogRepo.FindByAction(ctx, action, opts)
 	if err != nil {
-		return nil, 0, types.NewInternalError(fmt.Sprintf("failed to get audit logs by action: %v", err))
+		return nil, 0, types.NewInternalError("failed to get audit logs by action").Wrap(err)
 	}
 	return logs, total, nil
 }
@@ -189,7 +188,7 @@ func (s *auditService) CleanupOldLogs(ctx context.Context) *types.GoAuthError {
 		if days > 0 {
 			cutoff := time.Now().AddDate(0, 0, -days)
 			if err := s.auditLogRepo.DeleteByActionOlderThan(ctx, actionPattern, cutoff); err != nil {
-				return types.NewInternalError(fmt.Sprintf("failed to cleanup logs for %s: %v", actionPattern, err))
+				return types.NewInternalError("failed to cleanup logs for " + actionPattern).Wrap(err)
 			}
 		}
 	}

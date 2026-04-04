@@ -80,7 +80,7 @@ func (s *StatelessLoginSuite) TestLogin_SuccessWithUsername() {
 	user := testutil.TestUser()
 
 	// First try email (empty), fail, then try username
-	mockUserRepo.EXPECT().FindByEmail(gomock.Any(), "").Return(nil, errors.New("not found"))
+	mockUserRepo.EXPECT().FindByEmail(gomock.Any(), "").Return(nil, models.ErrNotFound)
 	mockUserRepo.EXPECT().FindByUsername(gomock.Any(), user.Username).Return(user, nil)
 	mockTokenRepo.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&models.Token{})).Return(nil)
 	mockUserRepo.EXPECT().Update(gomock.Any(), gomock.AssignableToTypeOf(&models.User{})).Return(nil)
@@ -95,7 +95,7 @@ func (s *StatelessLoginSuite) TestLogin_SuccessWithUsername() {
 func (s *StatelessLoginSuite) TestLogin_UserNotFound() {
 	svc, mockUserRepo, _, _, _ := s.setupService()
 
-	mockUserRepo.EXPECT().FindByEmail(gomock.Any(), "unknown@example.com").Return(nil, errors.New("not found"))
+	mockUserRepo.EXPECT().FindByEmail(gomock.Any(), "unknown@example.com").Return(nil, models.ErrNotFound)
 
 	req := &dto.LoginRequest{Email: "unknown@example.com", Password: "password123"}
 	_, authErr := svc.Login(context.Background(), req)
@@ -264,7 +264,7 @@ func (s *StatelessLoginSuite) TestRefresh_JTINotFound() {
 	s.NoError(err)
 	_ = refreshToken
 
-	mockTokenRepo.EXPECT().FindByToken(gomock.Any(), jti).Return(nil, errors.New("not found"))
+	mockTokenRepo.EXPECT().FindByToken(gomock.Any(), jti).Return(nil, models.ErrNotFound)
 
 	req := &dto.RefreshRequest{RefreshToken: refreshToken}
 	_, authErr := svc.Refresh(context.Background(), req)
@@ -282,7 +282,7 @@ func (s *StatelessLoginSuite) TestRefresh_UserNotFound() {
 
 	tokenRecord := &models.Token{Token: jti, UserID: user.ID}
 	mockTokenRepo.EXPECT().FindByToken(gomock.Any(), jti).Return(tokenRecord, nil)
-	mockUserRepo.EXPECT().FindByID(gomock.Any(), user.ID).Return(nil, errors.New("not found"))
+	mockUserRepo.EXPECT().FindByID(gomock.Any(), user.ID).Return(nil, models.ErrNotFound)
 
 	req := &dto.RefreshRequest{RefreshToken: refreshToken}
 	_, authErr := svc.Refresh(context.Background(), req)

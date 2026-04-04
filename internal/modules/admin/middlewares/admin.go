@@ -2,10 +2,12 @@ package middlewares
 
 import (
 	"context"
+	"errors"
 	"net/http"
 
 	http_utils "github.com/bete7512/goauth/internal/utils/http"
 	"github.com/bete7512/goauth/pkg/config"
+	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
 )
 
@@ -40,7 +42,11 @@ func (m *AdminAuthMiddleware) Middleware(next http.Handler) http.Handler {
 
 		user, err := coreStorage.Users().FindByID(r.Context(), userID)
 		if err != nil {
-			http_utils.RespondError(w, http.StatusUnauthorized, string(types.ErrUnauthorized), "user not found")
+			if errors.Is(err, models.ErrNotFound) {
+				http_utils.RespondError(w, http.StatusUnauthorized, string(types.ErrUnauthorized), "user not found")
+				return
+			}
+			http_utils.RespondError(w, http.StatusInternalServerError, string(types.ErrInternalError), "failed to fetch user")
 			return
 		}
 

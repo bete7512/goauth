@@ -2,6 +2,7 @@ package organization
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/bete7512/goauth/pkg/models"
@@ -31,7 +32,10 @@ func (r *InvitationRepo) Create(ctx context.Context, invitation *models.Invitati
 	if invitation.CreatedAt.IsZero() {
 		invitation.CreatedAt = time.Now()
 	}
-	return r.db.WithContext(ctx).Create(invitation).Error
+	if err := r.db.WithContext(ctx).Create(invitation).Error; err != nil {
+		return fmt.Errorf("invitation_repository.Create: %w", err)
+	}
+	return nil
 }
 
 // FindByID finds an invitation by its ID
@@ -39,9 +43,12 @@ func (r *InvitationRepo) FindByID(ctx context.Context, id string) (*models.Invit
 	var invitation models.Invitation
 	err := r.db.WithContext(ctx).Where("id = ?", id).First(&invitation).Error
 	if err == gorm.ErrRecordNotFound {
-		return nil, nil
+		return nil, fmt.Errorf("invitation_repository.FindByID: %w", models.ErrNotFound)
 	}
-	return &invitation, err
+	if err != nil {
+		return nil, fmt.Errorf("invitation_repository.FindByID: %w", err)
+	}
+	return &invitation, nil
 }
 
 // FindByToken finds an invitation by its token
@@ -49,9 +56,12 @@ func (r *InvitationRepo) FindByToken(ctx context.Context, token string) (*models
 	var invitation models.Invitation
 	err := r.db.WithContext(ctx).Where("token = ?", token).First(&invitation).Error
 	if err == gorm.ErrRecordNotFound {
-		return nil, nil
+		return nil, fmt.Errorf("invitation_repository.FindByToken: %w", models.ErrNotFound)
 	}
-	return &invitation, err
+	if err != nil {
+		return nil, fmt.Errorf("invitation_repository.FindByToken: %w", err)
+	}
+	return &invitation, nil
 }
 
 // FindByOrgAndEmail finds a pending invitation by organization ID and email
@@ -61,9 +71,12 @@ func (r *InvitationRepo) FindByOrgAndEmail(ctx context.Context, orgID, email str
 		Where("org_id = ? AND email = ? AND status = ?", orgID, email, models.InvitationStatusPending).
 		First(&invitation).Error
 	if err == gorm.ErrRecordNotFound {
-		return nil, nil
+		return nil, fmt.Errorf("invitation_repository.FindByOrgAndEmail: %w", models.ErrNotFound)
 	}
-	return &invitation, err
+	if err != nil {
+		return nil, fmt.Errorf("invitation_repository.FindByOrgAndEmail: %w", err)
+	}
+	return &invitation, nil
 }
 
 // ListByOrg lists invitations for an organization with filtering, pagination, and sorting
@@ -76,12 +89,12 @@ func (r *InvitationRepo) ListByOrg(ctx context.Context, orgID string, opts model
 
 	var total int64
 	if err := query.Count(&total).Error; err != nil {
-		return nil, 0, err
+		return nil, 0, fmt.Errorf("invitation_repository.ListByOrg count: %w", err)
 	}
 
 	var invitations []*models.Invitation
 	if err := helpers.ApplyListingOpts(query, opts.ListingOpts).Find(&invitations).Error; err != nil {
-		return nil, 0, err
+		return nil, 0, fmt.Errorf("invitation_repository.ListByOrg find: %w", err)
 	}
 	return invitations, total, nil
 }
@@ -89,25 +102,36 @@ func (r *InvitationRepo) ListByOrg(ctx context.Context, orgID string, opts model
 // ListPendingByEmail lists all pending, non-expired invitations for an email
 func (r *InvitationRepo) ListPendingByEmail(ctx context.Context, email string) ([]*models.Invitation, error) {
 	var invitations []*models.Invitation
-	err := r.db.WithContext(ctx).
+	if err := r.db.WithContext(ctx).
 		Where("email = ? AND status = ? AND expires_at > ?", email, models.InvitationStatusPending, time.Now()).
-		Find(&invitations).Error
-	return invitations, err
+		Find(&invitations).Error; err != nil {
+		return nil, fmt.Errorf("invitation_repository.ListPendingByEmail: %w", err)
+	}
+	return invitations, nil
 }
 
 // Update updates an existing invitation
 func (r *InvitationRepo) Update(ctx context.Context, invitation *models.Invitation) error {
-	return r.db.WithContext(ctx).Save(invitation).Error
+	if err := r.db.WithContext(ctx).Save(invitation).Error; err != nil {
+		return fmt.Errorf("invitation_repository.Update: %w", err)
+	}
+	return nil
 }
 
 // Delete deletes an invitation by its ID
 func (r *InvitationRepo) Delete(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).Delete(&models.Invitation{}, "id = ?", id).Error
+	if err := r.db.WithContext(ctx).Delete(&models.Invitation{}, "id = ?", id).Error; err != nil {
+		return fmt.Errorf("invitation_repository.Delete: %w", err)
+	}
+	return nil
 }
 
 // DeleteExpired deletes all pending invitations that have expired
 func (r *InvitationRepo) DeleteExpired(ctx context.Context) error {
-	return r.db.WithContext(ctx).
+	if err := r.db.WithContext(ctx).
 		Where("status = ? AND expires_at < ?", models.InvitationStatusPending, time.Now()).
-		Delete(&models.Invitation{}).Error
+		Delete(&models.Invitation{}).Error; err != nil {
+		return fmt.Errorf("invitation_repository.DeleteExpired: %w", err)
+	}
+	return nil
 }

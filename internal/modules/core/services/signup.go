@@ -2,7 +2,7 @@ package core_services
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"strings"
 	"time"
 
@@ -17,19 +17,28 @@ import (
 func (s *coreService) Signup(ctx context.Context, req *dto.SignupRequest) (*dto.AuthResponse, *types.GoAuthError) {
 	// Check if user already exists
 	if req.Email != "" {
-		existing, _ := s.UserRepository.FindByEmail(ctx, req.Email)
+		existing, err := s.UserRepository.FindByEmail(ctx, req.Email)
+		if err != nil && !errors.Is(err, models.ErrNotFound) {
+			return nil, types.NewInternalError("failed to check existing user by email").Wrap(err)
+		}
 		if existing != nil {
 			return nil, types.NewUserAlreadyExistsError()
 		}
 	}
 	if req.Username != "" {
-		existing, _ := s.UserRepository.FindByUsername(ctx, req.Username)
+		existing, err := s.UserRepository.FindByUsername(ctx, req.Username)
+		if err != nil && !errors.Is(err, models.ErrNotFound) {
+			return nil, types.NewInternalError("failed to check existing user by username").Wrap(err)
+		}
 		if existing != nil {
 			return nil, types.NewUsernameAlreadyExistsError()
 		}
 	}
 	if req.PhoneNumber != "" && s.Config.UniquePhoneNumber {
-		existing, _ := s.UserRepository.FindByPhoneNumber(ctx, req.PhoneNumber)
+		existing, err := s.UserRepository.FindByPhoneNumber(ctx, req.PhoneNumber)
+		if err != nil && !errors.Is(err, models.ErrNotFound) {
+			return nil, types.NewInternalError("failed to check existing user by phone").Wrap(err)
+		}
 		if existing != nil {
 			return nil, types.NewPhoneAlreadyInUseError()
 		}
@@ -38,7 +47,7 @@ func (s *coreService) Signup(ctx context.Context, req *dto.SignupRequest) (*dto.
 	// Hash password
 	hashedPassword, err := s.SecurityManager.HashPassword(req.Password)
 	if err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to hash password: %v", err.Error()))
+		return nil, types.NewInternalError("failed to hash password").Wrap(err)
 	}
 
 	now := time.Now()
@@ -68,7 +77,7 @@ func (s *coreService) Signup(ctx context.Context, req *dto.SignupRequest) (*dto.
 	}
 
 	if err := s.UserRepository.Create(ctx, user); err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to create user: %v", err.Error()))
+		return nil, types.NewInternalError("failed to create user").Wrap(err)
 	}
 
 	userDto := &dto.UserDTO{

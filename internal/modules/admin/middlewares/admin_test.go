@@ -2,7 +2,6 @@ package middlewares_test
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -91,7 +90,7 @@ func (s *AdminAuthMiddlewareSuite) TestAdminAuth() {
 			setup: func(st *mocks.MockStorage, cs *mocks.MockCoreStorage, ur *mocks.MockUserRepository) {
 				st.EXPECT().Core().Return(cs)
 				cs.EXPECT().Users().Return(ur)
-				ur.EXPECT().FindByID(gomock.Any(), "nonexistent").Return(nil, errors.New("not found"))
+				ur.EXPECT().FindByID(gomock.Any(), "nonexistent").Return(nil, models.ErrNotFound)
 			},
 			wantStatus:  http.StatusUnauthorized,
 			wantErrCode: string(types.ErrUnauthorized),

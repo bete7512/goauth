@@ -2,10 +2,11 @@ package services
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"time"
 
 	"github.com/bete7512/goauth/internal/modules/session/handlers/dto"
+	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
 	"github.com/google/uuid"
 )
@@ -15,8 +16,11 @@ func (s *sessionService) Refresh(ctx context.Context, req *dto.RefreshRequest) (
 	// Hash the incoming refresh token and look up by hash
 	tokenHash := s.securityManager.HashRefreshToken(req.RefreshToken)
 	session, err := s.sessionRepository.FindByToken(ctx, tokenHash)
-	if err != nil || session == nil {
-		return dto.AuthResponse{}, types.NewInvalidCredentialsError()
+	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			return dto.AuthResponse{}, types.NewInvalidCredentialsError()
+		}
+		return dto.AuthResponse{}, types.NewInternalError("failed to find session by token").Wrap(err)
 	}
 
 	// Check if session is expired
@@ -31,8 +35,11 @@ func (s *sessionService) Refresh(ctx context.Context, req *dto.RefreshRequest) (
 
 	// Get user
 	user, err := s.userRepository.FindByID(ctx, session.UserID)
-	if err != nil || user == nil {
-		return dto.AuthResponse{}, types.NewInvalidCredentialsError()
+	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			return dto.AuthResponse{}, types.NewInvalidCredentialsError()
+		}
+		return dto.AuthResponse{}, types.NewInternalError("failed to find user").Wrap(err)
 	}
 
 	// Run auth interceptors for refresh (enrichment only, no challenges)
@@ -56,12 +63,12 @@ func (s *sessionService) Refresh(ctx context.Context, req *dto.RefreshRequest) (
 	// Generate new tokens with enriched claims
 	accessToken, newRefreshToken, err := s.securityManager.GenerateTokens(user, tokenClaims)
 	if err != nil {
-		return dto.AuthResponse{}, types.NewInternalError(fmt.Sprintf("failed to generate tokens: %s", err.Error()))
+		return dto.AuthResponse{}, types.NewInternalError("failed to generate tokens").Wrap(err)
 	}
 
 	// Delete old session by hash
 	if err := s.sessionRepository.DeleteByToken(ctx, tokenHash); err != nil {
-		return dto.AuthResponse{}, types.NewInternalError(fmt.Sprintf("failed to rotate session: %s", err.Error()))
+		return dto.AuthResponse{}, types.NewInternalError("failed to rotate session").Wrap(err)
 	}
 
 	// Create new session with hashed rotated refresh token
@@ -73,7 +80,7 @@ func (s *sessionService) Refresh(ctx context.Context, req *dto.RefreshRequest) (
 	session.UpdatedAt = time.Now()
 
 	if err := s.sessionRepository.Create(ctx, session); err != nil {
-		return dto.AuthResponse{}, types.NewInternalError(fmt.Sprintf("failed to create refreshed session: %s", err.Error()))
+		return dto.AuthResponse{}, types.NewInternalError("failed to create refreshed session").Wrap(err)
 	}
 
 	return dto.AuthResponse{

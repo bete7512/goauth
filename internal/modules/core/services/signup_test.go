@@ -69,7 +69,7 @@ func (s *SignupServiceSuite) TestSignup() {
 			name: "success",
 			req:  &dto.SignupRequest{Email: "new@example.com", Password: "password123", Name: "New User"},
 			setup: func(ur *mocks.MockUserRepository) {
-				ur.EXPECT().FindByEmail(gomock.Any(), "new@example.com").Return(nil, errors.New("not found"))
+				ur.EXPECT().FindByEmail(gomock.Any(), "new@example.com").Return(nil, models.ErrNotFound)
 				ur.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&models.User{})).Return(nil)
 			},
 			wantEmail: "new@example.com",
@@ -88,7 +88,7 @@ func (s *SignupServiceSuite) TestSignup() {
 			req:  &dto.SignupRequest{Email: "new@example.com", Username: "takenuser", Password: "password123"},
 			cfg:  &config.CoreConfig{RequireUserName: true},
 			setup: func(ur *mocks.MockUserRepository) {
-				ur.EXPECT().FindByEmail(gomock.Any(), "new@example.com").Return(nil, errors.New("not found"))
+				ur.EXPECT().FindByEmail(gomock.Any(), "new@example.com").Return(nil, models.ErrNotFound)
 				ur.EXPECT().FindByUsername(gomock.Any(), "takenuser").Return(testutil.TestUser(), nil)
 			},
 			wantErr: true,
@@ -98,7 +98,7 @@ func (s *SignupServiceSuite) TestSignup() {
 			name: "phone already in use",
 			req:  &dto.SignupRequest{Email: "new@example.com", PhoneNumber: "+1234567890", Password: "password123"},
 			setup: func(ur *mocks.MockUserRepository) {
-				ur.EXPECT().FindByEmail(gomock.Any(), "new@example.com").Return(nil, errors.New("not found"))
+				ur.EXPECT().FindByEmail(gomock.Any(), "new@example.com").Return(nil, models.ErrNotFound)
 				ur.EXPECT().FindByPhoneNumber(gomock.Any(), "+1234567890").Return(testutil.TestUser(), nil)
 			},
 			wantErr: true,
@@ -108,7 +108,7 @@ func (s *SignupServiceSuite) TestSignup() {
 			name: "create user db error",
 			req:  &dto.SignupRequest{Email: "new@example.com", Password: "password123"},
 			setup: func(ur *mocks.MockUserRepository) {
-				ur.EXPECT().FindByEmail(gomock.Any(), "new@example.com").Return(nil, errors.New("not found"))
+				ur.EXPECT().FindByEmail(gomock.Any(), "new@example.com").Return(nil, models.ErrNotFound)
 				ur.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&models.User{})).Return(errors.New("db error"))
 			},
 			wantErr: true,
@@ -119,7 +119,7 @@ func (s *SignupServiceSuite) TestSignup() {
 			req:  &dto.SignupRequest{Email: "new@example.com", Password: "password123"},
 			cfg:  &config.CoreConfig{RequireEmailVerification: true},
 			setup: func(ur *mocks.MockUserRepository) {
-				ur.EXPECT().FindByEmail(gomock.Any(), "new@example.com").Return(nil, errors.New("not found"))
+				ur.EXPECT().FindByEmail(gomock.Any(), "new@example.com").Return(nil, models.ErrNotFound)
 				ur.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&models.User{})).DoAndReturn(
 					func(_ context.Context, user *models.User) error {
 						s.False(user.Active, "user should be inactive when email verification required")

@@ -4,6 +4,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/bete7512/goauth/pkg/config"
@@ -37,7 +38,7 @@ func NewAdminService(
 func (s *adminService) ListUsers(ctx context.Context, opts models.UserListOpts) ([]*models.User, int64, *types.GoAuthError) {
 	users, total, err := s.userRepository.List(ctx, opts)
 	if err != nil {
-		return nil, 0, types.NewInternalError(fmt.Sprintf("failed to list users: %v", err))
+		return nil, 0, types.NewInternalError("failed to list users").Wrap(err)
 	}
 	return users, total, nil
 }
@@ -46,9 +47,10 @@ func (s *adminService) ListUsers(ctx context.Context, opts models.UserListOpts) 
 func (s *adminService) GetUser(ctx context.Context, userID string) (*models.User, *types.GoAuthError) {
 	user, err := s.userRepository.FindByID(ctx, userID)
 	if err != nil {
-		// FIXME check it first if user not found
-		// but this depends on storage provider mercy unless different orm returns the same error for not found
-		return nil, types.NewInternalError("failed to get user")
+		if errors.Is(err, models.ErrNotFound) {
+			return nil, types.NewUserNotFoundError()
+		}
+		return nil, types.NewInternalError("failed to get user").Wrap(err)
 	}
 	return user, nil
 }
@@ -61,7 +63,7 @@ func (s *adminService) UpdateUser(ctx context.Context, user *models.User) *types
 	}
 
 	if err := s.userRepository.Update(ctx, user); err != nil {
-		return types.NewInternalError(fmt.Sprintf("failed to update user: %v", err))
+		return types.NewInternalError("failed to update user").Wrap(err)
 	}
 
 	// Emit audit event
@@ -88,11 +90,14 @@ func (s *adminService) DeleteUser(ctx context.Context, userID string) *types.GoA
 	// Get user info before deletion for logging
 	user, err := s.userRepository.FindByID(ctx, userID)
 	if err != nil {
-		return types.NewUserNotFoundError()
+		if errors.Is(err, models.ErrNotFound) {
+			return types.NewUserNotFoundError()
+		}
+		return types.NewInternalError("failed to find user").Wrap(err)
 	}
 
 	if err := s.userRepository.Delete(ctx, userID); err != nil {
-		return types.NewInternalError(fmt.Sprintf("failed to delete user: %v", err))
+		return types.NewInternalError("failed to delete user").Wrap(err)
 	}
 
 	// Emit audit event

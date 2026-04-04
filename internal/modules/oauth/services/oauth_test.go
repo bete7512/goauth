@@ -185,8 +185,8 @@ func (s *OAuthServiceSuite) TestHandleCallback_NewUser() {
 	t.provider.EXPECT().Exchange(gomock.Any(), "auth-code", gomock.Any()).Return(tokenResp, nil)
 	t.provider.EXPECT().UserInfo(gomock.Any(), tokenResp.AccessToken).Return(userInfo, nil)
 	// findOrCreateUser: no existing account, no email match, create new
-	t.accountRepo.EXPECT().FindByProviderAndAccountID(gomock.Any(), "google", userInfo.ID).Return(nil, errors.New("not found"))
-	t.userRepo.EXPECT().FindByEmail(gomock.Any(), userInfo.Email).Return(nil, errors.New("not found"))
+	t.accountRepo.EXPECT().FindByProviderAndAccountID(gomock.Any(), "google", userInfo.ID).Return(nil, models.ErrNotFound)
+	t.userRepo.EXPECT().FindByEmail(gomock.Any(), userInfo.Email).Return(nil, models.ErrNotFound)
 	t.userRepo.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&models.User{})).Return(nil)
 	t.accountRepo.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&models.Account{})).Return(nil)
 	t.userRepo.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil) // last login update
@@ -251,7 +251,7 @@ func (s *OAuthServiceSuite) TestHandleCallback_EmailMatchLinking() {
 	t.provider.EXPECT().Exchange(gomock.Any(), "auth-code", gomock.Any()).Return(tokenResp, nil)
 	t.provider.EXPECT().UserInfo(gomock.Any(), tokenResp.AccessToken).Return(userInfo, nil)
 	// No existing account
-	t.accountRepo.EXPECT().FindByProviderAndAccountID(gomock.Any(), "google", userInfo.ID).Return(nil, errors.New("not found"))
+	t.accountRepo.EXPECT().FindByProviderAndAccountID(gomock.Any(), "google", userInfo.ID).Return(nil, models.ErrNotFound)
 	// But email matches existing user
 	t.userRepo.EXPECT().FindByEmail(gomock.Any(), userInfo.Email).Return(user, nil)
 	t.accountRepo.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&models.Account{})).Return(nil) // link
@@ -267,7 +267,7 @@ func (s *OAuthServiceSuite) TestHandleCallback_EmailMatchLinking() {
 
 func (s *OAuthServiceSuite) TestHandleCallback_InvalidState() {
 	t := s.setup()
-	t.tokenRepo.EXPECT().FindByToken(gomock.Any(), "invalid-state").Return(nil, errors.New("not found"))
+	t.tokenRepo.EXPECT().FindByToken(gomock.Any(), "invalid-state").Return(nil, models.ErrNotFound)
 
 	_, authErr := t.svc.HandleCallback(context.Background(), "google", "code", "invalid-state", nil)
 
@@ -345,8 +345,8 @@ func (s *OAuthServiceSuite) TestHandleCallback_SignupDisabled() {
 	t.provider.EXPECT().SupportsOIDC().Return(false)
 	t.provider.EXPECT().Exchange(gomock.Any(), "auth-code", gomock.Any()).Return(tokenResp, nil)
 	t.provider.EXPECT().UserInfo(gomock.Any(), tokenResp.AccessToken).Return(userInfo, nil)
-	t.accountRepo.EXPECT().FindByProviderAndAccountID(gomock.Any(), "google", userInfo.ID).Return(nil, errors.New("not found"))
-	t.userRepo.EXPECT().FindByEmail(gomock.Any(), userInfo.Email).Return(nil, errors.New("not found"))
+	t.accountRepo.EXPECT().FindByProviderAndAccountID(gomock.Any(), "google", userInfo.ID).Return(nil, models.ErrNotFound)
+	t.userRepo.EXPECT().FindByEmail(gomock.Any(), userInfo.Email).Return(nil, models.ErrNotFound)
 
 	_, authErr := t.svc.HandleCallback(context.Background(), "google", "auth-code", "valid-state", nil)
 
@@ -369,7 +369,7 @@ func (s *OAuthServiceSuite) TestHandleCallback_AccountLinkingDisabled() {
 	t.provider.EXPECT().SupportsOIDC().Return(false)
 	t.provider.EXPECT().Exchange(gomock.Any(), "auth-code", gomock.Any()).Return(tokenResp, nil)
 	t.provider.EXPECT().UserInfo(gomock.Any(), tokenResp.AccessToken).Return(userInfo, nil)
-	t.accountRepo.EXPECT().FindByProviderAndAccountID(gomock.Any(), "google", userInfo.ID).Return(nil, errors.New("not found"))
+	t.accountRepo.EXPECT().FindByProviderAndAccountID(gomock.Any(), "google", userInfo.ID).Return(nil, models.ErrNotFound)
 	t.userRepo.EXPECT().FindByEmail(gomock.Any(), userInfo.Email).Return(existingUser, nil)
 
 	_, authErr := t.svc.HandleCallback(context.Background(), "google", "auth-code", "valid-state", nil)
@@ -397,7 +397,7 @@ func (s *OAuthServiceSuite) TestUnlinkProvider_Success() {
 func (s *OAuthServiceSuite) TestUnlinkProvider_NotLinked() {
 	t := s.setup()
 
-	t.accountRepo.EXPECT().FindByUserIDAndProvider(gomock.Any(), "user-1", "google").Return(nil, errors.New("not found"))
+	t.accountRepo.EXPECT().FindByUserIDAndProvider(gomock.Any(), "user-1", "google").Return(nil, models.ErrNotFound)
 
 	authErr := t.svc.UnlinkProvider(context.Background(), "user-1", "google")
 	s.NotNil(authErr)

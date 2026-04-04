@@ -116,7 +116,7 @@ func (s *OrgServiceSuite) TestGet_Success() {
 
 func (s *OrgServiceSuite) TestGet_NotFound() {
 	t := s.setup()
-	t.orgRepo.EXPECT().FindByID(gomock.Any(), "org-999").Return(nil, errors.New("not found"))
+	t.orgRepo.EXPECT().FindByID(gomock.Any(), "org-999").Return(nil, models.ErrNotFound)
 
 	_, authErr := t.svc.Get(context.Background(), "org-999")
 	s.NotNil(authErr)
@@ -141,7 +141,7 @@ func (s *OrgServiceSuite) TestUpdate_Success() {
 
 func (s *OrgServiceSuite) TestUpdate_NotFound() {
 	t := s.setup()
-	t.orgRepo.EXPECT().FindByID(gomock.Any(), "org-999").Return(nil, errors.New("not found"))
+	t.orgRepo.EXPECT().FindByID(gomock.Any(), "org-999").Return(nil, models.ErrNotFound)
 
 	_, authErr := t.svc.Update(context.Background(), "org-999", &dto.UpdateOrgRequest{})
 	s.NotNil(authErr)
@@ -163,7 +163,7 @@ func (s *OrgServiceSuite) TestDelete_Success() {
 
 func (s *OrgServiceSuite) TestDelete_NotFound() {
 	t := s.setup()
-	t.orgRepo.EXPECT().FindByID(gomock.Any(), "org-999").Return(nil, errors.New("not found"))
+	t.orgRepo.EXPECT().FindByID(gomock.Any(), "org-999").Return(nil, models.ErrNotFound)
 
 	authErr := t.svc.Delete(context.Background(), "org-999")
 	s.NotNil(authErr)
@@ -225,7 +225,7 @@ func (s *OrgServiceSuite) TestSwitchOrg_NotMember() {
 	t := s.setup()
 	user := testutil.TestUser()
 
-	t.memberRepo.EXPECT().FindByOrgAndUser(gomock.Any(), "org-1", user.ID).Return(nil, errors.New("not found"))
+	t.memberRepo.EXPECT().FindByOrgAndUser(gomock.Any(), "org-1", user.ID).Return(nil, models.ErrNotFound)
 
 	_, _, authErr := t.svc.SwitchOrg(context.Background(), user, "org-1")
 	s.NotNil(authErr)

@@ -2,6 +2,7 @@ package organization
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/bete7512/goauth/pkg/models"
@@ -31,7 +32,10 @@ func (r *OrganizationRepo) Create(ctx context.Context, org *models.Organization)
 	if org.CreatedAt.IsZero() {
 		org.CreatedAt = time.Now()
 	}
-	return r.db.WithContext(ctx).Create(org).Error
+	if err := r.db.WithContext(ctx).Create(org).Error; err != nil {
+		return fmt.Errorf("organization_repository.Create: %w", err)
+	}
+	return nil
 }
 
 // FindByID finds an organization by its ID
@@ -39,9 +43,12 @@ func (r *OrganizationRepo) FindByID(ctx context.Context, id string) (*models.Org
 	var org models.Organization
 	err := r.db.WithContext(ctx).Where("id = ?", id).First(&org).Error
 	if err == gorm.ErrRecordNotFound {
-		return nil, nil
+		return nil, fmt.Errorf("organization_repository.FindByID: %w", models.ErrNotFound)
 	}
-	return &org, err
+	if err != nil {
+		return nil, fmt.Errorf("organization_repository.FindByID: %w", err)
+	}
+	return &org, nil
 }
 
 // FindBySlug finds an organization by its slug
@@ -49,16 +56,21 @@ func (r *OrganizationRepo) FindBySlug(ctx context.Context, slug string) (*models
 	var org models.Organization
 	err := r.db.WithContext(ctx).Where("slug = ?", slug).First(&org).Error
 	if err == gorm.ErrRecordNotFound {
-		return nil, nil
+		return nil, fmt.Errorf("organization_repository.FindBySlug: %w", models.ErrNotFound)
 	}
-	return &org, err
+	if err != nil {
+		return nil, fmt.Errorf("organization_repository.FindBySlug: %w", err)
+	}
+	return &org, nil
 }
 
 // FindByOwnerID finds all organizations owned by a user
 func (r *OrganizationRepo) FindByOwnerID(ctx context.Context, ownerID string) ([]*models.Organization, error) {
 	var orgs []*models.Organization
-	err := r.db.WithContext(ctx).Where("owner_id = ?", ownerID).Find(&orgs).Error
-	return orgs, err
+	if err := r.db.WithContext(ctx).Where("owner_id = ?", ownerID).Find(&orgs).Error; err != nil {
+		return nil, fmt.Errorf("organization_repository.FindByOwnerID: %w", err)
+	}
+	return orgs, nil
 }
 
 // List retrieves organizations with filtering, pagination, and sorting
@@ -76,12 +88,12 @@ func (r *OrganizationRepo) List(ctx context.Context, opts models.OrganizationLis
 
 	var total int64
 	if err := query.Count(&total).Error; err != nil {
-		return nil, 0, err
+		return nil, 0, fmt.Errorf("organization_repository.List count: %w", err)
 	}
 
 	var orgs []*models.Organization
 	if err := helpers.ApplyListingOpts(query, opts.ListingOpts).Find(&orgs).Error; err != nil {
-		return nil, 0, err
+		return nil, 0, fmt.Errorf("organization_repository.List find: %w", err)
 	}
 	return orgs, total, nil
 }
@@ -90,20 +102,25 @@ func (r *OrganizationRepo) List(ctx context.Context, opts models.OrganizationLis
 func (r *OrganizationRepo) Update(ctx context.Context, org *models.Organization) error {
 	now := time.Now()
 	org.UpdatedAt = &now
-	return r.db.WithContext(ctx).Save(org).Error
+	if err := r.db.WithContext(ctx).Save(org).Error; err != nil {
+		return fmt.Errorf("organization_repository.Update: %w", err)
+	}
+	return nil
 }
 
 // Delete deletes an organization by its ID
 func (r *OrganizationRepo) Delete(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).Delete(&models.Organization{}, "id = ?", id).Error
+	if err := r.db.WithContext(ctx).Delete(&models.Organization{}, "id = ?", id).Error; err != nil {
+		return fmt.Errorf("organization_repository.Delete: %w", err)
+	}
+	return nil
 }
 
 // IsSlugAvailable checks if a slug is available (not taken by another organization)
 func (r *OrganizationRepo) IsSlugAvailable(ctx context.Context, slug string) (bool, error) {
 	var count int64
-	err := r.db.WithContext(ctx).Model(&models.Organization{}).Where("slug = ?", slug).Count(&count).Error
-	if err != nil {
-		return false, err
+	if err := r.db.WithContext(ctx).Model(&models.Organization{}).Where("slug = ?", slug).Count(&count).Error; err != nil {
+		return false, fmt.Errorf("organization_repository.IsSlugAvailable: %w", err)
 	}
 	return count == 0, nil
 }

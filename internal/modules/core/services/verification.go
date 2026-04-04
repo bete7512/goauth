@@ -2,6 +2,7 @@ package core_services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -14,9 +15,12 @@ import (
 // SendEmailVerification creates a verification token and emits an event for notification delivery.
 func (s *coreService) SendEmailVerification(ctx context.Context, email string) (*dto.MessageResponse, *types.GoAuthError) {
 	user, err := s.UserRepository.FindByEmail(ctx, email)
-	if err != nil || user == nil {
-		// Don't reveal if user exists
-		return &dto.MessageResponse{Message: "If an account exists, a verification email has been sent"}, nil
+	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			// Don't reveal if user exists
+			return &dto.MessageResponse{Message: "If an account exists, a verification email has been sent"}, nil
+		}
+		return nil, types.NewInternalError("failed to find user by email").Wrap(err)
 	}
 
 	if user.EmailVerified {
@@ -25,7 +29,7 @@ func (s *coreService) SendEmailVerification(ctx context.Context, email string) (
 
 	token, err := s.Deps.SecurityManager.GenerateRandomToken(32)
 	if err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to generate token: %v", err))
+		return nil, types.NewInternalError("failed to generate token").Wrap(err)
 	}
 
 	verificationLink := s.buildVerificationLink(token)
@@ -43,7 +47,7 @@ func (s *coreService) SendEmailVerification(ctx context.Context, email string) (
 	}
 
 	if err := s.TokenRepository.Create(ctx, verificationToken); err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to create verification token: %v", err))
+		return nil, types.NewInternalError("failed to create verification token").Wrap(err)
 	}
 
 	s.Deps.Events.EmitAsync(ctx, types.EventSendEmailVerification, &types.EmailVerificationRequestData{
@@ -57,8 +61,11 @@ func (s *coreService) SendEmailVerification(ctx context.Context, email string) (
 // ResendEmailVerification deletes any existing token, creates a new one, and emits event.
 func (s *coreService) ResendEmailVerification(ctx context.Context, email string) (*dto.MessageResponse, *types.GoAuthError) {
 	user, err := s.UserRepository.FindByEmail(ctx, email)
-	if err != nil || user == nil {
-		return &dto.MessageResponse{Message: "If an account exists, a verification email has been sent"}, nil
+	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			return &dto.MessageResponse{Message: "If an account exists, a verification email has been sent"}, nil
+		}
+		return nil, types.NewInternalError("failed to find user by email").Wrap(err)
 	}
 
 	if user.EmailVerified {
@@ -66,14 +73,16 @@ func (s *coreService) ResendEmailVerification(ctx context.Context, email string)
 	}
 
 	// Delete existing token if present
-	existingToken, err := s.TokenRepository.FindByEmailAndType(ctx, email, models.TokenTypeEmailVerification)
-	if err == nil && existingToken != nil {
-		s.TokenRepository.DeleteByIDAndType(ctx, existingToken.ID, models.TokenTypeEmailVerification)
+	existingToken, _ := s.TokenRepository.FindByEmailAndType(ctx, email, models.TokenTypeEmailVerification)
+	if existingToken != nil {
+		if err := s.TokenRepository.DeleteByIDAndType(ctx, existingToken.ID, models.TokenTypeEmailVerification); err != nil {
+			return nil, types.NewInternalError("failed to delete existing verification token").Wrap(err)
+		}
 	}
 
 	token, err := s.Deps.SecurityManager.GenerateRandomToken(32)
 	if err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to generate token: %v", err))
+		return nil, types.NewInternalError("failed to generate token").Wrap(err)
 	}
 
 	verificationLink := s.buildVerificationLink(token)
@@ -90,7 +99,7 @@ func (s *coreService) ResendEmailVerification(ctx context.Context, email string)
 	}
 
 	if err := s.TokenRepository.Create(ctx, verificationToken); err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to create verification token: %v", err))
+		return nil, types.NewInternalError("failed to create verification token").Wrap(err)
 	}
 
 	s.Deps.Events.EmitAsync(ctx, types.EventSendEmailVerification, &types.EmailVerificationRequestData{
@@ -104,8 +113,11 @@ func (s *coreService) ResendEmailVerification(ctx context.Context, email string)
 // SendPhoneVerification creates an OTP and emits an event for notification delivery.
 func (s *coreService) SendPhoneVerification(ctx context.Context, phone string) (*dto.MessageResponse, *types.GoAuthError) {
 	user, err := s.UserRepository.FindByPhoneNumber(ctx, phone)
-	if err != nil || user == nil {
-		return &dto.MessageResponse{Message: "If an account exists, a verification SMS has been sent"}, nil
+	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			return &dto.MessageResponse{Message: "If an account exists, a verification SMS has been sent"}, nil
+		}
+		return nil, types.NewInternalError("failed to find user by phone").Wrap(err)
 	}
 
 	if user.PhoneNumberVerified {
@@ -114,7 +126,7 @@ func (s *coreService) SendPhoneVerification(ctx context.Context, phone string) (
 
 	code, err := s.Deps.SecurityManager.GenerateNumericOTP(6)
 	if err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to generate OTP: %v", err))
+		return nil, types.NewInternalError("failed to generate OTP").Wrap(err)
 	}
 
 	verificationToken := &models.Token{
@@ -129,7 +141,7 @@ func (s *coreService) SendPhoneVerification(ctx context.Context, phone string) (
 	}
 
 	if err := s.TokenRepository.Create(ctx, verificationToken); err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to create verification token: %v", err))
+		return nil, types.NewInternalError("failed to create verification token").Wrap(err)
 	}
 
 	s.Deps.Events.EmitAsync(ctx, types.EventSendPhoneVerification, &types.PhoneVerificationRequestData{
@@ -144,8 +156,11 @@ func (s *coreService) SendPhoneVerification(ctx context.Context, phone string) (
 // ResendPhoneVerification deletes any existing token, creates a new one, and emits event.
 func (s *coreService) ResendPhoneVerification(ctx context.Context, phone string) (*dto.MessageResponse, *types.GoAuthError) {
 	user, err := s.UserRepository.FindByPhoneNumber(ctx, phone)
-	if err != nil || user == nil {
-		return &dto.MessageResponse{Message: "If an account exists, a verification SMS has been sent"}, nil
+	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			return &dto.MessageResponse{Message: "If an account exists, a verification SMS has been sent"}, nil
+		}
+		return nil, types.NewInternalError("failed to find user by phone").Wrap(err)
 	}
 
 	if user.PhoneNumberVerified {
@@ -153,14 +168,16 @@ func (s *coreService) ResendPhoneVerification(ctx context.Context, phone string)
 	}
 
 	// Delete existing token if present
-	existingToken, err := s.TokenRepository.FindByPhoneAndType(ctx, phone, models.TokenTypePhoneVerification)
-	if err == nil && existingToken != nil {
-		s.TokenRepository.DeleteByIDAndType(ctx, existingToken.ID, models.TokenTypePhoneVerification)
+	existingToken, _ := s.TokenRepository.FindByPhoneAndType(ctx, phone, models.TokenTypePhoneVerification)
+	if existingToken != nil {
+		if err := s.TokenRepository.DeleteByIDAndType(ctx, existingToken.ID, models.TokenTypePhoneVerification); err != nil {
+			return nil, types.NewInternalError("failed to delete existing verification token").Wrap(err)
+		}
 	}
 
 	code, err := s.Deps.SecurityManager.GenerateNumericOTP(6)
 	if err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to generate OTP: %v", err))
+		return nil, types.NewInternalError("failed to generate OTP").Wrap(err)
 	}
 
 	verificationToken := &models.Token{
@@ -175,7 +192,7 @@ func (s *coreService) ResendPhoneVerification(ctx context.Context, phone string)
 	}
 
 	if err := s.TokenRepository.Create(ctx, verificationToken); err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to create verification token: %v", err))
+		return nil, types.NewInternalError("failed to create verification token").Wrap(err)
 	}
 
 	s.Deps.Events.EmitAsync(ctx, types.EventSendPhoneVerification, &types.PhoneVerificationRequestData{
@@ -190,8 +207,11 @@ func (s *coreService) ResendPhoneVerification(ctx context.Context, phone string)
 // VerifyEmail validates a token, marks the user's email as verified, and emits EventAfterEmailVerified.
 func (s *coreService) VerifyEmail(ctx context.Context, token string) (*dto.MessageResponse, *types.GoAuthError) {
 	verification, err := s.TokenRepository.FindByToken(ctx, token)
-	if err != nil || verification == nil {
-		return nil, types.NewGoAuthError(types.ErrInvalidToken, "invalid verification token", 400)
+	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			return nil, types.NewGoAuthError(types.ErrInvalidToken, "invalid verification token", 400)
+		}
+		return nil, types.NewInternalError("failed to find verification token").Wrap(err)
 	}
 
 	if verification.ExpiresAt.Before(time.Now()) {
@@ -207,8 +227,11 @@ func (s *coreService) VerifyEmail(ctx context.Context, token string) (*dto.Messa
 	}
 
 	user, err := s.UserRepository.FindByEmail(ctx, verification.Email)
-	if err != nil || user == nil {
-		return nil, types.NewUserNotFoundError()
+	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			return nil, types.NewUserNotFoundError()
+		}
+		return nil, types.NewInternalError("failed to find user by email").Wrap(err)
 	}
 
 	now := time.Now()
@@ -216,11 +239,11 @@ func (s *coreService) VerifyEmail(ctx context.Context, token string) (*dto.Messa
 	user.UpdatedAt = &now
 
 	if err := s.UserRepository.Update(ctx, user); err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to update user: %v", err))
+		return nil, types.NewInternalError("failed to update user").Wrap(err)
 	}
 
 	if err := s.TokenRepository.MarkAsUsed(ctx, verification.ID); err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to mark token as used: %v", err))
+		return nil, types.NewInternalError("failed to mark token as used").Wrap(err)
 	}
 
 	// Emit event so notification can send welcome email
@@ -234,8 +257,11 @@ func (s *coreService) VerifyEmail(ctx context.Context, token string) (*dto.Messa
 // VerifyPhone validates an OTP code, marks the user's phone as verified.
 func (s *coreService) VerifyPhone(ctx context.Context, code string, phone string) (*dto.MessageResponse, *types.GoAuthError) {
 	verification, err := s.TokenRepository.FindByCode(ctx, code, models.TokenTypePhoneVerification)
-	if err != nil || verification == nil {
-		return nil, types.NewGoAuthError(types.ErrInvalidToken, "invalid verification code", 400)
+	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			return nil, types.NewGoAuthError(types.ErrInvalidToken, "invalid verification code", 400)
+		}
+		return nil, types.NewInternalError("failed to find verification code").Wrap(err)
 	}
 
 	if verification.PhoneNumber != phone {
@@ -251,12 +277,15 @@ func (s *coreService) VerifyPhone(ctx context.Context, code string, phone string
 	}
 
 	if err := s.TokenRepository.MarkAsUsed(ctx, verification.ID); err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to mark code as used: %v", err))
+		return nil, types.NewInternalError("failed to mark code as used").Wrap(err)
 	}
 
 	user, err := s.UserRepository.FindByPhoneNumber(ctx, verification.PhoneNumber)
-	if err != nil || user == nil {
-		return nil, types.NewUserNotFoundError()
+	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			return nil, types.NewUserNotFoundError()
+		}
+		return nil, types.NewInternalError("failed to find user by phone").Wrap(err)
 	}
 
 	now := time.Now()
@@ -264,7 +293,7 @@ func (s *coreService) VerifyPhone(ctx context.Context, code string, phone string
 	user.UpdatedAt = &now
 
 	if err := s.UserRepository.Update(ctx, user); err != nil {
-		return nil, types.NewInternalError(fmt.Sprintf("failed to update user: %v", err))
+		return nil, types.NewInternalError("failed to update user").Wrap(err)
 	}
 
 	return &dto.MessageResponse{Message: "Phone verified successfully"}, nil
