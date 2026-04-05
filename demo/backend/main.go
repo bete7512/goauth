@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/bete7512/goauth/pkg/adapters/stdhttp"
@@ -27,8 +28,8 @@ func main() {
 	databaseURL := requireEnv("DATABASE_URL")
 	jwtSecret := requireEnv("JWT_SECRET_KEY")
 	encryptionKey := requireEnv("ENCRYPTION_KEY")
-	apiURL := envOr("API_URL", "http://localhost:8080")
-	frontendURL := envOr("FRONTEND_URL", "http://localhost:3000")
+	apiURL := ensureHTTPS(envOr("API_URL", "http://localhost:8080"))
+	frontendURL := ensureHTTPS(envOr("FRONTEND_URL", "http://localhost:3000"))
 	port := envOr("PORT", "8080")
 
 	store, err := storage.NewGormStorage(storage.GormConfig{
@@ -228,6 +229,17 @@ func envOr(key, fallback string) string {
 		return val
 	}
 	return fallback
+}
+
+// ensureHTTPS adds https:// prefix if the URL has no scheme.
+// Render's fromService gives bare hostnames like "goauth-api-xxxx.onrender.com".
+func ensureHTTPS(url string) string {
+	if strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://") {
+		return url
+	}
+	// Strip port 443 if present (Render sometimes includes it)
+	url = strings.TrimSuffix(url, ":443")
+	return "https://" + url
 }
 
 func corsMiddleware(next http.Handler, frontendURL string) http.Handler {
