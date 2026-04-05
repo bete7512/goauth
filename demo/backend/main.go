@@ -28,7 +28,8 @@ func main() {
 	databaseURL := requireEnv("DATABASE_URL")
 	jwtSecret := requireEnv("JWT_SECRET_KEY")
 	encryptionKey := requireEnv("ENCRYPTION_KEY")
-	apiURL := ensureHTTPS(envOr("API_URL", "http://localhost:8080"))
+	// API_URL: explicit env, or Render's auto-set RENDER_EXTERNAL_URL, or localhost
+	apiURL := ensureHTTPS(envOr("API_URL", envOr("RENDER_EXTERNAL_URL", "http://localhost:8080")))
 	frontendURL := ensureHTTPS(envOr("FRONTEND_URL", "http://localhost:3000"))
 	port := envOr("PORT", "8080")
 
