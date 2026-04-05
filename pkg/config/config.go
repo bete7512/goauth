@@ -336,11 +336,11 @@ func (c *Config) Validate() error {
 	if c.Storage == nil {
 		return ErrConfig("storage backend is required")
 	}
-	if c.Security.JwtSecretKey == "" {
-		return ErrConfig("jwt secret key is required")
+	if len(c.Security.JwtSecretKey) < 32 {
+		return ErrConfig("jwt secret key must be at least 32 characters")
 	}
-	if c.Security.EncryptionKey == "" {
-		return ErrConfig("encryption key is required")
+	if len(c.Security.EncryptionKey) < 16 {
+		return ErrConfig("encryption key must be at least 16 characters")
 	}
 	if c.Security.HashSaltLength <= 0 {
 		c.Security.HashSaltLength = 10 // Default to 10

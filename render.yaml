@@ -1,0 +1,44 @@
+databases:
+  - name: goauth-db
+    plan: free
+    databaseName: goauth
+    user: goauth
+
+services:
+  # Go backend API
+  - type: web
+    name: goauth-api
+    runtime: docker
+    dockerfilePath: ./demo/backend/Dockerfile
+    dockerContext: .
+    plan: free
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: goauth-db
+          property: connectionString
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: ENCRYPTION_KEY
+        generateValue: true
+      # API_URL is auto-detected via RENDER_EXTERNAL_URL (set by Render automatically)
+      # Set FRONTEND_URL to the goauth-demo external URL after first deploy
+      - key: FRONTEND_URL
+        value: "https://goauth-demo.onrender.com"
+      # PORT is auto-set by Render (typically 10000) — do not override
+
+  # Next.js frontend
+  # IMPORTANT: After first deploy, update NEXT_PUBLIC_API_BASE_URL to the
+  # goauth-api external URL (e.g. https://goauth-api-xxxx.onrender.com)
+  # then trigger a manual redeploy so it gets baked into the build.
+  - type: web
+    name: goauth-demo
+    runtime: docker
+    dockerfilePath: ./demo/Dockerfile
+    dockerContext: ./demo
+    plan: free
+    envVars:
+      - key: NEXT_PUBLIC_API_BASE_URL
+        value: "https://goauth-api.onrender.com"
+      - key: NEXT_PUBLIC_API_BASE_PATH
+        value: "/api/v1"

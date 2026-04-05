@@ -3,7 +3,7 @@ class ApiClient {
   private token: string | null = null;
   private refreshToken: string | null = null;
 
-  constructor(baseUrl = 'http://localhost:8080/api/v1') {
+  constructor(baseUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'}${process.env.NEXT_PUBLIC_API_BASE_PATH || '/api/v1'}`) {
     this.baseUrl = baseUrl;
     if (typeof window !== 'undefined') {
       this.token = localStorage.getItem('goauth_token');

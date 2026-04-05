@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/bete7512/goauth/internal/modules/organization"
 	"github.com/bete7512/goauth/pkg/adapters/stdhttp"
 	"github.com/bete7512/goauth/pkg/auth"
 	"github.com/bete7512/goauth/pkg/config"
@@ -17,7 +18,6 @@ import (
 	"github.com/bete7512/goauth/pkg/modules/notification"
 	"github.com/bete7512/goauth/pkg/modules/notification/senders"
 	"github.com/bete7512/goauth/pkg/modules/oauth"
-	"github.com/bete7512/goauth/pkg/modules/organization"
 	"github.com/bete7512/goauth/pkg/modules/session"
 	"github.com/bete7512/goauth/pkg/modules/twofactor"
 	"github.com/bete7512/goauth/pkg/types"
@@ -269,6 +269,7 @@ func main() {
 	//   fiberadapter.Register(app, authInstance)
 	//   app.Listen(":8080")
 }
+
 // CORSMiddleware handles CORS headers and OPTIONS preflight requests.
 // Apply this BEFORE the mux so that OPTIONS requests are handled before
 // Go 1.22 ServeMux rejects them for not matching a method-specific route.
