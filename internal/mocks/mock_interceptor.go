@@ -54,13 +54,14 @@ func (mr *MockAuthInterceptorRegistryMockRecorder) Register(name, interceptor, p
 }
 
 // Run mocks base method.
-func (m *MockAuthInterceptorRegistry) Run(ctx context.Context, params *types.InterceptParams) (map[string]any, []types.LoginChallenge, error) {
+func (m *MockAuthInterceptorRegistry) Run(ctx context.Context, params *types.InterceptParams) (map[string]any, []types.LoginChallenge, map[string]any, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Run", ctx, params)
 	ret0, _ := ret[0].(map[string]any)
 	ret1, _ := ret[1].([]types.LoginChallenge)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret2, _ := ret[2].(map[string]any)
+	ret3, _ := ret[3].(error)
+	return ret0, ret1, ret2, ret3
 }
 
 // Run indicates an expected call of Run.

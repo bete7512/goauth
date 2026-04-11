@@ -148,7 +148,7 @@ func main() {
 
 	authInstance.Use(organization.New(&organization.Config{}))
 	// // csrf (HMAC-based double-submit cookie pattern)
-	// authInstance.Use(csrf.New(&config.CSRFModuleConfig{
+	// go.Use(csrf.New(&config.CSRFModuleConfig{
 	// 	TokenExpiry: 2 * time.Hour,
 	// 	Secure:      false, // set true in production
 	// 	SameSite:    http.SameSiteLaxMode,

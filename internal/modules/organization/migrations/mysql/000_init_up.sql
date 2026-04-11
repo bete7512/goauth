@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS organization_members (
     INDEX idx_organization_members_user_id (user_id)
 );
 
-CREATE TABLE IF NOT EXISTS invitations (
+CREATE TABLE IF NOT EXISTS org_invitations (
     id VARCHAR(36) PRIMARY KEY,
     org_id VARCHAR(36) NOT NULL,
     email VARCHAR(255) NOT NULL,
@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS invitations (
     expires_at TIMESTAMP NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     accepted_at TIMESTAMP NULL,
-    UNIQUE INDEX idx_invitations_token (token),
-    INDEX idx_invitations_org_id (org_id),
-    INDEX idx_invitations_email (email)
+    UNIQUE INDEX idx_org_invitations_token (token),
+    INDEX idx_org_invitations_org_id (org_id),
+    INDEX idx_org_invitations_email (email)
 );

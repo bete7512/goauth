@@ -13,17 +13,17 @@ import (
 )
 
 type InvitationService interface {
-	Invite(ctx context.Context, orgID string, req *dto.InviteRequest, inviterID string) (*models.Invitation, *types.GoAuthError)
-	ListInvitations(ctx context.Context, orgID string, opts models.InvitationListOpts) ([]*models.Invitation, int64, *types.GoAuthError)
+	Invite(ctx context.Context, orgID string, req *dto.InviteRequest, inviterID string) (*models.OrgInvitation, *types.GoAuthError)
+	ListInvitations(ctx context.Context, orgID string, opts models.OrgInvitationListOpts) ([]*models.OrgInvitation, int64, *types.GoAuthError)
 	CancelInvitation(ctx context.Context, orgID, invID string) *types.GoAuthError
 	AcceptInvitation(ctx context.Context, userID, userEmail, token string) (*models.OrganizationMember, *types.GoAuthError)
 	DeclineInvitation(ctx context.Context, userID, token string) *types.GoAuthError
-	ListPendingByEmail(ctx context.Context, email string) ([]*models.Invitation, *types.GoAuthError)
+	ListPendingByEmail(ctx context.Context, email string) ([]*models.OrgInvitation, *types.GoAuthError)
 }
 
 type invitationService struct {
 	deps             config.ModuleDependencies
-	invitationRepo   models.InvitationRepository
+	invitationRepo   models.OrgInvitationRepository
 	memberRepo       models.OrganizationMemberRepository
 	orgRepo          models.OrganizationRepository
 	userRepo         models.UserRepository
@@ -34,7 +34,7 @@ type invitationService struct {
 
 func NewInvitationService(
 	deps config.ModuleDependencies,
-	invitationRepo models.InvitationRepository,
+	invitationRepo models.OrgInvitationRepository,
 	memberRepo models.OrganizationMemberRepository,
 	orgRepo models.OrganizationRepository,
 	userRepo models.UserRepository,
@@ -54,7 +54,7 @@ func NewInvitationService(
 	}
 }
 
-func (s *invitationService) Invite(ctx context.Context, orgID string, req *dto.InviteRequest, inviterID string) (*models.Invitation, *types.GoAuthError) {
+func (s *invitationService) Invite(ctx context.Context, orgID string, req *dto.InviteRequest, inviterID string) (*models.OrgInvitation, *types.GoAuthError) {
 	role := req.Role
 	if role == "" {
 		role = string(types.OrgRoleMember)
@@ -113,7 +113,7 @@ func (s *invitationService) Invite(ctx context.Context, orgID string, req *dto.I
 		inviterName = inviter.Name
 	}
 
-	invitation := &models.Invitation{
+	invitation := &models.OrgInvitation{
 		ID:        uuid.Must(uuid.NewV7()).String(),
 		OrgID:     orgID,
 		Email:     req.Email,
@@ -149,7 +149,7 @@ func (s *invitationService) Invite(ctx context.Context, orgID string, req *dto.I
 	return invitation, nil
 }
 
-func (s *invitationService) ListInvitations(ctx context.Context, orgID string, opts models.InvitationListOpts) ([]*models.Invitation, int64, *types.GoAuthError) {
+func (s *invitationService) ListInvitations(ctx context.Context, orgID string, opts models.OrgInvitationListOpts) ([]*models.OrgInvitation, int64, *types.GoAuthError) {
 	invitations, total, err := s.invitationRepo.ListByOrg(ctx, orgID, opts)
 	if err != nil {
 		return nil, 0, types.NewInternalError("failed to list invitations").Wrap(err)
@@ -260,7 +260,7 @@ func (s *invitationService) DeclineInvitation(ctx context.Context, userID, token
 	return nil
 }
 
-func (s *invitationService) ListPendingByEmail(ctx context.Context, email string) ([]*models.Invitation, *types.GoAuthError) {
+func (s *invitationService) ListPendingByEmail(ctx context.Context, email string) ([]*models.OrgInvitation, *types.GoAuthError) {
 	invitations, err := s.invitationRepo.ListPendingByEmail(ctx, email)
 	if err != nil {
 		return nil, types.NewInternalError("failed to list invitations").Wrap(err)

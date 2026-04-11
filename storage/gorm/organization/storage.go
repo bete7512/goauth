@@ -40,7 +40,7 @@ func (s *GormOrganizationStorage) Members() models.OrganizationMemberRepository 
 }
 
 // Invitations returns the invitation repository
-func (s *GormOrganizationStorage) Invitations() models.InvitationRepository {
+func (s *GormOrganizationStorage) Invitations() models.OrgInvitationRepository {
 	return s.invitations
 }
 

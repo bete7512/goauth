@@ -95,4 +95,12 @@ const (
 	RouteOrgAcceptInvitation  RouteName = "org.invitations.accept"
 	RouteOrgDeclineInvitation RouteName = "org.invitations.decline"
 	RouteOrgMyInvitations     RouteName = "org.my.invitations"
+
+	// Invitation Routes (standalone)
+	RouteInvitationSend    RouteName = "invitation.send"
+	RouteInvitationList    RouteName = "invitation.list"
+	RouteInvitationCancel  RouteName = "invitation.cancel"
+	RouteInvitationAccept  RouteName = "invitation.accept"
+	RouteInvitationDecline RouteName = "invitation.decline"
+	RouteInvitationMy      RouteName = "invitation.my"
 )

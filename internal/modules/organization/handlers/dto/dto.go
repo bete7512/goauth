@@ -243,7 +243,7 @@ type InvitationDTO struct {
 	AcceptedAt *time.Time `json:"accepted_at,omitempty"`
 }
 
-func InvitationToDTO(inv *models.Invitation) *InvitationDTO {
+func InvitationToDTO(inv *models.OrgInvitation) *InvitationDTO {
 	if inv == nil {
 		return nil
 	}
@@ -260,7 +260,7 @@ func InvitationToDTO(inv *models.Invitation) *InvitationDTO {
 	}
 }
 
-func InvitationsToDTO(invs []*models.Invitation) []*InvitationDTO {
+func InvitationsToDTO(invs []*models.OrgInvitation) []*InvitationDTO {
 	dtos := make([]*InvitationDTO, len(invs))
 	for i, inv := range invs {
 		dtos[i] = InvitationToDTO(inv)

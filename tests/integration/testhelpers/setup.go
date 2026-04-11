@@ -21,6 +21,7 @@ import (
 	"github.com/bete7512/goauth/pkg/modules/magiclink"
 	"github.com/bete7512/goauth/pkg/modules/notification"
 	"github.com/bete7512/goauth/pkg/modules/oauth"
+	"github.com/bete7512/goauth/pkg/modules/invitation"
 	"github.com/bete7512/goauth/pkg/modules/organization"
 	"github.com/bete7512/goauth/pkg/modules/session"
 	"github.com/bete7512/goauth/pkg/modules/twofactor"
@@ -180,6 +181,23 @@ func SetupStatelessWithOrg(t *testing.T) (*auth.Auth, http.Handler) {
 	require.NoError(t, err)
 
 	require.NoError(t, authInstance.Use(organization.New(nil)))
+
+	return authInstance, initAuth(t, authInstance)
+}
+
+// SetupStatelessWithInvitation creates a stateless auth instance with standalone invitation module.
+func SetupStatelessWithInvitation(t *testing.T) (*auth.Auth, http.Handler) {
+	t.Helper()
+	authInstance, err := auth.New(&config.Config{
+		Storage:   newStore(t),
+		BasePath:  "/auth",
+		Security:  defaultSecurityConfig("inv-test-secret-key-32charslongx", "inv-test-encryption-key-32char!"),
+		Core:      &config.CoreConfig{RequireEmailVerification: false},
+		Migration: config.MigrationConfig{Auto: true},
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, authInstance.Use(invitation.New(nil)))
 
 	return authInstance, initAuth(t, authInstance)
 }
