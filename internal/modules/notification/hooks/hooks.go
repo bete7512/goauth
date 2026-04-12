@@ -17,15 +17,14 @@ type NotificationHooks struct {
 	config  *HookConfig
 }
 
-// HookConfig controls which notifications are enabled.
+// HookConfig controls which optional notifications are enabled.
+// Must-have delivery hooks (password reset, magic link, 2FA, invitations)
+// are always registered — they only fire when the corresponding module emits the event.
 type HookConfig struct {
+	// Optional — cosmetic/informational emails the user may not want
 	EnableWelcomeEmail        bool
-	EnablePasswordResetEmail  bool
-	EnablePasswordResetSMS    bool
 	EnableLoginAlerts         bool
 	EnablePasswordChangeAlert bool
-	Enable2FANotifications    bool
-	EnableMagicLinkEmail      bool
 }
 
 // NewNotificationHooks creates a new hooks manager.
@@ -39,64 +38,31 @@ func NewNotificationHooks(service services.NotificationService, deps config.Modu
 
 // GetHooks returns all event hooks to register.
 func (h *NotificationHooks) GetHooks() []EventHook {
-	hooks := []EventHook{}
+	// ── Must-have delivery hooks (always registered) ──
+	// These only fire when the corresponding module emits the event.
+	// No toggle needed — if the module isn't registered, the event is never emitted.
+	hooks := []EventHook{
+		{Event: types.EventSendEmailVerification, Handler: h.handleSendEmailVerification},
+		{Event: types.EventSendPhoneVerification, Handler: h.handleSendPhoneVerification},
+		{Event: types.EventSendPasswordResetEmail, Handler: h.handleSendPasswordReset},
+		{Event: types.EventSendMagicLink, Handler: h.handleSendMagicLink},
+		{Event: types.EventInvitationSent, Handler: h.handleInvitationSent},
+		{Event: types.EventOrgInvitationSent, Handler: h.handleOrgInvitationSent},
+	}
 
-	// Welcome email after signup
+	// ── Optional informational emails ──
+
 	if h.config.EnableWelcomeEmail {
-		hooks = append(hooks, EventHook{
-			Event:   types.EventAfterSignup,
-			Handler: h.sendWelcomeEmail,
-		})
+		hooks = append(hooks, EventHook{Event: types.EventAfterSignup, Handler: h.sendWelcomeEmail})
 	}
 
-	// Email verification delivery
-	hooks = append(hooks, EventHook{
-		Event:   types.EventSendEmailVerification,
-		Handler: h.handleSendEmailVerification,
-	})
-
-	// Phone verification delivery
-	if h.config.Enable2FANotifications {
-		hooks = append(hooks, EventHook{
-			Event:   types.EventSendPhoneVerification,
-			Handler: h.handleSendPhoneVerification,
-		})
-	}
-
-	// Password reset email/SMS delivery
-	if h.config.EnablePasswordResetEmail || h.config.EnablePasswordResetSMS {
-		hooks = append(hooks, EventHook{
-			Event:   types.EventSendPasswordResetEmail,
-			Handler: h.handleSendPasswordReset,
-		})
-	}
-
-	// Password changed alert (fires for both change-password and reset-password)
 	if h.config.EnablePasswordChangeAlert {
-		hooks = append(hooks, EventHook{
-			Event:   types.EventAfterChangePassword,
-			Handler: h.handlePasswordChanged,
-		})
-		hooks = append(hooks, EventHook{
-			Event:   types.EventAfterResetPassword,
-			Handler: h.handlePasswordChanged,
-		})
+		hooks = append(hooks, EventHook{Event: types.EventAfterChangePassword, Handler: h.handlePasswordChanged})
+		hooks = append(hooks, EventHook{Event: types.EventAfterResetPassword, Handler: h.handlePasswordChanged})
 	}
 
-	// Magic link email delivery
-	if h.config.EnableMagicLinkEmail {
-		hooks = append(hooks, EventHook{
-			Event:   types.EventSendMagicLink,
-			Handler: h.handleSendMagicLink,
-		})
-	}
-
-	// Login alert
 	if h.config.EnableLoginAlerts {
-		hooks = append(hooks, EventHook{
-			Event:   types.EventAfterLogin,
-			Handler: h.handleLoginAlert,
-		})
+		hooks = append(hooks, EventHook{Event: types.EventAfterLogin, Handler: h.handleLoginAlert})
 	}
 
 	return hooks
@@ -162,16 +128,16 @@ func (h *NotificationHooks) handleSendPasswordReset(ctx context.Context, event *
 		return fmt.Errorf("notification: unexpected event data type for %s (id=%s)", event.Type, event.ID)
 	}
 
-	// Send email if configured
-	if h.config.EnablePasswordResetEmail && data.Email != "" {
+	// Send email (service no-ops if emailSender is nil)
+	if data.Email != "" {
 		if err := h.service.SendPasswordResetEmail(ctx, data.Email, data.Name, data.ResetLink, data.Code, "1 hour"); err != nil {
 			h.deps.Logger.Errorf("notification: failed to send password reset email: %v", err)
 			return err
 		}
 	}
 
-	// Send SMS if configured
-	if h.config.EnablePasswordResetSMS && data.PhoneNumber != "" {
+	// Send SMS (service no-ops if smsSender is nil)
+	if data.PhoneNumber != "" {
 		if err := h.service.SendPasswordResetSMS(ctx, data.PhoneNumber, data.Code, "1 hour"); err != nil {
 			h.deps.Logger.Errorf("notification: failed to send password reset SMS: %v", err)
 			return err
@@ -213,6 +179,36 @@ func (h *NotificationHooks) handleSendMagicLink(ctx context.Context, event *type
 	}
 
 	h.deps.Logger.Infof("notification: sent magic link email to %s", data.User.Email)
+	return nil
+}
+
+func (h *NotificationHooks) handleInvitationSent(ctx context.Context, event *types.Event) error {
+	data, ok := types.EventDataAs[*types.InvitationEventData](event)
+	if !ok {
+		return fmt.Errorf("notification: unexpected event data type for %s (id=%s)", event.Type, event.ID)
+	}
+
+	if err := h.service.SendInvitationEmail(ctx, data.Email, data.InviterName, data.Purpose, data.InviteLink, data.ExpiresAt); err != nil {
+		h.deps.Logger.Errorf("notification: failed to send invitation email: %v", err)
+		return err
+	}
+
+	h.deps.Logger.Infof("notification: sent invitation email to %s", data.Email)
+	return nil
+}
+
+func (h *NotificationHooks) handleOrgInvitationSent(ctx context.Context, event *types.Event) error {
+	data, ok := types.EventDataAs[*types.OrgInvitationEventData](event)
+	if !ok {
+		return fmt.Errorf("notification: unexpected event data type for %s (id=%s)", event.Type, event.ID)
+	}
+
+	if err := h.service.SendOrgInvitationEmail(ctx, data.Email, data.InviterName, data.OrgName, data.Role, data.InviteLink, data.ExpiresAt); err != nil {
+		h.deps.Logger.Errorf("notification: failed to send org invitation email: %v", err)
+		return err
+	}
+
+	h.deps.Logger.Infof("notification: sent org invitation email to %s for org %s", data.Email, data.OrgName)
 	return nil
 }
 

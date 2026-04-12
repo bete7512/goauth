@@ -16,26 +16,24 @@ import (
 var openapiSpec []byte
 
 type StatelessModule struct {
-	deps          config.ModuleDependencies
-	handlers      *handlers.StatelessHandler
-	config        *config.StatelessModuleConfig
-	customStorage types.CoreStorage // Stateless uses core storage for tokens
+	deps     config.ModuleDependencies
+	handlers *handlers.StatelessHandler
+	config   *config.StatelessModuleConfig
 }
 
 var _ config.Module = (*StatelessModule)(nil)
 
-// New creates a new StatelessModule
-// customStorage is optional - if nil, storage will be obtained from deps.Storage.Core()
-// Stateless module uses CoreStorage because it only needs users and tokens
-func New(cfg *config.StatelessModuleConfig, customStorage types.CoreStorage) *StatelessModule {
+// New creates a new StatelessModule.
+// Pass nil for cfg to use safe defaults (refresh token rotation enabled).
+// To provide custom storage, set cfg.CustomStorage.
+func New(cfg *config.StatelessModuleConfig) *StatelessModule {
 	if cfg == nil {
 		cfg = &config.StatelessModuleConfig{
 			RefreshTokenRotation: true,
 		}
 	}
 	return &StatelessModule{
-		config:        cfg,
-		customStorage: customStorage,
+		config: cfg,
 	}
 }
 
@@ -44,8 +42,8 @@ func (m *StatelessModule) Init(ctx context.Context, deps config.ModuleDependenci
 
 	// Get core storage - use custom if provided, otherwise from main storage
 	var coreStorage types.CoreStorage
-	if m.customStorage != nil {
-		coreStorage = m.customStorage
+	if m.config.CustomStorage != nil {
+		coreStorage = m.config.CustomStorage
 	} else if deps.Storage != nil {
 		coreStorage = deps.Storage.Core()
 	}

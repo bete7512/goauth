@@ -81,8 +81,15 @@ These routes require authentication (`core.auth` middleware) but do not require 
 | GET    | `/org/my`                    | `org.my`                   | List organizations for current user |
 | POST   | `/org/switch`                | `org.switch`               | Switch active organization       |
 | GET    | `/org/my/invitations`        | `org.my.invitations`       | List pending invitations for current user |
-| POST   | `/org/invitations/accept`    | `org.invitation.accept`    | Accept an invitation             |
-| POST   | `/org/invitations/decline`   | `org.invitation.decline`   | Decline an invitation            |
+
+### Public routes (no auth required)
+
+The accept and decline endpoints are public. The invitation token is the authorization. New users provide name + password to create an account during acceptance.
+
+| Method | Path                         | Route Name                 | Description                      |
+|--------|------------------------------|----------------------------|----------------------------------|
+| POST   | `/org/invitations/accept`    | `org.invitations.accept`   | Accept an invitation (creates user if needed) |
+| POST   | `/org/invitations/decline`   | `org.invitations.decline`  | Decline an invitation            |
 
 ### Organization-scoped routes
 
@@ -136,7 +143,9 @@ These routes require both authentication and the `org.auth` middleware, which va
 | `JoinedAt` | `time.Time`| When the user joined                     |
 | `UpdatedAt`| `*time.Time`| Last update timestamp                   |
 
-### Invitation
+### OrgInvitation
+
+Table: `org_invitations`
 
 | Field       | Type        | Description                              |
 |-------------|-------------|------------------------------------------|

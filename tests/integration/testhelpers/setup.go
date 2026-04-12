@@ -21,6 +21,7 @@ import (
 	"github.com/bete7512/goauth/pkg/modules/magiclink"
 	"github.com/bete7512/goauth/pkg/modules/notification"
 	"github.com/bete7512/goauth/pkg/modules/oauth"
+	"github.com/bete7512/goauth/pkg/modules/invitation"
 	"github.com/bete7512/goauth/pkg/modules/organization"
 	"github.com/bete7512/goauth/pkg/modules/session"
 	"github.com/bete7512/goauth/pkg/modules/twofactor"
@@ -100,7 +101,7 @@ func SetupSessionAuth(t *testing.T) (*auth.Auth, http.Handler) {
 
 	err = authInstance.Use(session.New(&config.SessionModuleConfig{
 		EnableSessionManagement: true,
-	}, nil))
+	}))
 	require.NoError(t, err)
 
 	return authInstance, initAuth(t, authInstance)
@@ -141,7 +142,7 @@ func SetupFullAuth(t *testing.T) (*auth.Auth, http.Handler) {
 	})
 	require.NoError(t, err)
 
-	require.NoError(t, authInstance.Use(session.New(&config.SessionModuleConfig{EnableSessionManagement: true}, nil)))
+	require.NoError(t, authInstance.Use(session.New(&config.SessionModuleConfig{EnableSessionManagement: true})))
 	require.NoError(t, authInstance.Use(admin.New(nil)))
 	require.NoError(t, authInstance.Use(audit.New(nil)))
 	require.NoError(t, authInstance.Use(csrf.New(nil)))
@@ -184,6 +185,23 @@ func SetupStatelessWithOrg(t *testing.T) (*auth.Auth, http.Handler) {
 	return authInstance, initAuth(t, authInstance)
 }
 
+// SetupStatelessWithInvitation creates a stateless auth instance with standalone invitation module.
+func SetupStatelessWithInvitation(t *testing.T) (*auth.Auth, http.Handler) {
+	t.Helper()
+	authInstance, err := auth.New(&config.Config{
+		Storage:   newStore(t),
+		BasePath:  "/auth",
+		Security:  defaultSecurityConfig("inv-test-secret-key-32charslongx", "inv-test-encryption-key-32char!"),
+		Core:      &config.CoreConfig{RequireEmailVerification: false},
+		Migration: config.MigrationConfig{Auto: true},
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, authInstance.Use(invitation.New(nil)))
+
+	return authInstance, initAuth(t, authInstance)
+}
+
 // SetupStatelessWithTwoFactor creates a stateless auth instance with 2FA module.
 func SetupStatelessWithTwoFactor(t *testing.T) (*auth.Auth, http.Handler) {
 	t.Helper()
@@ -218,13 +236,12 @@ func SetupStatelessWithMagicLink(t *testing.T) (*auth.Auth, http.Handler, *Email
 	require.NoError(t, err)
 
 	require.NoError(t, authInstance.Use(notification.New(&notification.Config{
-		EmailSender:          sink,
-		EnableMagicLinkEmail: true,
+		EmailSender: sink,
 	})))
 	require.NoError(t, authInstance.Use(magiclink.New(&config.MagicLinkModuleConfig{
 		TokenExpiry:  15 * time.Minute,
 		AutoRegister: true,
-	}, nil)))
+	})))
 
 	return authInstance, initAuth(t, authInstance), sink
 }
@@ -246,9 +263,8 @@ func SetupStatelessWithNotification(t *testing.T) (*auth.Auth, http.Handler, *Em
 	require.NoError(t, err)
 
 	require.NoError(t, authInstance.Use(notification.New(&notification.Config{
-		EmailSender:              sink,
-		EnableWelcomeEmail:       true,
-		EnablePasswordResetEmail: true,
+		EmailSender:        sink,
+		EnableWelcomeEmail: true,
 	})))
 
 	return authInstance, initAuth(t, authInstance), sink
@@ -303,7 +319,7 @@ func SetupStatelessWithOAuth(t *testing.T) (*auth.Auth, http.Handler) {
 		AllowSignup:         true,
 		AllowAccountLinking: true,
 		Providers:           providerConfigs,
-	}, nil)))
+	})))
 
 	return authInstance, initAuth(t, authInstance)
 }

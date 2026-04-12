@@ -138,48 +138,44 @@ paths:
     post:
       tags:
         - Invitations
-      summary: Accept invitation
-      description: Accept an organization invitation by token. The user's email must match the invitation email.
-      security:
-        - BearerAuth: []
+      summary: Accept org invitation (public)
+      description: |
+        Accept an organization invitation by token. No authentication required — the token is the authorization.
+        If the invited email has no account, a new user is created (name and password required).
+        If the user already exists, the invitation is accepted and org membership is created.
+        Returns auth tokens and membership details.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/InvitationTokenRequest'
+              $ref: '#/components/schemas/AcceptInvitationRequest'
       responses:
         '200':
-          description: Invitation accepted, membership created
+          description: Invitation accepted, membership created, auth tokens returned
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   data:
-                    $ref: '#/components/schemas/OrganizationMember'
+                    $ref: '#/components/schemas/AcceptOrgInvitationResponse'
                   message:
                     type: string
                     nullable: true
         '400':
-          description: Missing token or email mismatch
-        '401':
-          description: Authentication required
+          description: Missing token, expired, or missing name/password for new user
         '404':
           description: Invitation not found
         '409':
           description: Already a member of this organization
-        '410':
-          description: Invitation expired
 
   /org/invitations/decline:
     post:
       tags:
         - Invitations
-      summary: Decline invitation
-      description: Decline an organization invitation by token
-      security:
-        - BearerAuth: []
+      summary: Decline org invitation (public)
+      description: Decline an organization invitation by token. No authentication required.
       requestBody:
         required: true
         content:
@@ -202,8 +198,6 @@ paths:
                     nullable: true
         '400':
           description: Missing token
-        '401':
-          description: Authentication required
         '404':
           description: Invitation not found
 
@@ -829,6 +823,49 @@ components:
           enum: [admin, member]
           default: member
           description: Role to assign. Cannot invite as owner.
+
+    AcceptInvitationRequest:
+      type: object
+      required:
+        - token
+      properties:
+        token:
+          type: string
+          description: Invitation token received via email
+        name:
+          type: string
+          description: Required when the invited user has no account yet
+        password:
+          type: string
+          description: Required when the invited user has no account yet
+
+    AcceptOrgInvitationResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: JWT access token
+        refresh_token:
+          type: string
+          description: JWT refresh token
+        user:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            email:
+              type: string
+              format: email
+            name:
+              type: string
+            email_verified:
+              type: boolean
+        member:
+          $ref: '#/components/schemas/OrganizationMember'
+        is_new_user:
+          type: boolean
+          description: True if a new account was created during acceptance
 
     InvitationTokenRequest:
       type: object

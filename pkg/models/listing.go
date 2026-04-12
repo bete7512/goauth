@@ -98,15 +98,15 @@ func (o *MemberListOpts) Normalize(maxLimit int) {
 	o.Role = strings.TrimSpace(o.Role)
 }
 
-// InvitationListOpts extends ListingOpts with invitation-specific filters.
-type InvitationListOpts struct {
+// OrgInvitationListOpts extends ListingOpts with org-invitation-specific filters.
+type OrgInvitationListOpts struct {
 	ListingOpts
 	Status string // filter by status
 }
 
 // Normalize validates and clamps all fields.
-func (o *InvitationListOpts) Normalize(maxLimit int) {
-	o.ListingOpts.Normalize(maxLimit, invitationSortFields)
+func (o *OrgInvitationListOpts) Normalize(maxLimit int) {
+	o.ListingOpts.Normalize(maxLimit, orgInvitationSortFields)
 	o.Status = strings.TrimSpace(o.Status)
 }
 
@@ -141,7 +141,28 @@ var memberSortFields = map[string]bool{
 	"role":      true,
 }
 
+// InvitationListOpts extends ListingOpts with standalone invitation filters.
+type InvitationListOpts struct {
+	ListingOpts
+	Status  string // filter by status
+	Purpose string // filter by purpose
+}
+
+// Normalize validates and clamps all fields.
+func (o *InvitationListOpts) Normalize(maxLimit int) {
+	o.ListingOpts.Normalize(maxLimit, invitationSortFields)
+	o.Status = strings.TrimSpace(o.Status)
+	o.Purpose = strings.TrimSpace(o.Purpose)
+}
+
 var invitationSortFields = map[string]bool{
+	"created_at": true,
+	"expires_at": true,
+	"status":     true,
+	"purpose":    true,
+}
+
+var orgInvitationSortFields = map[string]bool{
 	"created_at": true,
 	"expires_at": true,
 	"status":     true,

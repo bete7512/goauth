@@ -1,6 +1,6 @@
 package models
 
-//go:generate mockgen -destination=../../internal/mocks/mock_organization_repository.go -package=mocks github.com/bete7512/goauth/pkg/models OrganizationRepository,OrganizationMemberRepository,InvitationRepository
+//go:generate mockgen -destination=../../internal/mocks/mock_organization_repository.go -package=mocks github.com/bete7512/goauth/pkg/models OrganizationRepository,OrganizationMemberRepository,OrgInvitationRepository
 
 import (
 	"context"
@@ -30,8 +30,8 @@ type OrganizationMember struct {
 	UpdatedAt *time.Time `json:"updated_at,omitempty"`
 }
 
-// Invitation represents a pending invitation to join an organization.
-type Invitation struct {
+// OrgInvitation represents a pending invitation to join an organization.
+type OrgInvitation struct {
 	ID         string     `json:"id" gorm:"primaryKey;type:varchar(36)"`
 	OrgID      string     `json:"org_id" gorm:"type:varchar(36);not null"`
 	Email      string     `json:"email" gorm:"type:varchar(255);not null"`
@@ -44,13 +44,10 @@ type Invitation struct {
 	AcceptedAt *time.Time `json:"accepted_at,omitempty"`
 }
 
-// Invitation statuses
-const (
-	InvitationStatusPending  = "pending"
-	InvitationStatusAccepted = "accepted"
-	InvitationStatusDeclined = "declined"
-	InvitationStatusExpired  = "expired"
-)
+// TableName specifies the database table for OrgInvitation.
+func (OrgInvitation) TableName() string { return "org_invitations" }
+
+// Invitation statuses are defined in invitation.go (shared with standalone invitation module).
 
 // OrganizationRepository defines data access for organizations.
 type OrganizationRepository interface {
@@ -76,15 +73,15 @@ type OrganizationMemberRepository interface {
 	CountByOrg(ctx context.Context, orgID string) (int64, error)
 }
 
-// InvitationRepository defines data access for organization invitations.
-type InvitationRepository interface {
-	Create(ctx context.Context, invitation *Invitation) error
-	FindByID(ctx context.Context, id string) (*Invitation, error)
-	FindByToken(ctx context.Context, token string) (*Invitation, error)
-	FindByOrgAndEmail(ctx context.Context, orgID, email string) (*Invitation, error)
-	ListByOrg(ctx context.Context, orgID string, opts InvitationListOpts) ([]*Invitation, int64, error)
-	ListPendingByEmail(ctx context.Context, email string) ([]*Invitation, error)
-	Update(ctx context.Context, invitation *Invitation) error
+// OrgInvitationRepository defines data access for organization invitations.
+type OrgInvitationRepository interface {
+	Create(ctx context.Context, invitation *OrgInvitation) error
+	FindByID(ctx context.Context, id string) (*OrgInvitation, error)
+	FindByToken(ctx context.Context, token string) (*OrgInvitation, error)
+	FindByOrgAndEmail(ctx context.Context, orgID, email string) (*OrgInvitation, error)
+	ListByOrg(ctx context.Context, orgID string, opts OrgInvitationListOpts) ([]*OrgInvitation, int64, error)
+	ListPendingByEmail(ctx context.Context, email string) ([]*OrgInvitation, error)
+	Update(ctx context.Context, invitation *OrgInvitation) error
 	Delete(ctx context.Context, id string) error
 	DeleteExpired(ctx context.Context) error
 }

@@ -163,7 +163,7 @@ func TestInvitationServiceSuite(t *testing.T) {
 
 type inviteTestSetup struct {
 	svc            services.InvitationService
-	invitationRepo *mocks.MockInvitationRepository
+	invitationRepo *mocks.MockOrgInvitationRepository
 	memberRepo     *mocks.MockOrganizationMemberRepository
 	orgRepo        *mocks.MockOrganizationRepository
 	userRepo       *mocks.MockUserRepository
@@ -174,7 +174,7 @@ func (s *InvitationServiceSuite) setup() *inviteTestSetup {
 	ctrl := gomock.NewController(s.T())
 	s.T().Cleanup(ctrl.Finish)
 
-	invitationRepo := mocks.NewMockInvitationRepository(ctrl)
+	invitationRepo := mocks.NewMockOrgInvitationRepository(ctrl)
 	memberRepo := mocks.NewMockOrganizationMemberRepository(ctrl)
 	orgRepo := mocks.NewMockOrganizationRepository(ctrl)
 	userRepo := mocks.NewMockUserRepository(ctrl)
@@ -199,7 +199,7 @@ func (s *InvitationServiceSuite) TestInvite_Success() {
 	t.memberRepo.EXPECT().CountByOrg(gomock.Any(), "org-1").Return(int64(5), nil) // under limit
 	t.orgRepo.EXPECT().FindByID(gomock.Any(), "org-1").Return(org, nil)
 	t.userRepo.EXPECT().FindByID(gomock.Any(), "inviter-1").Return(testutil.TestUser(), nil)
-	t.invitationRepo.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&models.Invitation{})).Return(nil)
+	t.invitationRepo.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&models.OrgInvitation{})).Return(nil)
 	t.events.EXPECT().EmitAsync(gomock.Any(), types.EventOrgInvitationSent, gomock.Any()).Return(nil)
 
 	inv, authErr := t.svc.Invite(context.Background(), "org-1", &dto.InviteRequest{Email: "new@example.com"}, "inviter-1")
@@ -225,7 +225,7 @@ func (s *InvitationServiceSuite) TestInvite_AlreadyMember() {
 
 func (s *InvitationServiceSuite) TestInvite_DuplicatePending() {
 	t := s.setup()
-	existingInv := &models.Invitation{Email: "pending@example.com", Status: models.InvitationStatusPending}
+	existingInv := &models.OrgInvitation{Email: "pending@example.com", Status: models.InvitationStatusPending}
 
 	t.userRepo.EXPECT().FindByEmail(gomock.Any(), "pending@example.com").Return(nil, models.ErrNotFound)
 	t.invitationRepo.EXPECT().FindByOrgAndEmail(gomock.Any(), "org-1", "pending@example.com").Return(existingInv, nil)
@@ -235,64 +235,80 @@ func (s *InvitationServiceSuite) TestInvite_DuplicatePending() {
 	s.Equal(types.ErrInvitationExists, authErr.Code)
 }
 
-func (s *InvitationServiceSuite) TestAcceptInvitation_Success() {
+func (s *InvitationServiceSuite) TestAcceptInvitation_ExistingUser() {
 	t := s.setup()
-	inv := &models.Invitation{
+	inv := &models.OrgInvitation{
 		ID: "inv-1", OrgID: "org-1", Email: "user@example.com", Role: "member",
 		Token: "valid-token", Status: models.InvitationStatusPending,
 		ExpiresAt: time.Now().Add(24 * time.Hour),
 	}
+	existingUser := testutil.TestUser()
+	existingUser.Email = "user@example.com"
 	org := &models.Organization{ID: "org-1", Name: "Team"}
 
 	t.invitationRepo.EXPECT().FindByToken(gomock.Any(), "valid-token").Return(inv, nil)
-	t.memberRepo.EXPECT().FindByOrgAndUser(gomock.Any(), "org-1", "user-1").Return(nil, models.ErrNotFound)
+	t.userRepo.EXPECT().FindByEmail(gomock.Any(), "user@example.com").Return(existingUser, nil)
+	t.memberRepo.EXPECT().FindByOrgAndUser(gomock.Any(), "org-1", existingUser.ID).Return(nil, models.ErrNotFound)
 	t.memberRepo.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&models.OrganizationMember{})).Return(nil)
 	t.invitationRepo.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil)
 	t.orgRepo.EXPECT().FindByID(gomock.Any(), "org-1").Return(org, nil)
 	t.events.EXPECT().EmitAsync(gomock.Any(), types.EventOrgInvitationAccepted, gomock.Any()).Return(nil)
 	t.events.EXPECT().EmitAsync(gomock.Any(), types.EventOrgMemberAdded, gomock.Any()).Return(nil)
 
-	member, authErr := t.svc.AcceptInvitation(context.Background(), "user-1", "user@example.com", "valid-token")
+	result, authErr := t.svc.AcceptInvitation(context.Background(), "valid-token", "", "")
 	s.Nil(authErr)
-	s.NotNil(member)
-	s.Equal("user-1", member.UserID)
+	s.NotNil(result)
+	s.False(result.IsNewUser)
+	s.Equal(existingUser.ID, result.Member.UserID)
+}
+
+func (s *InvitationServiceSuite) TestAcceptInvitation_NewUser() {
+	t := s.setup()
+	inv := &models.OrgInvitation{
+		ID: "inv-1", OrgID: "org-1", Email: "new@example.com", Role: "member",
+		Token: "valid-token", Status: models.InvitationStatusPending,
+		ExpiresAt: time.Now().Add(24 * time.Hour),
+	}
+	org := &models.Organization{ID: "org-1", Name: "Team"}
+
+	t.invitationRepo.EXPECT().FindByToken(gomock.Any(), "valid-token").Return(inv, nil)
+	t.userRepo.EXPECT().FindByEmail(gomock.Any(), "new@example.com").Return(nil, models.ErrNotFound)
+	t.userRepo.EXPECT().Create(gomock.Any(), gomock.Any()).Return(nil)
+	t.memberRepo.EXPECT().FindByOrgAndUser(gomock.Any(), "org-1", gomock.Any()).Return(nil, models.ErrNotFound)
+	t.memberRepo.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&models.OrganizationMember{})).Return(nil)
+	t.invitationRepo.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil)
+	t.orgRepo.EXPECT().FindByID(gomock.Any(), "org-1").Return(org, nil)
+	t.events.EXPECT().EmitAsync(gomock.Any(), types.EventOrgInvitationAccepted, gomock.Any()).Return(nil)
+	t.events.EXPECT().EmitAsync(gomock.Any(), types.EventOrgMemberAdded, gomock.Any()).Return(nil)
+
+	result, authErr := t.svc.AcceptInvitation(context.Background(), "valid-token", "New User", "password123")
+	s.Nil(authErr)
+	s.NotNil(result)
+	s.True(result.IsNewUser)
 }
 
 func (s *InvitationServiceSuite) TestAcceptInvitation_Expired() {
 	t := s.setup()
-	inv := &models.Invitation{
+	inv := &models.OrgInvitation{
 		Token: "expired-token", Status: models.InvitationStatusPending,
 		Email: "user@example.com", ExpiresAt: time.Now().Add(-1 * time.Hour),
 	}
 	t.invitationRepo.EXPECT().FindByToken(gomock.Any(), "expired-token").Return(inv, nil)
 
-	_, authErr := t.svc.AcceptInvitation(context.Background(), "user-1", "user@example.com", "expired-token")
+	_, authErr := t.svc.AcceptInvitation(context.Background(), "expired-token", "", "")
 	s.NotNil(authErr)
 	s.Equal(types.ErrInvitationExpired, authErr.Code)
 }
 
-func (s *InvitationServiceSuite) TestAcceptInvitation_EmailMismatch() {
-	t := s.setup()
-	inv := &models.Invitation{
-		Token: "tok", Status: models.InvitationStatusPending,
-		Email: "other@example.com", ExpiresAt: time.Now().Add(24 * time.Hour),
-	}
-	t.invitationRepo.EXPECT().FindByToken(gomock.Any(), "tok").Return(inv, nil)
-
-	_, authErr := t.svc.AcceptInvitation(context.Background(), "user-1", "wrong@example.com", "tok")
-	s.NotNil(authErr)
-	s.Equal(types.ErrInvitationEmailMismatch, authErr.Code)
-}
-
 func (s *InvitationServiceSuite) TestDeclineInvitation_Success() {
 	t := s.setup()
-	inv := &models.Invitation{Token: "tok", Status: models.InvitationStatusPending, OrgID: "org-1", Email: "user@example.com"}
+	inv := &models.OrgInvitation{Token: "tok", Status: models.InvitationStatusPending, OrgID: "org-1", Email: "user@example.com"}
 
 	t.invitationRepo.EXPECT().FindByToken(gomock.Any(), "tok").Return(inv, nil)
 	t.invitationRepo.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil)
 	t.events.EXPECT().EmitAsync(gomock.Any(), types.EventOrgInvitationDeclined, gomock.Any()).Return(nil)
 
-	authErr := t.svc.DeclineInvitation(context.Background(), "user-1", "tok")
+	authErr := t.svc.DeclineInvitation(context.Background(), "tok")
 	s.Nil(authErr)
 }
 
@@ -300,14 +316,14 @@ func (s *InvitationServiceSuite) TestDeclineInvitation_NotFound() {
 	t := s.setup()
 	t.invitationRepo.EXPECT().FindByToken(gomock.Any(), "bad-tok").Return(nil, models.ErrNotFound)
 
-	authErr := t.svc.DeclineInvitation(context.Background(), "user-1", "bad-tok")
+	authErr := t.svc.DeclineInvitation(context.Background(), "bad-tok")
 	s.NotNil(authErr)
 	s.Equal(types.ErrInvitationNotFound, authErr.Code)
 }
 
 func (s *InvitationServiceSuite) TestCancelInvitation_Success() {
 	t := s.setup()
-	inv := &models.Invitation{ID: "inv-1", OrgID: "org-1"}
+	inv := &models.OrgInvitation{ID: "inv-1", OrgID: "org-1"}
 	t.invitationRepo.EXPECT().FindByID(gomock.Any(), "inv-1").Return(inv, nil)
 	t.invitationRepo.EXPECT().Delete(gomock.Any(), "inv-1").Return(nil)
 
@@ -326,7 +342,7 @@ func (s *InvitationServiceSuite) TestCancelInvitation_NotFound() {
 
 func (s *InvitationServiceSuite) TestListPendingByEmail_Success() {
 	t := s.setup()
-	invitations := []*models.Invitation{{Email: "user@example.com"}}
+	invitations := []*models.OrgInvitation{{Email: "user@example.com"}}
 	t.invitationRepo.EXPECT().ListPendingByEmail(gomock.Any(), "user@example.com").Return(invitations, nil)
 
 	result, authErr := t.svc.ListPendingByEmail(context.Background(), "user@example.com")

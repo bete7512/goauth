@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS organization_members (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_org_member ON organization_members (org_id, user_id);
 CREATE INDEX IF NOT EXISTS idx_organization_members_user_id ON organization_members (user_id);
 
-CREATE TABLE IF NOT EXISTS invitations (
+CREATE TABLE IF NOT EXISTS org_invitations (
     id VARCHAR(36) PRIMARY KEY,
     org_id VARCHAR(36) NOT NULL,
     email VARCHAR(255) NOT NULL,
@@ -35,6 +35,6 @@ CREATE TABLE IF NOT EXISTS invitations (
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     accepted_at DATETIME
 );
-CREATE UNIQUE INDEX IF NOT EXISTS idx_invitations_token ON invitations (token);
-CREATE INDEX IF NOT EXISTS idx_invitations_org_id ON invitations (org_id);
-CREATE INDEX IF NOT EXISTS idx_invitations_email ON invitations (email);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_org_invitations_token ON org_invitations (token);
+CREATE INDEX IF NOT EXISTS idx_org_invitations_org_id ON org_invitations (org_id);
+CREATE INDEX IF NOT EXISTS idx_org_invitations_email ON org_invitations (email);

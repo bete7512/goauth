@@ -1,0 +1,371 @@
+openapi: 3.0.0
+info:
+  title: GoAuth Invitation Module API
+  version: 1.0.0
+  description: Standalone invitation management for platform invites, beta access, referrals, etc.
+
+servers:
+  - url: /
+
+tags:
+  - name: Invitations
+    description: Standalone invitation flow (non-org)
+
+paths:
+  /invitations:
+    post:
+      tags:
+        - Invitations
+      summary: Send invitation
+      description: Send a standalone invitation to an email address. The inviter must be authenticated.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendInvitationRequest'
+      responses:
+        '201':
+          description: Invitation sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Invitation'
+                  message:
+                    type: string
+                    nullable: true
+        '400':
+          description: Invalid request (missing email or invalid purpose)
+        '401':
+          description: Authentication required
+        '409':
+          description: A pending invitation already exists for this email and purpose
+
+    get:
+      tags:
+        - Invitations
+      summary: List my sent invitations
+      description: List invitations sent by the authenticated user with pagination and filtering
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+        - $ref: '#/components/parameters/InvitationSortField'
+        - $ref: '#/components/parameters/SortDir'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, accepted, declined, expired]
+          description: Filter invitations by status
+        - name: purpose
+          in: query
+          schema:
+            type: string
+          description: Filter invitations by purpose
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      list:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Invitation'
+                      sort_field:
+                        type: string
+                        example: created_at
+                      sort_dir:
+                        type: string
+                        enum: [asc, desc]
+                        example: desc
+                      total:
+                        type: integer
+                  message:
+                    type: string
+                    nullable: true
+        '401':
+          description: Authentication required
+
+  /invitations/my:
+    get:
+      tags:
+        - Invitations
+      summary: List my pending invitations
+      description: List all pending invitations for the authenticated user's email
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Invitation'
+                  message:
+                    type: string
+                    nullable: true
+        '401':
+          description: Authentication required
+
+  /invitations/accept:
+    post:
+      tags:
+        - Invitations
+      summary: Accept invitation (public)
+      description: |
+        Accept a standalone invitation by token. No authentication required — the token is the authorization.
+        If the invited email has no account, a new user is created (name and password required).
+        If the user already exists, the invitation is simply accepted.
+        Returns auth tokens so the user is immediately logged in.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcceptInvitationRequest'
+      responses:
+        '200':
+          description: Invitation accepted, auth tokens returned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/AcceptInvitationResponse'
+                  message:
+                    type: string
+                    nullable: true
+        '400':
+          description: Missing token, expired, or missing name/password for new user
+        '404':
+          description: Invitation not found
+
+  /invitations/decline:
+    post:
+      tags:
+        - Invitations
+      summary: Decline invitation (public)
+      description: Decline a standalone invitation by token. No authentication required.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvitationTokenRequest'
+      responses:
+        '200':
+          description: Invitation declined
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    nullable: true
+                  message:
+                    type: string
+                    nullable: true
+        '400':
+          description: Missing token
+        '404':
+          description: Invitation not found
+
+  /invitations/{invId}:
+    delete:
+      tags:
+        - Invitations
+      summary: Cancel invitation
+      description: Cancel a pending invitation. Only the inviter can cancel their own invitations.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: invId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Invitation ID
+      responses:
+        '200':
+          description: Invitation cancelled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    nullable: true
+                  message:
+                    type: string
+                    nullable: true
+        '401':
+          description: Authentication required
+        '404':
+          description: Invitation not found or not owned by the caller
+
+components:
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        default: 20
+        maximum: 100
+      description: Maximum number of items to return
+
+    Offset:
+      name: offset
+      in: query
+      schema:
+        type: integer
+        default: 0
+        minimum: 0
+      description: Number of items to skip
+
+    InvitationSortField:
+      name: sort_field
+      in: query
+      schema:
+        type: string
+        default: created_at
+        enum: [created_at, expires_at, status, purpose]
+      description: Field to sort invitations by
+
+    SortDir:
+      name: sort_dir
+      in: query
+      schema:
+        type: string
+        default: desc
+        enum: [asc, desc]
+      description: Sort direction
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Invitation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        purpose:
+          type: string
+          example: "platform"
+        inviter_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, accepted, declined, expired]
+        metadata:
+          type: string
+          nullable: true
+          description: JSON string for consumer-defined data
+        expires_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        accepted_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    SendInvitationRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+          description: Email of the person to invite
+        purpose:
+          type: string
+          default: platform
+          description: Purpose of the invitation (e.g., platform, beta, referral)
+        metadata:
+          type: string
+          description: JSON string for consumer-defined data
+
+    AcceptInvitationRequest:
+      type: object
+      required:
+        - token
+      properties:
+        token:
+          type: string
+          description: Invitation token received via email
+        name:
+          type: string
+          description: Required when the invited user has no account yet
+        password:
+          type: string
+          description: Required when the invited user has no account yet
+
+    AcceptInvitationResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: JWT access token
+        refresh_token:
+          type: string
+          description: JWT refresh token
+        user:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            email:
+              type: string
+              format: email
+            name:
+              type: string
+            email_verified:
+              type: boolean
+        is_new_user:
+          type: boolean
+          description: True if a new account was created during acceptance
+
+    InvitationTokenRequest:
+      type: object
+      required:
+        - token
+      properties:
+        token:
+          type: string
+          description: Invitation token received via email

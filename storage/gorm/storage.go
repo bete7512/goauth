@@ -9,6 +9,7 @@ import (
 	"github.com/bete7512/goauth/pkg/types"
 	"github.com/bete7512/goauth/storage/gorm/auditlog"
 	"github.com/bete7512/goauth/storage/gorm/core"
+	"github.com/bete7512/goauth/storage/gorm/invitation"
 	"github.com/bete7512/goauth/storage/gorm/oauth"
 	"github.com/bete7512/goauth/storage/gorm/organization"
 	"github.com/bete7512/goauth/storage/gorm/session"
@@ -56,6 +57,7 @@ type GormStorage struct {
 	auditLogStoarage    *auditlog.GormAuditLogStorage
 	oauthStorage        *oauth.GormOAuthStorage
 	twoFactorStorage    *twofactor.TwoFactorStorage
+	invitationStorage   *invitation.GormInvitationStorage
 	organizationStorage *organization.GormOrganizationStorage
 }
 
@@ -129,6 +131,7 @@ func NewStorageFromDB(db *gorm.DB) *GormStorage {
 		auditLogStoarage:    auditlog.NewAuditLogStorage(db),
 		oauthStorage:        oauth.NewOAuthStorage(db),
 		twoFactorStorage:    twofactor.NewTwoFactorStorage(db),
+		invitationStorage:   invitation.NewInvitationStorage(db),
 		organizationStorage: organization.NewOrganizationStorage(db),
 	}
 }
@@ -167,6 +170,11 @@ func (s *GormStorage) OAuth() types.OAuthStorage {
 // TwoFactorAuth returns storage for the two-factor authentication module
 func (s *GormStorage) TwoFactorAuth() types.TwoFactorStorage {
 	return s.twoFactorStorage
+}
+
+// Invitation returns storage for the standalone invitation module
+func (s *GormStorage) Invitation() types.InvitationStorage {
+	return s.invitationStorage
 }
 
 // Organization returns storage for the organization module

@@ -14,6 +14,7 @@ import (
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/modules/admin"
 	"github.com/bete7512/goauth/pkg/modules/audit"
+	"github.com/bete7512/goauth/pkg/modules/invitation"
 	"github.com/bete7512/goauth/pkg/modules/magiclink"
 	"github.com/bete7512/goauth/pkg/modules/notification"
 	"github.com/bete7512/goauth/pkg/modules/notification/senders"
@@ -108,10 +109,7 @@ func main() {
 	authInstance.Use(notification.New(
 		&notification.Config{
 			EnableWelcomeEmail:        true,
-			EnablePasswordResetEmail:  true,
-			EnableLoginAlerts:         false,
 			EnablePasswordChangeAlert: true,
-			EnableMagicLinkEmail:      true,
 			EmailSender: senders.NewResendEmailSender(
 				&senders.ResendConfig{
 					APIKey:          resendAPIKey,
@@ -134,7 +132,7 @@ func main() {
 		CallbackURL:  "http://localhost:3000",
 		TokenExpiry:  time.Hour,
 		AutoRegister: true,
-	}, nil))
+	}))
 	// --- Option 1: Session-based auth (uncomment to use) ---
 	authInstance.Use(session.New(&config.SessionModuleConfig{
 		EnableSessionManagement: true,
@@ -144,11 +142,11 @@ func main() {
 		SensitivePaths:          []string{"admin/*"},
 		SlidingExpiration:       true,
 		UpdateAge:               30 * time.Minute,
-	}, nil))
+	}))
 
 	authInstance.Use(organization.New(&organization.Config{}))
 	// // csrf (HMAC-based double-submit cookie pattern)
-	// authInstance.Use(csrf.New(&config.CSRFModuleConfig{
+	// go.Use(csrf.New(&config.CSRFModuleConfig{
 	// 	TokenExpiry: 2 * time.Hour,
 	// 	Secure:      false, // set true in production
 	// 	SameSite:    http.SameSiteLaxMode,
@@ -167,6 +165,9 @@ func main() {
 	authInstance.Use(admin.New(&admin.Config{}))
 	// Pass nil to use default config which enables all event tracking
 	authInstance.Use(audit.New(nil))
+	authInstance.Use(invitation.New(&invitation.Config{
+		CallbackURL: "http://localhost:3000/accept",
+	}))
 
 	// Register custom hooks (user-defined)
 	authInstance.On(types.EventSendMagicLink, func(ctx context.Context, e *types.Event) error {
@@ -212,7 +213,7 @@ func main() {
 		AllowAccountLinking:    true, // Allow linking OAuth to existing accounts with same email
 		TrustEmailVerification: true, // Trust OAuth provider's email verification
 		StateTTL:               10 * time.Minute,
-	}, nil))
+	}))
 
 	authInstance.Use(twofactor.New(&config.TwoFactorConfig{
 		Issuer: "goauth.beteg.dev",

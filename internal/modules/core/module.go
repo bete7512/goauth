@@ -16,10 +16,9 @@ import (
 )
 
 type CoreModule struct {
-	deps          config.ModuleDependencies
-	handlers      *handlers.CoreHandler
-	config        *config.CoreConfig
-	customStorage types.CoreStorage
+	deps     config.ModuleDependencies
+	handlers *handlers.CoreHandler
+	config   *config.CoreConfig
 }
 
 //go:embed docs/openapi.yml
@@ -30,15 +29,15 @@ var migrationFS embed.FS
 
 var _ config.Module = (*CoreModule)(nil)
 
-// New creates a new CoreModule
-// customStorage is optional - if nil, storage will be obtained from deps.Storage.Core()
-func New(cfg *config.CoreConfig, customStorage types.CoreStorage) *CoreModule {
+// New creates a new CoreModule.
+// Pass nil for cfg to use safe defaults.
+// To provide custom storage, set cfg.CustomStorage.
+func New(cfg *config.CoreConfig) *CoreModule {
 	if cfg == nil {
 		cfg = &config.CoreConfig{}
 	}
 	return &CoreModule{
-		config:        cfg,
-		customStorage: customStorage,
+		config: cfg,
 	}
 }
 
@@ -47,8 +46,8 @@ func (m *CoreModule) Init(ctx context.Context, deps config.ModuleDependencies) e
 
 	// Get core storage - use custom if provided, otherwise from main storage
 	var coreStorage types.CoreStorage
-	if m.customStorage != nil {
-		coreStorage = m.customStorage
+	if m.config.CustomStorage != nil {
+		coreStorage = m.config.CustomStorage
 	} else if deps.Storage != nil {
 		coreStorage = deps.Storage.Core()
 	}

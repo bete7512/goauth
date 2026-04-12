@@ -203,4 +203,9 @@ const (
 	EventOrgInvitationAccepted EventType = "org.invitation.accepted"
 	EventOrgInvitationDeclined EventType = "org.invitation.declined"
 	EventOrgSwitched           EventType = "org.switched"
+
+	// Invitation Events (standalone)
+	EventInvitationSent     EventType = "invitation.sent"
+	EventInvitationAccepted EventType = "invitation.accepted"
+	EventInvitationDeclined EventType = "invitation.declined"
 )

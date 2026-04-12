@@ -12,18 +12,25 @@ import (
 	"github.com/google/uuid"
 )
 
+// OrgAcceptResult holds the outcome of accepting an org invitation.
+type OrgAcceptResult struct {
+	User      *models.User
+	Member    *models.OrganizationMember
+	IsNewUser bool
+}
+
 type InvitationService interface {
-	Invite(ctx context.Context, orgID string, req *dto.InviteRequest, inviterID string) (*models.Invitation, *types.GoAuthError)
-	ListInvitations(ctx context.Context, orgID string, opts models.InvitationListOpts) ([]*models.Invitation, int64, *types.GoAuthError)
+	Invite(ctx context.Context, orgID string, req *dto.InviteRequest, inviterID string) (*models.OrgInvitation, *types.GoAuthError)
+	ListInvitations(ctx context.Context, orgID string, opts models.OrgInvitationListOpts) ([]*models.OrgInvitation, int64, *types.GoAuthError)
 	CancelInvitation(ctx context.Context, orgID, invID string) *types.GoAuthError
-	AcceptInvitation(ctx context.Context, userID, userEmail, token string) (*models.OrganizationMember, *types.GoAuthError)
-	DeclineInvitation(ctx context.Context, userID, token string) *types.GoAuthError
-	ListPendingByEmail(ctx context.Context, email string) ([]*models.Invitation, *types.GoAuthError)
+	AcceptInvitation(ctx context.Context, token, name, password string) (*OrgAcceptResult, *types.GoAuthError)
+	DeclineInvitation(ctx context.Context, token string) *types.GoAuthError
+	ListPendingByEmail(ctx context.Context, email string) ([]*models.OrgInvitation, *types.GoAuthError)
 }
 
 type invitationService struct {
 	deps             config.ModuleDependencies
-	invitationRepo   models.InvitationRepository
+	invitationRepo   models.OrgInvitationRepository
 	memberRepo       models.OrganizationMemberRepository
 	orgRepo          models.OrganizationRepository
 	userRepo         models.UserRepository
@@ -34,7 +41,7 @@ type invitationService struct {
 
 func NewInvitationService(
 	deps config.ModuleDependencies,
-	invitationRepo models.InvitationRepository,
+	invitationRepo models.OrgInvitationRepository,
 	memberRepo models.OrganizationMemberRepository,
 	orgRepo models.OrganizationRepository,
 	userRepo models.UserRepository,
@@ -54,7 +61,7 @@ func NewInvitationService(
 	}
 }
 
-func (s *invitationService) Invite(ctx context.Context, orgID string, req *dto.InviteRequest, inviterID string) (*models.Invitation, *types.GoAuthError) {
+func (s *invitationService) Invite(ctx context.Context, orgID string, req *dto.InviteRequest, inviterID string) (*models.OrgInvitation, *types.GoAuthError) {
 	role := req.Role
 	if role == "" {
 		role = string(types.OrgRoleMember)
@@ -113,7 +120,7 @@ func (s *invitationService) Invite(ctx context.Context, orgID string, req *dto.I
 		inviterName = inviter.Name
 	}
 
-	invitation := &models.Invitation{
+	invitation := &models.OrgInvitation{
 		ID:        uuid.Must(uuid.NewV7()).String(),
 		OrgID:     orgID,
 		Email:     req.Email,
@@ -129,7 +136,7 @@ func (s *invitationService) Invite(ctx context.Context, orgID string, req *dto.I
 		return nil, types.NewInternalError("failed to create invitation").Wrap(err)
 	}
 
-	// Build invite link
+	// Build invite link — only when CallbackURL is configured (points to frontend)
 	inviteLink := ""
 	if s.callbackURL != "" {
 		inviteLink = s.callbackURL + "?token=" + token
@@ -149,7 +156,7 @@ func (s *invitationService) Invite(ctx context.Context, orgID string, req *dto.I
 	return invitation, nil
 }
 
-func (s *invitationService) ListInvitations(ctx context.Context, orgID string, opts models.InvitationListOpts) ([]*models.Invitation, int64, *types.GoAuthError) {
+func (s *invitationService) ListInvitations(ctx context.Context, orgID string, opts models.OrgInvitationListOpts) ([]*models.OrgInvitation, int64, *types.GoAuthError) {
 	invitations, total, err := s.invitationRepo.ListByOrg(ctx, orgID, opts)
 	if err != nil {
 		return nil, 0, types.NewInternalError("failed to list invitations").Wrap(err)
@@ -174,7 +181,7 @@ func (s *invitationService) CancelInvitation(ctx context.Context, orgID, invID s
 	return nil
 }
 
-func (s *invitationService) AcceptInvitation(ctx context.Context, userID, userEmail, token string) (*models.OrganizationMember, *types.GoAuthError) {
+func (s *invitationService) AcceptInvitation(ctx context.Context, token, name, password string) (*OrgAcceptResult, *types.GoAuthError) {
 	inv, err := s.invitationRepo.FindByToken(ctx, token)
 	if err != nil {
 		if errors.Is(err, models.ErrNotFound) {
@@ -188,12 +195,37 @@ func (s *invitationService) AcceptInvitation(ctx context.Context, userID, userEm
 	if time.Now().After(inv.ExpiresAt) {
 		return nil, types.NewInvitationExpiredError()
 	}
-	if inv.Email != userEmail {
-		return nil, types.NewInvitationEmailMismatchError()
+
+	// Find or create user
+	var user *models.User
+	isNewUser := false
+	user, _ = s.userRepo.FindByEmail(ctx, inv.Email)
+
+	if user == nil {
+		if name == "" || password == "" {
+			return nil, types.NewValidationError("name and password are required for new users")
+		}
+		hashedPassword, hashErr := s.deps.SecurityManager.HashPassword(password)
+		if hashErr != nil {
+			return nil, types.NewInternalError("failed to hash password").Wrap(hashErr)
+		}
+		user = &models.User{
+			ID:            uuid.Must(uuid.NewV7()).String(),
+			Email:         inv.Email,
+			Name:          name,
+			PasswordHash:  hashedPassword,
+			Active:        true,
+			EmailVerified: true,
+			CreatedAt:     time.Now(),
+		}
+		if err := s.userRepo.Create(ctx, user); err != nil {
+			return nil, types.NewInternalError("failed to create user").Wrap(err)
+		}
+		isNewUser = true
 	}
 
-	// Check not already a member (non-critical lookup: error means no membership found, which is expected)
-	existing, _ := s.memberRepo.FindByOrgAndUser(ctx, inv.OrgID, userID)
+	// Check not already a member
+	existing, _ := s.memberRepo.FindByOrgAndUser(ctx, inv.OrgID, user.ID)
 	if existing != nil {
 		return nil, types.NewOrgMemberExistsError()
 	}
@@ -202,7 +234,7 @@ func (s *invitationService) AcceptInvitation(ctx context.Context, userID, userEm
 	member := &models.OrganizationMember{
 		ID:       uuid.Must(uuid.NewV7()).String(),
 		OrgID:    inv.OrgID,
-		UserID:   userID,
+		UserID:   user.ID,
 		Role:     inv.Role,
 		JoinedAt: now,
 	}
@@ -211,14 +243,12 @@ func (s *invitationService) AcceptInvitation(ctx context.Context, userID, userEm
 		return nil, types.NewInternalError("failed to create membership").Wrap(err)
 	}
 
-	// Update invitation status — write operation, handle the error
 	inv.Status = models.InvitationStatusAccepted
 	inv.AcceptedAt = &now
 	if err := s.invitationRepo.Update(ctx, inv); err != nil {
 		return nil, types.NewInternalError("failed to update invitation status").Wrap(err)
 	}
 
-	// Non-critical lookup: org name is optional display info for event
 	org, _ := s.orgRepo.FindByID(ctx, inv.OrgID)
 	orgName := ""
 	if org != nil {
@@ -226,16 +256,16 @@ func (s *invitationService) AcceptInvitation(ctx context.Context, userID, userEm
 	}
 
 	s.deps.Events.EmitAsync(ctx, types.EventOrgInvitationAccepted, &types.OrgMemberEventData{
-		OrgID: inv.OrgID, OrgName: orgName, UserID: userID, Email: userEmail, Role: inv.Role,
+		OrgID: inv.OrgID, OrgName: orgName, UserID: user.ID, Email: inv.Email, Role: inv.Role,
 	})
 	s.deps.Events.EmitAsync(ctx, types.EventOrgMemberAdded, &types.OrgMemberEventData{
-		OrgID: inv.OrgID, OrgName: orgName, UserID: userID, Email: userEmail, Role: inv.Role,
+		OrgID: inv.OrgID, OrgName: orgName, UserID: user.ID, Email: inv.Email, Role: inv.Role,
 	})
 
-	return member, nil
+	return &OrgAcceptResult{User: user, Member: member, IsNewUser: isNewUser}, nil
 }
 
-func (s *invitationService) DeclineInvitation(ctx context.Context, userID, token string) *types.GoAuthError {
+func (s *invitationService) DeclineInvitation(ctx context.Context, token string) *types.GoAuthError {
 	inv, err := s.invitationRepo.FindByToken(ctx, token)
 	if err != nil {
 		if errors.Is(err, models.ErrNotFound) {
@@ -260,7 +290,7 @@ func (s *invitationService) DeclineInvitation(ctx context.Context, userID, token
 	return nil
 }
 
-func (s *invitationService) ListPendingByEmail(ctx context.Context, email string) ([]*models.Invitation, *types.GoAuthError) {
+func (s *invitationService) ListPendingByEmail(ctx context.Context, email string) ([]*models.OrgInvitation, *types.GoAuthError) {
 	invitations, err := s.invitationRepo.ListPendingByEmail(ctx, email)
 	if err != nil {
 		return nil, types.NewInternalError("failed to list invitations").Wrap(err)

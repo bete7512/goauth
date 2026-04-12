@@ -24,24 +24,23 @@ var openapiSpec []byte
 var migrationFS embed.FS
 
 type SessionModule struct {
-	deps          config.ModuleDependencies
-	handlers      *handlers.SessionHandler
-	config        *config.SessionModuleConfig
-	customStorage types.SessionStorage
-	validator     *services.SessionValidator // nil when strategy is "database"
+	deps      config.ModuleDependencies
+	handlers  *handlers.SessionHandler
+	config    *config.SessionModuleConfig
+	validator *services.SessionValidator
 }
 
 var _ config.Module = (*SessionModule)(nil)
 
-// New creates a new SessionModule
-// customStorage is optional - if nil, storage will be obtained from deps.Storage.Session()
-func New(cfg *config.SessionModuleConfig, customStorage types.SessionStorage) *SessionModule {
+// New creates a new SessionModule.
+// Pass nil for cfg to use safe defaults.
+// To provide custom storage, set cfg.CustomStorage.
+func New(cfg *config.SessionModuleConfig) *SessionModule {
 	if cfg == nil {
 		cfg = &config.SessionModuleConfig{}
 	}
 	return &SessionModule{
-		config:        cfg,
-		customStorage: customStorage,
+		config: cfg,
 	}
 }
 
@@ -50,8 +49,8 @@ func (m *SessionModule) Init(ctx context.Context, deps config.ModuleDependencies
 
 	// Get session storage - use custom if provided, otherwise from main storage
 	var sessionStorage types.SessionStorage
-	if m.customStorage != nil {
-		sessionStorage = m.customStorage
+	if m.config.CustomStorage != nil {
+		sessionStorage = m.config.CustomStorage
 	} else if deps.Storage != nil {
 		sessionStorage = deps.Storage.Session()
 	}

@@ -1,6 +1,6 @@
 package types
 
-//go:generate mockgen -destination=../../internal/mocks/mock_storage.go -package=mocks github.com/bete7512/goauth/pkg/types Storage,CoreStorage,SessionStorage,StatelessStorage,AdminStorage,OAuthStorage,TwoFactorStorage,OrganizationStorage
+//go:generate mockgen -destination=../../internal/mocks/mock_storage.go -package=mocks github.com/bete7512/goauth/pkg/types Storage,CoreStorage,SessionStorage,StatelessStorage,AdminStorage,OAuthStorage,TwoFactorStorage,InvitationStorage,OrganizationStorage
 
 import (
 	"context"
@@ -53,6 +53,10 @@ type Storage interface {
 	// Audit Log
 	AuditLog() AuditLogStorage
 
+	// Invitation returns storage for the standalone invitation module
+	// Returns nil if invitation storage is not needed/available
+	Invitation() InvitationStorage
+
 	// Organization returns storage for the organization module
 	// Returns nil if organization storage is not needed/available
 	Organization() OrganizationStorage
@@ -104,10 +108,16 @@ type TwoFactorStorage interface {
 	WithTransaction(ctx context.Context, fn func(tx TwoFactorStorage) error) error
 }
 
+// InvitationStorage defines storage interface for the standalone invitation module
+type InvitationStorage interface {
+	Invitations() models.InvitationRepository
+	WithTransaction(ctx context.Context, fn func(tx InvitationStorage) error) error
+}
+
 // OrganizationStorage defines storage interface for the organization module
 type OrganizationStorage interface {
 	Organizations() models.OrganizationRepository
 	Members() models.OrganizationMemberRepository
-	Invitations() models.InvitationRepository
+	Invitations() models.OrgInvitationRepository
 	WithTransaction(ctx context.Context, fn func(tx OrganizationStorage) error) error
 }

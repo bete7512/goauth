@@ -171,6 +171,18 @@ type OrgInvitationEventData struct {
 	ExpiresAt   time.Time `json:"expires_at"`
 }
 
+// InvitationEventData is used for standalone invitation events.
+type InvitationEventData struct {
+	InvitationID string    `json:"invitation_id"`
+	Email        string    `json:"email"`
+	Purpose      string    `json:"purpose"`
+	InviterID    string    `json:"inviter_id"`
+	InviterName  string    `json:"inviter_name"`
+	InviteLink   string    `json:"invite_link"`
+	Metadata     string    `json:"metadata,omitempty"`
+	ExpiresAt    time.Time `json:"expires_at"`
+}
+
 // OrgSwitchEventData is used for org.switched events.
 type OrgSwitchEventData struct {
 	UserID    string `json:"user_id"`

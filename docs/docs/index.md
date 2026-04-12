@@ -28,7 +28,8 @@ GoAuth is a modular, framework-agnostic authentication library for Go. Compose t
 - Two-Factor -- TOTP-based 2FA with backup codes
 - OAuth -- Social login (Google, GitHub, Microsoft, Discord)
 - Admin -- User CRUD with admin middleware
-- Organization -- Multi-org support with roles and invitations
+- Invitation -- Standalone invitations (invite-only registration, beta access, referrals)
+- Organization -- Multi-org support with roles and org-scoped invitations
 - Audit -- Security event logging with retention policies
 - Captcha -- reCAPTCHA v3, Cloudflare Turnstile
 - CSRF -- Token-based CSRF protection

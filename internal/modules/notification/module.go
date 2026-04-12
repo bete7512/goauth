@@ -37,14 +37,12 @@ type Config struct {
 	// SMSTemplates overrides individual SMS templates by name.
 	SMSTemplates map[string]templates.SMSTemplate
 
-	// Enable/disable specific notifications
+	// Optional informational emails (off by default unless explicitly enabled).
+	// Must-have delivery emails (password reset, magic link, 2FA codes, invitations)
+	// are always sent when the corresponding module emits the event — no toggle needed.
 	EnableWelcomeEmail        bool
-	EnablePasswordResetEmail  bool
-	EnablePasswordResetSMS    bool
 	EnableLoginAlerts         bool
 	EnablePasswordChangeAlert bool
-	Enable2FANotifications    bool
-	EnableMagicLinkEmail      bool
 }
 
 var _ config.Module = (*NotificationModule)(nil)
@@ -54,11 +52,7 @@ func New(cfg *Config) *NotificationModule {
 	if cfg == nil {
 		cfg = &Config{
 			EnableWelcomeEmail:        true,
-			EnablePasswordResetEmail:  true,
-			EnablePasswordResetSMS:    false,
-			EnableLoginAlerts:         false,
 			EnablePasswordChangeAlert: true,
-			Enable2FANotifications:    true,
 		}
 	}
 
@@ -111,12 +105,8 @@ func (m *NotificationModule) Middlewares() []config.MiddlewareConfig {
 func (m *NotificationModule) RegisterHooks(events types.EventBus) error {
 	hookManager := hooks.NewNotificationHooks(m.service, m.deps, &hooks.HookConfig{
 		EnableWelcomeEmail:        m.config.EnableWelcomeEmail,
-		EnablePasswordResetEmail:  m.config.EnablePasswordResetEmail,
-		EnablePasswordResetSMS:    m.config.EnablePasswordResetSMS,
 		EnableLoginAlerts:         m.config.EnableLoginAlerts,
 		EnablePasswordChangeAlert: m.config.EnablePasswordChangeAlert,
-		Enable2FANotifications:    m.config.Enable2FANotifications,
-		EnableMagicLinkEmail:      m.config.EnableMagicLinkEmail,
 	})
 
 	for _, hook := range hookManager.GetHooks() {

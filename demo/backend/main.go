@@ -100,7 +100,7 @@ func main() {
 		CookieCacheTTL:          time.Hour,
 		SlidingExpiration:       true,
 		UpdateAge:               30 * time.Minute,
-	}, nil))
+	}))
 
 	// Admin module
 	authInstance.Use(admin.New(&admin.Config{}))
@@ -116,7 +116,7 @@ func main() {
 		CallbackURL:  frontendURL,
 		TokenExpiry:  time.Hour,
 		AutoRegister: true,
-	}, nil))
+	}))
 
 	// Two-factor authentication
 	authInstance.Use(twofactor.New(&config.TwoFactorConfig{
@@ -128,10 +128,7 @@ func main() {
 		log.Println("Enabling notification module (Resend)")
 		authInstance.Use(notification.New(&notification.Config{
 			EnableWelcomeEmail:        true,
-			EnablePasswordResetEmail:  true,
-			EnableLoginAlerts:         false,
 			EnablePasswordChangeAlert: true,
-			EnableMagicLinkEmail:      true,
 			EmailSender: senders.NewResendEmailSender(&senders.ResendConfig{
 				APIKey:          resendKey,
 				DefaultFrom:     envOr("EMAIL_FROM", "noreply@example.com"),
@@ -180,7 +177,7 @@ func main() {
 			AllowAccountLinking:    true,
 			TrustEmailVerification: true,
 			StateTTL:               10 * time.Minute,
-		}, nil))
+		}))
 	} else {
 		log.Println("Skipping OAuth module (no provider credentials set)")
 	}

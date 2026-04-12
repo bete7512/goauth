@@ -94,8 +94,12 @@ func (r *SwitchOrgRequest) Validate() error {
 }
 
 // AcceptInvitationRequest represents invitation acceptance request
+// AcceptInvitationRequest represents invitation acceptance.
+// Name and Password are required only when the invited user doesn't have an account yet.
 type AcceptInvitationRequest struct {
-	Token string `json:"token"`
+	Token    string `json:"token"`
+	Name     string `json:"name,omitempty"`
+	Password string `json:"password,omitempty"`
 }
 
 func (r *AcceptInvitationRequest) Validate() error {
@@ -243,7 +247,7 @@ type InvitationDTO struct {
 	AcceptedAt *time.Time `json:"accepted_at,omitempty"`
 }
 
-func InvitationToDTO(inv *models.Invitation) *InvitationDTO {
+func InvitationToDTO(inv *models.OrgInvitation) *InvitationDTO {
 	if inv == nil {
 		return nil
 	}
@@ -260,7 +264,7 @@ func InvitationToDTO(inv *models.Invitation) *InvitationDTO {
 	}
 }
 
-func InvitationsToDTO(invs []*models.Invitation) []*InvitationDTO {
+func InvitationsToDTO(invs []*models.OrgInvitation) []*InvitationDTO {
 	dtos := make([]*InvitationDTO, len(invs))
 	for i, inv := range invs {
 		dtos[i] = InvitationToDTO(inv)

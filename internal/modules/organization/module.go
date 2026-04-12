@@ -125,8 +125,8 @@ func (m *OrganizationModule) Routes() []config.RouteInfo {
 		{Name: string(types.RouteOrgMyOrgs), Path: "/org/my", Method: http.MethodGet, Handler: m.orgHandler.MyOrgs, Middlewares: []types.MiddlewareName{types.MiddlewareAuth}},
 		{Name: string(types.RouteOrgSwitch), Path: "/org/switch", Method: http.MethodPost, Handler: m.orgHandler.Switch, Middlewares: []types.MiddlewareName{types.MiddlewareAuth}},
 		{Name: string(types.RouteOrgMyInvitations), Path: "/org/my/invitations", Method: http.MethodGet, Handler: m.invitationHandler.MyInvitations, Middlewares: []types.MiddlewareName{types.MiddlewareAuth}},
-		{Name: string(types.RouteOrgAcceptInvitation), Path: "/org/invitations/accept", Method: http.MethodPost, Handler: m.invitationHandler.AcceptInvitation, Middlewares: []types.MiddlewareName{types.MiddlewareAuth}},
-		{Name: string(types.RouteOrgDeclineInvitation), Path: "/org/invitations/decline", Method: http.MethodPost, Handler: m.invitationHandler.DeclineInvitation, Middlewares: []types.MiddlewareName{types.MiddlewareAuth}},
+		{Name: string(types.RouteOrgAcceptInvitation), Path: "/org/invitations/accept", Method: http.MethodPost, Handler: m.invitationHandler.AcceptInvitation},
+		{Name: string(types.RouteOrgDeclineInvitation), Path: "/org/invitations/decline", Method: http.MethodPost, Handler: m.invitationHandler.DeclineInvitation},
 
 		// Org context required (org middleware applied)
 		{Name: string(types.RouteOrgGet), Path: "/org/{orgId}", Method: http.MethodGet, Handler: m.orgHandler.Get, Middlewares: []types.MiddlewareName{types.MiddlewareAuth, types.MiddlewareOrgAuth}},

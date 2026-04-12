@@ -34,6 +34,7 @@ const sidebars: SidebarsConfig = {
         "modules/captcha",
         "modules/csrf",
         "modules/magiclink",
+        "modules/invitation",
         "modules/organization",
       ],
     },
