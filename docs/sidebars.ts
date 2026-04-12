@@ -9,6 +9,7 @@ const sidebars: SidebarsConfig = {
     "intro",
     "installation",
     "quickstart",
+    "architecture",
     
     {
       type: "category",
