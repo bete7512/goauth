@@ -25,28 +25,19 @@ var migrationFS embed.FS
 
 // OAuthModule provides OAuth authentication functionality
 type OAuthModule struct {
-	deps                 config.ModuleDependencies
-	handlers             *handlers.OAuthHandler
-	config               *config.OAuthModuleConfig
-	customCoreStorage    types.CoreStorage
-	customOAuthStorage   types.OAuthStorage
-	customSessionStorage types.SessionStorage // optional - for session-based auth
-	registry             *providers.Registry
+	deps     config.ModuleDependencies
+	handlers *handlers.OAuthHandler
+	config   *config.OAuthModuleConfig
+	registry *providers.Registry
 }
 
 // Compile-time check that OAuthModule implements config.Module
 var _ config.Module = (*OAuthModule)(nil)
 
-// OAuthStorageOptions provides custom storage options for the OAuth module
-type OAuthStorageOptions struct {
-	CoreStorage    types.CoreStorage    // optional - if nil, uses deps.Storage.Core()
-	OAuthStorage   types.OAuthStorage   // optional - if nil, uses deps.Storage.OAuth()
-	SessionStorage types.SessionStorage // optional - for session-based auth, if nil uses deps.Storage.Session()
-}
-
 // New creates a new OAuthModule.
-// opts is optional — if nil, storage is obtained from deps.Storage.
-func New(cfg *config.OAuthModuleConfig, opts *OAuthStorageOptions) *OAuthModule {
+// Pass nil for cfg to use safe defaults.
+// To provide custom storage, set cfg.CustomCoreStorage / cfg.CustomOAuthStorage / cfg.CustomSessionStorage.
+func New(cfg *config.OAuthModuleConfig) *OAuthModule {
 	if cfg == nil {
 		cfg = &config.OAuthModuleConfig{
 			AllowSignup:            true,
@@ -71,18 +62,10 @@ func New(cfg *config.OAuthModuleConfig, opts *OAuthStorageOptions) *OAuthModule 
 		}
 	}
 
-	module := &OAuthModule{
+	return &OAuthModule{
 		config:   cfg,
 		registry: providers.NewRegistry(),
 	}
-
-	if opts != nil {
-		module.customCoreStorage = opts.CoreStorage
-		module.customOAuthStorage = opts.OAuthStorage
-		module.customSessionStorage = opts.SessionStorage
-	}
-
-	return module
 }
 
 // Name returns the module identifier
@@ -96,8 +79,8 @@ func (m *OAuthModule) Init(ctx context.Context, deps config.ModuleDependencies) 
 
 	// Get core storage
 	var coreStorage types.CoreStorage
-	if m.customCoreStorage != nil {
-		coreStorage = m.customCoreStorage
+	if m.config.CustomCoreStorage != nil {
+		coreStorage = m.config.CustomCoreStorage
 	} else if deps.Storage != nil {
 		coreStorage = deps.Storage.Core()
 	}
@@ -108,8 +91,8 @@ func (m *OAuthModule) Init(ctx context.Context, deps config.ModuleDependencies) 
 
 	// Get OAuth storage (for Account model)
 	var oauthStorage types.OAuthStorage
-	if m.customOAuthStorage != nil {
-		oauthStorage = m.customOAuthStorage
+	if m.config.CustomOAuthStorage != nil {
+		oauthStorage = m.config.CustomOAuthStorage
 	} else if deps.Storage != nil {
 		oauthStorage = deps.Storage.OAuth()
 	}
@@ -122,8 +105,8 @@ func (m *OAuthModule) Init(ctx context.Context, deps config.ModuleDependencies) 
 	var sessionStorage types.SessionStorage
 	var sessionRepo models.SessionRepository
 	if m.config.UseSessionAuth {
-		if m.customSessionStorage != nil {
-			sessionStorage = m.customSessionStorage
+		if m.config.CustomSessionStorage != nil {
+			sessionStorage = m.config.CustomSessionStorage
 		} else if deps.Storage != nil {
 			sessionStorage = deps.Storage.Session()
 		}

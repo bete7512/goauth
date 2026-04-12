@@ -101,7 +101,7 @@ func SetupSessionAuth(t *testing.T) (*auth.Auth, http.Handler) {
 
 	err = authInstance.Use(session.New(&config.SessionModuleConfig{
 		EnableSessionManagement: true,
-	}, nil))
+	}))
 	require.NoError(t, err)
 
 	return authInstance, initAuth(t, authInstance)
@@ -142,7 +142,7 @@ func SetupFullAuth(t *testing.T) (*auth.Auth, http.Handler) {
 	})
 	require.NoError(t, err)
 
-	require.NoError(t, authInstance.Use(session.New(&config.SessionModuleConfig{EnableSessionManagement: true}, nil)))
+	require.NoError(t, authInstance.Use(session.New(&config.SessionModuleConfig{EnableSessionManagement: true})))
 	require.NoError(t, authInstance.Use(admin.New(nil)))
 	require.NoError(t, authInstance.Use(audit.New(nil)))
 	require.NoError(t, authInstance.Use(csrf.New(nil)))
@@ -242,7 +242,7 @@ func SetupStatelessWithMagicLink(t *testing.T) (*auth.Auth, http.Handler, *Email
 	require.NoError(t, authInstance.Use(magiclink.New(&config.MagicLinkModuleConfig{
 		TokenExpiry:  15 * time.Minute,
 		AutoRegister: true,
-	}, nil)))
+	})))
 
 	return authInstance, initAuth(t, authInstance), sink
 }
@@ -321,7 +321,7 @@ func SetupStatelessWithOAuth(t *testing.T) (*auth.Auth, http.Handler) {
 		AllowSignup:         true,
 		AllowAccountLinking: true,
 		Providers:           providerConfigs,
-	}, nil)))
+	})))
 
 	return authInstance, initAuth(t, authInstance)
 }

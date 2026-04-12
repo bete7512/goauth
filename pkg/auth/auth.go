@@ -121,7 +121,7 @@ func New(cfg *config.Config) (*Auth, error) {
 		}
 
 		// Pass nil for customStorage - core will get storage from deps.Storage.Core()
-		coreModule := core.New(coreConfig, nil)
+		coreModule := core.New(coreConfig)
 		auth.modules[coreModule.Name()] = coreModule
 	}
 
@@ -217,7 +217,7 @@ func (a *Auth) Initialize(ctx context.Context) error {
 		a.logger.Info("No auth module registered, using stateless as default")
 		statelessModule := stateless.New(&config.StatelessModuleConfig{
 			RefreshTokenRotation: true,
-		}, nil)
+		})
 		a.modules[statelessModule.Name()] = statelessModule
 	}
 

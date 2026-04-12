@@ -134,7 +134,7 @@ func main() {
 		CallbackURL:  "http://localhost:3000",
 		TokenExpiry:  time.Hour,
 		AutoRegister: true,
-	}, nil))
+	}))
 	// --- Option 1: Session-based auth (uncomment to use) ---
 	authInstance.Use(session.New(&config.SessionModuleConfig{
 		EnableSessionManagement: true,
@@ -144,7 +144,7 @@ func main() {
 		SensitivePaths:          []string{"admin/*"},
 		SlidingExpiration:       true,
 		UpdateAge:               30 * time.Minute,
-	}, nil))
+	}))
 
 	authInstance.Use(organization.New(&organization.Config{}))
 	// // csrf (HMAC-based double-submit cookie pattern)
@@ -212,7 +212,7 @@ func main() {
 		AllowAccountLinking:    true, // Allow linking OAuth to existing accounts with same email
 		TrustEmailVerification: true, // Trust OAuth provider's email verification
 		StateTTL:               10 * time.Minute,
-	}, nil))
+	}))
 
 	authInstance.Use(twofactor.New(&config.TwoFactorConfig{
 		Issuer: "goauth.beteg.dev",

@@ -17,23 +17,22 @@ import (
 var openapiSpec []byte
 
 type MagicLinkModule struct {
-	deps          config.ModuleDependencies
-	handlers      *handlers.MagicLinkHandler
-	config        *config.MagicLinkModuleConfig
-	customStorage types.CoreStorage
+	deps     config.ModuleDependencies
+	handlers *handlers.MagicLinkHandler
+	config   *config.MagicLinkModuleConfig
 }
 
 var _ config.Module = (*MagicLinkModule)(nil)
 
 // New creates a new MagicLinkModule.
-// customStorage is optional — if nil, storage is obtained from deps.Storage.Core().
-func New(cfg *config.MagicLinkModuleConfig, customStorage types.CoreStorage) *MagicLinkModule {
+// Pass nil for cfg to use safe defaults.
+// To provide custom storage, set cfg.CustomStorage.
+func New(cfg *config.MagicLinkModuleConfig) *MagicLinkModule {
 	if cfg == nil {
 		cfg = &config.MagicLinkModuleConfig{}
 	}
 	return &MagicLinkModule{
-		config:        cfg,
-		customStorage: customStorage,
+		config: cfg,
 	}
 }
 
@@ -45,8 +44,8 @@ func (m *MagicLinkModule) Init(ctx context.Context, deps config.ModuleDependenci
 	m.deps = deps
 
 	var coreStorage types.CoreStorage
-	if m.customStorage != nil {
-		coreStorage = m.customStorage
+	if m.config.CustomStorage != nil {
+		coreStorage = m.config.CustomStorage
 	} else if deps.Storage != nil {
 		coreStorage = deps.Storage.Core()
 	}

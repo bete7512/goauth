@@ -134,10 +134,16 @@ type CoreConfig struct {
 	RequireEmailVerification bool
 	RequirePhoneVerification bool
 	UniquePhoneNumber        bool
+
+	// CustomStorage is optional. If nil, storage is obtained from deps.Storage.Core() during Init.
+	CustomStorage types.CoreStorage
 }
 
 // SessionModuleConfig holds configuration for session-based authentication module
 type SessionModuleConfig struct {
+	// CustomStorage is optional. If nil, storage is obtained from deps.Storage.Session() during Init.
+	CustomStorage types.SessionStorage
+
 	// EnableSessionManagement enables session management endpoints (list, delete sessions)
 	EnableSessionManagement bool
 
@@ -172,6 +178,9 @@ type SessionModuleConfig struct {
 
 // StatelessModuleConfig holds configuration for stateless JWT authentication module
 type StatelessModuleConfig struct {
+	// CustomStorage is optional. If nil, storage is obtained from deps.Storage.Core() during Init.
+	CustomStorage types.CoreStorage
+
 	// RefreshTokenRotation enables refresh token rotation on each refresh
 	RefreshTokenRotation bool
 }
@@ -242,6 +251,9 @@ type CaptchaModuleConfig struct {
 
 // MagicLinkModuleConfig holds configuration for magic link passwordless authentication
 type MagicLinkModuleConfig struct {
+	// CustomStorage is optional. If nil, storage is obtained from deps.Storage.Core() during Init.
+	CustomStorage types.CoreStorage
+
 	// TokenExpiry is how long magic link tokens remain valid (default: 15 minutes)
 	TokenExpiry time.Duration
 
@@ -256,6 +268,13 @@ type MagicLinkModuleConfig struct {
 
 // OAuthModuleConfig holds configuration for OAuth authentication module
 type OAuthModuleConfig struct {
+	// CustomCoreStorage is optional. If nil, uses deps.Storage.Core() during Init.
+	CustomCoreStorage types.CoreStorage
+	// CustomOAuthStorage is optional. If nil, uses deps.Storage.OAuth() during Init.
+	CustomOAuthStorage types.OAuthStorage
+	// CustomSessionStorage is optional. For session-based auth; if nil uses deps.Storage.Session() during Init.
+	CustomSessionStorage types.SessionStorage
+
 	// Providers maps provider name (e.g., "google", "github") to its configuration
 	Providers map[string]*OAuthProviderConfig
 

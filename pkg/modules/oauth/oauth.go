@@ -7,11 +7,9 @@ import (
 	"github.com/bete7512/goauth/pkg/config"
 )
 
-// OAuthStorageOptions is re-exported so callers import only from pkg/.
-type OAuthStorageOptions = internal.OAuthStorageOptions
-
 // New creates the OAuth module.
-// opts is optional; pass nil to source all storage from deps.Storage during Initialize.
-func New(cfg *config.OAuthModuleConfig, opts *OAuthStorageOptions) config.Module {
-	return internal.New(cfg, opts)
+// Pass nil for cfg to use safe defaults.
+// To provide custom storage, set cfg.CustomCoreStorage / cfg.CustomOAuthStorage / cfg.CustomSessionStorage.
+func New(cfg *config.OAuthModuleConfig) config.Module {
+	return internal.New(cfg)
 }
