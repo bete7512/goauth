@@ -92,16 +92,11 @@ func (h *InvitationHandler) CancelInvitation(w http.ResponseWriter, r *http.Requ
 	http_utils.RespondSuccess[any](w, nil, nil)
 }
 
+// AcceptInvitation is a PUBLIC endpoint (no auth required). The invitation token is the authorization.
+// For new users: creates the account with the provided name/password.
+// For existing users: just creates the org membership.
+// Returns auth tokens and membership details.
 func (h *InvitationHandler) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
-	userID, _ := r.Context().Value(types.UserIDKey).(string)
-
-	userRepo := h.deps.Storage.Core().Users()
-	user, err := userRepo.FindByID(r.Context(), userID)
-	if err != nil || user == nil {
-		http_utils.RespondError(w, http.StatusUnauthorized, string(types.ErrUnauthorized), "User not found")
-		return
-	}
-
 	var req dto.AcceptInvitationRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidJSON), "Invalid request body")
@@ -112,18 +107,34 @@ func (h *InvitationHandler) AcceptInvitation(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	member, authErr := h.invitationService.AcceptInvitation(r.Context(), userID, user.Email, req.Token)
+	result, authErr := h.invitationService.AcceptInvitation(r.Context(), req.Token, req.Name, req.Password)
 	if authErr != nil {
 		http_utils.RespondError(w, authErr.StatusCode, string(authErr.Code), authErr.Message)
 		return
 	}
 
-	http_utils.RespondSuccess(w, dto.MemberCreatedToDTO(member), nil)
+	accessToken, refreshToken, err := h.deps.SecurityManager.GenerateTokens(result.User, nil)
+	if err != nil {
+		http_utils.RespondError(w, http.StatusInternalServerError, string(types.ErrInternalError), "Failed to generate tokens")
+		return
+	}
+
+	http_utils.RespondSuccess(w, map[string]any{
+		"access_token":  accessToken,
+		"refresh_token": refreshToken,
+		"user": map[string]any{
+			"id":             result.User.ID,
+			"email":          result.User.Email,
+			"name":           result.User.Name,
+			"email_verified": result.User.EmailVerified,
+		},
+		"member":      dto.MemberCreatedToDTO(result.Member),
+		"is_new_user": result.IsNewUser,
+	}, nil)
 }
 
+// DeclineInvitation is a PUBLIC endpoint (no auth required). The invitation token is the authorization.
 func (h *InvitationHandler) DeclineInvitation(w http.ResponseWriter, r *http.Request) {
-	userID, _ := r.Context().Value(types.UserIDKey).(string)
-
 	var req dto.DeclineInvitationRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http_utils.RespondError(w, http.StatusBadRequest, string(types.ErrInvalidJSON), "Invalid request body")
@@ -134,7 +145,7 @@ func (h *InvitationHandler) DeclineInvitation(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	if authErr := h.invitationService.DeclineInvitation(r.Context(), userID, req.Token); authErr != nil {
+	if authErr := h.invitationService.DeclineInvitation(r.Context(), req.Token); authErr != nil {
 		http_utils.RespondError(w, authErr.StatusCode, string(authErr.Code), authErr.Message)
 		return
 	}

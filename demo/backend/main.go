@@ -128,10 +128,7 @@ func main() {
 		log.Println("Enabling notification module (Resend)")
 		authInstance.Use(notification.New(&notification.Config{
 			EnableWelcomeEmail:        true,
-			EnablePasswordResetEmail:  true,
-			EnableLoginAlerts:         false,
 			EnablePasswordChangeAlert: true,
-			EnableMagicLinkEmail:      true,
 			EmailSender: senders.NewResendEmailSender(&senders.ResendConfig{
 				APIKey:          resendKey,
 				DefaultFrom:     envOr("EMAIL_FROM", "noreply@example.com"),

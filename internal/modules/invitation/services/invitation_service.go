@@ -15,13 +15,19 @@ import (
 	"github.com/google/uuid"
 )
 
+// AcceptResult holds the outcome of accepting an invitation.
+type AcceptResult struct {
+	User      *models.User
+	IsNewUser bool
+}
+
 // InvitationService defines standalone invitation operations.
 type InvitationService interface {
 	Send(ctx context.Context, req *dto.SendInvitationRequest, inviterID string) (*models.Invitation, *types.GoAuthError)
 	List(ctx context.Context, inviterID string, opts models.InvitationListOpts) ([]*models.Invitation, int64, *types.GoAuthError)
 	Cancel(ctx context.Context, invID, inviterID string) *types.GoAuthError
-	Accept(ctx context.Context, userID, userEmail, token string) *types.GoAuthError
-	Decline(ctx context.Context, userID, token string) *types.GoAuthError
+	Accept(ctx context.Context, token, name, password string) (*AcceptResult, *types.GoAuthError)
+	Decline(ctx context.Context, token string) *types.GoAuthError
 	ListPendingByEmail(ctx context.Context, email string) ([]*models.Invitation, *types.GoAuthError)
 }
 
@@ -113,7 +119,7 @@ func (s *invitationService) Send(ctx context.Context, req *dto.SendInvitationReq
 		return nil, types.NewInternalError("failed to create invitation").Wrap(err)
 	}
 
-	// Build invite link
+	// Build invite link — only when CallbackURL is configured (points to frontend)
 	inviteLink := ""
 	if s.callbackURL != "" {
 		inviteLink = s.callbackURL + "?token=" + token
@@ -158,29 +164,58 @@ func (s *invitationService) Cancel(ctx context.Context, invID, inviterID string)
 	return nil
 }
 
-func (s *invitationService) Accept(ctx context.Context, userID, userEmail, token string) *types.GoAuthError {
+func (s *invitationService) Accept(ctx context.Context, token, name, password string) (*AcceptResult, *types.GoAuthError) {
 	inv, err := s.invitationRepo.FindByToken(ctx, token)
 	if err != nil {
 		if errors.Is(err, models.ErrNotFound) {
-			return types.NewInvitationNotFoundError()
+			return nil, types.NewInvitationNotFoundError()
 		}
-		return types.NewInternalError("failed to find invitation").Wrap(err)
+		return nil, types.NewInternalError("failed to find invitation").Wrap(err)
 	}
 	if inv.Status != models.InvitationStatusPending {
-		return types.NewInvitationNotFoundError()
+		return nil, types.NewInvitationNotFoundError()
 	}
 	if time.Now().After(inv.ExpiresAt) {
-		return types.NewInvitationExpiredError()
-	}
-	if inv.Email != userEmail {
-		return types.NewInvitationEmailMismatchError()
+		return nil, types.NewInvitationExpiredError()
 	}
 
+	// Find or create user
+	var user *models.User
+	isNewUser := false
+	user, _ = s.userRepo.FindByEmail(ctx, inv.Email)
+
+	if user == nil {
+		// New user — name and password are required
+		if name == "" || password == "" {
+			return nil, types.NewValidationError("name and password are required for new users")
+		}
+
+		hashedPassword, hashErr := s.deps.SecurityManager.HashPassword(password)
+		if hashErr != nil {
+			return nil, types.NewInternalError("failed to hash password").Wrap(hashErr)
+		}
+
+		user = &models.User{
+			ID:            uuid.Must(uuid.NewV7()).String(),
+			Email:         inv.Email,
+			Name:          name,
+			PasswordHash:  hashedPassword,
+			Active:        true,
+			EmailVerified: true, // they proved ownership by receiving the email
+			CreatedAt:     time.Now(),
+		}
+		if err := s.userRepo.Create(ctx, user); err != nil {
+			return nil, types.NewInternalError("failed to create user").Wrap(err)
+		}
+		isNewUser = true
+	}
+
+	// Mark invitation accepted
 	now := time.Now()
 	inv.Status = models.InvitationStatusAccepted
 	inv.AcceptedAt = &now
 	if err := s.invitationRepo.Update(ctx, inv); err != nil {
-		return types.NewInternalError("failed to update invitation status").Wrap(err)
+		return nil, types.NewInternalError("failed to update invitation status").Wrap(err)
 	}
 
 	s.deps.Events.EmitAsync(ctx, types.EventInvitationAccepted, &types.InvitationEventData{
@@ -192,10 +227,10 @@ func (s *invitationService) Accept(ctx context.Context, userID, userEmail, token
 		ExpiresAt:    inv.ExpiresAt,
 	})
 
-	return nil
+	return &AcceptResult{User: user, IsNewUser: isNewUser}, nil
 }
 
-func (s *invitationService) Decline(ctx context.Context, userID, token string) *types.GoAuthError {
+func (s *invitationService) Decline(ctx context.Context, token string) *types.GoAuthError {
 	inv, err := s.invitationRepo.FindByToken(ctx, token)
 	if err != nil {
 		if errors.Is(err, models.ErrNotFound) {

@@ -94,8 +94,12 @@ func (r *SwitchOrgRequest) Validate() error {
 }
 
 // AcceptInvitationRequest represents invitation acceptance request
+// AcceptInvitationRequest represents invitation acceptance.
+// Name and Password are required only when the invited user doesn't have an account yet.
 type AcceptInvitationRequest struct {
-	Token string `json:"token"`
+	Token    string `json:"token"`
+	Name     string `json:"name,omitempty"`
+	Password string `json:"password,omitempty"`
 }
 
 func (r *AcceptInvitationRequest) Validate() error {

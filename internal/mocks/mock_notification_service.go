@@ -12,6 +12,7 @@ package mocks
 import (
 	context "context"
 	reflect "reflect"
+	time "time"
 
 	models "github.com/bete7512/goauth/internal/modules/notification/models"
 	models0 "github.com/bete7512/goauth/pkg/models"
@@ -84,6 +85,20 @@ func (mr *MockNotificationServiceMockRecorder) SendEmailVerification(ctx, email,
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendEmailVerification", reflect.TypeOf((*MockNotificationService)(nil).SendEmailVerification), ctx, email, userName, verificationLink)
 }
 
+// SendInvitationEmail mocks base method.
+func (m *MockNotificationService) SendInvitationEmail(ctx context.Context, email, inviterName, purpose, inviteLink string, expiresAt time.Time) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SendInvitationEmail", ctx, email, inviterName, purpose, inviteLink, expiresAt)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SendInvitationEmail indicates an expected call of SendInvitationEmail.
+func (mr *MockNotificationServiceMockRecorder) SendInvitationEmail(ctx, email, inviterName, purpose, inviteLink, expiresAt any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendInvitationEmail", reflect.TypeOf((*MockNotificationService)(nil).SendInvitationEmail), ctx, email, inviterName, purpose, inviteLink, expiresAt)
+}
+
 // SendLoginAlert mocks base method.
 func (m *MockNotificationService) SendLoginAlert(ctx context.Context, user models0.User, metadata map[string]any) error {
 	m.ctrl.T.Helper()
@@ -110,6 +125,20 @@ func (m *MockNotificationService) SendMagicLinkEmail(ctx context.Context, email,
 func (mr *MockNotificationServiceMockRecorder) SendMagicLinkEmail(ctx, email, userName, magicLink, code, expiryTime any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendMagicLinkEmail", reflect.TypeOf((*MockNotificationService)(nil).SendMagicLinkEmail), ctx, email, userName, magicLink, code, expiryTime)
+}
+
+// SendOrgInvitationEmail mocks base method.
+func (m *MockNotificationService) SendOrgInvitationEmail(ctx context.Context, email, inviterName, orgName, role, inviteLink string, expiresAt time.Time) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SendOrgInvitationEmail", ctx, email, inviterName, orgName, role, inviteLink, expiresAt)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SendOrgInvitationEmail indicates an expected call of SendOrgInvitationEmail.
+func (mr *MockNotificationServiceMockRecorder) SendOrgInvitationEmail(ctx, email, inviterName, orgName, role, inviteLink, expiresAt any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendOrgInvitationEmail", reflect.TypeOf((*MockNotificationService)(nil).SendOrgInvitationEmail), ctx, email, inviterName, orgName, role, inviteLink, expiresAt)
 }
 
 // SendPasswordChangedAlert mocks base method.

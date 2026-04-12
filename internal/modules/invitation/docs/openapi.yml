@@ -129,36 +129,33 @@ paths:
     post:
       tags:
         - Invitations
-      summary: Accept invitation
-      description: Accept a standalone invitation by token. The user's email must match the invitation email.
-      security:
-        - BearerAuth: []
+      summary: Accept invitation (public)
+      description: |
+        Accept a standalone invitation by token. No authentication required — the token is the authorization.
+        If the invited email has no account, a new user is created (name and password required).
+        If the user already exists, the invitation is simply accepted.
+        Returns auth tokens so the user is immediately logged in.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/InvitationTokenRequest'
+              $ref: '#/components/schemas/AcceptInvitationRequest'
       responses:
         '200':
-          description: Invitation accepted
+          description: Invitation accepted, auth tokens returned
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   data:
-                    type: object
-                    nullable: true
+                    $ref: '#/components/schemas/AcceptInvitationResponse'
                   message:
                     type: string
                     nullable: true
         '400':
-          description: Missing token or invitation expired
-        '401':
-          description: Authentication required
-        '403':
-          description: Email does not match the invitation
+          description: Missing token, expired, or missing name/password for new user
         '404':
           description: Invitation not found
 
@@ -166,10 +163,8 @@ paths:
     post:
       tags:
         - Invitations
-      summary: Decline invitation
-      description: Decline a standalone invitation by token
-      security:
-        - BearerAuth: []
+      summary: Decline invitation (public)
+      description: Decline a standalone invitation by token. No authentication required.
       requestBody:
         required: true
         content:
@@ -192,8 +187,6 @@ paths:
                     nullable: true
         '400':
           description: Missing token
-        '401':
-          description: Authentication required
         '404':
           description: Invitation not found
 
@@ -326,6 +319,47 @@ components:
         metadata:
           type: string
           description: JSON string for consumer-defined data
+
+    AcceptInvitationRequest:
+      type: object
+      required:
+        - token
+      properties:
+        token:
+          type: string
+          description: Invitation token received via email
+        name:
+          type: string
+          description: Required when the invited user has no account yet
+        password:
+          type: string
+          description: Required when the invited user has no account yet
+
+    AcceptInvitationResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: JWT access token
+        refresh_token:
+          type: string
+          description: JWT refresh token
+        user:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            email:
+              type: string
+              format: email
+            name:
+              type: string
+            email_verified:
+              type: boolean
+        is_new_user:
+          type: boolean
+          description: True if a new account was created during acceptance
 
     InvitationTokenRequest:
       type: object

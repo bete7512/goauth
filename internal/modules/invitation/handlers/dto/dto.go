@@ -28,8 +28,11 @@ func (r *SendInvitationRequest) Validate() error {
 }
 
 // AcceptInvitationRequest represents invitation acceptance.
+// Name and Password are required only when the invited user doesn't have an account yet.
 type AcceptInvitationRequest struct {
-	Token string `json:"token"`
+	Token    string `json:"token"`
+	Name     string `json:"name,omitempty"`
+	Password string `json:"password,omitempty"`
 }
 
 func (r *AcceptInvitationRequest) Validate() error {
@@ -37,6 +40,22 @@ func (r *AcceptInvitationRequest) Validate() error {
 		return fmt.Errorf("token is required")
 	}
 	return nil
+}
+
+// AcceptResultDTO is the response after accepting an invitation.
+type AcceptResultDTO struct {
+	AccessToken  string         `json:"access_token"`
+	RefreshToken string         `json:"refresh_token"`
+	User         *AcceptUserDTO `json:"user"`
+	IsNewUser    bool           `json:"is_new_user"`
+}
+
+// AcceptUserDTO is a minimal user representation in accept responses.
+type AcceptUserDTO struct {
+	ID            string `json:"id"`
+	Email         string `json:"email"`
+	Name          string `json:"name,omitempty"`
+	EmailVerified bool   `json:"email_verified"`
 }
 
 // DeclineInvitationRequest represents invitation decline.

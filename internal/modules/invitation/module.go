@@ -66,11 +66,11 @@ func (m *InvitationModule) Init(ctx context.Context, deps config.ModuleDependenc
 
 func (m *InvitationModule) Routes() []config.RouteInfo {
 	return []config.RouteInfo{
-		{Name: string(types.RouteInvitationSend), Path: "/invitations", Method: http.MethodPost, Handler: m.invitationHandler.Send, Middlewares: []types.MiddlewareName{types.MiddlewareAuth}},
+		{Name: string(types.RouteInvitationSend), Path: "/invitations", Method: http.MethodPost, Handler: m.invitationHandler.Send, Middlewares: []types.MiddlewareName{types.MiddlewareAuth, types.MiddlewareAdminAuth}},
 		{Name: string(types.RouteInvitationList), Path: "/invitations", Method: http.MethodGet, Handler: m.invitationHandler.List, Middlewares: []types.MiddlewareName{types.MiddlewareAuth}},
 		{Name: string(types.RouteInvitationMy), Path: "/invitations/my", Method: http.MethodGet, Handler: m.invitationHandler.MyInvitations, Middlewares: []types.MiddlewareName{types.MiddlewareAuth}},
-		{Name: string(types.RouteInvitationAccept), Path: "/invitations/accept", Method: http.MethodPost, Handler: m.invitationHandler.Accept, Middlewares: []types.MiddlewareName{types.MiddlewareAuth}},
-		{Name: string(types.RouteInvitationDecline), Path: "/invitations/decline", Method: http.MethodPost, Handler: m.invitationHandler.Decline, Middlewares: []types.MiddlewareName{types.MiddlewareAuth}},
+		{Name: string(types.RouteInvitationAccept), Path: "/invitations/accept", Method: http.MethodPost, Handler: m.invitationHandler.Accept},
+		{Name: string(types.RouteInvitationDecline), Path: "/invitations/decline", Method: http.MethodPost, Handler: m.invitationHandler.Decline},
 		{Name: string(types.RouteInvitationCancel), Path: "/invitations/{invId}", Method: http.MethodDelete, Handler: m.invitationHandler.Cancel, Middlewares: []types.MiddlewareName{types.MiddlewareAuth}},
 	}
 }

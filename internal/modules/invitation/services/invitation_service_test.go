@@ -115,7 +115,7 @@ func (s *InvitationServiceSuite) TestSend_InvalidPurpose() {
 	s.Equal(types.ErrInvalidRequestBody, authErr.Code)
 }
 
-func (s *InvitationServiceSuite) TestAccept_Success() {
+func (s *InvitationServiceSuite) TestAccept_ExistingUser() {
 	t := s.setup()
 	inv := &models.Invitation{
 		ID: "inv-1", Email: "user@example.com", Purpose: "platform",
@@ -123,13 +123,55 @@ func (s *InvitationServiceSuite) TestAccept_Success() {
 		InviterID: "inviter-1",
 		ExpiresAt: time.Now().Add(24 * time.Hour),
 	}
+	existingUser := testutil.TestUser()
+	existingUser.Email = "user@example.com"
 
 	t.invitationRepo.EXPECT().FindByToken(gomock.Any(), "valid-token").Return(inv, nil)
+	t.userRepo.EXPECT().FindByEmail(gomock.Any(), "user@example.com").Return(existingUser, nil)
 	t.invitationRepo.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil)
 	t.events.EXPECT().EmitAsync(gomock.Any(), types.EventInvitationAccepted, gomock.Any()).Return(nil)
 
-	authErr := t.svc.Accept(context.Background(), "user-1", "user@example.com", "valid-token")
+	result, authErr := t.svc.Accept(context.Background(), "valid-token", "", "")
 	s.Nil(authErr)
+	s.NotNil(result)
+	s.False(result.IsNewUser)
+	s.Equal("user@example.com", result.User.Email)
+}
+
+func (s *InvitationServiceSuite) TestAccept_NewUser() {
+	t := s.setup()
+	inv := &models.Invitation{
+		ID: "inv-1", Email: "new@example.com", Purpose: "platform",
+		Token: "valid-token", Status: models.InvitationStatusPending,
+		InviterID: "inviter-1",
+		ExpiresAt: time.Now().Add(24 * time.Hour),
+	}
+
+	t.invitationRepo.EXPECT().FindByToken(gomock.Any(), "valid-token").Return(inv, nil)
+	t.userRepo.EXPECT().FindByEmail(gomock.Any(), "new@example.com").Return(nil, models.ErrNotFound)
+	t.userRepo.EXPECT().Create(gomock.Any(), gomock.Any()).Return(nil)
+	t.invitationRepo.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil)
+	t.events.EXPECT().EmitAsync(gomock.Any(), types.EventInvitationAccepted, gomock.Any()).Return(nil)
+
+	result, authErr := t.svc.Accept(context.Background(), "valid-token", "New User", "password123")
+	s.Nil(authErr)
+	s.NotNil(result)
+	s.True(result.IsNewUser)
+	s.Equal("new@example.com", result.User.Email)
+}
+
+func (s *InvitationServiceSuite) TestAccept_NewUserMissingPassword() {
+	t := s.setup()
+	inv := &models.Invitation{
+		Token: "tok", Status: models.InvitationStatusPending,
+		Email: "new@example.com", ExpiresAt: time.Now().Add(24 * time.Hour),
+	}
+	t.invitationRepo.EXPECT().FindByToken(gomock.Any(), "tok").Return(inv, nil)
+	t.userRepo.EXPECT().FindByEmail(gomock.Any(), "new@example.com").Return(nil, models.ErrNotFound)
+
+	_, authErr := t.svc.Accept(context.Background(), "tok", "", "")
+	s.NotNil(authErr)
+	s.Equal(types.ErrInvalidRequestBody, authErr.Code)
 }
 
 func (s *InvitationServiceSuite) TestAccept_Expired() {
@@ -140,22 +182,9 @@ func (s *InvitationServiceSuite) TestAccept_Expired() {
 	}
 	t.invitationRepo.EXPECT().FindByToken(gomock.Any(), "expired-token").Return(inv, nil)
 
-	authErr := t.svc.Accept(context.Background(), "user-1", "user@example.com", "expired-token")
+	_, authErr := t.svc.Accept(context.Background(), "expired-token", "", "")
 	s.NotNil(authErr)
 	s.Equal(types.ErrInvitationExpired, authErr.Code)
-}
-
-func (s *InvitationServiceSuite) TestAccept_EmailMismatch() {
-	t := s.setup()
-	inv := &models.Invitation{
-		Token: "tok", Status: models.InvitationStatusPending,
-		Email: "other@example.com", ExpiresAt: time.Now().Add(24 * time.Hour),
-	}
-	t.invitationRepo.EXPECT().FindByToken(gomock.Any(), "tok").Return(inv, nil)
-
-	authErr := t.svc.Accept(context.Background(), "user-1", "wrong@example.com", "tok")
-	s.NotNil(authErr)
-	s.Equal(types.ErrInvitationEmailMismatch, authErr.Code)
 }
 
 func (s *InvitationServiceSuite) TestAccept_AlreadyAccepted() {
@@ -166,7 +195,7 @@ func (s *InvitationServiceSuite) TestAccept_AlreadyAccepted() {
 	}
 	t.invitationRepo.EXPECT().FindByToken(gomock.Any(), "tok").Return(inv, nil)
 
-	authErr := t.svc.Accept(context.Background(), "user-1", "user@example.com", "tok")
+	_, authErr := t.svc.Accept(context.Background(), "tok", "", "")
 	s.NotNil(authErr)
 	s.Equal(types.ErrInvitationNotFound, authErr.Code)
 }
@@ -182,7 +211,7 @@ func (s *InvitationServiceSuite) TestDecline_Success() {
 	t.invitationRepo.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil)
 	t.events.EXPECT().EmitAsync(gomock.Any(), types.EventInvitationDeclined, gomock.Any()).Return(nil)
 
-	authErr := t.svc.Decline(context.Background(), "user-1", "tok")
+	authErr := t.svc.Decline(context.Background(), "tok")
 	s.Nil(authErr)
 }
 
@@ -190,7 +219,7 @@ func (s *InvitationServiceSuite) TestDecline_NotFound() {
 	t := s.setup()
 	t.invitationRepo.EXPECT().FindByToken(gomock.Any(), "bad-tok").Return(nil, models.ErrNotFound)
 
-	authErr := t.svc.Decline(context.Background(), "user-1", "bad-tok")
+	authErr := t.svc.Decline(context.Background(), "bad-tok")
 	s.NotNil(authErr)
 	s.Equal(types.ErrInvitationNotFound, authErr.Code)
 }

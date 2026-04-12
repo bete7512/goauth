@@ -126,6 +126,18 @@ func DefaultEmailTemplates() map[string]EmailTemplate {
 			TextBody: "Hi {{.UserName}},\n\nClick here to sign in: {{.MagicLink}}\n\nOr use this code: {{.Code}}\n\nThis link expires in {{.ExpiryTime}}.\n\n{{.Brand.FooterText}}",
 			HTMLBody: loadHTML("magic_link"),
 		},
+		"invitation": {
+			Name:     "invitation",
+			Subject:  "You've Been Invited to {{.Brand.AppName}}",
+			TextBody: "Hi,\n\n{{.InviterName}} has invited you to join {{.Brand.AppName}}{{if .Purpose}} ({{.Purpose}}){{end}}.\n\nAccept the invitation: {{.InviteLink}}\n\nThis invitation expires on {{.ExpiresAt}}.\n\n{{.Brand.FooterText}}",
+			HTMLBody: loadHTML("invitation"),
+		},
+		"org_invitation": {
+			Name:     "org_invitation",
+			Subject:  "You've Been Invited to {{.OrgName}} on {{.Brand.AppName}}",
+			TextBody: "Hi,\n\n{{.InviterName}} has invited you to join {{.OrgName}} as {{.Role}} on {{.Brand.AppName}}.\n\nAccept the invitation: {{.InviteLink}}\n\nThis invitation expires on {{.ExpiresAt}}.\n\n{{.Brand.FooterText}}",
+			HTMLBody: loadHTML("org_invitation"),
+		},
 	}
 }
 

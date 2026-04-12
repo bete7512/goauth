@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	dto "github.com/bete7512/goauth/internal/modules/invitation/handlers/dto"
+	services "github.com/bete7512/goauth/internal/modules/invitation/services"
 	models "github.com/bete7512/goauth/pkg/models"
 	types "github.com/bete7512/goauth/pkg/types"
 	gomock "go.uber.org/mock/gomock"
@@ -44,17 +45,18 @@ func (m *MockInvitationService) EXPECT() *MockInvitationServiceMockRecorder {
 }
 
 // Accept mocks base method.
-func (m *MockInvitationService) Accept(ctx context.Context, userID, userEmail, token string) *types.GoAuthError {
+func (m *MockInvitationService) Accept(ctx context.Context, token, name, password string) (*services.AcceptResult, *types.GoAuthError) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Accept", ctx, userID, userEmail, token)
-	ret0, _ := ret[0].(*types.GoAuthError)
-	return ret0
+	ret := m.ctrl.Call(m, "Accept", ctx, token, name, password)
+	ret0, _ := ret[0].(*services.AcceptResult)
+	ret1, _ := ret[1].(*types.GoAuthError)
+	return ret0, ret1
 }
 
 // Accept indicates an expected call of Accept.
-func (mr *MockInvitationServiceMockRecorder) Accept(ctx, userID, userEmail, token any) *gomock.Call {
+func (mr *MockInvitationServiceMockRecorder) Accept(ctx, token, name, password any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Accept", reflect.TypeOf((*MockInvitationService)(nil).Accept), ctx, userID, userEmail, token)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Accept", reflect.TypeOf((*MockInvitationService)(nil).Accept), ctx, token, name, password)
 }
 
 // Cancel mocks base method.
@@ -72,17 +74,17 @@ func (mr *MockInvitationServiceMockRecorder) Cancel(ctx, invID, inviterID any) *
 }
 
 // Decline mocks base method.
-func (m *MockInvitationService) Decline(ctx context.Context, userID, token string) *types.GoAuthError {
+func (m *MockInvitationService) Decline(ctx context.Context, token string) *types.GoAuthError {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Decline", ctx, userID, token)
+	ret := m.ctrl.Call(m, "Decline", ctx, token)
 	ret0, _ := ret[0].(*types.GoAuthError)
 	return ret0
 }
 
 // Decline indicates an expected call of Decline.
-func (mr *MockInvitationServiceMockRecorder) Decline(ctx, userID, token any) *gomock.Call {
+func (mr *MockInvitationServiceMockRecorder) Decline(ctx, token any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Decline", reflect.TypeOf((*MockInvitationService)(nil).Decline), ctx, userID, token)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Decline", reflect.TypeOf((*MockInvitationService)(nil).Decline), ctx, token)
 }
 
 // List mocks base method.

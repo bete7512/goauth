@@ -4,6 +4,7 @@ package services
 
 import (
 	"context"
+	"time"
 
 	"github.com/bete7512/goauth/internal/modules/notification/models"
 	"github.com/bete7512/goauth/internal/modules/notification/templates"
@@ -21,6 +22,8 @@ type NotificationService interface {
 	SendLoginAlert(ctx context.Context, user pkgmodels.User, metadata map[string]interface{}) error
 	SendPasswordChangedAlert(ctx context.Context, user pkgmodels.User) error
 	SendMagicLinkEmail(ctx context.Context, email, userName, magicLink, code, expiryTime string) error
+	SendInvitationEmail(ctx context.Context, email, inviterName, purpose, inviteLink string, expiresAt time.Time) error
+	SendOrgInvitationEmail(ctx context.Context, email, inviterName, orgName, role, inviteLink string, expiresAt time.Time) error
 	SendCustomEmail(ctx context.Context, message *models.EmailMessage) error
 	SendCustomSMS(ctx context.Context, message *models.SMSMessage) error
 }

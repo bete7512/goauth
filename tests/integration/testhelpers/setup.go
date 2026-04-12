@@ -236,8 +236,7 @@ func SetupStatelessWithMagicLink(t *testing.T) (*auth.Auth, http.Handler, *Email
 	require.NoError(t, err)
 
 	require.NoError(t, authInstance.Use(notification.New(&notification.Config{
-		EmailSender:          sink,
-		EnableMagicLinkEmail: true,
+		EmailSender: sink,
 	})))
 	require.NoError(t, authInstance.Use(magiclink.New(&config.MagicLinkModuleConfig{
 		TokenExpiry:  15 * time.Minute,
@@ -264,9 +263,8 @@ func SetupStatelessWithNotification(t *testing.T) (*auth.Auth, http.Handler, *Em
 	require.NoError(t, err)
 
 	require.NoError(t, authInstance.Use(notification.New(&notification.Config{
-		EmailSender:              sink,
-		EnableWelcomeEmail:       true,
-		EnablePasswordResetEmail: true,
+		EmailSender:        sink,
+		EnableWelcomeEmail: true,
 	})))
 
 	return authInstance, initAuth(t, authInstance), sink
