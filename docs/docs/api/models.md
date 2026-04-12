@@ -469,14 +469,14 @@ type OrganizationMemberRepository interface {
 
 ---
 
-### Invitation
+### OrgInvitation
 
-Table: `invitations` (inferred from convention)
+Table: `org_invitations`
 
 Represents a pending invitation to join an organization.
 
 ```go
-type Invitation struct {
+type OrgInvitation struct {
     ID         string     `json:"id" gorm:"primaryKey;type:varchar(36)"`
     OrgID      string     `json:"org_id" gorm:"type:varchar(36);not null"`
     Email      string     `json:"email" gorm:"type:varchar(255);not null"`
@@ -490,13 +490,46 @@ type Invitation struct {
 }
 ```
 
-**Hidden fields:**
+#### OrgInvitationRepository
 
-| Field | Purpose |
-|---|---|
-| `Token` | Invitation token used in the accept URL. Hidden from API responses. |
+```go
+type OrgInvitationRepository interface {
+    Create(ctx context.Context, invitation *OrgInvitation) error
+    FindByID(ctx context.Context, id string) (*OrgInvitation, error)
+    FindByToken(ctx context.Context, token string) (*OrgInvitation, error)
+    FindByOrgAndEmail(ctx context.Context, orgID, email string) (*OrgInvitation, error)
+    ListByOrg(ctx context.Context, orgID string, opts OrgInvitationListOpts) ([]*OrgInvitation, int64, error)
+    ListPendingByEmail(ctx context.Context, email string) ([]*OrgInvitation, error)
+    Update(ctx context.Context, invitation *OrgInvitation) error
+    Delete(ctx context.Context, id string) error
+    DeleteExpired(ctx context.Context) error
+}
+```
 
-**Invitation status constants:**
+---
+
+### Invitation (standalone)
+
+Table: `invitations`
+
+Represents a standalone platform invitation (not org-scoped).
+
+```go
+type Invitation struct {
+    ID         string     `json:"id" gorm:"primaryKey;type:varchar(36)"`
+    Email      string     `json:"email" gorm:"type:varchar(255);not null"`
+    Purpose    string     `json:"purpose" gorm:"type:varchar(100);not null;default:'platform'"`
+    InviterID  string     `json:"inviter_id" gorm:"type:varchar(36);not null"`
+    Token      string     `json:"-" gorm:"type:varchar(255);uniqueIndex;not null"`
+    Status     string     `json:"status" gorm:"type:varchar(20);not null;default:'pending'"`
+    Metadata   string     `json:"metadata,omitempty" gorm:"type:text"`
+    ExpiresAt  time.Time  `json:"expires_at"`
+    CreatedAt  time.Time  `json:"created_at"`
+    AcceptedAt *time.Time `json:"accepted_at,omitempty"`
+}
+```
+
+**Invitation status constants** (shared between standalone and org invitations):
 
 | Constant | Value |
 |---|---|
@@ -512,8 +545,8 @@ type InvitationRepository interface {
     Create(ctx context.Context, invitation *Invitation) error
     FindByID(ctx context.Context, id string) (*Invitation, error)
     FindByToken(ctx context.Context, token string) (*Invitation, error)
-    FindByOrgAndEmail(ctx context.Context, orgID, email string) (*Invitation, error)
-    ListByOrg(ctx context.Context, orgID string, opts InvitationListOpts) ([]*Invitation, int64, error)
+    FindPendingByEmail(ctx context.Context, email, purpose string) (*Invitation, error)
+    ListByInviter(ctx context.Context, inviterID string, opts InvitationListOpts) ([]*Invitation, int64, error)
     ListPendingByEmail(ctx context.Context, email string) ([]*Invitation, error)
     Update(ctx context.Context, invitation *Invitation) error
     Delete(ctx context.Context, id string) error

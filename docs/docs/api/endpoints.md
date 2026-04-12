@@ -1274,6 +1274,122 @@ Include the token in the `X-CSRF-Token` header for state-changing requests (POST
 
 ---
 
+## Invitation Module
+
+Standalone platform invitations. For org-scoped invitations, see the Organization Module below.
+
+### Authenticated routes
+
+<details>
+<summary><code>POST</code> <code>/invitations</code> — Send invitation <span className="badge badge--primary">Auth</span></summary>
+
+**Headers:** `Authorization: Bearer <access_token>`
+
+**Request:**
+```json
+{
+  "email": "invitee@example.com",
+  "purpose": "beta",
+  "metadata": "{\"referral_code\": \"ABC123\"}"
+}
+```
+
+`purpose` defaults to `"platform"`. `metadata` is optional.
+
+**Response** `201`:
+```json
+{
+  "data": {
+    "id": "01961abc-...",
+    "email": "invitee@example.com",
+    "purpose": "beta",
+    "inviter_id": "01961def-...",
+    "status": "pending",
+    "expires_at": "2025-01-09T00:00:00Z",
+    "created_at": "2025-01-02T00:00:00Z"
+  }
+}
+```
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/invitations</code> — List sent invitations <span className="badge badge--primary">Auth</span></summary>
+
+Lists invitations sent by the authenticated user. Supports `?status=pending&purpose=beta&limit=20&offset=0&sort_field=created_at&sort_dir=desc`.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/invitations/my</code> — My pending invitations <span className="badge badge--primary">Auth</span></summary>
+
+Returns pending invitations for the authenticated user's email.
+
+</details>
+
+<details>
+<summary><code>DELETE</code> <code>/invitations/&#123;invId&#125;</code> — Cancel invitation <span className="badge badge--primary">Auth</span></summary>
+
+Only the inviter can cancel their own invitations.
+
+</details>
+
+### Public routes (no auth required)
+
+<details>
+<summary><code>POST</code> <code>/invitations/accept</code> — Accept invitation <span className="badge badge--success">Public</span></summary>
+
+No authentication required. The invitation token is the authorization. If the invited email has no account, provide `name` and `password` to create one.
+
+**Request:**
+```json
+{
+  "token": "invitation-token-from-email",
+  "name": "John Doe",
+  "password": "securepassword123"
+}
+```
+
+`name` and `password` are only required when the invited email has no existing account.
+
+**Response** `200`:
+```json
+{
+  "data": {
+    "access_token": "eyJ...",
+    "refresh_token": "eyJ...",
+    "user": {
+      "id": "01961abc-...",
+      "email": "invitee@example.com",
+      "name": "John Doe",
+      "email_verified": true
+    },
+    "is_new_user": true
+  }
+}
+```
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/invitations/decline</code> — Decline invitation <span className="badge badge--success">Public</span></summary>
+
+No authentication required.
+
+**Request:**
+```json
+{"token": "invitation-token-from-email"}
+```
+
+**Response** `200`:
+```json
+{"data": null}
+```
+
+</details>
+
+---
+
 ## Organization Module
 
 :::info
@@ -1390,24 +1506,41 @@ Returns pending invitations for the authenticated user.
 </details>
 
 <details>
-<summary><code>POST</code> <code>/org/invitations/accept</code> — Accept invitation <span className="badge badge--primary">Auth</span></summary>
+<summary><code>POST</code> <code>/org/invitations/accept</code> — Accept org invitation <span className="badge badge--success">Public</span></summary>
 
-**Headers:** `Authorization: Bearer <access_token>`
+No authentication required. The invitation token is the authorization. If the invited email has no account, provide `name` and `password` to create one.
 
 **Request:**
 ```json
-{"token": "invitation-token-from-email"}
+{
+  "token": "invitation-token-from-email",
+  "name": "John Doe",
+  "password": "securepassword123"
+}
 ```
+
+`name` and `password` are only required when the invited email has no existing account.
 
 **Response** `200`:
 ```json
 {
   "data": {
-    "id": "01961abc-...",
-    "org_id": "01961def-...",
-    "user_id": "01961ghi-...",
-    "role": "member",
-    "joined_at": "2025-01-02T00:00:00Z"
+    "access_token": "eyJ...",
+    "refresh_token": "eyJ...",
+    "user": {
+      "id": "01961abc-...",
+      "email": "john@example.com",
+      "name": "John Doe",
+      "email_verified": true
+    },
+    "member": {
+      "id": "01961def-...",
+      "org_id": "01961ghi-...",
+      "user_id": "01961abc-...",
+      "role": "member",
+      "joined_at": "2025-01-02T00:00:00Z"
+    },
+    "is_new_user": true
   }
 }
 ```
@@ -1415,9 +1548,9 @@ Returns pending invitations for the authenticated user.
 </details>
 
 <details>
-<summary><code>POST</code> <code>/org/invitations/decline</code> — Decline invitation <span className="badge badge--primary">Auth</span></summary>
+<summary><code>POST</code> <code>/org/invitations/decline</code> — Decline org invitation <span className="badge badge--success">Public</span></summary>
 
-**Headers:** `Authorization: Bearer <access_token>`
+No authentication required.
 
 **Request:**
 ```json
@@ -1427,9 +1560,7 @@ Returns pending invitations for the authenticated user.
 **Response** `200`:
 ```json
 {
-  "data": {
-    "message": "Invitation declined"
-  }
+  "data": null
 }
 ```
 

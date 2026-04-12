@@ -99,16 +99,18 @@ a.Use(notification.New(&notification.Config{
     },
 
     EnableWelcomeEmail:        true,
-    EnablePasswordResetEmail:  true,
-    EnablePasswordResetSMS:    false,
     EnableLoginAlerts:         true,
     EnablePasswordChangeAlert: true,
-    Enable2FANotifications:    true,
-    EnableMagicLinkEmail:      false,
 }))
 ```
 
-Pass `nil` for default config (welcome email + password reset email enabled, other flags off).
+Pass `nil` for default config (welcome email + password change alert enabled).
+
+:::info Must-have vs optional emails
+**Must-have delivery emails** (password reset, magic link, 2FA codes, invitations, email verification) are always active when the notification module is registered. They only fire when the corresponding module emits the event -- no toggle needed.
+
+**Optional informational emails** (welcome, login alerts, password change alerts) are controlled by config flags.
+:::
 
 ## Configuration
 
@@ -119,13 +121,11 @@ type Config struct {
     Branding                *notification.Branding              // Template branding (optional)
     EmailTemplates          map[string]notification.EmailTemplate // Override email templates by name
     SMSTemplates            map[string]notification.SMSTemplate   // Override SMS templates by name
-    EnableWelcomeEmail      bool
-    EnablePasswordResetEmail  bool
-    EnablePasswordResetSMS    bool
+
+    // Optional informational emails (off by default unless explicitly enabled)
+    EnableWelcomeEmail        bool
     EnableLoginAlerts         bool
     EnablePasswordChangeAlert bool
-    Enable2FANotifications    bool
-    EnableMagicLinkEmail      bool
 }
 ```
 
@@ -221,7 +221,7 @@ a.Use(notification.New(&notification.Config{
 
 ### Built-in email template names
 
-`welcome`, `email_verification`, `password_reset`, `password_changed`, `two_factor_code`, `login_alert`, `magic_link`
+`welcome`, `email_verification`, `password_reset`, `password_changed`, `two_factor_code`, `login_alert`, `magic_link`, `invitation`, `org_invitation`
 
 ### Built-in SMS template names
 
@@ -231,17 +231,26 @@ Use `notification.DefaultEmailTemplates()` or `notification.DefaultSMSTemplates(
 
 ## Event Hooks
 
-The module subscribes to Core events via `RegisterHooks`. Each hook is controlled by a config flag.
+The module subscribes to events via `RegisterHooks`. Must-have delivery hooks are always registered; optional hooks are controlled by config flags.
+
+**Always active** (fire only when the corresponding module emits the event):
+
+| Event | Action |
+|-------|--------|
+| `EventSendEmailVerification` | Email verification delivery |
+| `EventSendPhoneVerification` | Phone verification SMS |
+| `EventSendPasswordResetEmail` | Password reset email/SMS |
+| `EventSendMagicLink` | Magic link email |
+| `EventInvitationSent` | Standalone invitation email |
+| `EventOrgInvitationSent` | Organization invitation email |
+
+**Optional** (controlled by config flags):
 
 | Event | Action | Config Flag |
 |-------|--------|-------------|
 | `EventAfterSignup` | Welcome email | `EnableWelcomeEmail` |
-| `EventSendEmailVerification` | Email verification delivery | Always enabled |
-| `EventSendPhoneVerification` | Phone verification SMS | `Enable2FANotifications` |
-| `EventSendPasswordResetEmail` | Password reset email/SMS | `EnablePasswordResetEmail` or `EnablePasswordResetSMS` |
 | `EventAfterChangePassword` | Password changed alert | `EnablePasswordChangeAlert` |
 | `EventAfterResetPassword` | Password changed alert | `EnablePasswordChangeAlert` |
-| `EventSendMagicLink` | Magic link email | `EnableMagicLinkEmail` |
 | `EventAfterLogin` | Login alert | `EnableLoginAlerts` |
 
 ## Sender Interfaces

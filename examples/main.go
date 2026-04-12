@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/bete7512/goauth/internal/modules/organization"
 	"github.com/bete7512/goauth/pkg/adapters/stdhttp"
 	"github.com/bete7512/goauth/pkg/auth"
 	"github.com/bete7512/goauth/pkg/config"
@@ -143,7 +144,7 @@ func main() {
 		UpdateAge:               30 * time.Minute,
 	}))
 
-	// authInstance.Use(organization.New(&organization.Config{}))
+	authInstance.Use(organization.New(&organization.Config{}))
 	// // csrf (HMAC-based double-submit cookie pattern)
 	// go.Use(csrf.New(&config.CSRFModuleConfig{
 	// 	TokenExpiry: 2 * time.Hour,
