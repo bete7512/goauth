@@ -7,103 +7,80 @@ sidebar_position: 5
 
 # Two-Factor Module
 
-The Two-Factor module adds TOTP-based two-factor authentication to your application, significantly hardening account security. When a user with 2FA enabled logs in, the login flow is intercepted via an auth interceptor — the user receives a short-lived temporary token and must complete a second verification step via `/2fa/verify-login` before receiving actual auth tokens. This works transparently with both the Session and Stateless auth modules.
-
-## Capabilities
-
-- **TOTP (Time-based One-Time Password)** — Compatible with any standard authenticator app (Google Authenticator, Authy, 1Password, Bitwarden, etc.). Uses the standard TOTP algorithm (RFC 6238).
-- **QR Code Setup** — The `/2fa/setup` endpoint returns both the TOTP secret and a `otpauth://` URI that can be rendered as a QR code for one-scan setup.
-- **Backup Codes** — Generates configurable backup codes (default: 10 codes, 8 characters each) for account recovery when the authenticator device is unavailable. Each backup code is single-use.
-- **Code Reuse Prevention** — TOTP codes are tracked to prevent replay within the same time window. A code that has already been used in the current 30-second window is rejected.
-- **Login Flow Interception** — Registers an auth interceptor (priority 100) that intercepts the login response when 2FA is enabled. Instead of returning auth tokens, returns `requires_2fa: true` with a temporary token (5-minute TTL).
-- **Optional Enforcement** — Set `Required: true` to make 2FA mandatory for all users. New users are flagged to set up 2FA after signup.
-- **Route Protection Middleware** — Registers a `twofactor.verify` middleware (priority 40) on `core.*` and `admin.*` routes, ensuring authenticated users with 2FA enabled have completed verification.
-- **Disable Flow** — Users can disable 2FA via `/2fa/disable`, and check their current status via `/2fa/status`.
+Two-Factor adds TOTP and backup-code verification to the shared authentication completion flow. A login requiring another factor returns a persisted continuation, not an authenticated access token.
 
 ## Registration
 
 ```go
-import (
-    "github.com/bete7512/goauth/pkg/modules/twofactor"
-    "github.com/bete7512/goauth/pkg/config"
-)
-
-// With custom config
-a.Use(twofactor.New(&config.TwoFactorConfig{
-    Issuer:           "MyApp",  // Shown in authenticator app
-    Required:         false,    // Force 2FA for all users
+if err := a.Use(twofactor.New(&config.TwoFactorConfig{
+    Issuer: "MyApp",
+    Required: false,
     BackupCodesCount: 10,
-    CodeLength:       8,
-}))
-
-// With defaults (Issuer:"GoAuth", 10 backup codes, length 8)
-a.Use(twofactor.New())
-```
-
-The constructor is variadic -- call `twofactor.New()` with no arguments for defaults, or pass a `*config.TwoFactorConfig`.
-
-## How It Works
-
-1. User calls `POST /2fa/setup` -- gets secret + QR URL
-2. User scans QR in authenticator app
-3. User calls `POST /2fa/verify` with TOTP code -- 2FA is enabled
-4. On next login, the auth interceptor fires and login returns `requires_2fa: true` + `temp_token`
-5. User calls `POST /2fa/verify-login` with temp token + TOTP code -- gets auth tokens
-
-## Endpoints
-
-| Method | Path              | Auth | Description                        |
-|--------|-------------------|------|------------------------------------|
-| POST   | `/2fa/setup`      | Yes  | Start 2FA setup, returns secret + QR URL |
-| POST   | `/2fa/verify`     | Yes  | Verify TOTP code, enables 2FA     |
-| POST   | `/2fa/disable`    | Yes  | Disable 2FA for the current user  |
-| GET    | `/2fa/status`     | Yes  | Get current 2FA status            |
-| POST   | `/2fa/verify-login` | No | Complete login with temp token + TOTP code |
-
-All authenticated routes use the `core.auth` middleware. The `/2fa/verify-login` route is unauthenticated -- it validates the short-lived temp token (5-minute TTL) issued during the 2FA challenge.
-
-## Configuration
-
-```go
-type TwoFactorConfig struct {
-    Issuer           string // App name shown in authenticator (default: "GoAuth")
-    Required         bool   // Make 2FA mandatory for all users
-    BackupCodesCount int    // Number of backup codes to generate (default: 10)
-    CodeLength       int    // Length of each backup code (default: 8)
+    CodeLength: 8,
+})); err != nil {
+    return err
 }
 ```
 
-## Middleware
+Import `pkg/modules/twofactor` and `pkg/config`. `twofactor.New()` uses issuer `GoAuth`, ten backup codes, and eight-character backup codes. Core and `Storage.TwoFactorAuth()` are required.
 
-The module registers a `twofactor.verify` middleware (priority 40) that applies to `core.*` and `admin.*` routes, excluding login, signup, and `twofactor.*` routes. This middleware checks that authenticated users with 2FA enabled have completed verification in the current session.
+## How It Works
+
+1. An authenticated user calls `POST /2fa/setup` to receive a secret, an `otpauth://` URI in `qr_url`, and backup codes.
+2. The frontend renders the URI as a QR code or shows the secret.
+3. `POST /2fa/verify` with a TOTP code enables the factor. Setup alone does not enable it.
+4. On a later authentication, the interceptor returns a `2fa` challenge. The completer persists a five-minute transaction and adds `data.temp_token` to the challenge.
+5. Send the temporary token and a TOTP or backup code to `POST /2fa/verify-login`.
+6. After all required factors are satisfied, the completer atomically consumes the continuation and issues the selected session/JWT grant.
+
+A typical challenge appears inside the normal success envelope:
+
+```json
+{
+  "data": {
+    "challenges": [
+      {"type":"2fa","data":{"requires_2fa":true,"temp_token":"PENDING_CREDENTIAL"}}
+    ]
+  }
+}
+```
+
+Additional envelope and challenge fields may be present. Handle the challenge array rather than expecting a top-level `requires_2fa` flag.
+
+```json
+{"temp_token":"PENDING_CREDENTIAL","code":"123456"}
+```
+
+`temp_token` is required. Supplying only `user_id` is not supported. The handler limits continuation verification attempts to ten. A consumed, expired, wrong-purpose, or version-invalidated continuation is rejected. The final response can include `access_token`, `refresh_token`, `session_id`, `expires_in`, and any remaining `challenges`.
+
+## Endpoints
+
+Prefix paths with `BasePath`.
+
+| Method | Path | Credential | Purpose |
+| --- | --- | --- | --- |
+| POST | `/2fa/setup` | Access | Start or replace pending enrollment |
+| POST | `/2fa/verify` | Access | Verify code and enable factor |
+| POST | `/2fa/disable` | Access + current code | Disable factor |
+| GET | `/2fa/status` | Access | Read enabled state and method |
+| POST | `/2fa/verify-login` | Pending credential + code | Resume authentication |
+
+TOTP reuse is tracked and backup codes are single-use. Store recovery codes when first shown. Repeating setup before verification replaces the pending secret and codes.
+
+## Enforcement and Current Limits
+
+The interceptor runs at priority 100, before the organization interceptor at 50. Challenges are honored during login, refresh, and resume. Persisted verified methods allow a completed 2FA grant to refresh without losing its assurance.
+
+`Required: true` rejects completion for users without an enabled factor. It does not provide an unauthenticated enrollment flow: the setup routes require an access credential. Plan enrollment before enabling this requirement. The signup hook currently logs the requirement; it does not enroll users.
+
+The named `twofactor.verify` route middleware is currently a pass-through implementation. Do not treat its registration as per-route step-up enforcement. Login/refresh enforcement comes from the completion interceptor. The library does not currently expose a general HTTP endpoint for resolving every possible custom challenge type.
+
+## Storage
+
+Temporary credentials are purpose-bound signed tokens backed by hashed token records. Transaction data tracks user/version, expiry, verified methods, remaining factors, and claims. Final resumption requires aggregate `types.TransactionalStorage` so consuming the continuation and creating the credential grant commit together. See [Custom storage](../storage.md).
 
 ## Events
 
-| Event                  | Fired When              |
-|------------------------|-------------------------|
-| `auth.2fa.enabled`     | User enables 2FA        |
-| `auth.2fa.disabled`    | User disables 2FA       |
-| `auth.2fa.verified`    | User passes 2FA check   |
+Setup verification and disable emit `EventAuth2FAEnabled` and `EventAuth2FADisabled`. `EventAuth2FAVerified` exists, but the normal shared-completer resume branch returns before the legacy handler emission; do not assume it fires for every completed login. Durable completion can emit `authentication.completed` when configured.
 
-When `Required` is `true`, the module subscribes to `EventAfterSignup` to flag that new users must set up 2FA.
-
-## Dependencies
-
-- **Core module** (auto-registered)
-
-## Extensibility
-
-### Integration with Notification Module
-
-When the Notification module is registered with `Enable2FANotifications: true`, 2FA-related events trigger notification delivery (e.g., email alerts when 2FA is enabled or disabled).
-
-### Event Hooks
-
-Subscribe to 2FA events for custom logic:
-
-```go
-a.On(types.EventAuth2FAEnabled, func(ctx context.Context, e *types.Event) error {
-    // e.g., log to external security dashboard
-    return nil
-})
-```
+Subscribe to enabled/disabled events with `a.On` before initialization to send your own alerts. The Notification module has no `Enable2FANotifications` option or built-in subscription to these events.

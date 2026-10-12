@@ -3,6 +3,7 @@
 package integration_test
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -219,7 +220,7 @@ func TestOrg_SwitchOrg(t *testing.T) {
 // --- Invitation Accept/Decline (requires 2 users) ---
 
 func TestOrg_AcceptInvitation(t *testing.T) {
-	_, handler := h.SetupStatelessWithOrg(t)
+	a, handler := h.SetupStatelessWithOrg(t)
 
 	// User 1 creates org and invites
 	token1, _ := h.SignupAndLogin(t, handler, "owner@example.com", "Test1234", "Owner")
@@ -236,11 +237,10 @@ func TestOrg_AcceptInvitation(t *testing.T) {
 	invResp := h.ParseJSON(t, w.Body)
 	invData, ok := invResp["data"].(map[string]interface{})
 	require.True(t, ok, "invite response should have data: %v", invResp)
-	invToken, ok := invData["token"].(string)
-	if !ok {
-		// Token might not be returned in response — endpoint still works, test the accept path
-		t.Skip("invitation token not returned in response — skipping accept flow")
-	}
+	require.NotContains(t, invData, "token", "inviter responses must not disclose the emailed bearer secret")
+	invitation, err := a.Config().Storage.Organization().Invitations().FindByID(context.Background(), invData["id"].(string))
+	require.NoError(t, err)
+	invToken := invitation.Token
 
 	// User 2 accepts the invitation
 	token2, _ := h.SignupAndLogin(t, handler, "invitee@example.com", "Test1234", "Invitee")
@@ -251,7 +251,7 @@ func TestOrg_AcceptInvitation(t *testing.T) {
 }
 
 func TestOrg_DeclineInvitation(t *testing.T) {
-	_, handler := h.SetupStatelessWithOrg(t)
+	a, handler := h.SetupStatelessWithOrg(t)
 
 	// User 1 creates org and invites
 	token1, _ := h.SignupAndLogin(t, handler, "owner2@example.com", "Test1234", "Owner")
@@ -266,10 +266,10 @@ func TestOrg_DeclineInvitation(t *testing.T) {
 
 	invData, ok := h.ParseJSON(t, w.Body)["data"].(map[string]interface{})
 	require.True(t, ok)
-	invToken, ok := invData["token"].(string)
-	if !ok {
-		t.Skip("invitation token not returned in response — skipping decline flow")
-	}
+	require.NotContains(t, invData, "token", "inviter responses must not disclose the emailed bearer secret")
+	invitation, err := a.Config().Storage.Organization().Invitations().FindByID(context.Background(), invData["id"].(string))
+	require.NoError(t, err)
+	invToken := invitation.Token
 
 	// User 2 declines
 	token2, _ := h.SignupAndLogin(t, handler, "decliner@example.com", "Test1234", "Decliner")

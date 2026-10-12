@@ -112,8 +112,16 @@ func (r *InvitationRepo) ListPendingByEmail(ctx context.Context, email string) (
 
 // Update updates an existing invitation
 func (r *InvitationRepo) Update(ctx context.Context, invitation *models.OrgInvitation) error {
-	if err := r.db.WithContext(ctx).Save(invitation).Error; err != nil {
-		return fmt.Errorf("invitation_repository.Update: %w", err)
+	query := r.db.WithContext(ctx).Model(&models.OrgInvitation{}).Where("id = ?", invitation.ID)
+	if invitation.Status != models.InvitationStatusPending {
+		query = query.Where("status = ? AND expires_at > ?", models.InvitationStatusPending, time.Now())
+	}
+	result := query.Select("status", "accepted_at", "metadata").Updates(invitation)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected != 1 {
+		return models.ErrConflict
 	}
 	return nil
 }

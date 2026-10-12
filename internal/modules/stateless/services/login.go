@@ -3,14 +3,13 @@ package services
 import (
 	"context"
 	"errors"
+	"github.com/bete7512/goauth/internal/authentication"
 	"time"
 
 	"github.com/bete7512/goauth/internal/modules/stateless/handlers/dto"
 	"github.com/bete7512/goauth/internal/security"
 	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
-	"github.com/google/uuid"
-	"golang.org/x/crypto/bcrypt"
 )
 
 // Login authenticates user and generates JWT tokens with nonce-based refresh token
@@ -42,64 +41,33 @@ func (s *StatelessService) Login(ctx context.Context, req *dto.LoginRequest) (dt
 	}
 
 	// Verify password
-	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
+	if err := s.SecurityManager.ValidatePassword(user.PasswordHash, req.Password); err != nil {
 		return dto.AuthResponse{}, security.HandleFailedLogin(ctx, user, lockoutCfg, s.UserRepository, s.Deps.Events, s.Deps.Logger)
 	}
 
 	// Clear any failed-attempt state on successful password check
 	security.RecordSuccessfulLogin(user)
 
-	// Run auth interceptors (2FA challenges, org enrichment, etc.)
-	interceptClaims, challenges, responseData, interceptErr := s.Deps.AuthInterceptors.Run(ctx, &types.InterceptParams{
-		Phase:    types.PhaseLogin,
-		User:     user,
-		Metadata: nil, // TODO: pass metadata from handler
-	})
-	if interceptErr != nil {
-		s.Logger.Errorf("stateless: auth interceptor failed: %v", interceptErr)
-		return dto.AuthResponse{}, types.NewInternalError("Authentication flow interrupted")
+	completion := authentication.ForModule(s.Deps, s.TokenRepository, nil, types.StrategyStateless)
+	result, authErr := completion.Complete(ctx, types.AuthenticationEvidence{User: user, Method: "password"})
+	if authErr != nil {
+		return dto.AuthResponse{}, authErr
 	}
-
-	// If any challenges were issued, return them without tokens
-	if len(challenges) > 0 {
-		return dto.AuthResponse{
-			Challenges: challenges,
-			Message:    "Authentication challenge required",
-		}, nil
+	if result.Status == types.ChallengeRequired {
+		return dto.AuthResponse{Challenges: result.Challenges, Message: "Authentication challenge required"}, nil
 	}
-
-	// Generate access token with enriched claims
-	accessToken, err := s.SecurityManager.GenerateAccessToken(
-		*user,
-		interceptClaims,
-	)
-	if err != nil {
-		return dto.AuthResponse{}, types.NewInternalError("failed to generate access token").Wrap(err)
-	}
-
-	// Generate stateless refresh token with JTI (nonce)
-	refreshToken, jti, err := s.SecurityManager.GenerateStatelessRefreshToken(user)
-	if err != nil {
-		return dto.AuthResponse{}, types.NewInternalError("failed to generate refresh token").Wrap(err)
-	}
-
-	// Store the JTI (nonce) in the tokens table for revocation checks
-	tokenModel := &models.Token{
-		ID:        uuid.Must(uuid.NewV7()).String(),
-		UserID:    user.ID,
-		Type:      "refresh_nonce",
-		Token:     jti,
-		ExpiresAt: time.Now().Add(s.Deps.Config.Security.Session.RefreshTokenTTL),
-		CreatedAt: time.Now(),
-	}
-	if err := s.TokenRepository.Create(ctx, tokenModel); err != nil {
-		return dto.AuthResponse{}, types.NewInternalError("failed to save refresh token nonce").Wrap(err)
-	}
+	accessToken, refreshToken, responseData := result.AccessToken, result.RefreshToken, result.Data
 
 	// Update last login time
 	now := time.Now()
 	user.LastLoginAt = &now
-	if err := s.UserRepository.Update(ctx, user); err != nil {
+	var updateErr error
+	if mutator, ok := s.UserRepository.(models.UserCredentialMutator); ok {
+		updateErr = mutator.RecordLogin(ctx, user.ID, user.TokenVersion, now)
+	} else {
+		updateErr = s.UserRepository.Update(ctx, user)
+	}
+	if err := updateErr; err != nil {
 		s.Logger.Errorf("failed to update user last login time: %v", err)
 	}
 
@@ -107,7 +75,7 @@ func (s *StatelessService) Login(ctx context.Context, req *dto.LoginRequest) (dt
 		AccessToken:  &accessToken,
 		RefreshToken: &refreshToken,
 		User:         dto.UserToDTO(user),
-		ExpiresIn:    int64(s.Deps.Config.Security.Session.SessionTTL.Seconds()),
+		ExpiresIn:    result.ExpiresIn,
 		Message:      "Login successful",
 		Data:         responseData,
 	}, nil

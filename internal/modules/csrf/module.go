@@ -29,9 +29,15 @@ var _ config.Module = (*CSRFModule)(nil)
 // New creates a new CSRF module with the given configuration.
 // If cfg is nil, defaults are used.
 func New(cfg *config.CSRFModuleConfig) *CSRFModule {
+	if cfg != nil {
+		snapshot := *cfg
+		cfg = &snapshot
+	}
 	if cfg == nil {
 		cfg = &config.CSRFModuleConfig{}
 	}
+	cfg.ExcludePaths = append([]string(nil), cfg.ExcludePaths...)
+	cfg.ProtectedMethods = append([]string(nil), cfg.ProtectedMethods...)
 	return &CSRFModule{
 		config: cfg,
 	}

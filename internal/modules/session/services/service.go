@@ -6,7 +6,6 @@ import (
 	"context"
 
 	"github.com/bete7512/goauth/internal/modules/session/handlers/dto"
-	"github.com/bete7512/goauth/internal/security"
 	"github.com/bete7512/goauth/internal/utils/logger"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/models"
@@ -30,7 +29,7 @@ type sessionService struct {
 	userRepository    models.UserRepository
 	sessionRepository models.SessionRepository
 	logger            logger.Logger
-	securityManager   *security.SecurityManager
+	securityManager   types.SecurityManager
 }
 
 func NewSessionService(
@@ -38,7 +37,7 @@ func NewSessionService(
 	userRepository models.UserRepository,
 	sessionRepository models.SessionRepository,
 	logger logger.Logger,
-	securityManager *security.SecurityManager,
+	securityManager types.SecurityManager,
 	cfg *config.SessionModuleConfig,
 ) *sessionService {
 	return &sessionService{

@@ -38,29 +38,7 @@ func (r *SignupRequest) Validate() error {
 	return nil
 }
 func (r *SignupRequest) ValidatePassword(policy types.PasswordPolicy) error {
-	if r.Password == "" {
-		return fmt.Errorf("password is required")
-	}
-	if len(r.Password) < policy.MinLength {
-		return fmt.Errorf("password must be at least %d characters", policy.MinLength)
-	}
-	if len(r.Password) > policy.MaxLength {
-		return fmt.Errorf("password must be less than %d characters", policy.MaxLength)
-	}
-	if policy.RequireUppercase && !strings.ContainsAny(r.Password, "ABCDEFGHIJKLMNOPQRSTUVWXYZ") {
-		return fmt.Errorf("password must contain at least one uppercase letter")
-	}
-	if policy.RequireLowercase && !strings.ContainsAny(r.Password, "abcdefghijklmnopqrstuvwxyz") {
-		return fmt.Errorf("password must contain at least one lowercase letter")
-	}
-	if policy.RequireNumbers && !strings.ContainsAny(r.Password, "0123456789") {
-		return fmt.Errorf("password must contain at least one number")
-	}
-	if policy.RequireSpecial && !strings.ContainsAny(r.Password, "!@#$%^&*()_+-=[]{}|;:,.<>?") {
-		return fmt.Errorf("password must contain at least one special character")
-	}
-
-	return nil
+	return policy.Validate(r.Password)
 }
 
 // LoginRequest represents login request

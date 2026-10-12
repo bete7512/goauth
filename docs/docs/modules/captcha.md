@@ -30,24 +30,28 @@ import (
     "github.com/bete7512/goauth/pkg/types"
 )
 
-a.Use(captcha.New(&config.CaptchaModuleConfig{
+if err := a.Use(captcha.New(&config.CaptchaModuleConfig{
     Provider:       types.CaptchaProviderGoogle,
     SiteKey:        "your-recaptcha-site-key",
     SecretKey:      "your-recaptcha-secret-key",
     ScoreThreshold: 0.5,
     ApplyToRoutes:  []types.RouteName{"core.signup", "core.login"},
-}))
+})); err != nil {
+    return err
+}
 ```
 
 ### Cloudflare Turnstile
 
 ```go
-a.Use(captcha.New(&config.CaptchaModuleConfig{
+if err := a.Use(captcha.New(&config.CaptchaModuleConfig{
     Provider:      types.CaptchaProviderCloudflare,
     SiteKey:       "your-turnstile-site-key",
     SecretKey:     "your-turnstile-secret-key",
     ApplyToRoutes: []types.RouteName{"core.signup", "core.login"},
-}))
+})); err != nil {
+    return err
+}
 ```
 
 ## Configuration
@@ -119,10 +123,12 @@ grecaptcha.ready(function() {
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 <form action="/api/v1/login" method="POST">
     <div class="cf-turnstile" data-sitekey="YOUR_SITE_KEY"></div>
-    <!-- form fields -->
+    <!-- Read the widget response in your submit handler. -->
     <button type="submit">Login</button>
 </form>
 ```
+
+The built-in login handler expects JSON. For Turnstile, obtain the widget token and send it in `X-Captcha-Token` alongside the JSON credentials, as in the reCAPTCHA fetch example. A native form submission is not a complete login integration.
 
 ## Score Threshold (reCAPTCHA v3)
 
@@ -148,4 +154,4 @@ Use these route names in `ApplyToRoutes` to protect specific endpoints:
 | `core.login` | `POST /login` |
 | `core.forgot_password` | `POST /forgot-password` |
 | `core.reset_password` | `POST /reset-password` |
-| `magic_link.send` | `POST /magic-link/send` |
+| `magiclink.send` | `POST /magic-link/send` |

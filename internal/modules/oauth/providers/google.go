@@ -22,6 +22,7 @@ var googleDefaultScopes = []string{"openid", "email", "profile"}
 
 // GoogleProvider implements OAuth for Google (OpenID Connect)
 type GoogleProvider struct {
+	verifier oidcVerifier
 	*BaseProvider
 	redirectURL string
 	pkceEnabled bool
@@ -159,46 +160,13 @@ func (p *GoogleProvider) SupportsOIDC() bool {
 	return true
 }
 
-// ValidateIDToken validates a Google ID token and extracts user info.
-// For simplicity, we use the userinfo endpoint instead of full JWT validation.
-// In production, you might want to validate the JWT signature using Google's public keys.
+// ValidateIDToken verifies Google's signature and required OIDC claims.
 func (p *GoogleProvider) ValidateIDToken(ctx context.Context, idToken string) (*UserInfo, error) {
-	// Google's tokeninfo endpoint can validate ID tokens
-	tokenInfoURL := fmt.Sprintf("https://oauth2.googleapis.com/tokeninfo?id_token=%s", url.QueryEscape(idToken))
-
-	req, err := http.NewRequestWithContext(ctx, "GET", tokenInfoURL, nil)
+	claims, err := p.verifier.verify(ctx, p.BaseProvider, "https://accounts.google.com", "https://www.googleapis.com/oauth2/v3/certs", idToken)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create tokeninfo request: %w", err)
+		return nil, err
 	}
-
-	resp, err := p.HTTPClient().Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to validate ID token: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read tokeninfo response: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("ID token validation failed: %s", string(body))
-	}
-
-	var rawData map[string]interface{}
-	if err := json.Unmarshal(body, &rawData); err != nil {
-		return nil, fmt.Errorf("failed to parse tokeninfo response: %w", err)
-	}
-
-	// Verify audience matches our client ID
-	if aud, ok := rawData["aud"].(string); ok {
-		if aud != p.ClientID() {
-			return nil, fmt.Errorf("ID token audience mismatch")
-		}
-	}
-
-	return p.parseUserInfo(rawData), nil
+	return p.parseUserInfo(claims), nil
 }
 
 // parseUserInfo normalizes Google user data to UserInfo

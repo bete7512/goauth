@@ -32,6 +32,14 @@ const (
 )
 
 type SecurityConfig struct {
+	// RetainedJWTKeys are verification-only keys kept during a rotation window.
+	RetainedJWTKeys []JWTVerificationKey
+	EncryptionKeyID string
+	DecryptionKeys  map[string]string
+	// JWTIssuer and JWTAudience identify this application's credentials.
+	// Empty values use "goauth"; deployments sharing keys must set distinct values.
+	JWTIssuer            string
+	JWTAudience          string
 	JwtSecretKey         string
 	EncryptionKey        string
 	HashSaltLength       int
@@ -41,10 +49,46 @@ type SecurityConfig struct {
 	Lockout              LockoutConfig
 	AuthMode             AuthMode // Authentication mode (cookie, bearer, both, custom)
 	AuthStrategy         AuthStrategy
+
+	// JWTAlgorithm is the JWT signing algorithm. Default: HS256 (symmetric,
+	// uses JwtSecretKey). Set to RS256 or ES256 to use asymmetric keys —
+	// consumers (gateways, microservices) can then verify tokens via the
+	// public JWKS endpoint without sharing a secret.
+	JWTAlgorithm JWTAlgorithm
+
+	// JWTPrivateKeyPEM is the PEM-encoded private key used for signing.
+	// Required when JWTAlgorithm is RS256 or ES256. Takes precedence over JWTPrivateKeyFile.
+	JWTPrivateKeyPEM []byte
+
+	// JWTPrivateKeyFile is a filesystem path to a PEM-encoded private key.
+	// Used when JWTPrivateKeyPEM is empty and JWTAlgorithm is asymmetric.
+	JWTPrivateKeyFile string
+
+	// JWTPublicKeyPEM is the PEM-encoded public key served at /.well-known/jwks.json.
+	// Optional — if empty, the public key is derived from the private key.
+	JWTPublicKeyPEM []byte
+
+	// JWTPublicKeyFile is a filesystem path to a PEM-encoded public key.
+	// Used when JWTPublicKeyPEM is empty.
+	JWTPublicKeyFile string
+
+	// JWTKeyID is the value set in the JWT "kid" header and JWKS entry.
+	// If empty, a deterministic fingerprint of the public key is used.
+	JWTKeyID string
+}
+
+type JWTVerificationKey struct {
+	ID           string
+	Algorithm    JWTAlgorithm
+	PublicKeyPEM []byte
+	Secret       string
+	NotAfter     time.Time
 }
 
 // LockoutConfig controls account lockout after repeated failed login attempts.
 type LockoutConfig struct {
+	// Disabled explicitly opts out; an omitted configuration enables lockout.
+	Disabled        bool
 	Enabled         bool          // Whether lockout is enabled (default: true)
 	MaxAttempts     int           // Failed attempts before locking (default: 5)
 	LockoutDuration time.Duration // How long the account stays locked (default: 15m)

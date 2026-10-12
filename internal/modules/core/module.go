@@ -9,7 +9,6 @@ import (
 	"github.com/bete7512/goauth/internal/modules/core/handlers"
 	"github.com/bete7512/goauth/internal/modules/core/middlewares"
 	core_services "github.com/bete7512/goauth/internal/modules/core/services"
-	"github.com/bete7512/goauth/internal/security"
 	"github.com/bete7512/goauth/internal/utils"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/types"
@@ -33,6 +32,10 @@ var _ config.Module = (*CoreModule)(nil)
 // Pass nil for cfg to use safe defaults.
 // To provide custom storage, set cfg.CustomStorage.
 func New(cfg *config.CoreConfig) *CoreModule {
+	if cfg != nil {
+		snapshot := *cfg
+		cfg = &snapshot
+	}
 	if cfg == nil {
 		cfg = &config.CoreConfig{}
 	}
@@ -60,8 +63,10 @@ func (m *CoreModule) Init(ctx context.Context, deps config.ModuleDependencies) e
 	m.updateConfigFromDeps()
 
 	// Initialize security manager
-	securityManager := security.NewSecurityManager(m.deps.Config.Security)
-	m.deps.SecurityManager = securityManager
+	securityManager := m.deps.SecurityManager
+	if securityManager == nil {
+		return errors.New("security manager is required")
+	}
 
 	// Initialize handlers with all dependencies
 	// Repositories now use concrete types - no adapters needed
@@ -122,11 +127,7 @@ func (m *CoreModule) Migrations() types.ModuleMigrations {
 
 func (m *CoreModule) updateConfigFromDeps() {
 	if m.deps.Config.Core != nil {
-		m.config = &config.CoreConfig{
-			RequireEmailVerification: m.deps.Config.Core.RequireEmailVerification,
-			RequirePhoneVerification: m.deps.Config.Core.RequirePhoneVerification,
-			RequireUserName:          m.deps.Config.Core.RequireUserName,
-			RequirePhoneNumber:       m.deps.Config.Core.RequirePhoneNumber,
-		}
+		snapshot := *m.deps.Config.Core
+		m.config = &snapshot
 	}
 }

@@ -7,11 +7,7 @@ sidebar_position: 2
 
 # Installation
 
-## Prerequisites
-
-- **Go 1.25+** installed
-- A Go module initialized (`go mod init`)
-- A database (PostgreSQL, MySQL, or SQLite)
+GoAuth requires Go 1.25 or later. The built-in GORM storage supports PostgreSQL, MySQL, and SQLite. SQLite uses CGO and needs a C compiler.
 
 ## Install
 
@@ -19,166 +15,97 @@ sidebar_position: 2
 go get github.com/bete7512/goauth
 ```
 
+These docs follow the current repository API, including unreleased changes. For local development against a checkout:
+
+```bash
+go mod edit -replace github.com/bete7512/goauth=/absolute/path/to/go-auth
+go mod tidy
+```
+
+The [Quick Start](quickstart.md) contains a complete, runnable server. Imports under `internal/` are private; use `pkg/auth`, `pkg/config`, `pkg/types`, `pkg/models`, `pkg/modules/*`, and `storage`.
+
 ## Database Setup
 
 ### SQLite (Development)
 
-No setup needed:
-
 ```go
-store, _ := storage.NewGormStorage(storage.GormConfig{
+store, err := storage.NewGormStorage(storage.GormConfig{
     Dialect: types.DialectTypeSqlite,
-    DSN:     "auth.db",
+    DSN: "auth.db",
 })
+if err != nil {
+    return err
+}
 ```
 
-### PostgreSQL (Production)
-
-```sql
-CREATE DATABASE authdb;
-CREATE USER authuser WITH PASSWORD 'securepassword';
-GRANT ALL PRIVILEGES ON DATABASE authdb TO authuser;
-```
+### PostgreSQL
 
 ```go
-store, _ := storage.NewGormStorage(storage.GormConfig{
-    Dialect:      types.DialectTypePostgres,
-    DSN:          "host=localhost user=authuser password=securepassword dbname=authdb sslmode=disable",
+store, err := storage.NewGormStorage(storage.GormConfig{
+    Dialect: types.DialectTypePostgres,
+    DSN: os.Getenv("DATABASE_DSN"),
     MaxOpenConns: 25,
     MaxIdleConns: 5,
 })
+if err != nil {
+    return err
+}
 ```
+
+Create the application database and credentials before starting. Use a DSN with the TLS settings appropriate to your deployment.
 
 ### MySQL
 
-```sql
-CREATE DATABASE authdb;
-CREATE USER 'authuser'@'localhost' IDENTIFIED BY 'securepassword';
-GRANT ALL PRIVILEGES ON authdb.* TO 'authuser'@'localhost';
+```go
+store, err := storage.NewGormStorage(storage.GormConfig{
+    Dialect: types.DialectTypeMysql,
+    DSN: os.Getenv("DATABASE_DSN"),
+})
+if err != nil {
+    return err
+}
 ```
 
-```go
-store, _ := storage.NewGormStorage(storage.GormConfig{
-    Dialect: types.DialectTypeMysql,
-    DSN:     "authuser:securepassword@tcp(localhost:3306)/authdb?parseTime=true",
-})
-```
+Include `parseTime=true` in a MySQL DSN, for example `authuser:password@tcp(localhost:3306)/authdb?parseTime=true` for a local database.
 
 ### Existing GORM Instance
-
-If you already have a `*gorm.DB`:
 
 ```go
 store := storage.NewGormStorageFromDB(existingDB)
 ```
 
+Set `config.Config.BorrowStorage: true` when your application retains connection ownership. Otherwise `Auth.Close` closes the underlying connection. These snippets use the public `github.com/bete7512/goauth/storage` package.
+
+## Migrations
+
+Creating storage does not apply all module schemas. Register modules and choose either `Migration.Auto: true` or explicit migration management. Each module embeds versioned SQL for the supported dialects. See [Migration management](migrations.md), including checksums, locking, and dirty migration records.
+
+## Framework Adapters
+
+`pkg/adapters/stdhttp` ships in the root module. Install an optional adapter separately:
+
+```bash
+go get github.com/bete7512/goauth/pkg/adapters/ginadapter
+go get github.com/bete7512/goauth/pkg/adapters/chiadapter
+go get github.com/bete7512/goauth/pkg/adapters/fiberadapter
+```
+
+For a local checkout, each optional adapter also needs its own replacement pointing to its `pkg/adapters/...` directory. See [Framework integration](frameworks/gin.md).
+
 ## Optional: Email & SMS
 
-### SendGrid
-
-```go
-import "github.com/bete7512/goauth/pkg/modules/notification/senders"
-
-emailSender := senders.NewSendGridEmailSender(&senders.SendGridConfig{
-    APIKey:      "your-sendgrid-api-key",
-    DefaultFrom: "noreply@yourapp.com",
-})
-```
-
-### SMTP
-
-```go
-import "github.com/bete7512/goauth/pkg/modules/notification/senders"
-
-emailSender := senders.NewSMTPEmailSender(&senders.SMTPConfig{
-    Host:     "smtp.gmail.com",
-    Port:     587,
-    Username: "your-email@gmail.com",
-    Password: "your-app-password",
-})
-```
-
-### Twilio (SMS)
-
-```go
-import "github.com/bete7512/goauth/pkg/modules/notification/senders"
-
-smsSender := senders.NewTwilioSMSSender(&senders.TwilioConfig{
-    AccountSID: "your-account-sid",
-    AuthToken:  "your-auth-token",
-    FromNumber: "+1234567890",
-})
-```
-
-## Minimal Example
-
-```go
-package main
-
-import (
-    "context"
-    "log"
-    "net/http"
-    "time"
-
-    "github.com/bete7512/goauth/pkg/adapters/stdhttp"
-    "github.com/bete7512/goauth/pkg/auth"
-    "github.com/bete7512/goauth/pkg/config"
-    "github.com/bete7512/goauth/pkg/types"
-    "github.com/bete7512/goauth/storage"
-)
-
-func main() {
-    store, err := storage.NewGormStorage(storage.GormConfig{
-        Dialect: types.DialectTypeSqlite,
-        DSN:     "auth.db",
-    })
-    if err != nil {
-        log.Fatal(err)
-    }
-    defer store.Close()
-
-    a, err := auth.New(&config.Config{
-        Storage:   store,
-        Migration: config.MigrationConfig{Auto: true},
-        Security: types.SecurityConfig{
-            JwtSecretKey:  "your-secret-key-min-32-chars!!",
-            EncryptionKey: "your-encryption-key-32-chars!!",
-            Session: types.SessionConfig{
-                AccessTokenTTL:  15 * time.Minute,
-                RefreshTokenTTL: 7 * 24 * time.Hour,
-            },
-        },
-    })
-    if err != nil {
-        log.Fatal(err)
-    }
-    defer a.Close()
-
-    if err := a.Initialize(context.Background()); err != nil {
-        log.Fatal(err)
-    }
-
-    mux := http.NewServeMux()
-    stdhttp.Register(mux, a)
-    log.Println("Server running on :8080")
-    log.Fatal(http.ListenAndServe(":8080", mux))
-}
-```
+Import `github.com/bete7512/goauth/pkg/modules/notification/senders`. Built-in integrations include SMTP, SendGrid, and Resend for email, and Twilio for SMS. Register them through `notification.Config`; [Notification](modules/notification.md) covers sender configuration, branding, and templates.
 
 ## Troubleshooting
 
-**Module not found**
-```bash
-go mod tidy
-go get github.com/bete7512/goauth
-```
-
-**Go version too old** -- GoAuth requires Go 1.25+. Check with `go version`.
-
-**SQLite requires CGO** -- On Linux, install `build-essential`. On macOS, install Xcode CLI tools: `xcode-select --install`.
+- **Missing imports:** run `go mod tidy`; install the optional adapter module if needed.
+- **Old constructor signatures:** remove second storage arguments and follow [Upgrading](upgrade.md).
+- **Invalid config:** provide storage, a JWT secret of at least 32 bytes, and an encryption secret of at least 16 bytes. Additional signing keys are required for RS256/ES256.
+- **SQLite compiler errors:** install your platform's C build toolchain and enable CGO.
+- **Migration failure:** inspect the error and migration status rather than clearing the migration table. See [Migration management](migrations.md).
 
 ## Next Steps
 
-- [Quick Start](quickstart.md) -- Build your first auth system
-- [Core Module](modules/core.md) -- Core module details
+- [Quick Start](quickstart.md)
+- [Custom storage](storage.md)
+- [Security configuration](security.md)

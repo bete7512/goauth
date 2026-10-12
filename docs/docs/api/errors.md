@@ -7,7 +7,9 @@ sidebar_position: 3
 
 # Error Reference
 
-GoAuth uses structured error responses across all modules. Every error returned by the library is a `*types.GoAuthError`, providing a machine-readable code, a human-readable message, and an HTTP status code.
+GoAuth uses structured error responses across all modules. Service and HTTP errors use `*types.GoAuthError`, providing a machine-readable code, a human-readable message, and an HTTP status code.
+
+Lifecycle APIs such as `auth.New`, `Use`, `Initialize`, and `Shutdown` return ordinary `error` values. Storage methods use sentinel errors including `models.ErrNotFound` and `models.ErrConflict`. Do not assume every error can be directly asserted to `*types.GoAuthError`.
 
 ## GoAuthError Struct
 

@@ -7,96 +7,65 @@ sidebar_position: 11
 
 # Magic Link Module
 
-The Magic Link module provides passwordless authentication via email. Instead of passwords, users receive a one-time link (or code) that authenticates them directly. This eliminates password fatigue, reduces support tickets for forgotten passwords, and provides a streamlined login experience. It works seamlessly with the Notification module for email delivery.
-
-## Capabilities
-
-- **Passwordless Login** — Users authenticate by clicking a link sent to their email. No password to remember, no password to leak.
-- **Code-Based Verification** — For mobile apps or scenarios where clicking a link is inconvenient, the same magic link email contains a short code that can be entered via `POST /magic-link/verify-code`.
-- **Auto-Registration** — When `AutoRegister: true`, new email addresses that do not have an existing account are automatically registered. This combines signup and login into a single flow.
-- **Configurable Token Expiry** — Magic link tokens expire after a configurable duration (default: 15 minutes).
-- **Frontend Redirect or JSON Response** — If `CallbackURL` is set, the verify endpoint redirects to your frontend with tokens in the URL fragment (`#access_token=xxx&refresh_token=xxx`). If empty, returns a JSON `AuthResponse`.
-- **Resend Support** — Users can request a new magic link via `/magic-link/resend` if the original email was not received.
-- **Custom Storage** — Pass a custom `types.CoreStorage` to control where magic link tokens are stored.
+Magic Link verifies an email link or a six-digit email code, then enters the same authentication completion flow as password and OAuth sign-in. It can return additional challenges instead of immediately issuing credentials.
 
 ## Registration
 
 ```go
-import (
-    "time"
-
-    "github.com/bete7512/goauth/pkg/modules/magiclink"
-    "github.com/bete7512/goauth/pkg/config"
-)
-
-a.Use(magiclink.New(&config.MagicLinkModuleConfig{
-    TokenExpiry:  15 * time.Minute,
-    AutoRegister: true,
-    CallbackURL:  "http://localhost:3000/auth/magic",
-}, nil))
-```
-
-The second argument is an optional `types.CoreStorage`. Pass `nil` to use the default storage from `deps.Storage.Core()`.
-
-## Configuration
-
-```go
-type MagicLinkModuleConfig struct {
-    // How long magic link tokens remain valid (default: 15 minutes)
-    TokenExpiry time.Duration
-
-    // Create a new user if the email doesn't exist (default: false)
-    AutoRegister bool
-
-    // Frontend URL to redirect to after verification.
-    // Tokens appended as URL fragment: CallbackURL#access_token=xxx&refresh_token=xxx
-    // If empty, the verify endpoint returns JSON response instead.
-    CallbackURL string
+if err := a.Use(magiclink.New(&config.MagicLinkModuleConfig{
+    TokenExpiry: 10 * time.Minute,
+    AutoRegister: false,
+    DeliveryMode: types.MagicLinkDeliveryModeBoth,
+    MaxCodeAttempts: 5,
+    CallbackURL: "http://localhost:3000/auth/magic",
+})); err != nil {
+    return err
 }
 ```
 
+Import `pkg/modules/magiclink`, `pkg/config`, `pkg/types`, and `time`. The constructor takes one config argument. Use `CustomStorage` in the config for a custom `types.CoreStorage`, with the shared-store restrictions in [Custom storage](../storage.md).
+
+## Configuration
+
+| Field | Default | Behavior |
+| --- | --- | --- |
+| `TokenExpiry` | 10 minutes | Lifetime of the link/code record |
+| `AutoRegister` | false | Allows creation of an account for an unknown address |
+| `DeliveryMode` | `both` | `link`, `code`, or `both`, using the `MagicLinkDeliveryMode*` constants |
+| `MaxCodeAttempts` | 5 | Limits failed code attempts for an issued record |
+| `CallbackURL` | empty | Browser redirect after successful link verification; empty returns JSON |
+| `CustomStorage` | nil | Uses shared Core storage |
+
 ## Endpoints
 
-| Method | Path                      | Auth | Description                                |
-|--------|---------------------------|------|--------------------------------------------|
-| POST   | `/magic-link/send`        | No   | Send magic link email                      |
-| GET    | `/magic-link/verify`      | No   | Verify magic link token (from email click) |
-| POST   | `/magic-link/verify-code` | No   | Verify using code (for mobile apps)        |
-| POST   | `/magic-link/resend`      | No   | Resend magic link                          |
+Prefix with `BasePath` (default `/auth`).
 
-None of these routes require authentication -- the magic link token itself is the credential.
+| Method | Path | Input |
+| --- | --- | --- |
+| POST | `/magic-link/send` | JSON `email` |
+| POST | `/magic-link/resend` | JSON `email` |
+| GET | `/magic-link/verify` | Query `token` |
+| POST | `/magic-link/verify-code` | JSON `email` and `code` |
+
+These endpoints do not require an access credential. The link or code is the email credential. Request/resend invalidates the prior record selected for that address. Code attempts are tracked in storage, and token consumption must be atomic.
+
+```json
+{"email":"user@example.com","code":"123456"}
+```
 
 ## Flow
 
-1. User submits email to `POST /magic-link/send`
-2. GoAuth generates a token and emits an event (notification module delivers the email)
-3. User clicks the link -- `GET /magic-link/verify?token=xxx`
-4. GoAuth verifies the token, creates or authenticates the user
-5. If `CallbackURL` is set, redirects to `CallbackURL#access_token=xxx&refresh_token=xxx`
-6. If `CallbackURL` is empty, returns JSON `AuthResponse`
+1. Send or resend creates a token/code and emits `EventSendMagicLink`.
+2. A delivery handler sends the link, code, or both according to `DeliveryMode`.
+3. Verification checks purpose, expiry, use state, and code-attempt limit, then consumes the token.
+4. The common completer evaluates current user eligibility and interceptors.
+5. If more factors are needed, the response contains `challenges` with a continuation. No final credentials are issued yet.
+6. Successful completion uses the application's selected Session or Stateless strategy.
 
-For mobile apps, use `POST /magic-link/verify-code` with the code from the email instead of the link.
+`GET /magic-link/verify` returns a challenge as JSON even when `CallbackURL` is configured. After complete authentication, cookie-only mode redirects without token fragments; bearer/both mode can put the credentials in the callback fragment. Code verification returns JSON. Credential cookies follow the shared transport settings.
 
-## Extensibility
+## Event-Driven Delivery
 
-### Custom Storage
+Register [Notification](notification.md) with an email sender or subscribe to `EventSendMagicLink` yourself. Magic-link delivery is a required notification hook; it is not controlled by an `EnableMagicLinkEmail` config field. `EventAfterMagicLinkVerified` is emitted after successful completion.
 
-The second argument to `magiclink.New()` accepts a custom `types.CoreStorage` implementation:
-
-```go
-a.Use(magiclink.New(magicLinkConfig, myCustomCoreStorage))
-```
-
-When `nil`, the module uses `deps.Storage.Core()` from the shared storage layer.
-
-### Event-Driven Delivery
-
-The Magic Link module emits `EventSendMagicLink` when a link needs to be sent. The Notification module subscribes to this event and delivers the email. If you need custom delivery logic, subscribe to this event with your own handler.
-
-## Dependencies
-
-- **Core module** (auto-registered)
-
-:::note
-Requires the Notification module for sending emails. Register it before the Magic Link module. Enable magic link delivery with `EnableMagicLinkEmail: true` in the Notification config.
-:::
+Core is the module dependency. Register delivery handlers before initialization. For auto-registration, configure the account and verification policies intentionally; see [Security](../security.md).

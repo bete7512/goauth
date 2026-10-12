@@ -2,6 +2,8 @@ package providers
 
 import (
 	"fmt"
+	"regexp"
+	"sort"
 	"sync"
 
 	"github.com/bete7512/goauth/pkg/config"
@@ -22,9 +24,13 @@ func NewRegistry() *Registry {
 
 // Register adds a provider to the registry
 func (r *Registry) Register(provider OAuthProvider) {
+	r.RegisterConnection(provider.Name(), provider)
+}
+
+func (r *Registry) RegisterConnection(name string, provider OAuthProvider) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.providers[provider.Name()] = provider
+	r.providers[name] = provider
 }
 
 // Get retrieves a provider by name
@@ -56,6 +62,7 @@ func (r *Registry) List() []string {
 	for name := range r.providers {
 		names = append(names, name)
 	}
+	sort.Strings(names)
 	return names
 }
 
@@ -74,13 +81,29 @@ const (
 	ProviderDiscord   = "discord"
 )
 
+var connectionIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
+
+func ValidConnectionID(name string) bool { return connectionIDPattern.MatchString(name) }
+
 // RegisterBuiltinProviders creates and registers all configured OAuth providers
 func RegisterBuiltinProviders(registry *Registry, providers map[string]*config.OAuthProviderConfig, apiURL, basePath string) error {
-	for name, cfg := range providers {
+	names := make([]string, 0, len(providers))
+	for name := range providers {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		cfg := providers[name]
 		if cfg == nil || !cfg.Enabled {
 			continue
 		}
 
+		if !ValidConnectionID(name) {
+			return fmt.Errorf("invalid OAuth connection ID %q", name)
+		}
+		if registry.Has(name) {
+			return fmt.Errorf("duplicate OAuth connection %q", name)
+		}
 		if cfg.ClientID == "" || cfg.ClientSecret == "" {
 			return fmt.Errorf("provider '%s' requires ClientID and ClientSecret", name)
 		}
@@ -88,7 +111,11 @@ func RegisterBuiltinProviders(registry *Registry, providers map[string]*config.O
 		var provider OAuthProvider
 		var err error
 
-		switch name {
+		providerType := cfg.Type
+		if providerType == "" {
+			providerType = name
+		}
+		switch providerType {
 		case ProviderGoogle:
 			provider, err = NewGoogleProvider(cfg, apiURL, basePath)
 		case ProviderGitHub:
@@ -105,7 +132,7 @@ func RegisterBuiltinProviders(registry *Registry, providers map[string]*config.O
 			return fmt.Errorf("failed to create provider '%s': %w", name, err)
 		}
 
-		registry.Register(provider)
+		registry.RegisterConnection(name, provider)
 	}
 
 	return nil

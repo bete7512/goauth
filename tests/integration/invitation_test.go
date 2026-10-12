@@ -3,6 +3,8 @@
 package integration_test
 
 import (
+	"context"
+	"github.com/bete7512/goauth/pkg/auth"
 	"net/http"
 	"testing"
 
@@ -14,8 +16,8 @@ import (
 // --- Send ---
 
 func TestInvitation_Send(t *testing.T) {
-	_, handler := h.SetupStatelessWithInvitation(t)
-	token, _ := h.SignupAndLogin(t, handler, "inviter@example.com", "Test1234", "Inviter")
+	a, handler := h.SetupStatelessWithInvitation(t)
+	token, _ := invitationAdmin(t, a, handler, "inviter@example.com", "Test1234", "Inviter")
 
 	w := h.JSONPost(handler, "/auth/invitations", map[string]interface{}{
 		"email": "invitee@example.com",
@@ -30,8 +32,8 @@ func TestInvitation_Send(t *testing.T) {
 }
 
 func TestInvitation_Send_WithPurpose(t *testing.T) {
-	_, handler := h.SetupStatelessWithInvitation(t)
-	token, _ := h.SignupAndLogin(t, handler, "inviter2@example.com", "Test1234", "Inviter")
+	a, handler := h.SetupStatelessWithInvitation(t)
+	token, _ := invitationAdmin(t, a, handler, "inviter2@example.com", "Test1234", "Inviter")
 
 	w := h.JSONPost(handler, "/auth/invitations", map[string]interface{}{
 		"email":   "beta@example.com",
@@ -53,8 +55,8 @@ func TestInvitation_Send_Unauthenticated(t *testing.T) {
 }
 
 func TestInvitation_Send_DuplicatePending(t *testing.T) {
-	_, handler := h.SetupStatelessWithInvitation(t)
-	token, _ := h.SignupAndLogin(t, handler, "dup@example.com", "Test1234", "User")
+	a, handler := h.SetupStatelessWithInvitation(t)
+	token, _ := invitationAdmin(t, a, handler, "dup@example.com", "Test1234", "User")
 
 	// First invitation
 	w := h.JSONPost(handler, "/auth/invitations", map[string]interface{}{
@@ -72,8 +74,8 @@ func TestInvitation_Send_DuplicatePending(t *testing.T) {
 // --- List ---
 
 func TestInvitation_List(t *testing.T) {
-	_, handler := h.SetupStatelessWithInvitation(t)
-	token, _ := h.SignupAndLogin(t, handler, "lister@example.com", "Test1234", "User")
+	a, handler := h.SetupStatelessWithInvitation(t)
+	token, _ := invitationAdmin(t, a, handler, "lister@example.com", "Test1234", "User")
 
 	// Send an invitation first
 	h.JSONPost(handler, "/auth/invitations", map[string]interface{}{
@@ -91,8 +93,8 @@ func TestInvitation_List(t *testing.T) {
 // --- My Invitations ---
 
 func TestInvitation_MyInvitations(t *testing.T) {
-	_, handler := h.SetupStatelessWithInvitation(t)
-	token, _ := h.SignupAndLogin(t, handler, "viewer@example.com", "Test1234", "User")
+	a, handler := h.SetupStatelessWithInvitation(t)
+	token, _ := invitationAdmin(t, a, handler, "viewer@example.com", "Test1234", "User")
 
 	w := h.JSONGet(handler, "/auth/invitations/my", h.AuthHeader(token))
 	assert.Equal(t, http.StatusOK, w.Code, "my invitations: %s", w.Body.String())
@@ -101,8 +103,8 @@ func TestInvitation_MyInvitations(t *testing.T) {
 // --- Cancel ---
 
 func TestInvitation_Cancel(t *testing.T) {
-	_, handler := h.SetupStatelessWithInvitation(t)
-	token, _ := h.SignupAndLogin(t, handler, "canceler@example.com", "Test1234", "User")
+	a, handler := h.SetupStatelessWithInvitation(t)
+	token, _ := invitationAdmin(t, a, handler, "canceler@example.com", "Test1234", "User")
 
 	// Send invitation
 	w := h.JSONPost(handler, "/auth/invitations", map[string]interface{}{
@@ -117,10 +119,10 @@ func TestInvitation_Cancel(t *testing.T) {
 }
 
 func TestInvitation_Cancel_NotInviter(t *testing.T) {
-	_, handler := h.SetupStatelessWithInvitation(t)
+	a, handler := h.SetupStatelessWithInvitation(t)
 
 	// User 1 sends invitation
-	token1, _ := h.SignupAndLogin(t, handler, "user1@example.com", "Test1234", "User1")
+	token1, _ := invitationAdmin(t, a, handler, "user1@example.com", "Test1234", "User1")
 	w := h.JSONPost(handler, "/auth/invitations", map[string]interface{}{
 		"email": "target2@example.com",
 	}, h.AuthHeader(token1))
@@ -136,10 +138,10 @@ func TestInvitation_Cancel_NotInviter(t *testing.T) {
 // --- Accept / Decline (requires 2 users) ---
 
 func TestInvitation_AcceptInvitation(t *testing.T) {
-	_, handler := h.SetupStatelessWithInvitation(t)
+	a, handler := h.SetupStatelessWithInvitation(t)
 
 	// User 1 sends invitation to User 2's email
-	token1, _ := h.SignupAndLogin(t, handler, "sender@example.com", "Test1234", "Sender")
+	token1, _ := invitationAdmin(t, a, handler, "sender@example.com", "Test1234", "Sender")
 	w := h.JSONPost(handler, "/auth/invitations", map[string]interface{}{
 		"email": "accepter@example.com",
 	}, h.AuthHeader(token1))
@@ -147,10 +149,10 @@ func TestInvitation_AcceptInvitation(t *testing.T) {
 
 	invData, ok := h.ParseJSON(t, w.Body)["data"].(map[string]interface{})
 	require.True(t, ok, "invite response should have data")
-	invToken, ok := invData["token"].(string)
-	if !ok {
-		t.Skip("invitation token not returned in response — skipping accept flow")
-	}
+	require.NotContains(t, invData, "token", "inviter responses must not disclose the emailed bearer secret")
+	invitation, err := a.Config().Storage.Invitation().Invitations().FindByID(context.Background(), invData["id"].(string))
+	require.NoError(t, err)
+	invToken := invitation.Token
 
 	// User 2 accepts
 	token2, _ := h.SignupAndLogin(t, handler, "accepter@example.com", "Test1234", "Accepter")
@@ -161,10 +163,10 @@ func TestInvitation_AcceptInvitation(t *testing.T) {
 }
 
 func TestInvitation_DeclineInvitation(t *testing.T) {
-	_, handler := h.SetupStatelessWithInvitation(t)
+	a, handler := h.SetupStatelessWithInvitation(t)
 
 	// User 1 sends invitation
-	token1, _ := h.SignupAndLogin(t, handler, "sender2@example.com", "Test1234", "Sender")
+	token1, _ := invitationAdmin(t, a, handler, "sender2@example.com", "Test1234", "Sender")
 	w := h.JSONPost(handler, "/auth/invitations", map[string]interface{}{
 		"email": "decliner@example.com",
 	}, h.AuthHeader(token1))
@@ -172,10 +174,10 @@ func TestInvitation_DeclineInvitation(t *testing.T) {
 
 	invData, ok := h.ParseJSON(t, w.Body)["data"].(map[string]interface{})
 	require.True(t, ok)
-	invToken, ok := invData["token"].(string)
-	if !ok {
-		t.Skip("invitation token not returned in response — skipping decline flow")
-	}
+	require.NotContains(t, invData, "token", "inviter responses must not disclose the emailed bearer secret")
+	invitation, err := a.Config().Storage.Invitation().Invitations().FindByID(context.Background(), invData["id"].(string))
+	require.NoError(t, err)
+	invToken := invitation.Token
 
 	// User 2 declines
 	token2, _ := h.SignupAndLogin(t, handler, "decliner@example.com", "Test1234", "Decliner")
@@ -185,11 +187,11 @@ func TestInvitation_DeclineInvitation(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code, "decline invitation: %s", w.Body.String())
 }
 
-func TestInvitation_Accept_EmailMismatch(t *testing.T) {
-	_, handler := h.SetupStatelessWithInvitation(t)
+func TestInvitation_AcceptRequiresNewUserDetails(t *testing.T) {
+	a, handler := h.SetupStatelessWithInvitation(t)
 
 	// User 1 sends invitation to a different email
-	token1, _ := h.SignupAndLogin(t, handler, "sender3@example.com", "Test1234", "Sender")
+	token1, _ := invitationAdmin(t, a, handler, "sender3@example.com", "Test1234", "Sender")
 	w := h.JSONPost(handler, "/auth/invitations", map[string]interface{}{
 		"email": "intended@example.com",
 	}, h.AuthHeader(token1))
@@ -197,15 +199,34 @@ func TestInvitation_Accept_EmailMismatch(t *testing.T) {
 
 	invData, ok := h.ParseJSON(t, w.Body)["data"].(map[string]interface{})
 	require.True(t, ok)
-	invToken, ok := invData["token"].(string)
-	if !ok {
-		t.Skip("invitation token not returned in response")
-	}
+	require.NotContains(t, invData, "token", "inviter responses must not disclose the emailed bearer secret")
+	invitation, err := a.Config().Storage.Invitation().Invitations().FindByID(context.Background(), invData["id"].(string))
+	require.NoError(t, err)
+	invToken := invitation.Token
 
-	// User 2 (different email) tries to accept
+	// A different current user must not become the invited identity.
+	// The emailed invitation selects a new identity, which still requires registration details.
 	token2, _ := h.SignupAndLogin(t, handler, "wrong@example.com", "Test1234", "Wrong")
 	w = h.JSONPost(handler, "/auth/invitations/accept", map[string]interface{}{
 		"token": invToken,
 	}, h.AuthHeader(token2))
-	assert.Equal(t, http.StatusForbidden, w.Code, "email mismatch should fail: %s", w.Body.String())
+	assert.Equal(t, http.StatusBadRequest, w.Code, "new invited identity still needs registration details: %s", w.Body.String())
+}
+
+func invitationAdmin(t *testing.T, a *auth.Auth, handler http.Handler, email, password, name string) (string, string) {
+	t.Helper()
+	h.Signup(t, handler, email, password, name)
+	repo := a.Config().Storage.Core().Users()
+	user, err := repo.FindByEmail(context.Background(), email)
+	require.NoError(t, err)
+	user.IsSuperAdmin = true
+	require.NoError(t, repo.Update(context.Background(), user))
+	return h.Login(t, handler, email, password)
+}
+
+func TestInvitation_Send_NonAdmin(t *testing.T) {
+	_, handler := h.SetupStatelessWithInvitation(t)
+	token, _ := h.SignupAndLogin(t, handler, "member@example.com", "Test1234", "Member")
+	w := h.JSONPost(handler, "/auth/invitations", map[string]interface{}{"email": "target@example.com"}, h.AuthHeader(token))
+	require.Equal(t, http.StatusForbidden, w.Code)
 }

@@ -44,6 +44,26 @@ type UserRepository interface {
 	IsAvailable(ctx context.Context, field, value string) (bool, error)
 }
 
+// UserCredentialMutator avoids stale whole-user writes during authentication.
+type UserCredentialMutator interface {
+	RevokeTokens(context.Context, string) error
+	ChangePassword(context.Context, string, string, string) error
+	RecordLogin(context.Context, string, int, time.Time) error
+}
+
+// UserAuthenticationMutator updates authentication state without overwriting
+// concurrent password, revocation, suspension, or profile changes.
+type UserAuthenticationMutator interface {
+	RecordFailedLogin(context.Context, string, int, int, time.Duration) (*User, error)
+	VerifyContact(context.Context, string, string, bool) error
+}
+
+// UserProfileMutator restricts profile edits to profile fields. Changing a
+// recovery phone clears its proof and revokes existing grants atomically.
+type UserProfileMutator interface {
+	UpdateProfile(context.Context, string, string, string, string) error
+}
+
 func (User) TableName() string {
 	return "users"
 }

@@ -1,0 +1,231 @@
+paths:
+  /passkeys/register/begin:
+    post:
+      summary: Begin passkey registration
+      description: |
+        Start a WebAuthn registration ceremony for the authenticated user.
+        Returns PublicKeyCredentialCreationOptions for navigator.credentials.create()
+        plus an opaque `challenge_token` the client must send back with the
+        registration response.
+      tags: [Passkeys Module Docs]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Creation options
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BeginRegistrationResponse'
+
+  /passkeys/register/finish:
+    post:
+      summary: Finish passkey registration
+      description: Verify the attestation produced by the authenticator and persist the credential.
+      tags: [Passkeys Module Docs]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FinishRegistrationRequest'
+      responses:
+        '201':
+          description: Passkey registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasskeySummary'
+        '400':
+          description: Invalid attestation or expired challenge
+
+  /passkeys/login/begin:
+    post:
+      summary: Begin passkey login
+      description: |
+        Start a discoverable-credential WebAuthn assertion ceremony. The client
+        is not required to supply a username — the authenticator chooses the
+        credential.
+      tags: [Passkeys Module Docs]
+      responses:
+        '200':
+          description: Assertion options
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BeginLoginResponse'
+
+  /passkeys/login/finish:
+    post:
+      summary: Finish passkey login
+      description: Verify the assertion and issue access + refresh tokens on success.
+      tags: [Passkeys Module Docs]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FinishLoginRequest'
+      responses:
+        '200':
+          description: Auth tokens
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid assertion
+
+  /passkeys:
+    get:
+      summary: List user's passkeys
+      tags: [Passkeys Module Docs]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of passkeys
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PasskeySummary'
+
+  /passkeys/{id}:
+    delete:
+      summary: Revoke a passkey
+      tags: [Passkeys Module Docs]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Deleted
+        '403':
+          description: Passkey does not belong to user
+        '404':
+          description: Not found
+
+    put:
+      summary: Rename a passkey
+      tags: [Passkeys Module Docs]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RenameRequest'
+      responses:
+        '200':
+          description: Renamed
+        '403':
+          description: Passkey does not belong to user
+        '404':
+          description: Not found
+
+components:
+  schemas:
+    BeginRegistrationResponse:
+      type: object
+      properties:
+        challenge_token:
+          type: string
+          description: Opaque token the client must return to /register/finish
+        public_key:
+          type: object
+          description: PublicKeyCredentialCreationOptions passed to navigator.credentials.create()
+
+    FinishRegistrationRequest:
+      type: object
+      required: [challenge_token, credential_response]
+      properties:
+        challenge_token:
+          type: string
+        credential_response:
+          type: object
+          description: Raw WebAuthn attestation response from the browser
+        name:
+          type: string
+          description: User-friendly label for the passkey ("iPhone 15", "YubiKey")
+
+    BeginLoginResponse:
+      type: object
+      properties:
+        challenge_token:
+          type: string
+        public_key:
+          type: object
+          description: PublicKeyCredentialRequestOptions passed to navigator.credentials.get()
+
+    FinishLoginRequest:
+      type: object
+      required: [challenge_token, credential_response]
+      properties:
+        challenge_token:
+          type: string
+        credential_response:
+          type: object
+
+    PasskeySummary:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        transports:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+        last_used_at:
+          type: string
+          format: date-time
+
+    RenameRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+
+    AuthResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        user:
+          type: object
+        expires_in:
+          type: integer
+          format: int64
+        message:
+          type: string
+
+tags:
+  - name: Passkeys Module Docs
+    description: |
+      WebAuthn / Passkeys — phishing-resistant, shared-secret-free authentication.
+      v1 supports primary login via discoverable credentials plus post-signup
+      credential management. Use-as-2FA (passkey as a second factor during
+      password login) is planned for v1.1 via the AuthInterceptors framework.

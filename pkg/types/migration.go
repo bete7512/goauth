@@ -20,12 +20,32 @@ type ModuleMigrations map[DialectType][]VersionedMigration
 
 // MigrationRecord represents one applied migration tracked in the goauth_migrations table.
 type MigrationRecord struct {
+	Checksum   string    `json:"checksum"`
+	Dirty      bool      `json:"dirty"`
 	ID         string    `json:"id"`
 	ModuleName string    `json:"module_name"`
 	Version    int       `json:"version"`
 	Name       string    `json:"name"`
 	Dialect    string    `json:"dialect"`
 	AppliedAt  time.Time `json:"applied_at"`
+}
+
+// CoordinatedMigrationApplier serializes migration runners across processes.
+// The callback must use only the supplied, connection-bound applier.
+type CoordinatedMigrationApplier interface {
+	WithMigrationLock(context.Context, func(MigrationApplier) error) error
+}
+
+// AtomicMigrationApplier commits SQL and its checksum record together where
+// transactional DDL exists. Other dialects must persist a dirty record first
+// and require operator repair after an interrupted or failed DDL operation.
+type AtomicMigrationApplier interface {
+	ApplyMigration(context.Context, MigrationRecord, []byte) error
+}
+
+// AtomicMigrationReverter applies the same atomic/dirty-record guarantees on rollback.
+type AtomicMigrationReverter interface {
+	RevertMigration(context.Context, MigrationRecord, []byte) error
 }
 
 // MigrationApplier is implemented by storage backends that support the module migration system.

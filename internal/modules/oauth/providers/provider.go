@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"fmt"
 	"net/http"
 	"net/url"
 	"time"
@@ -131,9 +132,26 @@ func NewBaseProvider(name, clientID, clientSecret, authURL, tokenURL, userInfoUR
 		userInfoURL:  userInfoURL,
 		scopes:       scopes,
 		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout:   30 * time.Second,
+			Transport: boundedTransport{base: http.DefaultTransport},
+			CheckRedirect: func(*http.Request, []*http.Request) error {
+				return fmt.Errorf("OAuth endpoint redirects are not allowed")
+			},
 		},
 	}
+}
+
+// Fixed-vendor responses, including remote JWKS, share a strict memory ceiling.
+// Injected clients/providers are trusted application extensions and must retain
+// equivalent destination, timeout, redirect and response limits.
+type boundedTransport struct{ base http.RoundTripper }
+
+func (t boundedTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	response, err := t.base.RoundTrip(request)
+	if err == nil {
+		response.Body = http.MaxBytesReader(nil, response.Body, 1<<20)
+	}
+	return response, err
 }
 
 // Name returns the provider name

@@ -12,7 +12,7 @@ auth.New(config) → auth.Use(module) → auth.Initialize(ctx)
 
 Every module implements `config.Module` (8 methods): `Name`, `Init`, `Routes`, `Middlewares`, `Models`, `RegisterHooks`, `Dependencies`, `SwaggerSpec`.
 
-Modules are registered with `auth.Use()` before `auth.Initialize()`. Order is enforced — calling `Use()` after `Initialize()` panics.
+Modules are registered with `auth.Use()` before `auth.Initialize()`. Order is enforced — `Use()` returns an error if called after `Initialize()`.
 
 Reference implementation: `core/module.go`.
 
@@ -28,7 +28,7 @@ Core does **not** handle login/logout/refresh — those are handled by the Sessi
 
 ## Authentication Modules
 
-Session and Stateless are **mutually exclusive**. Registering both panics. If neither is registered, Stateless is used as the default.
+Session and Stateless are **mutually exclusive**. Registering both returns an error from `Use()`. If neither is registered, Stateless is used as the default.
 
 ### Session Module
 

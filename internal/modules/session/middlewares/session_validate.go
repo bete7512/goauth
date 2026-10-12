@@ -99,6 +99,7 @@ func refreshSessionCookie(
 		Secure:   sessionCfg.Secure,
 		SameSite: sessionCfg.SameSite,
 		Path:     sessionCfg.Path,
+		Domain:   sessionCfg.Domain,
 		MaxAge:   int(validator.CacheTTL().Seconds()),
 	})
 }

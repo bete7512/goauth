@@ -1,0 +1,82 @@
+@import "tailwindcss";
+@import "fumadocs-ui/css/neutral.css";
+@import "fumadocs-ui/css/preset.css";
+
+html {
+  scrollbar-gutter: stable;
+}
+
+.mermaid-figure {
+  min-width: 0;
+  margin-block: 1.5rem;
+  overflow: hidden;
+  border: 1px solid var(--color-fd-border);
+  border-radius: 0.75rem;
+}
+.mermaid-canvas {
+  overflow-x: auto;
+  background: #fafaf9;
+}
+.mermaid-canvas svg {
+  display: block;
+  max-width: none;
+  margin-inline: auto;
+}
+.mermaid-figure figcaption {
+  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
+  color: var(--color-fd-muted-foreground);
+}
+.mermaid-figure details {
+  border: 0;
+  border-top: 1px solid var(--color-fd-border);
+  border-radius: 0;
+  margin: 0;
+  padding: 0.75rem 1rem;
+}
+.mermaid-figure summary {
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-fd-primary);
+  outline-offset: 4px;
+}
+
+/* Retain the endpoint guide's disclosure panels and authorization labels. */
+.prose details {
+  margin-block: 1rem;
+  border: 1px solid var(--color-fd-border);
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+
+.prose summary {
+  cursor: pointer;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.badge {
+  display: inline-block;
+  border-radius: 0.3rem;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.7rem;
+  line-height: 1.5;
+  background: var(--color-fd-secondary);
+  color: var(--color-fd-secondary-foreground);
+}
+
+.badge--danger {
+  color: light-dark(#b91c1c, #fca5a5);
+}
+.badge--primary,
+.badge--info {
+  color: light-dark(#0e7490, #67e8f9);
+}
+
+html > body[data-scroll-locked] {
+  margin-right: 0px !important;
+  --removed-body-scroll-bar-size: 0px !important;
+}

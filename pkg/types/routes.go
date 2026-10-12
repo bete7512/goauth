@@ -18,6 +18,19 @@ const (
 	// availability routes
 	RouteCheckAvailability RouteName = "core.check_availability"
 
+	// Public JSON Web Key Set for verifying access / refresh tokens.
+	// Only served when JWTAlgorithm is asymmetric (RS256 / ES256).
+	RouteJWKS RouteName = "core.jwks"
+
+	// Passkeys Routes
+	RoutePasskeysRegisterBegin  RouteName = "passkeys.register_begin"
+	RoutePasskeysRegisterFinish RouteName = "passkeys.register_finish"
+	RoutePasskeysLoginBegin     RouteName = "passkeys.login_begin"
+	RoutePasskeysLoginFinish    RouteName = "passkeys.login_finish"
+	RoutePasskeysList           RouteName = "passkeys.list"
+	RoutePasskeysDelete         RouteName = "passkeys.delete"
+	RoutePasskeysRename         RouteName = "passkeys.rename"
+
 	// Verification & Password Reset Routes
 	RouteSendVerificationEmail   RouteName = "core.send_verification_email"
 	RouteResendVerificationEmail RouteName = "core.resend_verification_email"

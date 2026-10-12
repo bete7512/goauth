@@ -30,12 +30,20 @@ func (h *MagicLinkHandler) Verify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if len(response.Challenges) > 0 {
+		http_utils.RespondSuccess(w, response, nil)
+		return
+	}
+	h.setAuthCookies(w, response.AccessToken, response.RefreshToken)
 	if h.config.CallbackURL != "" {
+		if h.deps.Config.Security.AuthMode == types.AuthModeCookie {
+			http.Redirect(w, r, h.config.CallbackURL, http.StatusFound)
+			return
+		}
 		h.redirectWithTokens(w, r, response.AccessToken, response.RefreshToken)
 		return
 	}
 
-	h.setAuthCookies(w, response.AccessToken, response.RefreshToken)
 	http_utils.RespondSuccess(w, response, nil)
 }
 
@@ -90,30 +98,7 @@ func (h *MagicLinkHandler) redirectWithError(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *MagicLinkHandler) setAuthCookies(w http.ResponseWriter, accessToken, refreshToken *string) {
-	if accessToken == nil || refreshToken == nil {
-		return
+	if accessToken != nil && refreshToken != nil {
+		http_utils.SetCredentialCookies(w, h.deps.Config.Security, *accessToken, *refreshToken)
 	}
-
-	sessionCfg := h.deps.Config.Security.Session
-	accessTokenName := "goauth_access_" + sessionCfg.Name
-	http.SetCookie(w, &http.Cookie{
-		Name:     accessTokenName,
-		Value:    *accessToken,
-		HttpOnly: sessionCfg.HttpOnly,
-		Secure:   sessionCfg.Secure,
-		SameSite: sessionCfg.SameSite,
-		Path:     sessionCfg.Path,
-		MaxAge:   sessionCfg.MaxAge,
-	})
-
-	refreshTokenName := "goauth_refresh_" + sessionCfg.Name
-	http.SetCookie(w, &http.Cookie{
-		Name:     refreshTokenName,
-		Value:    *refreshToken,
-		HttpOnly: sessionCfg.HttpOnly,
-		Secure:   sessionCfg.Secure,
-		SameSite: sessionCfg.SameSite,
-		Path:     sessionCfg.Path,
-		MaxAge:   sessionCfg.MaxAge,
-	})
 }

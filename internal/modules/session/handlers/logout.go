@@ -43,39 +43,5 @@ func (h *SessionHandler) Logout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *SessionHandler) clearSessionCookies(w http.ResponseWriter) {
-	sessionCfg := h.deps.Config.Security.Session
-
-	accessTokenName := "goauth_access_" + sessionCfg.Name
-	http.SetCookie(w, &http.Cookie{
-		Name:     accessTokenName,
-		Value:    "",
-		HttpOnly: sessionCfg.HttpOnly,
-		Secure:   sessionCfg.Secure,
-		SameSite: sessionCfg.SameSite,
-		Path:     sessionCfg.Path,
-		MaxAge:   -1,
-	})
-	refreshTokenName := "goauth_refresh_" + sessionCfg.Name
-	http.SetCookie(w, &http.Cookie{
-		Name:     refreshTokenName,
-		Value:    "",
-		HttpOnly: sessionCfg.HttpOnly,
-		Secure:   sessionCfg.Secure,
-		SameSite: sessionCfg.SameSite,
-		Path:     sessionCfg.Path,
-		MaxAge:   -1,
-	})
-
-	// Clear session cache cookie
-	if h.encoder != nil {
-		http.SetCookie(w, &http.Cookie{
-			Name:     "goauth_session_" + sessionCfg.Name,
-			Value:    "",
-			HttpOnly: true,
-			Secure:   sessionCfg.Secure,
-			SameSite: sessionCfg.SameSite,
-			Path:     sessionCfg.Path,
-			MaxAge:   -1,
-		})
-	}
+	http_utils.ClearCredentialCookies(w, h.deps.Config.Security)
 }

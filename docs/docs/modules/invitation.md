@@ -12,27 +12,35 @@ The Invitation module provides standalone, platform-level invitations. Use it to
 ## Capabilities
 
 - **Invite by Email** -- Send invitations to any email address with a configurable purpose (e.g., `"platform"`, `"beta"`, `"referral"`).
-- **Invite-Only Registration** -- The accept endpoint creates a new user account if the email doesn't exist yet. This enables invite-only platforms where signup is gated by invitation.
+- **Invite-Only Registration** -- The accept endpoint creates a new user account if the email doesn't exist yet. To make a platform invite-only, separately reject Core signup with a synchronous `EventBeforeSignup` hook or prevent exposure of that route. Registering Invitation does not disable `/signup`.
 - **Public Accept/Decline** -- Accept and decline endpoints are public (no auth required). The invitation token is the authorization. New users provide name + password; existing users just accept.
-- **Auth Tokens on Accept** -- The accept endpoint returns JWT access and refresh tokens, so the user is immediately logged in after accepting.
+- **Auth Tokens on Accept** -- After acceptance, shared completion returns credentials for the selected strategy or a `challenges` array when additional verification is required.
 - **Inviter-Scoped** -- Only the inviter can list and cancel their own invitations.
 - **Purpose Field** -- Tag invitations with a purpose string for filtering and business logic.
 - **Metadata** -- Attach arbitrary JSON metadata to invitations for consumer-defined data.
 - **Email Notifications** -- When the notification module is registered, invitation emails are sent automatically (no config flag needed).
+
+## Dependencies
+
+Register [Admin](admin.md) before initialization. Invitation declares dependencies on Core and Admin; its send endpoint requires a super-admin. A transactional aggregate store is required for acceptance.
 
 ## Registration
 
 ```go
 import "github.com/bete7512/goauth/pkg/modules/invitation"
 
-a.Use(invitation.New(&invitation.Config{
+if err := a.Use(invitation.New(&invitation.Config{
     CallbackURL:    "https://app.example.com/invite", // frontend page
     DefaultPurpose: "platform",
     InvitationExpiry: 7 * 24 * time.Hour,
-}))
+})); err != nil {
+    return err
+}
 
 // Or with defaults (7-day expiry, "platform" purpose)
-a.Use(invitation.New(nil))
+if err := a.Use(invitation.New(nil)); err != nil {
+    return err
+}
 ```
 
 ## Configuration
@@ -117,8 +125,8 @@ type Config struct {
 4. Recipient clicks link -> frontend page
 5a. New user: frontend shows name+password form, calls POST /invitations/accept with token+name+password
 5b. Existing user: frontend calls POST /invitations/accept with just the token
-6. System creates user (if new), marks invitation accepted, returns auth tokens
-7. User is immediately logged in
+6. System creates the user (if new) and marks the invitation accepted in one transaction
+7. Shared completion returns credentials or a challenge; complete any 2FA challenge before treating the user as authenticated
 ```
 
 ## Model
@@ -171,7 +179,4 @@ notification.New(&notification.Config{
 })
 ```
 
-## Dependencies
-
-- **Core module** (auto-registered)
 - **Notification module** (optional, for email delivery)

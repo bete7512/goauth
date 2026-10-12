@@ -33,69 +33,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /login:
-    post:
-      summary: Login with credentials
-      description: Authenticate user with email/username and password
-      tags: [Core Authentication Module Docs]
-      security:
-        - csrfToken: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LoginRequest'
-      responses:
-        '200':
-          description: Login successful
-          headers:
-            Set-Cookie:
-              schema:
-                type: string
-                description: Session cookie
-                example: session_token=abc123; HttpOnly; Secure; SameSite=Strict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthResponse'
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Invalid credentials
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /logout:
-    post:
-      summary: Logout user
-      description: End user session
-      tags: [Core Authentication Module Docs]
-      security:
-        - cookieAuth: []
-          csrfToken: []
-        - bearerAuth: []
-          csrfToken: []
-      responses:
-        '200':
-          description: Logout successful
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MessageResponse'
-        '401':
-          description: Not authenticated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
   /me:
     get:
       summary: Get current user
@@ -452,6 +389,27 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /.well-known/jwks.json:
+    get:
+      summary: Public JSON Web Key Set
+      description: |
+        Returns the active public key in JWKS format (RFC 7517) so downstream
+        consumers (API gateways, microservices) can verify access and stateless
+        refresh tokens without sharing a secret. Only served when
+        `SecurityConfig.JWTAlgorithm` is asymmetric (`RS256` or `ES256`); a
+        `HS256` deployment returns 404 because the symmetric secret must not be
+        exposed.
+      tags: [Core Authentication Module Docs]
+      responses:
+        '200':
+          description: JWKS document
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JWKS'
+        '404':
+          description: Not available — the deployment is using HS256
+
 components:
   # Security schemes are now defined globally in the swagger generator
   # This allows for dynamic configuration based on user settings
@@ -754,6 +712,48 @@ components:
           type: string
           example: Email is available
           description: Availability message
+
+    JWK:
+      type: object
+      description: One public key in JSON Web Key format (RFC 7517). Only the fields needed by relying parties are populated — private components are never included.
+      properties:
+        kty:
+          type: string
+          description: Key type ("RSA" or "EC")
+          example: RSA
+        use:
+          type: string
+          example: sig
+        kid:
+          type: string
+          description: Key ID — matches the JWT header "kid"
+        alg:
+          type: string
+          example: RS256
+        n:
+          type: string
+          description: RSA modulus, base64url-encoded (RSA keys only)
+        e:
+          type: string
+          description: RSA exponent, base64url-encoded (RSA keys only)
+        crv:
+          type: string
+          description: EC curve name (EC keys only)
+          example: P-256
+        x:
+          type: string
+          description: EC x-coordinate, base64url-encoded (EC keys only)
+        y:
+          type: string
+          description: EC y-coordinate, base64url-encoded (EC keys only)
+
+    JWKS:
+      type: object
+      properties:
+        keys:
+          type: array
+          items:
+            $ref: '#/components/schemas/JWK'
 
 tags:
   - name: Core Authentication Module Docs

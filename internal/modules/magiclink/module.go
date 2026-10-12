@@ -28,6 +28,10 @@ var _ config.Module = (*MagicLinkModule)(nil)
 // Pass nil for cfg to use safe defaults.
 // To provide custom storage, set cfg.CustomStorage.
 func New(cfg *config.MagicLinkModuleConfig) *MagicLinkModule {
+	if cfg != nil {
+		snapshot := *cfg
+		cfg = &snapshot
+	}
 	if cfg == nil {
 		cfg = &config.MagicLinkModuleConfig{}
 	}

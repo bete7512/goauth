@@ -18,10 +18,10 @@ import (
 	"github.com/bete7512/goauth/pkg/modules/admin"
 	"github.com/bete7512/goauth/pkg/modules/audit"
 	"github.com/bete7512/goauth/pkg/modules/csrf"
+	"github.com/bete7512/goauth/pkg/modules/invitation"
 	"github.com/bete7512/goauth/pkg/modules/magiclink"
 	"github.com/bete7512/goauth/pkg/modules/notification"
 	"github.com/bete7512/goauth/pkg/modules/oauth"
-	"github.com/bete7512/goauth/pkg/modules/invitation"
 	"github.com/bete7512/goauth/pkg/modules/organization"
 	"github.com/bete7512/goauth/pkg/modules/session"
 	"github.com/bete7512/goauth/pkg/modules/twofactor"
@@ -56,9 +56,11 @@ func newStore(t *testing.T) types.Storage {
 	storeCounter++
 	dsn := fmt.Sprintf("file:test_%s_%d?mode=memory&cache=shared&_fk=1", t.Name(), storeCounter)
 	store, err := storage.NewGormStorage(storage.GormConfig{
-		Dialect:  types.DialectTypeSqlite,
-		DSN:      dsn,
-		LogLevel: "silent",
+		Dialect:      types.DialectTypeSqlite,
+		DSN:          dsn,
+		LogLevel:     "silent",
+		MaxOpenConns: 1,
+		MaxIdleConns: 1,
 	})
 	require.NoError(t, err)
 	return store
@@ -69,6 +71,7 @@ func initAuth(t *testing.T, authInstance *auth.Auth) http.Handler {
 	t.Helper()
 	err := authInstance.Initialize(context.Background())
 	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, authInstance.Close()) })
 	mux := http.NewServeMux()
 	return stdhttp.Register(mux, authInstance)
 }
@@ -197,6 +200,7 @@ func SetupStatelessWithInvitation(t *testing.T) (*auth.Auth, http.Handler) {
 	})
 	require.NoError(t, err)
 
+	require.NoError(t, authInstance.Use(admin.New(nil)))
 	require.NoError(t, authInstance.Use(invitation.New(nil)))
 
 	return authInstance, initAuth(t, authInstance)

@@ -3,13 +3,14 @@ package core_services
 import (
 	"context"
 	"errors"
+	"github.com/bete7512/goauth/internal/operation"
+	"github.com/bete7512/goauth/pkg/config"
 	"time"
 
 	"github.com/bete7512/goauth/internal/modules/core/handlers/dto"
 	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
 	"github.com/google/uuid"
-	"golang.org/x/crypto/bcrypt"
 )
 
 // ForgotPassword initiates password reset process.
@@ -96,6 +97,20 @@ func (s *coreService) ForgotPassword(ctx context.Context, req *dto.ForgotPasswor
 
 // ResetPassword resets password using token or code.
 func (s *coreService) ResetPassword(ctx context.Context, req *dto.ResetPasswordRequest) (*dto.MessageResponse, *types.GoAuthError) {
+	if s.Deps.Config.DurableEvents && !s.inTransaction {
+		return operation.Run(ctx, s.Deps, func(deps config.ModuleDependencies) (*dto.MessageResponse, *types.GoAuthError) {
+			copy := *s
+			copy.Deps = deps
+			copy.inTransaction = true
+			copy.UserRepository = deps.Storage.Core().Users()
+			copy.TokenRepository = deps.Storage.Core().Tokens()
+			return copy.ResetPassword(ctx, req)
+		})
+	}
+
+	if err := s.Deps.Config.Security.PasswordPolicy.Validate(req.NewPassword); err != nil {
+		return nil, types.NewValidationError(err.Error())
+	}
 	var verification *models.Token
 	var err error
 
@@ -120,7 +135,13 @@ func (s *coreService) ResetPassword(ctx context.Context, req *dto.ResetPasswordR
 		return nil, types.NewGoAuthError(types.ErrInvalidRequestBody, "reset token or code is required", 400)
 	}
 
-	if verification.ExpiresAt.Before(time.Now()) {
+	if verification.Type != models.TokenTypePasswordReset {
+		return nil, types.NewInvalidTokenError()
+	}
+	if req.Code != "" && (req.Phone == "" || verification.PhoneNumber != req.Phone) {
+		return nil, types.NewInvalidTokenError()
+	}
+	if !time.Now().Before(verification.ExpiresAt) {
 		return nil, types.NewTokenExpiredError()
 	}
 
@@ -138,21 +159,33 @@ func (s *coreService) ResetPassword(ctx context.Context, req *dto.ResetPasswordR
 	}
 
 	now := time.Now()
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	hashedPassword, err := s.SecurityManager.HashPassword(req.NewPassword)
 	if err != nil {
 		return nil, types.NewInternalError("failed to hash password").Wrap(err)
 	}
 
+	previousHash := user.PasswordHash
 	user.PasswordHash = string(hashedPassword)
+	user.TokenVersion++
 	user.UpdatedAt = &now
 
-	if err := s.UserRepository.Update(ctx, user); err != nil {
-		return nil, types.NewInternalError("failed to update password").Wrap(err)
+	store := s.coreStorage()
+	if store == nil {
+		return nil, types.NewInternalError("password recovery requires transactional core storage")
 	}
-
-	// Mark token as used instead of deleting
-	if err := s.TokenRepository.MarkAsUsed(ctx, verification.ID); err != nil {
-		return nil, types.NewInternalError("failed to mark reset token as used").Wrap(err)
+	if err := store.WithTransaction(ctx, func(tx types.CoreStorage) error {
+		if err := tx.Tokens().MarkAsUsed(ctx, verification.ID); err != nil {
+			return err
+		}
+		if mutator, ok := tx.Users().(models.UserCredentialMutator); ok {
+			return mutator.ChangePassword(ctx, user.ID, previousHash, user.PasswordHash)
+		}
+		return tx.Users().Update(ctx, user)
+	}); err != nil {
+		if errors.Is(err, models.ErrConflict) {
+			return nil, types.NewInvalidTokenError()
+		}
+		return nil, types.NewInternalError("failed to reset password").Wrap(err)
 	}
 
 	// Emit event
@@ -170,6 +203,20 @@ func (s *coreService) ResetPassword(ctx context.Context, req *dto.ResetPasswordR
 
 // ChangePassword changes password (requires old password)
 func (s *coreService) ChangePassword(ctx context.Context, userID string, req *dto.ChangePasswordRequest) (*dto.MessageResponse, *types.GoAuthError) {
+	if s.Deps.Config.DurableEvents && !s.inTransaction {
+		return operation.Run(ctx, s.Deps, func(deps config.ModuleDependencies) (*dto.MessageResponse, *types.GoAuthError) {
+			copy := *s
+			copy.Deps = deps
+			copy.inTransaction = true
+			copy.UserRepository = deps.Storage.Core().Users()
+			copy.TokenRepository = deps.Storage.Core().Tokens()
+			return copy.ChangePassword(ctx, userID, req)
+		})
+	}
+
+	if err := s.Deps.Config.Security.PasswordPolicy.Validate(req.NewPassword); err != nil {
+		return nil, types.NewValidationError(err.Error())
+	}
 	user, err := s.UserRepository.FindByID(ctx, userID)
 	if err != nil {
 		if errors.Is(err, models.ErrNotFound) {
@@ -179,19 +226,27 @@ func (s *coreService) ChangePassword(ctx context.Context, userID string, req *dt
 	}
 
 	now := time.Now()
-	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.OldPassword)); err != nil {
+	if err := s.SecurityManager.ValidatePassword(user.PasswordHash, req.OldPassword); err != nil {
 		return nil, types.NewInvalidCredentialsError()
 	}
 
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	hashedPassword, err := s.SecurityManager.HashPassword(req.NewPassword)
 	if err != nil {
 		return nil, types.NewInternalError("failed to hash password").Wrap(err)
 	}
 
+	previousHash := user.PasswordHash
 	user.PasswordHash = string(hashedPassword)
+	user.TokenVersion++
 	user.UpdatedAt = &now
 
-	if err := s.UserRepository.Update(ctx, user); err != nil {
+	var updateErr error
+	if mutator, ok := s.UserRepository.(models.UserCredentialMutator); ok {
+		updateErr = mutator.ChangePassword(ctx, user.ID, previousHash, user.PasswordHash)
+	} else {
+		updateErr = s.UserRepository.Update(ctx, user)
+	}
+	if err := updateErr; err != nil {
 		return nil, types.NewInternalError("failed to update password").Wrap(err)
 	}
 

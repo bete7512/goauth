@@ -1,6 +1,6 @@
 package models
 
-//go:generate mockgen -destination=../../internal/mocks/mock_session_repository.go -package=mocks github.com/bete7512/goauth/pkg/models SessionRepository
+//go:generate mockgen -destination=../../internal/mocks/mock_session_repository.go -package=mocks github.com/bete7512/goauth/pkg/models SessionRepository,RotatingSessionRepository
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 )
 
 type Session struct {
+	AuthData              string    `json:"-" gorm:"type:text"`
 	ID                    string    `json:"id" gorm:"primaryKey"`
 	UserID                string    `json:"user_id" gorm:"not null;index"`
 	RefreshToken          string    `json:"refresh_token" gorm:"uniqueIndex;not null"`
@@ -18,6 +19,17 @@ type Session struct {
 	ReplacedBy            string    `json:"replaced_by"`
 	CreatedAt             time.Time `json:"created_at"`
 	UpdatedAt             time.Time `json:"updated_at"`
+}
+
+// SessionRotator changes the refresh secret of the same logical session using
+// a conditional write. It preserves ID, user, creation time and absolute expiry.
+type SessionRotator interface {
+	RotateToken(ctx context.Context, oldToken string, session *Session) error
+}
+
+type RotatingSessionRepository interface {
+	SessionRepository
+	SessionRotator
 }
 
 func (Session) TableName() string {

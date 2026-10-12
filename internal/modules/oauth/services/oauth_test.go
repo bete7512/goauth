@@ -144,6 +144,7 @@ func (s *OAuthServiceSuite) TestInitiateLogin_StateSaveFails() {
 func (s *OAuthServiceSuite) validStateToken() *models.Token {
 	return &models.Token{
 		ID:        "state-1",
+		Data:      `{"connection":"google","nonce":"test-nonce","verifier":"code-verifier-123","redirect":"http://frontend.com/callback"}`,
 		Type:      models.TokenTypeOAuthState,
 		Token:     "valid-state",
 		Code:      "code-verifier-123",
@@ -192,6 +193,7 @@ func (s *OAuthServiceSuite) TestHandleCallback_NewUser() {
 	t.userRepo.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil) // last login update
 	t.events.EXPECT().EmitAsync(gomock.Any(), types.EventAfterSignup, gomock.Any()).Return(nil)
 	t.events.EXPECT().EmitAsync(gomock.Any(), types.EventOAuthLinkAdded, gomock.Any()).Return(nil)
+	t.tokenRepo.EXPECT().Create(gomock.Any(), gomock.Cond(func(token *models.Token) bool { return token.Type == "refresh_nonce" })).Return(nil)
 	t.events.EXPECT().EmitAsync(gomock.Any(), types.EventAfterOAuthLogin, gomock.Any()).Return(nil)
 
 	result, authErr := t.svc.HandleCallback(context.Background(), "google", "auth-code", "valid-state", metadata)
@@ -227,6 +229,7 @@ func (s *OAuthServiceSuite) TestHandleCallback_ExistingLinkedUser() {
 	t.accountRepo.EXPECT().FindByProviderAndAccountID(gomock.Any(), "google", userInfo.ID).Return(existingAccount, nil)
 	t.userRepo.EXPECT().FindByID(gomock.Any(), user.ID).Return(user, nil)
 	t.userRepo.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil) // last login
+	t.tokenRepo.EXPECT().Create(gomock.Any(), gomock.Cond(func(token *models.Token) bool { return token.Type == "refresh_nonce" })).Return(nil)
 	t.events.EXPECT().EmitAsync(gomock.Any(), types.EventAfterOAuthLogin, gomock.Any()).Return(nil)
 
 	result, authErr := t.svc.HandleCallback(context.Background(), "google", "auth-code", "valid-state", metadata)
@@ -257,6 +260,7 @@ func (s *OAuthServiceSuite) TestHandleCallback_EmailMatchLinking() {
 	t.accountRepo.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&models.Account{})).Return(nil) // link
 	t.userRepo.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil)                                    // last login
 	t.events.EXPECT().EmitAsync(gomock.Any(), types.EventOAuthLinkAdded, gomock.Any()).Return(nil)
+	t.tokenRepo.EXPECT().Create(gomock.Any(), gomock.Cond(func(token *models.Token) bool { return token.Type == "refresh_nonce" })).Return(nil)
 	t.events.EXPECT().EmitAsync(gomock.Any(), types.EventAfterOAuthLogin, gomock.Any()).Return(nil)
 
 	result, authErr := t.svc.HandleCallback(context.Background(), "google", "auth-code", "valid-state", metadata)

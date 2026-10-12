@@ -31,6 +31,7 @@ type orgTestSetup struct {
 	memberRepo *mocks.MockOrganizationMemberRepository
 	userRepo   *mocks.MockUserRepository
 	events     *mocks.MockEventBus
+	tokens     *mocks.MockTokenRepository
 }
 
 func (s *OrgServiceSuite) setup() *orgTestSetup {
@@ -48,7 +49,13 @@ func (s *OrgServiceSuite) setup() *orgTestSetup {
 	mockLogger.EXPECT().Error(gomock.Any(), gomock.Any()).AnyTimes()
 	mockLogger.EXPECT().Warn(gomock.Any(), gomock.Any()).AnyTimes()
 
+	tokens := mocks.NewMockTokenRepository(ctrl)
+	core := mocks.NewMockCoreStorage(ctrl)
+	store := mocks.NewMockStorage(ctrl)
+	store.EXPECT().Core().Return(core).AnyTimes()
+	core.EXPECT().Tokens().Return(tokens).AnyTimes()
 	deps := config.ModuleDependencies{
+		Storage:          store,
 		Config:           testutil.TestConfig(),
 		Events:           events,
 		Logger:           mockLogger,
@@ -59,7 +66,7 @@ func (s *OrgServiceSuite) setup() *orgTestSetup {
 	svc := services.NewOrgService(deps, orgRepo, memberRepo, userRepo)
 
 	return &orgTestSetup{
-		svc: svc, orgRepo: orgRepo, memberRepo: memberRepo, userRepo: userRepo, events: events,
+		tokens: tokens, svc: svc, orgRepo: orgRepo, memberRepo: memberRepo, userRepo: userRepo, events: events,
 	}
 }
 
@@ -152,12 +159,12 @@ func (s *OrgServiceSuite) TestUpdate_NotFound() {
 
 func (s *OrgServiceSuite) TestDelete_Success() {
 	t := s.setup()
-	org := &models.Organization{ID: "org-1", Name: "Team"}
+	org := &models.Organization{ID: "org-1", Name: "Team", OwnerID: "owner-1"}
 	t.orgRepo.EXPECT().FindByID(gomock.Any(), "org-1").Return(org, nil)
 	t.orgRepo.EXPECT().Delete(gomock.Any(), "org-1").Return(nil)
 	t.events.EXPECT().EmitAsync(gomock.Any(), types.EventOrgDeleted, gomock.Any()).Return(nil)
 
-	authErr := t.svc.Delete(context.Background(), "org-1")
+	authErr := t.svc.Delete(types.WithPrincipal(context.Background(), types.Principal{UserID: "owner-1"}), "org-1")
 	s.Nil(authErr)
 }
 
@@ -215,7 +222,8 @@ func (s *OrgServiceSuite) TestSwitchOrg_Success() {
 	t.memberRepo.EXPECT().FindByOrgAndUser(gomock.Any(), "org-1", user.ID).Return(member, nil)
 	t.events.EXPECT().EmitAsync(gomock.Any(), types.EventOrgSwitched, gomock.Any()).Return(nil)
 
-	accessToken, refreshToken, authErr := t.svc.SwitchOrg(context.Background(), user, "org-1")
+	t.tokens.EXPECT().Create(gomock.Any(), gomock.Any()).Return(nil)
+	accessToken, refreshToken, authErr := t.svc.SwitchOrg(types.WithPrincipal(context.Background(), types.Principal{UserID: user.ID}), user, "org-1")
 	s.Nil(authErr)
 	s.NotEmpty(accessToken)
 	s.NotEmpty(refreshToken)

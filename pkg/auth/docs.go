@@ -14,13 +14,13 @@ import (
 
 // GenerateOpenAPIDocs dynamically generates docs for enabled modules only
 func (a *Auth) GenerateOpenAPIDocs(cfg types.OpenAPIConfig) ([]byte, error) {
-	if !a.initialized {
+	if !a.initialized.Load() {
 		return nil, errors.New("auth must be initialized before generating openapi docs")
 	}
 
 	modules := make([]config.Module, 0, len(a.modules))
-	for _, module := range a.modules {
-		modules = append(modules, module)
+	for _, name := range a.moduleOrder {
+		modules = append(modules, a.modules[name])
 	}
 
 	gen := openapi.NewGenerator(modules, cfg)
@@ -65,7 +65,13 @@ func (a *Auth) OpenAPI(cfg types.OpenAPIConfig) error {
 		},
 	}
 
-	// Add to routes
-	a.routes = append(a.routes, openapiRoutes...)
+	a.registryMu.Lock()
+	defer a.registryMu.Unlock()
+	previous := a.routes
+	a.routes = append(append([]config.RouteInfo(nil), a.routes...), openapiRoutes...)
+	if err := a.validateRoutes(); err != nil {
+		a.routes = previous
+		return err
+	}
 	return nil
 }

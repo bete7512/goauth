@@ -5,14 +5,13 @@ import (
 	"embed"
 	"fmt"
 	"net/http"
-	"time"
+	"slices"
 
 	"github.com/bete7512/goauth/internal/modules/twofactor/handlers"
 	"github.com/bete7512/goauth/internal/modules/twofactor/services"
 	"github.com/bete7512/goauth/internal/utils"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/types"
-	"github.com/golang-jwt/jwt/v5"
 )
 
 type TwoFactorModule struct {
@@ -39,6 +38,8 @@ func New(cfg ...*config.TwoFactorConfig) *TwoFactorModule {
 		moduleConfig = &config.TwoFactorConfig{}
 	}
 
+	snapshot := *moduleConfig
+	moduleConfig = &snapshot
 	// Apply defaults for any zero values (handles partial configs)
 	if moduleConfig.Issuer == "" {
 		moduleConfig.Issuer = "GoAuth"
@@ -61,6 +62,9 @@ func (m *TwoFactorModule) Name() string {
 
 func (m *TwoFactorModule) Init(ctx context.Context, deps config.ModuleDependencies) error {
 	m.deps = deps
+	if deps.Storage == nil || deps.Storage.TwoFactorAuth() == nil || deps.Storage.Core() == nil {
+		return fmt.Errorf("twofactor requires core and two-factor storage")
+	}
 
 	// Initialize service
 	svc := services.NewTwoFactorService(
@@ -76,30 +80,28 @@ func (m *TwoFactorModule) Init(ctx context.Context, deps config.ModuleDependenci
 
 	// Register auth interceptor for 2FA challenge
 	deps.AuthInterceptors.Register("twofactor", func(ctx context.Context, params *types.InterceptParams) (*types.InterceptResult, error) {
-		// Only challenge on login phase
-		if params.Phase != types.PhaseLogin {
-			return &types.InterceptResult{}, nil
-		}
 
 		tfConfig, authErr := m.service.GetTwoFactorConfig(ctx, params.User.ID)
-		if authErr != nil || tfConfig == nil || !tfConfig.Enabled {
+		if authErr != nil && authErr.Code != types.ErrTwoFactorNotFound {
+			return nil, authErr
+		}
+		if tfConfig == nil || !tfConfig.Enabled {
+			if m.config.Required {
+				return nil, fmt.Errorf("two-factor enrollment required")
+			}
 			return &types.InterceptResult{}, nil
 		}
 
+		if params.Phase != types.PhaseLogin && (slices.Contains(params.VerifiedMethods, "2fa") || slices.Contains(params.VerifiedMethods, "mfa")) {
+			return &types.InterceptResult{}, nil
+		}
 		m.deps.Logger.Info("2FA required for user", "user_id", params.User.ID)
-
-		tempToken, err := m.generateTempToken(params.User.ID)
-		if err != nil {
-			m.deps.Logger.Error("Failed to generate temp 2FA token", "error", err)
-			return &types.InterceptResult{}, nil
-		}
 
 		return &types.InterceptResult{
 			Challenge: &types.LoginChallenge{
 				Type: types.ChallengeTwoFactor,
 				Data: map[string]interface{}{
 					"requires_2fa": true,
-					"temp_token":   tempToken,
 					"user_id":      params.User.ID,
 					"message":      "Two-factor authentication required. Please provide your 2FA code.",
 				},
@@ -182,24 +184,6 @@ func (m *TwoFactorModule) RegisterHooks(events types.EventBus) error {
 
 func (m *TwoFactorModule) Dependencies() []string {
 	return []string{"core"}
-}
-
-// generateTempToken creates a short-lived JWT for pending 2FA verification
-func (m *TwoFactorModule) generateTempToken(userID string) (string, error) {
-	claims := jwt.MapClaims{
-		"user_id": userID,
-		"type":    "2fa_pending",
-		"exp":     time.Now().Add(5 * time.Minute).Unix(),
-		"iat":     time.Now().Unix(),
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString([]byte(m.deps.Config.Security.JwtSecretKey))
-	if err != nil {
-		return "", fmt.Errorf("failed to sign temp token: %w", err)
-	}
-
-	return tokenString, nil
 }
 
 // verify2FAMiddleware checks if user has completed 2FA verification

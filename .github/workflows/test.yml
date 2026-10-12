@@ -2,25 +2,80 @@ name: Tests
 
 on:
   pull_request:
-    branches:
-      - main
-      - dev
+    branches: [main, dev]
+  push:
+    branches: [main, dev]
+  workflow_call:
 
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: '1.25'
+          go-version-file: go.mod
           cache: true
+      - run: go test -race ./...
+      - run: go test -race -tags=integration ./tests/integration/...
+      - name: Compile nested modules
+        run: |
+          for module in examples pkg/adapters/chiadapter pkg/adapters/ginadapter pkg/adapters/fiberadapter; do
+            (cd "$module" && go test ./...)
+          done
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: clients/ts/package-lock.json
+      - run: npm ci --prefix clients/ts
+      - name: Check both SDK strategies
+        run: |
+          for strategy in session stateless; do
+            GOAUTH_SDK_STRATEGY="$strategy" go run ./clients/ts/scripts/merge-openapi.go
+            npm run generate --prefix clients/ts
+            npm run check --prefix clients/ts
+          done
 
-      - name: Install dependencies
-        run: go mod download
-
-      - name: Run tests
-        run: go test -v -race ./...
+  database-contracts:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        database: [postgres, mysql]
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: goauth_contracts
+          POSTGRES_USER: goauth
+          POSTGRES_PASSWORD: contract-password
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd 'pg_isready -U goauth -d goauth_contracts'
+          --health-interval 5s --health-timeout 5s --health-retries 12
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: goauth_contracts
+          MYSQL_ROOT_PASSWORD: contract-password
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd 'mysqladmin ping -h localhost -pcontract-password'
+          --health-interval 5s --health-timeout 5s --health-retries 24
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Verify database guarantees
+        env:
+          GOAUTH_CONTRACT_DIALECT: ${{ matrix.database }}
+        run: |
+          if [ "$GOAUTH_CONTRACT_DIALECT" = postgres ]; then
+            export GOAUTH_CONTRACT_DSN='host=127.0.0.1 user=goauth password=contract-password dbname=goauth_contracts port=5432 sslmode=disable'
+          else
+            export GOAUTH_CONTRACT_DSN='root:contract-password@tcp(127.0.0.1:3306)/goauth_contracts?parseTime=true&loc=UTC'
+          fi
+          go test -race ./storage/gorm -count=1

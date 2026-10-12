@@ -30,9 +30,14 @@ type InvitationModule struct {
 }
 
 func New(cfg *Config) *InvitationModule {
+	if cfg != nil {
+		snapshot := *cfg
+		cfg = &snapshot
+	}
 	if cfg == nil {
 		cfg = &Config{}
 	}
+	cfg.AllowedPurposes = append([]string(nil), cfg.AllowedPurposes...)
 	cfg.applyDefaults()
 	return &InvitationModule{config: cfg}
 }
@@ -84,7 +89,7 @@ func (m *InvitationModule) RegisterHooks(events types.EventBus) error {
 }
 
 func (m *InvitationModule) Dependencies() []string {
-	return []string{string(types.CoreModule)}
+	return []string{string(types.CoreModule), string(types.AdminModule)}
 }
 
 func (m *InvitationModule) OpenAPISpecs() []byte {

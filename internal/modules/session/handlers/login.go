@@ -60,7 +60,7 @@ func (h *SessionHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.deps.Events.EmitAsync(ctx, types.EventAfterLogin, &types.LoginEventData{
 		User:     response.User.ToUser(),
-		Session:  response,
+		Session:  map[string]string{"session_id": response.SessionID},
 		Metadata: metadata,
 	}); err != nil {
 		h.deps.Logger.Errorf("session: failed to emit after login event: %v", err)
@@ -82,28 +82,10 @@ func (h *SessionHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 func (h *SessionHandler) setSessionCookies(w http.ResponseWriter, response *dto.AuthResponse) {
 
-	sessionCfg := h.deps.Config.Security.Session
-
-	accessTokenName := "goauth_access_" + sessionCfg.Name
-	http.SetCookie(w, &http.Cookie{
-		Name:     accessTokenName,
-		Value:    response.AccessToken,
-		HttpOnly: sessionCfg.HttpOnly,
-		Secure:   sessionCfg.Secure,
-		SameSite: sessionCfg.SameSite,
-		Path:     sessionCfg.Path,
-		MaxAge:   sessionCfg.MaxAge,
-	})
-	refreshTokenName := "goauth_refresh_" + sessionCfg.Name
-	http.SetCookie(w, &http.Cookie{
-		Name:     refreshTokenName,
-		Value:    response.RefreshToken,
-		HttpOnly: sessionCfg.HttpOnly,
-		Secure:   sessionCfg.Secure,
-		SameSite: sessionCfg.SameSite,
-		Path:     sessionCfg.Path,
-		MaxAge:   sessionCfg.MaxAge,
-	})
+	if !http_utils.CookiesEnabled(h.deps.Config.Security.AuthMode) {
+		return
+	}
+	http_utils.SetCredentialCookies(w, h.deps.Config.Security, response.AccessToken, response.RefreshToken)
 
 	// Set session cache cookie when cookie_cache strategy is enabled
 	if h.encoder != nil && response.SessionID != "" && response.User != nil {
@@ -133,6 +115,7 @@ func (h *SessionHandler) setSessionCacheCookie(w http.ResponseWriter, sessionID,
 		Secure:   sessionCfg.Secure,
 		SameSite: sessionCfg.SameSite,
 		Path:     sessionCfg.Path,
+		Domain:   sessionCfg.Domain,
 		MaxAge:   int(cacheTTL.Seconds()),
 	})
 }

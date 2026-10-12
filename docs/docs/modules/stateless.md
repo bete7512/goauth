@@ -7,125 +7,80 @@ sidebar_position: 4
 
 # Stateless Module
 
-JWT-based stateless authentication with zero per-request database queries. This is the **default** auth module — if no auth module is explicitly registered, Stateless is auto-registered with `RefreshTokenRotation: true`. Mutually exclusive with [Session](session.md).
-
-The Stateless module issues short-lived JWT access tokens and long-lived refresh tokens. Access tokens are validated purely from their cryptographic signature and expiry — no database lookup is needed on every request. Refresh tokens use a JTI (JWT ID) nonce mechanism to prevent replay attacks: each refresh token can only be used once, and using it atomically rotates the nonce.
-
-## Capabilities
-
-- **JWT Access + Refresh Tokens** — Short-lived access tokens (default: 15 minutes) for API authorization, long-lived refresh tokens (default: 7 days) for obtaining new access tokens.
-- **Zero Per-Request DB Queries** — Access token validation uses only the JWT signature and expiry claims. No database round-trip is needed, making this ideal for high-throughput APIs.
-- **Refresh Token Rotation** — Each refresh token contains a unique JTI (JWT ID). On refresh, the old JTI is atomically deleted and a new one is issued, ensuring single-use refresh tokens.
-- **Replay Attack Prevention** — If a stolen refresh token is replayed after the legitimate user has already refreshed, the JTI will not be found in the database and the request is rejected.
-- **Token Version Revocation** — The user's `TokenVersion` field is embedded in JWTs. Incrementing it (e.g., on password change) instantly invalidates all existing tokens for that user.
-- **Custom Token Storage** — Pass your own `types.CoreStorage` implementation to control where refresh token nonces are stored.
+Stateless uses JWT access credentials and JWT refresh credentials with persistent nonce records. It is the default strategy if neither Session nor Stateless is explicitly registered. It does not create session records, but the built-in access boundary still checks current user state in storage.
 
 ## Registration
 
 ```go
-import (
-    "github.com/bete7512/goauth/pkg/modules/stateless"
-    "github.com/bete7512/goauth/pkg/config"
-)
-
-a.Use(stateless.New(&config.StatelessModuleConfig{
+if err := a.Use(stateless.New(&config.StatelessModuleConfig{
     RefreshTokenRotation: true,
-}, nil))
+})); err != nil {
+    return err
+}
 ```
 
-Or just don't register any auth module — Stateless is auto-registered with `RefreshTokenRotation: true`.
-
-The second argument is an optional custom `types.CoreStorage`. If `nil`, the module uses `deps.Storage.Core()` from Initialize. The Stateless module uses `CoreStorage` because it only needs the Users and Tokens repositories.
+Import `pkg/modules/stateless` and `pkg/config`. `stateless.New(nil)` is valid. Registering it alongside Session returns an error.
 
 ## Configuration
 
-```go
-type StatelessModuleConfig struct {
-    // Rotate refresh tokens on each refresh (default: true when auto-registered)
-    RefreshTokenRotation bool
-}
-```
+| Field | Effective behavior |
+| --- | --- |
+| `CustomStorage` | Optional `types.CoreStorage`, resolved as the shared core store |
+| `RefreshTokenRotation` | Retained field; the current refresh implementation always rotates credentials, even when false |
 
-Token TTLs are set in `SecurityConfig.Session`:
+Access TTL defaults to 15 minutes and refresh TTL to 7 days under `Security.Session`. Algorithms HS256, RS256, and ES256 are supported; see [Signing and rotation](../security.md).
 
-```go
-Security: types.SecurityConfig{
-    Session: types.SessionConfig{
-        AccessTokenTTL:  15 * time.Minute,  // Default: 15 minutes
-        RefreshTokenTTL: 7 * 24 * time.Hour, // Default: 7 days
-    },
-}
-```
+## Access Validation
+
+Protected routes and `Auth.Authenticate` validate the JWT's algorithm, signature, issuer, audience, expiry, subject, and `type: access`. They then load the user and verify token version, active status, required contact verification, and selected-organization membership when present.
+
+This provides online revocation. It is **not** a zero-database-query authentication path. A downstream verifier using only JWKS cannot observe user suspension, token-version changes, or membership changes without an additional current-state check.
 
 ## Endpoints
 
-All paths are prefixed with your `BasePath` (default: `/auth`).
+All paths use `BasePath` (default `/auth`).
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | `/login` | No | Authenticate, returns JWT access + refresh tokens |
-| POST | `/logout` | Yes | Revoke the current refresh token nonce |
-| POST | `/refresh` | No | Get new access token (rotates refresh token if enabled) |
+| Method | Path | Credential | Description |
+| --- | --- | --- | --- |
+| POST | `/login` | Password | Complete authentication or return pending challenges |
+| POST | `/refresh` | Refresh credential | Rotate nonce and return a new pair, or return a challenge |
+| POST | `/logout` | Access credential | Increment the user's token version and delete their token records |
+
+Stateless logout is user-wide: it revokes existing access credentials through the version check and removes refresh nonces. It is not limited to the presented refresh token.
 
 ## Refresh Token Rotation (JTI/Nonce Mechanism)
 
-When `RefreshTokenRotation` is enabled, the module uses a JTI (JWT ID) nonce stored in the database to ensure each refresh token can only be used once.
+1. Successful completion issues a JWT refresh credential with `type: refresh`, `sub`, `user_id`, `token_version`, and a random `jti`.
+2. Core token storage saves the JTI as a `refresh_nonce` record and saves grant context in the private `Data` field.
+3. Refresh validates both the signed credential and the live nonce record, including owner, purpose, expiry, and current user policy.
+4. Interceptors reevaluate policy using persisted authentication methods, original authentication time, and organization context.
+5. `models.TokenRotator.Rotate` atomically consumes the expected record and creates its replacement. Only one concurrent caller succeeds.
 
-### How it works
-
-1. **Login**: The server generates a refresh token JWT containing a unique `jti` claim. The JTI value is stored in the `tokens` table as a `refresh_nonce` record.
-
-2. **Refresh**: When the client sends the refresh token:
-   - The JWT signature and expiry are validated.
-   - The `jti` claim is extracted and looked up in the database.
-   - If the JTI is found, the old nonce record is **deleted** (revoked).
-   - A new access token and a new refresh token (with a new JTI) are generated.
-   - The new JTI is saved to the database.
-
-3. **Replay detection**: If a previously-used refresh token is replayed, its JTI will not be found in the database (it was deleted during the legitimate refresh), so the request is rejected.
-
-This gives single-use refresh tokens without maintaining a blacklist. The `tokens` table only stores active nonces, and each refresh atomically rotates the nonce.
+The replacement retains the original stored expiry. Although the new JWT has a new signed expiration time, the server also checks the stored nonce deadline; refreshing does not create an unlimited renewal lifetime.
 
 ### Token storage
 
-The module uses `CoreStorage.Tokens()` (the `TokenRepository`) for nonce records. Each record has:
-- `type`: `"refresh_nonce"`
-- `token`: the JTI value (not the full JWT)
-- `expires_at`: matches the refresh token TTL
+The `tokens` table stores active refresh nonces, not the complete refresh JWT. `Data` preserves `types.GrantContext` and is excluded from JSON. Invalid or consumed nonces cannot renew credentials. Pending authentication continuations use a different purpose and cannot be supplied as access or refresh credentials.
 
-## Dependencies
-
-The Stateless module depends on the **Core** module (auto-registered). It uses `CoreStorage` for both user lookups and refresh token nonce tracking.
-
-## Extensibility
-
-### Custom Token Storage
-
-The second argument to `stateless.New()` accepts a custom `types.CoreStorage` implementation. If `nil`, the module uses `deps.Storage.Core()` from the shared storage layer.
+## Custom Token Storage
 
 ```go
-// Use your own storage backend
-a.Use(stateless.New(statelessConfig, myCustomCoreStorage))
-
-// Or use the built-in GORM-backed storage
-a.Use(stateless.New(statelessConfig, nil))
+if err := a.Use(stateless.New(&config.StatelessModuleConfig{
+    CustomStorage: myCoreStore,
+    RefreshTokenRotation: true,
+})); err != nil {
+    return err
+}
 ```
 
-The Stateless module uses `CoreStorage.Tokens()` (the `TokenRepository`) for refresh token nonce records and `CoreStorage.Users()` for user lookups during login.
+Implement `models.TokenRotator` as well as `models.TokenRepository`; a delete followed by an unrelated insert is not sufficient. Atomic account mutations and transactional completion have additional [storage requirements](../storage.md).
 
-### Event Hooks
+## Event Hooks
 
-The Stateless module emits login/logout events that other modules and custom handlers can subscribe to:
-
-| Before | After |
-|--------|-------|
-| `EventBeforeLogin` | `EventAfterLogin` |
-| `EventBeforeLogout` | `EventAfterLogout` |
-
-Additional events: `EventAfterPasswordVerified`, `EventAuthLoginSuccess`, `EventAuthLoginFailed`.
+Password login has before/after hooks and audit-related events. Subscribe before initialization with `a.On`. OAuth, magic link, passkeys, and invitations share the completion boundary while retaining their own event behavior; see [Events](../enterprise.md).
 
 ## Next Steps
 
-- [Core Module](core.md) — User management, signup, verification
-- [Session Module](session.md) — Alternative server-side session auth
-- [API Reference](/docs/api/endpoints) — All endpoints
+- [Session](session.md)
+- [Two-Factor](twofactor.md)
+- [Security and credentials](../security.md)

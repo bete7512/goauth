@@ -7,15 +7,15 @@ sidebar_position: 12
 
 # Organization Module
 
-The Organization module adds multi-tenant organization support to your application. It provides a complete workspace/team management system with role-based access control, invitation workflows, and organization-scoped middleware. Users can create organizations, invite members, assign roles, and switch between organizations. JWT claims are automatically enriched with organization context on login.
+The Organization module adds multi-tenant organization support to your application. It provides a complete workspace/team management system with role-based access control, invitation workflows, and organization-scoped middleware. Users can create organizations, invite members, assign roles, and switch between organizations. Explicitly selecting an organization adds its context to the authentication grant.
 
 ## Capabilities
 
 - **Multi-Organization Membership** — Users can belong to multiple organizations simultaneously. Each membership has an independent role.
-- **Role Hierarchy** — Three built-in roles: `owner` (full control, can delete org), `admin` (manage members and invitations), `member` (read access). Role assignments are enforced at the middleware level.
+- **Role Hierarchy** — Three built-in roles: `owner` (full control, can delete org), `admin` (manage members and invitations), `member` (read access). Membership is checked by middleware and privileged changes by services. Unrecognized role strings do not receive member privileges.
 - **Invitation Flow** — Invite users by email with a role assignment. Invitations have configurable expiry (default: 7 days), support accept/decline actions, and can be cancelled by org admins. Optional frontend callback URL for invitation acceptance.
-- **Organization Switching** — Users switch their active organization via `POST /org/switch`. The active org is embedded in JWT claims, so downstream services can scope queries without additional lookups.
-- **Org-Scoped JWT Claims** — The auth interceptor (priority 50) enriches JWT tokens on login with `active_org_id`, `org_role`, and `org_memberships` (array of all memberships with `org_id` and `role`).
+- **Organization Switching** — Users switch their active organization via `POST /org/switch`. The active org is embedded in JWT claims, and GoAuth rechecks current organization and membership state when validating credentials. Scope application queries using a verified principal.
+- **Org-Scoped JWT Claims** — The auth interceptor (priority 50) adds `active_org_id` and `org_role` only when an organization was selected. There is no automatic first-organization selection or `org_memberships` claim.
 - **Auto-Create on Signup** — When `AutoCreateOrg: true`, a default organization is automatically created for every new user. The org name supports placeholders: `{name}`, `{email}`, `{username}`.
 - **Organization Context Middleware** — The `org.auth` middleware (priority 45) extracts `{orgId}` from the URL, verifies the user is a member, and injects the org context for handlers.
 - **Member Management** — List, view, update roles, and remove members. Owners and admins can manage the membership roster.
@@ -31,16 +31,20 @@ import (
     "github.com/bete7512/goauth/pkg/modules/organization"
 )
 
-a.Use(organization.New(&organization.Config{
+if err := a.Use(organization.New(&organization.Config{
     AutoCreateOrg:         true,
     DefaultOrgNamePattern: "{name}'s workspace",
     MaxMembersPerOrg:      50,
     InvitationExpiry:      7 * 24 * time.Hour,
     InvitationCallbackURL: "http://localhost:3000/invite",
-}))
+})); err != nil {
+    return err
+}
 
 // Or with defaults (no auto-create, unlimited members, 7-day invitations)
-a.Use(organization.New(nil))
+if err := a.Use(organization.New(nil)); err != nil {
+    return err
+}
 ```
 
 ## Configuration
@@ -84,7 +88,7 @@ These routes require authentication (`core.auth` middleware) but do not require 
 
 ### Public routes (no auth required)
 
-The accept and decline endpoints are public. The invitation token is the authorization. New users provide name + password to create an account during acceptance.
+The accept and decline endpoints are public. The invitation token proves acceptance. New users provide name + password to create an account during acceptance. Shared authentication completion then applies current eligibility and 2FA policy; a response may contain `challenges` instead of credentials.
 
 | Method | Path                         | Route Name                 | Description                      |
 |--------|------------------------------|----------------------------|----------------------------------|
@@ -173,9 +177,10 @@ The middleware:
 
 The organization module registers an auth interceptor (priority 50) that enriches JWT claims on login with:
 
-- `active_org_id` -- the user's first organization ID
-- `org_role` -- the user's role in that organization
-- `org_memberships` -- array of all org memberships with `org_id` and `role`
+- `active_org_id` — the explicitly selected organization
+- `org_role` — the user’s current recognized role in that active organization
+
+The interceptor validates that the organization is active and the user is still a member. Switching requires an authenticated principal, preserves the original authentication time and verified methods, and runs shared completion before issuing replacement access and refresh credentials. The current switch handler requires a completed result; it does not return a new challenge continuation.
 
 ## Events
 
@@ -194,13 +199,13 @@ The organization module registers an auth interceptor (priority 50) that enriche
 
 ## Hooks
 
-When `AutoCreateOrg` is `true`, the module subscribes to `EventAfterSignup` and automatically creates an organization for the new user using the `DefaultOrgNamePattern`.
+When `AutoCreateOrg` is `true`, the module subscribes to `EventAfterSignup` and creates an organization asynchronously using `DefaultOrgNamePattern`. Do not assume the organization exists by the time the signup response arrives.
 
 ## Extensibility
 
 ### Custom Storage
 
-The Organization module accepts custom storage through the module constructor. When using the default, repositories are obtained from the shared storage layer during initialization.
+Supply organization storage through `Config.Storage.Organization()`. The constructor has no custom-storage argument. Invitation acceptance needs a shared transaction across user and organization repositories; see [Storage](../storage.md).
 
 ### Event Hooks
 

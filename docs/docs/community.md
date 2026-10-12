@@ -9,8 +9,8 @@ description: Contribute to GoAuth and get help
 
 ## Get Help
 
-- [GitHub Issues](https://github.com/bete7512/goauth/issues) — Report bugs and request features
-- [GitHub Discussions](https://github.com/bete7512/goauth/discussions) — Ask questions and share ideas
+- [GitHub Issues](https://github.com/bete7512/go-auth/issues) — Report bugs and request features
+- [GitHub Discussions](https://github.com/bete7512/go-auth/discussions) — Ask questions and share ideas
 
 ## Contributing
 
@@ -28,10 +28,10 @@ Contributions are welcome. Here's how:
 Follow the existing patterns:
 
 - Exported interface / unexported struct for services
-- `types.GoAuthError` for error returns
+- `types.GoAuthError` for service/HTTP errors; ordinary `error` for lifecycle and storage contracts
 - Dot-notation route names (e.g., `core.signup`)
 - Embedded OpenAPI specs per module
-- `config.Module` interface (8 methods) for all modules
+- `config.Component` (`Name` and `Init`) plus optional capabilities; the existing eight-method `config.Module` interface remains supported
 
 ### Adding a Module
 
@@ -53,6 +53,6 @@ Help improve documentation by:
 
 ## Resources
 
-- [GitHub Repository](https://github.com/bete7512/goauth)
+- [GitHub Repository](https://github.com/bete7512/go-auth)
 - [Documentation](/docs/)
 - [Quick Start](/docs/quickstart)

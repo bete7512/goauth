@@ -32,6 +32,10 @@ type Config struct {
 var _ config.Module = (*AdminModule)(nil)
 
 func New(cfg *Config) *AdminModule {
+	if cfg != nil {
+		snapshot := *cfg
+		cfg = &snapshot
+	}
 	if cfg == nil {
 		cfg = &Config{}
 	}

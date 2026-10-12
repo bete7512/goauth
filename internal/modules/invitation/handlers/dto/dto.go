@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/bete7512/goauth/pkg/models"
+	"github.com/bete7512/goauth/pkg/types"
 )
 
 // ── Request DTOs ────────────────────────────────────────────────────────────
@@ -44,10 +45,11 @@ func (r *AcceptInvitationRequest) Validate() error {
 
 // AcceptResultDTO is the response after accepting an invitation.
 type AcceptResultDTO struct {
-	AccessToken  string         `json:"access_token"`
-	RefreshToken string         `json:"refresh_token"`
-	User         *AcceptUserDTO `json:"user"`
-	IsNewUser    bool           `json:"is_new_user"`
+	Challenges   []types.LoginChallenge `json:"challenges,omitempty"`
+	AccessToken  string                 `json:"access_token"`
+	RefreshToken string                 `json:"refresh_token"`
+	User         *AcceptUserDTO         `json:"user"`
+	IsNewUser    bool                   `json:"is_new_user"`
 }
 
 // AcceptUserDTO is a minimal user representation in accept responses.

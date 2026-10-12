@@ -86,12 +86,12 @@ func TestOAuth_Callback_MissingCode(t *testing.T) {
 // Uses InterceptingTransport to redirect real OAuth API calls to a fake server.
 
 func TestOAuth_FullFlow_Google(t *testing.T) {
-	_, handler := h.SetupStatelessWithOAuth(t)
 
 	// Install fake transport — all requests to googleapis.com go to our fake server
 	fake := h.NewFakeOAuthServer(t)
 	cleanup := h.InstallFakeTransport(fake.Server.URL)
 	defer cleanup()
+	_, handler := h.SetupStatelessWithOAuth(t)
 
 	// 1. Initiate → get redirect with state
 	w := h.JSONGet(handler, "/auth/oauth/google")
@@ -99,11 +99,14 @@ func TestOAuth_FullFlow_Google(t *testing.T) {
 
 	parsed, _ := url.Parse(w.Header().Get("Location"))
 	state := parsed.Query().Get("state")
+	fake.Nonce = parsed.Query().Get("nonce")
+	fake.ClientID = parsed.Query().Get("client_id")
+	binding := map[string]string{"Cookie": w.Result().Cookies()[0].String()}
 	require.NotEmpty(t, state)
 
 	// 2. Callback with valid state + fake code
 	// Backend validates state (DB), exchanges code (→ fake server), gets userinfo (→ fake server)
-	w = h.JSONGet(handler, "/auth/oauth/google/callback?code=fake_auth_code&state="+state)
+	w = h.JSONGet(handler, "/auth/oauth/google/callback?code=fake_auth_code&state="+state, binding)
 	require.Equal(t, http.StatusOK, w.Code, "google callback: %s", w.Body.String())
 
 	data := h.ParseJSON(t, w.Body)
@@ -117,62 +120,73 @@ func TestOAuth_FullFlow_Google(t *testing.T) {
 }
 
 func TestOAuth_FullFlow_GitHub(t *testing.T) {
-	_, handler := h.SetupStatelessWithOAuth(t)
 
 	fake := h.NewFakeOAuthServer(t)
 	cleanup := h.InstallFakeTransport(fake.Server.URL)
 	defer cleanup()
+	_, handler := h.SetupStatelessWithOAuth(t)
 
 	w := h.JSONGet(handler, "/auth/oauth/github")
 	require.Equal(t, http.StatusFound, w.Code)
 
 	parsed, _ := url.Parse(w.Header().Get("Location"))
 	state := parsed.Query().Get("state")
+	fake.Nonce = parsed.Query().Get("nonce")
+	fake.ClientID = parsed.Query().Get("client_id")
+	binding := map[string]string{"Cookie": w.Result().Cookies()[0].String()}
 
-	w = h.JSONGet(handler, "/auth/oauth/github/callback?code=fake_code&state="+state)
+	w = h.JSONGet(handler, "/auth/oauth/github/callback?code=fake_code&state="+state, binding)
 	require.Equal(t, http.StatusOK, w.Code, "github callback: %s", w.Body.String())
 }
 
 func TestOAuth_SecondLogin_ExistingUser(t *testing.T) {
-	_, handler := h.SetupStatelessWithOAuth(t)
 
 	fake := h.NewFakeOAuthServer(t)
 	cleanup := h.InstallFakeTransport(fake.Server.URL)
 	defer cleanup()
+	_, handler := h.SetupStatelessWithOAuth(t)
 
 	// First login — creates user
 	w := h.JSONGet(handler, "/auth/oauth/google")
 	parsed, _ := url.Parse(w.Header().Get("Location"))
-	w = h.JSONGet(handler, "/auth/oauth/google/callback?code=c1&state="+parsed.Query().Get("state"))
+	fake.Nonce = parsed.Query().Get("nonce")
+	fake.ClientID = parsed.Query().Get("client_id")
+	binding := map[string]string{"Cookie": w.Result().Cookies()[0].String()}
+	w = h.JSONGet(handler, "/auth/oauth/google/callback?code=c1&state="+parsed.Query().Get("state"), binding)
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, true, h.ParseJSON(t, w.Body)["data"].(map[string]interface{})["is_new_user"])
 
 	// Second login — same provider user ID → existing user
 	w = h.JSONGet(handler, "/auth/oauth/google")
 	parsed, _ = url.Parse(w.Header().Get("Location"))
-	w = h.JSONGet(handler, "/auth/oauth/google/callback?code=c2&state="+parsed.Query().Get("state"))
+	fake.Nonce = parsed.Query().Get("nonce")
+	binding = map[string]string{"Cookie": w.Result().Cookies()[0].String()}
+	w = h.JSONGet(handler, "/auth/oauth/google/callback?code=c2&state="+parsed.Query().Get("state"), binding)
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, false, h.ParseJSON(t, w.Body)["data"].(map[string]interface{})["is_new_user"])
 }
 
 func TestOAuth_StateReplay_Blocked(t *testing.T) {
-	_, handler := h.SetupStatelessWithOAuth(t)
 
 	fake := h.NewFakeOAuthServer(t)
 	cleanup := h.InstallFakeTransport(fake.Server.URL)
 	defer cleanup()
+	_, handler := h.SetupStatelessWithOAuth(t)
 
 	// Get valid state
 	w := h.JSONGet(handler, "/auth/oauth/google")
 	parsed, _ := url.Parse(w.Header().Get("Location"))
 	state := parsed.Query().Get("state")
+	fake.Nonce = parsed.Query().Get("nonce")
+	fake.ClientID = parsed.Query().Get("client_id")
+	binding := map[string]string{"Cookie": w.Result().Cookies()[0].String()}
 
 	// Use once — succeeds
-	w = h.JSONGet(handler, "/auth/oauth/google/callback?code=c1&state="+state)
+	w = h.JSONGet(handler, "/auth/oauth/google/callback?code=c1&state="+state, binding)
 	require.Equal(t, http.StatusOK, w.Code)
 
 	// Replay same state — must fail
-	w = h.JSONGet(handler, "/auth/oauth/google/callback?code=c2&state="+state)
+	w = h.JSONGet(handler, "/auth/oauth/google/callback?code=c2&state="+state, binding)
 	assert.NotEqual(t, http.StatusOK, w.Code, "replayed state should be rejected")
 }
 
@@ -190,4 +204,38 @@ func TestOAuth_Unlink_NotLinked(t *testing.T) {
 
 	w := h.JSONDelete(handler, "/auth/oauth/google", h.AuthHeader(token))
 	assert.NotEqual(t, http.StatusNotFound, w.Code)
+}
+
+func TestOAuth_ContinuationBinding(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		cookie bool
+		nonce  bool
+	}{
+		{name: "missing browser binding", nonce: true},
+		{name: "wrong nonce", cookie: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			fake := h.NewFakeOAuthServer(t)
+			cleanup := h.InstallFakeTransport(fake.Server.URL)
+			defer cleanup()
+			_, handler := h.SetupStatelessWithOAuth(t)
+			begin := h.JSONGet(handler, "/auth/oauth/google")
+			require.Equal(t, http.StatusFound, begin.Code)
+			parsed, err := url.Parse(begin.Header().Get("Location"))
+			require.NoError(t, err)
+			fake.ClientID = parsed.Query().Get("client_id")
+			fake.Nonce = "wrong-nonce"
+			if test.nonce {
+				fake.Nonce = parsed.Query().Get("nonce")
+			}
+			headers := map[string]string{}
+			if test.cookie {
+				headers["Cookie"] = begin.Result().Cookies()[0].String()
+			}
+			response := h.JSONGet(handler, "/auth/oauth/google/callback?code=code&state="+parsed.Query().Get("state"), headers)
+			require.NotEqual(t, http.StatusOK, response.Code, response.Body.String())
+			require.NotContains(t, response.Body.String(), "access_token")
+		})
+	}
 }

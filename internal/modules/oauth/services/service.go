@@ -47,6 +47,7 @@ type OAuthResult struct {
 
 // oauthService implements OAuthService
 type oauthService struct {
+	inTransaction   bool
 	deps            config.ModuleDependencies
 	config          *config.OAuthModuleConfig
 	registry        *providers.Registry

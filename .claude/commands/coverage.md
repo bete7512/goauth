@@ -1,3 +1,8 @@
+---
+name: coverage
+description: Analyze test coverage for the goauth project.
+---
+
 Analyze test coverage for the goauth project.
 
 ## Instructions
@@ -12,7 +17,7 @@ Analyze test coverage for the goauth project.
    - `internal/modules/captcha/...`
    - `internal/modules/oauth/...`
    - `internal/modules/twofactor/...`
-   - `internal/modules/ratelimiter/...`
+   - `internal/modules/ratelimit/...`
    - `internal/modules/magiclink/...`
    - `internal/modules/admin/...`
    - `internal/modules/notification/...`

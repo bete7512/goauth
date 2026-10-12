@@ -15,7 +15,7 @@ The CSRF module provides stateless cross-site request forgery protection using t
 - **Stateless** — No server-side token storage. Tokens are self-validating via HMAC, making this compatible with horizontally scaled deployments.
 - **Configurable Token Expiry** — Tokens expire after a configurable duration (default: 1 hour).
 - **SameSite Cookie Support** — Configure the `SameSite` attribute on the CSRF cookie (default: `Lax`). Use `Strict` for maximum security or `None` for cross-origin scenarios.
-- **Secure Cookie Flag** — CSRF cookie marked as `Secure` by default, ensuring it is only sent over HTTPS.
+- **Secure Cookie Flag** — Set `Secure: true` for HTTPS. The current constructor leaves the boolean false when omitted, including `csrf.New(nil)`.
 - **Path and Domain Scoping** — Configure `CookiePath` and `CookieDomain` to scope the CSRF cookie to specific paths or subdomains.
 - **Excluded Paths** — Skip CSRF validation for specific paths (e.g., webhooks, API endpoints authenticated via other means). Useful for paths like the CSRF token endpoint itself.
 - **Configurable Protected Methods** — By default, `POST`, `PUT`, `DELETE`, and `PATCH` require CSRF validation. `GET`, `HEAD`, and `OPTIONS` are always exempt.
@@ -33,7 +33,7 @@ import (
     "github.com/bete7512/goauth/pkg/config"
 )
 
-a.Use(csrf.New(&config.CSRFModuleConfig{
+if err := a.Use(csrf.New(&config.CSRFModuleConfig{
     TokenExpiry:      1 * time.Hour,
     CookieName:       "__goauth_csrf",
     HeaderName:       "X-CSRF-Token",
@@ -42,10 +42,14 @@ a.Use(csrf.New(&config.CSRFModuleConfig{
     SameSite:         http.SameSiteLaxMode,
     ExcludePaths:     []string{"/api/v1/csrf-token"},
     ProtectedMethods: []string{"POST", "PUT", "DELETE", "PATCH"},
-}))
+})); err != nil {
+    return err
+}
 
 // Or with defaults
-a.Use(csrf.New(nil))
+if err := a.Use(csrf.New(nil)); err != nil {
+    return err
+}
 ```
 
 ## Configuration
@@ -64,7 +68,7 @@ type CSRFModuleConfig struct {
     // Form field name for the token (default: "csrf_token")
     FormFieldName    string
 
-    // Secure flag on the CSRF cookie (default: true)
+    // Set true for HTTPS; current default is false
     Secure           bool
 
     // SameSite attribute on the CSRF cookie (default: Lax)
@@ -107,7 +111,7 @@ The middleware checks for the token in this order:
 ```javascript
 const res = await fetch('/api/v1/csrf-token');
 const data = await res.json();
-const csrfToken = data.csrf_token;
+const csrfToken = data.data.csrf_token;
 ```
 
 ### 2. Include in requests
@@ -120,7 +124,7 @@ fetch('/api/v1/signup', {
         'Content-Type': 'application/json',
         'X-CSRF-Token': csrfToken
     },
-    body: JSON.stringify({...})
+    body: JSON.stringify({email: "user@example.com", password: "example-password"})
 });
 ```
 
@@ -131,6 +135,8 @@ fetch('/api/v1/signup', {
     <!-- other fields -->
 </form>
 ```
+
+The form-field example illustrates the CSRF token transport only. Built-in auth handlers expect JSON bodies. For browser requests across origins, configure credentials and CORS at the host application.
 
 ## Dependencies
 

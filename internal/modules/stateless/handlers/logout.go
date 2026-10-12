@@ -39,24 +39,5 @@ func (h *StatelessHandler) Logout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *StatelessHandler) clearTokenCookies(w http.ResponseWriter) {
-	accessTokenName := "goauth_access_" + h.deps.Config.Security.Session.Name
-	http.SetCookie(w, &http.Cookie{
-		Name:     accessTokenName,
-		Value:    "",
-		HttpOnly: h.deps.Config.Security.Session.HttpOnly,
-		Secure:   h.deps.Config.Security.Session.Secure,
-		SameSite: h.deps.Config.Security.Session.SameSite,
-		Path:     h.deps.Config.Security.Session.Path,
-		MaxAge:   -1,
-	})
-	refreshTokenName := "goauth_refresh_" + h.deps.Config.Security.Session.Name
-	http.SetCookie(w, &http.Cookie{
-		Name:     refreshTokenName,
-		Value:    "",
-		HttpOnly: h.deps.Config.Security.Session.HttpOnly,
-		Secure:   h.deps.Config.Security.Session.Secure,
-		SameSite: h.deps.Config.Security.Session.SameSite,
-		Path:     h.deps.Config.Security.Session.Path,
-		MaxAge:   -1,
-	})
+	http_utils.ClearCredentialCookies(w, h.deps.Config.Security)
 }

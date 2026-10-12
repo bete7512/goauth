@@ -1,6 +1,6 @@
 package types
 
-//go:generate mockgen -destination=../../internal/mocks/mock_storage.go -package=mocks github.com/bete7512/goauth/pkg/types Storage,CoreStorage,SessionStorage,StatelessStorage,AdminStorage,OAuthStorage,TwoFactorStorage,InvitationStorage,OrganizationStorage
+//go:generate mockgen -destination=../../internal/mocks/mock_storage.go -package=mocks github.com/bete7512/goauth/pkg/types Storage,CoreStorage,SessionStorage,StatelessStorage,AdminStorage,OAuthStorage,TwoFactorStorage,PasskeyStorage,InvitationStorage,OrganizationStorage
 
 import (
 	"context"
@@ -49,6 +49,10 @@ type Storage interface {
 	// TwoFactorAuth returns storage for the two-factor authentication module
 	// Returns nil if 2FA storage is not needed/available
 	TwoFactorAuth() TwoFactorStorage
+
+	// Passkeys returns storage for the WebAuthn/Passkeys module
+	// Returns nil if passkey storage is not needed/available
+	Passkeys() PasskeyStorage
 
 	// Audit Log
 	AuditLog() AuditLogStorage
@@ -106,6 +110,12 @@ type TwoFactorStorage interface {
 	TwoFactor() models.TwoFactorRepository
 	BackupCodes() models.BackupCodeRepository
 	WithTransaction(ctx context.Context, fn func(tx TwoFactorStorage) error) error
+}
+
+// PasskeyStorage defines storage interface for the WebAuthn/Passkeys module
+type PasskeyStorage interface {
+	Passkeys() models.PasskeyRepository
+	WithTransaction(ctx context.Context, fn func(tx PasskeyStorage) error) error
 }
 
 // InvitationStorage defines storage interface for the standalone invitation module

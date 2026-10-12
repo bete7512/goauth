@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/bete7512/goauth/internal/authentication"
 	"strings"
 	"time"
 
@@ -89,16 +90,26 @@ func (s *magicLinkService) VerifyMagicLink(ctx context.Context, tokenStr string)
 }
 
 func (s *magicLinkService) VerifyByCode(ctx context.Context, req *dto.MagicLinkVerifyByCodeRequest) (*coredto.AuthResponse, *types.GoAuthError) {
-	verification, err := s.tokenRepository.FindByCode(ctx, req.Code, models.TokenTypeMagicLink)
+	// Resolve by email + type first so we can rate-limit attempts even when the
+	// submitted code is wrong (otherwise brute-force would never increment).
+	verification, err := s.tokenRepository.FindByEmailAndType(ctx, req.Email, models.TokenTypeMagicLink)
 	if err != nil {
 		if errors.Is(err, models.ErrNotFound) {
-			return nil, types.NewGoAuthError(types.ErrInvalidToken, "invalid magic link code", 400)
+			return nil, types.NewGoAuthError(types.ErrInvalidToken, "invalid email or code", 400)
 		}
 		return nil, types.NewInternalError("failed to find magic link code").Wrap(err)
 	}
 
-	if verification.Email != req.Email {
-		return nil, types.NewGoAuthError(types.ErrInvalidToken, "code does not match email", 400)
+	maxAttempts := s.maxCodeAttempts()
+	if verification.Attempts >= maxAttempts {
+		return nil, types.NewGoAuthError(types.ErrInvalidToken, "too many attempts, request a new code", 429)
+	}
+
+	if verification.Code == "" || verification.Code != req.Code {
+		if _, incErr := s.tokenRepository.IncrementAttempts(ctx, verification.ID); incErr != nil {
+			s.logger.Errorf("magiclink: failed to increment attempts: %v", incErr)
+		}
+		return nil, types.NewGoAuthError(types.ErrInvalidToken, "invalid email or code", 400)
 	}
 
 	return s.verifyToken(ctx, verification)
@@ -140,15 +151,22 @@ func (s *magicLinkService) sendMagicLinkForUser(ctx context.Context, user *model
 		return nil, types.NewInternalError("failed to create magic link token").Wrap(err)
 	}
 
-	magicLink := s.buildMagicLink(token)
+	mode := s.deliveryMode()
 	expiryMinutes := int(s.tokenExpiry().Minutes())
 
-	s.deps.Events.EmitAsync(ctx, types.EventSendMagicLink, &types.MagicLinkRequestData{
-		User:       user,
-		MagicLink:  magicLink,
-		Code:       code,
-		ExpiryTime: fmt.Sprintf("%d minutes", expiryMinutes),
-	})
+	eventData := &types.MagicLinkRequestData{
+		User:         user,
+		DeliveryMode: mode,
+		ExpiryTime:   fmt.Sprintf("%d minutes", expiryMinutes),
+	}
+	if mode != types.MagicLinkDeliveryModeCode {
+		eventData.MagicLink = s.buildMagicLink(token)
+	}
+	if mode != types.MagicLinkDeliveryModeLink {
+		eventData.Code = code
+	}
+
+	s.deps.Events.EmitAsync(ctx, types.EventSendMagicLink, eventData)
 
 	return &coredto.MessageResponse{Message: "If an account exists, a magic link has been sent"}, nil
 }
@@ -179,28 +197,15 @@ func (s *magicLinkService) verifyToken(ctx context.Context, verification *models
 		return nil, types.NewInternalError("failed to mark token as used").Wrap(err)
 	}
 
-	// Run auth interceptors (org enrichment, etc.)
-	interceptClaims, challenges, _, interceptErr := s.deps.AuthInterceptors.Run(ctx, &types.InterceptParams{
-		Phase: types.PhaseLogin,
-		User:  user,
-	})
-	if interceptErr != nil {
-		return nil, types.NewInternalError("auth interceptor failed").Wrap(interceptErr)
+	completion := authentication.ForModule(s.deps, s.tokenRepository, nil, "")
+	result, authErr := completion.Complete(ctx, types.AuthenticationEvidence{User: user, Method: "magic_link"})
+	if authErr != nil {
+		return nil, authErr
 	}
-
-	// If challenges were issued, return them without tokens
-	if len(challenges) > 0 {
-		return &coredto.AuthResponse{
-			Challenges: challenges,
-			Message:    "Authentication challenge required",
-		}, nil
+	if result.Status == types.ChallengeRequired {
+		return &coredto.AuthResponse{Challenges: result.Challenges, Message: "Authentication challenge required"}, nil
 	}
-
-	// Generate auth tokens with enriched claims
-	accessToken, refreshToken, err := s.securityManager.GenerateTokens(user, interceptClaims)
-	if err != nil {
-		return nil, types.NewInternalError("failed to generate tokens").Wrap(err)
-	}
+	accessToken, refreshToken := result.AccessToken, result.RefreshToken
 
 	// Update last login
 	now := time.Now()
@@ -249,7 +254,23 @@ func (s *magicLinkService) tokenExpiry() time.Duration {
 	if s.config.TokenExpiry > 0 {
 		return s.config.TokenExpiry
 	}
-	return 15 * time.Minute
+	return 10 * time.Minute
+}
+
+func (s *magicLinkService) deliveryMode() types.MagicLinkDeliveryMode {
+	switch s.config.DeliveryMode {
+	case types.MagicLinkDeliveryModeLink, types.MagicLinkDeliveryModeCode, types.MagicLinkDeliveryModeBoth:
+		return s.config.DeliveryMode
+	default:
+		return types.MagicLinkDeliveryModeBoth
+	}
+}
+
+func (s *magicLinkService) maxCodeAttempts() int {
+	if s.config.MaxCodeAttempts > 0 {
+		return s.config.MaxCodeAttempts
+	}
+	return 5
 }
 
 func (s *magicLinkService) buildMagicLink(token string) string {

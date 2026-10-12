@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"errors"
+	"github.com/bete7512/goauth/internal/authentication"
 	"regexp"
 	"strings"
 	"time"
@@ -135,6 +136,10 @@ func (s *orgService) Delete(ctx context.Context, orgID string) *types.GoAuthErro
 		}
 		return types.NewInternalError("failed to get organization").Wrap(err)
 	}
+	principal, ok := types.PrincipalFromContext(ctx)
+	if !ok || principal.UserID == "" || principal.UserID != org.OwnerID {
+		return types.NewOrgInsufficientRoleError()
+	}
 
 	if err := s.orgRepo.Delete(ctx, orgID); err != nil {
 		return types.NewInternalError("failed to delete organization").Wrap(err)
@@ -180,22 +185,17 @@ func (s *orgService) SwitchOrg(ctx context.Context, user *models.User, targetOrg
 		return "", "", types.NewInternalError("failed to find membership").Wrap(err)
 	}
 
-	// Run interceptors for resume phase to get base claims (e.g. other module enrichments)
-	interceptClaims, _, _, interceptErr := s.deps.AuthInterceptors.Run(ctx, &types.InterceptParams{
-		Phase: types.PhaseResume,
-		User:  user,
-	})
-	if interceptErr != nil {
-		return "", "", types.NewInternalError("auth interceptor failed").Wrap(interceptErr)
+	principal, ok := types.PrincipalFromContext(ctx)
+	if !ok || principal.UserID != user.ID {
+		return "", "", types.NewOrgInsufficientRoleError()
 	}
-
-	// Override org-specific claims with the target org (not the default from interceptor)
-	interceptClaims["active_org_id"] = targetOrgID
-	interceptClaims["org_role"] = member.Role
-
-	accessToken, refreshToken, tokenErr := s.deps.SecurityManager.GenerateTokens(user, interceptClaims)
-	if tokenErr != nil {
-		return "", "", types.NewInternalError("failed to generate tokens").Wrap(tokenErr)
+	completion := authentication.ForModule(s.deps, s.deps.Storage.Core().Tokens(), nil, "")
+	result, completeErr := completion.Complete(ctx, types.AuthenticationEvidence{User: user, Method: "organization_switch", AuthenticatedAt: principal.AuthenticatedAt, Methods: principal.Methods, Phase: types.PhaseResume, Claims: map[string]interface{}{"active_org_id": targetOrgID, "org_role": member.Role}})
+	if completeErr != nil {
+		return "", "", completeErr
+	}
+	if result.Status != types.Authenticated {
+		return "", "", types.NewUnauthorizedError()
 	}
 
 	s.deps.Events.EmitAsync(ctx, types.EventOrgSwitched, &types.OrgSwitchEventData{
@@ -203,7 +203,7 @@ func (s *orgService) SwitchOrg(ctx context.Context, user *models.User, targetOrg
 		ToOrgID: targetOrgID,
 	})
 
-	return accessToken, refreshToken, nil
+	return result.AccessToken, result.RefreshToken, nil
 }
 
 var nonAlphanumRegex = regexp.MustCompile(`[^a-z0-9-]+`)

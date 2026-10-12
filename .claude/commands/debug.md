@@ -1,3 +1,8 @@
+---
+name: debug
+description: Structured debugging for goauth issues.
+---
+
 Structured debugging for goauth issues.
 
 ## Arguments

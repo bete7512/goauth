@@ -29,7 +29,7 @@ func TestStatelessLoginSuite(t *testing.T) {
 func (s *StatelessLoginSuite) setupService() (
 	*services.StatelessService,
 	*mocks.MockUserRepository,
-	*mocks.MockTokenRepository,
+	*mocks.MockRotatingTokenRepository,
 	*mocks.MockLogger,
 	*mocks.MockEventBus,
 ) {
@@ -37,7 +37,7 @@ func (s *StatelessLoginSuite) setupService() (
 	s.T().Cleanup(ctrl.Finish)
 
 	mockUserRepo := mocks.NewMockUserRepository(ctrl)
-	mockTokenRepo := mocks.NewMockTokenRepository(ctrl)
+	mockTokenRepo := mocks.NewMockRotatingTokenRepository(ctrl)
 	mockLogger := mocks.NewMockLogger(ctrl)
 	mockEvents := mocks.NewMockEventBus(ctrl)
 
@@ -109,8 +109,7 @@ func (s *StatelessLoginSuite) TestLogin_WrongPassword() {
 	user := testutil.TestUser()
 
 	mockUserRepo.EXPECT().FindByEmail(gomock.Any(), user.Email).Return(user, nil)
-	// Lockout: failed login records attempt and updates user
-	mockUserRepo.EXPECT().Update(gomock.Any(), gomock.AssignableToTypeOf(&models.User{})).Return(nil)
+	// Lockout is disabled in this fixture: failed verification must not write the user.
 
 	req := &dto.LoginRequest{Email: user.Email, Password: "wrongpassword"}
 	_, authErr := svc.Login(context.Background(), req)
@@ -125,7 +124,7 @@ func (s *StatelessLoginSuite) TestLogin_AccountLocked() {
 	s.T().Cleanup(ctrl.Finish)
 
 	mockUserRepo := mocks.NewMockUserRepository(ctrl)
-	mockTokenRepo := mocks.NewMockTokenRepository(ctrl)
+	mockTokenRepo := mocks.NewMockRotatingTokenRepository(ctrl)
 	mockLogger := mocks.NewMockLogger(ctrl)
 	mockEvents := mocks.NewMockEventBus(ctrl)
 
@@ -196,8 +195,10 @@ func (s *StatelessLoginSuite) TestLogin_UpdateLastLoginFails_StillSucceeds() {
 // --- Logout Tests ---
 
 func (s *StatelessLoginSuite) TestLogout_Success() {
-	svc, _, mockTokenRepo, _, _ := s.setupService()
+	svc, mockUserRepo, mockTokenRepo, _, _ := s.setupService()
 	userID := "user-123"
+	mockUserRepo.EXPECT().FindByID(gomock.Any(), userID).Return(&models.User{ID: userID}, nil)
+	mockUserRepo.EXPECT().Update(gomock.Any(), gomock.Cond(func(u *models.User) bool { return u.TokenVersion == 1 })).Return(nil)
 
 	mockTokenRepo.EXPECT().DeleteByUserID(gomock.Any(), userID).Return(nil)
 
@@ -206,8 +207,10 @@ func (s *StatelessLoginSuite) TestLogout_Success() {
 }
 
 func (s *StatelessLoginSuite) TestLogout_DeleteFails() {
-	svc, _, mockTokenRepo, _, _ := s.setupService()
+	svc, mockUserRepo, mockTokenRepo, _, _ := s.setupService()
 	userID := "user-123"
+	mockUserRepo.EXPECT().FindByID(gomock.Any(), userID).Return(&models.User{ID: userID}, nil)
+	mockUserRepo.EXPECT().Update(gomock.Any(), gomock.Cond(func(u *models.User) bool { return u.TokenVersion == 1 })).Return(nil)
 
 	mockTokenRepo.EXPECT().DeleteByUserID(gomock.Any(), userID).Return(errors.New("db error"))
 
@@ -227,16 +230,16 @@ func (s *StatelessLoginSuite) TestRefresh_Success() {
 	s.NoError(err)
 
 	tokenRecord := &models.Token{
-		ID:     "tok-1",
-		UserID: user.ID,
-		Type:   "refresh_nonce",
-		Token:  jti,
+		ID:        "tok-1",
+		UserID:    user.ID,
+		Type:      "refresh_nonce",
+		Token:     jti,
+		ExpiresAt: time.Now().Add(time.Hour),
 	}
 
 	mockTokenRepo.EXPECT().FindByToken(gomock.Any(), jti).Return(tokenRecord, nil)
 	mockUserRepo.EXPECT().FindByID(gomock.Any(), user.ID).Return(user, nil)
-	mockTokenRepo.EXPECT().Delete(gomock.Any(), jti).Return(nil)
-	mockTokenRepo.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&models.Token{})).Return(nil)
+	mockTokenRepo.EXPECT().Rotate(gomock.Any(), tokenRecord, gomock.AssignableToTypeOf(&models.Token{})).Return(nil)
 
 	req := &dto.RefreshRequest{RefreshToken: refreshToken}
 	resp, authErr := svc.Refresh(context.Background(), req)
@@ -280,7 +283,7 @@ func (s *StatelessLoginSuite) TestRefresh_UserNotFound() {
 	refreshToken, jti, err := testutil.TestSecurityManager().GenerateStatelessRefreshToken(user)
 	s.NoError(err)
 
-	tokenRecord := &models.Token{Token: jti, UserID: user.ID}
+	tokenRecord := &models.Token{Token: jti, UserID: user.ID, Type: "refresh_nonce", ExpiresAt: time.Now().Add(time.Hour)}
 	mockTokenRepo.EXPECT().FindByToken(gomock.Any(), jti).Return(tokenRecord, nil)
 	mockUserRepo.EXPECT().FindByID(gomock.Any(), user.ID).Return(nil, models.ErrNotFound)
 
@@ -298,10 +301,10 @@ func (s *StatelessLoginSuite) TestRefresh_DeleteOldNonceFails() {
 	refreshToken, jti, err := testutil.TestSecurityManager().GenerateStatelessRefreshToken(user)
 	s.NoError(err)
 
-	tokenRecord := &models.Token{Token: jti, UserID: user.ID}
+	tokenRecord := &models.Token{Token: jti, UserID: user.ID, Type: "refresh_nonce", ExpiresAt: time.Now().Add(time.Hour)}
 	mockTokenRepo.EXPECT().FindByToken(gomock.Any(), jti).Return(tokenRecord, nil)
 	mockUserRepo.EXPECT().FindByID(gomock.Any(), user.ID).Return(user, nil)
-	mockTokenRepo.EXPECT().Delete(gomock.Any(), jti).Return(errors.New("db error"))
+	mockTokenRepo.EXPECT().Rotate(gomock.Any(), tokenRecord, gomock.Any()).Return(errors.New("db error"))
 
 	req := &dto.RefreshRequest{RefreshToken: refreshToken}
 	_, authErr := svc.Refresh(context.Background(), req)
@@ -317,11 +320,10 @@ func (s *StatelessLoginSuite) TestRefresh_SaveNewNonceFails() {
 	refreshToken, jti, err := testutil.TestSecurityManager().GenerateStatelessRefreshToken(user)
 	s.NoError(err)
 
-	tokenRecord := &models.Token{Token: jti, UserID: user.ID}
+	tokenRecord := &models.Token{Token: jti, UserID: user.ID, Type: "refresh_nonce", ExpiresAt: time.Now().Add(time.Hour)}
 	mockTokenRepo.EXPECT().FindByToken(gomock.Any(), jti).Return(tokenRecord, nil)
 	mockUserRepo.EXPECT().FindByID(gomock.Any(), user.ID).Return(user, nil)
-	mockTokenRepo.EXPECT().Delete(gomock.Any(), jti).Return(nil)
-	mockTokenRepo.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&models.Token{})).Return(errors.New("db error"))
+	mockTokenRepo.EXPECT().Rotate(gomock.Any(), tokenRecord, gomock.AssignableToTypeOf(&models.Token{})).Return(errors.New("db error"))
 
 	req := &dto.RefreshRequest{RefreshToken: refreshToken}
 	_, authErr := svc.Refresh(context.Background(), req)

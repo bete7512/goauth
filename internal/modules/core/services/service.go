@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/bete7512/goauth/internal/modules/core/handlers/dto"
-	"github.com/bete7512/goauth/internal/security"
 	"github.com/bete7512/goauth/internal/utils/logger"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/models"
@@ -34,12 +33,26 @@ type CoreService interface {
 }
 
 type coreService struct {
+	inTransaction   bool
 	Deps            config.ModuleDependencies
 	Config          *config.CoreConfig
 	UserRepository  models.UserRepository
 	TokenRepository models.TokenRepository
 	Logger          logger.Logger
-	SecurityManager *security.SecurityManager
+	SecurityManager types.SecurityManager
+}
+
+func (s *coreService) coreStorage() types.CoreStorage {
+	if s.inTransaction && s.Deps.Storage != nil {
+		return s.Deps.Storage.Core()
+	}
+	if s.Config != nil && s.Config.CustomStorage != nil {
+		return s.Config.CustomStorage
+	}
+	if s.Deps.Storage != nil {
+		return s.Deps.Storage.Core()
+	}
+	return nil
 }
 
 func NewCoreService(
@@ -47,7 +60,7 @@ func NewCoreService(
 	userRepository models.UserRepository,
 	tokenRepository models.TokenRepository,
 	logger logger.Logger,
-	securityManager *security.SecurityManager,
+	securityManager types.SecurityManager,
 	config *config.CoreConfig,
 ) *coreService {
 	return &coreService{

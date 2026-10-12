@@ -1,4 +1,4 @@
-.PHONY: mocks test test-unit test-integration test-coverage test-bench lint build clean
+.PHONY: mocks test test-unit test-integration test-coverage test-bench lint build clean sdk sdk-spec
 
 # Generate all mocks via go:generate directives
 mocks:
@@ -45,3 +45,13 @@ test-bench:
 # Clean generated files
 clean:
 	rm -f coverage.out coverage.html test_out.txt
+	rm -rf clients/ts/openapi.yml clients/ts/src/generated clients/ts/node_modules clients/ts/dist
+
+# Merge all module OpenAPI specs into clients/ts/openapi.yml
+sdk-spec:
+	go run ./clients/ts/scripts/merge-openapi.go
+
+# Regenerate the TypeScript client SDK (@goauth/client).
+# Requires npm; installs deps on first run.
+sdk: sdk-spec
+	cd clients/ts && (test -d node_modules || npm install) && npm run generate

@@ -20,9 +20,11 @@ const (
 // A user can have multiple accounts (e.g., Google + GitHub).
 // This model is only created when the OAuth module is used.
 type Account struct {
+	RealmID           string     `json:"realm_id" gorm:"not null;default:default"`
+	Issuer            string     `json:"issuer,omitempty"`
 	ID                string     `json:"id" gorm:"primaryKey"`
 	UserID            string     `json:"user_id" gorm:"not null;index"`
-	Provider          string     `json:"provider" gorm:"not null;index"`      // google, github, microsoft, discord
+	Provider          string     `json:"provider" gorm:"not null;index"`      // configured connection ID
 	ProviderAccountID string     `json:"provider_account_id" gorm:"not null"` // Provider's unique user ID
 	Type              string     `json:"type" gorm:"not null"`                // oauth, oidc
 	AccessToken       string     `json:"-" gorm:"type:text"`                  // Encrypted provider access token

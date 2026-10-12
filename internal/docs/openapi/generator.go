@@ -3,6 +3,7 @@ package openapi
 import (
 	"fmt"
 	"net/http"
+	"reflect"
 
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/types"
@@ -47,17 +48,23 @@ func (g *OpenAPIGenerator) MergeEnabledModules() ([]byte, error) {
 			return nil, fmt.Errorf("failed to parse openapi spec for module %s: %w", module.Name(), err)
 		}
 
+		NamespaceComponents(module.Name(), moduleSpec)
 		// Merge paths
 		if paths, ok := moduleSpec["paths"].(map[string]interface{}); ok {
 			mergePaths := merged["paths"].(map[string]interface{})
 			for path, spec := range paths {
+				if _, exists := mergePaths[path]; exists {
+					return nil, fmt.Errorf("conflicting OpenAPI path %s in module %s", path, module.Name())
+				}
 				mergePaths[path] = spec
 			}
 		}
 
 		// Merge components (schemas, security schemes, etc.)
 		if comps, ok := moduleSpec["components"].(map[string]interface{}); ok {
-			mergeComponents(merged["components"].(map[string]interface{}), comps)
+			if err := mergeComponents(merged["components"].(map[string]interface{}), comps); err != nil {
+				return nil, err
+			}
 		}
 
 		// Merge tags
@@ -72,13 +79,16 @@ func (g *OpenAPIGenerator) MergeEnabledModules() ([]byte, error) {
 	return yaml.Marshal(merged)
 }
 
-func mergeComponents(base, new map[string]interface{}) {
+func mergeComponents(base, new map[string]interface{}) error {
 	for key, value := range new {
 		if baseValue, exists := base[key]; exists {
 			// Merge if both are maps
 			if baseMap, ok := baseValue.(map[string]interface{}); ok {
 				if newMap, ok := value.(map[string]interface{}); ok {
 					for k, v := range newMap {
+						if previous, exists := baseMap[k]; exists && !reflect.DeepEqual(previous, v) {
+							return fmt.Errorf("conflicting OpenAPI component %s/%s", key, k)
+						}
 						baseMap[k] = v
 					}
 					continue
@@ -87,6 +97,7 @@ func mergeComponents(base, new map[string]interface{}) {
 		}
 		base[key] = value
 	}
+	return nil
 }
 
 func getBaseSpec(metadata types.OpenAPIConfig) map[string]interface{} {
@@ -156,7 +167,7 @@ func buildSecuritySchemes(metadata types.OpenAPIConfig) map[string]interface{} {
 		schemes["cookieAuth"] = map[string]interface{}{
 			"type":        "apiKey",
 			"in":          "cookie",
-			"name":        "session_token",
+			"name":        "goauth_access_session",
 			"description": "Session cookie authentication",
 		}
 		schemes["bearerAuth"] = map[string]interface{}{

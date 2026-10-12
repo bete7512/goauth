@@ -2,6 +2,7 @@ package config
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -55,6 +56,7 @@ type Module interface {
 }
 
 type ModuleDependencies struct {
+	Completion        types.AuthenticationCompleter
 	Storage           types.Storage
 	Config            *Config
 	Logger            types.Logger
@@ -82,6 +84,18 @@ type MiddlewareManager interface {
 }
 
 type Config struct {
+	MaxConcurrentRequests int
+	Admission             types.AdmissionController
+	Observer              types.OperationObserver
+	// DurableEvents records authentication completion in the credential transaction.
+	// Requires colocated TransactionalStorage and OutboxStore capabilities.
+	DurableEvents bool
+	// SecurityManager optionally replaces the shared cryptographic service.
+	SecurityManager types.SecurityManager
+	// BorrowStorage leaves application-owned storage open during shutdown.
+	BorrowStorage bool
+	// MaxRequestBodyBytes bounds built-in HTTP request bodies. Default: 1 MiB.
+	MaxRequestBodyBytes int64
 	// Storage backend
 	Storage types.Storage
 
@@ -249,12 +263,13 @@ type CaptchaModuleConfig struct {
 	ExcludeRoutes []types.RouteName
 }
 
-// MagicLinkModuleConfig holds configuration for magic link passwordless authentication
+// MagicLinkModuleConfig holds configuration for magic link / email OTP passwordless authentication
 type MagicLinkModuleConfig struct {
 	// CustomStorage is optional. If nil, storage is obtained from deps.Storage.Core() during Init.
 	CustomStorage types.CoreStorage
 
-	// TokenExpiry is how long magic link tokens remain valid (default: 15 minutes)
+	// TokenExpiry is how long magic link tokens / email OTP codes remain valid.
+	// Default: 10 minutes.
 	TokenExpiry time.Duration
 
 	// AutoRegister creates a new user if the email doesn't exist (default: false)
@@ -264,6 +279,41 @@ type MagicLinkModuleConfig struct {
 	// Tokens are passed as URL fragment: CallbackURL#access_token=xxx&refresh_token=xxx
 	// If empty, the verify endpoint returns JSON AuthResponse instead.
 	CallbackURL string
+
+	// DeliveryMode controls what the email contains:
+	//   - MagicLinkDeliveryModeLink: link-only (classic magic link)
+	//   - MagicLinkDeliveryModeCode: 6-digit code only (email OTP)
+	//   - MagicLinkDeliveryModeBoth: both link and code (default)
+	DeliveryMode types.MagicLinkDeliveryMode
+
+	// MaxCodeAttempts is the maximum number of /verify-code attempts per issued code.
+	// When exceeded, the code is invalidated and the user must request a new one.
+	// Default: 5.
+	MaxCodeAttempts int
+}
+
+// PasskeysModuleConfig holds configuration for the WebAuthn/Passkeys module.
+type PasskeysModuleConfig struct {
+	// CustomStorage is optional. If nil, storage is obtained from deps.Storage.Passkeys() during Init.
+	CustomStorage types.PasskeyStorage
+
+	// RPDisplayName is the human-readable Relying Party name shown to users by
+	// the authenticator (e.g. in the OS passkey picker). Defaults to "GoAuth".
+	RPDisplayName string
+
+	// RPID is the WebAuthn Relying Party ID — usually the apex domain without
+	// scheme or port (e.g. "example.com"). Must be derivable from the origin.
+	// Required.
+	RPID string
+
+	// RPOrigins is the list of allowed origins (e.g. "https://app.example.com").
+	// The authenticator response must come from one of these origins.
+	// At least one required.
+	RPOrigins []string
+
+	// ChallengeTTL is how long a begin→finish ceremony window remains valid.
+	// Default: 5 minutes.
+	ChallengeTTL time.Duration
 }
 
 // OAuthModuleConfig holds configuration for OAuth authentication module
@@ -317,6 +367,11 @@ type OAuthModuleConfig struct {
 
 // OAuthProviderConfig holds configuration for a single OAuth provider
 type OAuthProviderConfig struct {
+	// Type selects a protocol adapter independently of this connection's map key.
+	// Empty preserves the legacy provider-name convention.
+	Type string
+	// MicrosoftTenantID pins Microsoft trust to an explicit tenant UUID.
+	MicrosoftTenantID string
 	// ClientID is the OAuth client ID from the provider
 	ClientID string
 
@@ -352,17 +407,78 @@ type TwoFactorConfig struct {
 
 // Validate validates the configuration
 func (c *Config) Validate() error {
+	if c.MaxConcurrentRequests == 0 {
+		c.MaxConcurrentRequests = 128
+	}
+	if c.MaxConcurrentRequests < 1 {
+		return ErrConfig("maximum concurrent requests must be positive")
+	}
+	if c.MaxRequestBodyBytes == 0 {
+		c.MaxRequestBodyBytes = 1 << 20
+	}
+	if c.MaxRequestBodyBytes < 0 {
+		return ErrConfig("max request body must be positive")
+	}
+	if c.Security.JWTIssuer == "" {
+		c.Security.JWTIssuer = "goauth"
+	}
+	if c.Security.JWTAudience == "" {
+		c.Security.JWTAudience = "goauth"
+	}
+	switch c.Security.AuthMode {
+	case "":
+		c.Security.AuthMode = types.AuthModeBoth
+	case types.AuthModeCookie, types.AuthModeBearer, types.AuthModeBoth:
+	default:
+		return ErrConfig("unsupported authentication transport")
+	}
 	if c.Storage == nil {
 		return ErrConfig("storage backend is required")
 	}
+	// Default JWT algorithm is HS256 (uses JwtSecretKey). For asymmetric
+	// algorithms the secret is optional — signing uses the PEM key — but we
+	// still require JwtSecretKey for cookie encoding / other HMAC use.
 	if len(c.Security.JwtSecretKey) < 32 {
 		return ErrConfig("jwt secret key must be at least 32 characters")
+	}
+	if c.Security.JWTAlgorithm.IsAsymmetric() {
+		if len(c.Security.JWTPrivateKeyPEM) == 0 && c.Security.JWTPrivateKeyFile == "" {
+			return ErrConfig(fmt.Sprintf("%s requires JWTPrivateKeyPEM or JWTPrivateKeyFile", c.Security.JWTAlgorithm))
+		}
 	}
 	if len(c.Security.EncryptionKey) < 16 {
 		return ErrConfig("encryption key must be at least 16 characters")
 	}
 	if c.Security.HashSaltLength <= 0 {
 		c.Security.HashSaltLength = 10 // Default to 10
+	}
+	if c.Security.HashSaltLength < 4 || c.Security.HashSaltLength > 31 {
+		return ErrConfig("bcrypt cost must be between 4 and 31")
+	}
+	activeEncryptionID := c.Security.EncryptionKeyID
+	if activeEncryptionID == "" {
+		activeEncryptionID = "default"
+	}
+	for id, key := range c.Security.DecryptionKeys {
+		if id == "" || id == activeEncryptionID || len(key) < 16 {
+			return ErrConfig("retained encryption keys require distinct IDs and at least 16 characters")
+		}
+	}
+	if c.Security.Session.Name == "" {
+		c.Security.Session.Name = "session"
+	}
+	if c.Security.Session.Path == "" {
+		c.Security.Session.Path = "/"
+	}
+	if c.Security.Session.SameSite == 0 {
+		c.Security.Session.SameSite = http.SameSiteLaxMode
+	}
+	c.Security.Session.HttpOnly = true
+	if c.Security.Session.SameSite == http.SameSiteNoneMode && !c.Security.Session.Secure {
+		return ErrConfig("SameSite=None requires secure cookies")
+	}
+	if err := (&http.Cookie{Name: "goauth_access_" + c.Security.Session.Name, Path: c.Security.Session.Path, Domain: c.Security.Session.Domain}).Valid(); err != nil {
+		return ErrConfig("invalid credential cookie configuration")
 	}
 	if c.Security.Session.SessionTTL <= 0 {
 		c.Security.Session.SessionTTL = 30 * 24 * time.Hour // Default to 24 hours
@@ -377,10 +493,14 @@ func (c *Config) Validate() error {
 	if c.Security.PasswordPolicy.MinLength <= 0 {
 		c.Security.PasswordPolicy.MinLength = 8
 	}
-	if c.Security.PasswordPolicy.MaxLength <= 0 {
-		c.Security.PasswordPolicy.MaxLength = 128
+	if c.Security.PasswordPolicy.MaxLength <= 0 || c.Security.PasswordPolicy.MaxLength > 72 {
+		c.Security.PasswordPolicy.MaxLength = 72
+	}
+	if c.Security.PasswordPolicy.MinLength > c.Security.PasswordPolicy.MaxLength {
+		return ErrConfig("password minimum exceeds maximum")
 	}
 	// Lockout defaults (enabled by default for security)
+	c.Security.Lockout.Enabled = !c.Security.Lockout.Disabled
 	if c.Security.Lockout.MaxAttempts <= 0 {
 		c.Security.Lockout.MaxAttempts = 5
 	}

@@ -1,8 +1,12 @@
 paths:
   /magic-link/send:
     post:
-      summary: Send magic link
-      description: Send a passwordless sign-in link to the user's email. If auto-register is enabled and the email is not found, a new account is created automatically.
+      summary: Send magic link / email OTP
+      description: |
+        Send a passwordless sign-in message to the user's email. The email contains
+        a link, a 6-digit code, or both — controlled by the module's `DeliveryMode`
+        config (`link` | `code` | `both`, default `both`). If auto-register is
+        enabled and the email is not found, a new account is created automatically.
       tags: [Magic Link Module Docs]
       requestBody:
         required: true
@@ -68,8 +72,13 @@ paths:
 
   /magic-link/verify-code:
     post:
-      summary: Verify magic link by OTP code
-      description: Verify the 6-digit OTP code sent alongside the magic link. This is an alternative for email clients that mangle URLs.
+      summary: Verify email OTP code
+      description: |
+        Verify the 6-digit OTP code associated with the given email. Used as the
+        primary entrypoint when `DeliveryMode` is `code`, and as a fallback for
+        email clients that mangle URLs when mode is `both`. After `MaxCodeAttempts`
+        failed attempts (default 5) the code is invalidated and the user must
+        request a new one.
       tags: [Magic Link Module Docs]
       requestBody:
         required: true
@@ -90,7 +99,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/AuthResponse'
         '400':
-          description: Invalid code or email mismatch
+          description: Invalid email or code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Too many failed attempts for this code — request a new one
           content:
             application/json:
               schema:

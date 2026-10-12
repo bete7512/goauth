@@ -21,6 +21,9 @@ type OrgInfo struct {
 // HasMinimumRole checks if the given role meets or exceeds the required minimum.
 // Role hierarchy: owner > admin > member.
 func HasMinimumRole(role string, minRole OrgRole) bool {
+	if !IsValidOrgRole(role) || !IsValidOrgRole(string(minRole)) {
+		return false
+	}
 	roleWeight := map[string]int{
 		string(OrgRoleOwner):  3,
 		string(OrgRoleAdmin):  2,

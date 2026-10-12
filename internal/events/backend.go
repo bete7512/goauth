@@ -40,9 +40,10 @@ func (b *DefaultAsyncBackend) Subscribe(ctx context.Context, dispatcher types.Ev
 
 // Close stops the worker pool
 func (b *DefaultAsyncBackend) Close() error {
-	b.workerPool.Stop()
-	return nil
+	return b.Shutdown(context.Background())
 }
+
+func (b *DefaultAsyncBackend) Shutdown(ctx context.Context) error { return b.workerPool.Shutdown(ctx) }
 
 // Name returns backend name
 func (b *DefaultAsyncBackend) Name() string {

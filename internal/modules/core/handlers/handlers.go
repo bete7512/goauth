@@ -105,6 +105,13 @@ func (h *CoreHandler) GetRoutes() []config.RouteInfo {
 			Method:  "POST",
 			Handler: h.ResetPassword,
 		},
+		// Public JWKS endpoint — returns 404 when JWTAlgorithm is HS256.
+		{
+			Name:    string(types.RouteJWKS),
+			Path:    "/.well-known/jwks.json",
+			Method:  "GET",
+			Handler: h.JWKS,
+		},
 	}
 	return routes
 }

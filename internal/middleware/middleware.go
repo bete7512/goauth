@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -63,6 +64,11 @@ func (m *Manager) Apply(routeName string, handler http.Handler) http.Handler {
 // ApplyWithRouteMiddlewares applies middlewares to a handler based on route's middleware list
 // This method considers both global middlewares and route-specific middlewares
 func (m *Manager) ApplyWithRouteMiddlewares(routeName string, handler http.Handler, routeMiddlewares []types.MiddlewareName) http.Handler {
+	if err := m.ValidateRequirements(routeMiddlewares); err != nil {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, "route protection unavailable", http.StatusServiceUnavailable)
+		})
+	}
 	// Create a map of route-required middlewares for fast lookup
 	requiredMiddlewares := make(map[types.MiddlewareName]bool)
 	for _, mwName := range routeMiddlewares {
@@ -117,6 +123,26 @@ func (m *Manager) ApplyWithRouteMiddlewares(routeName string, handler http.Handl
 	}
 
 	return handler
+}
+
+// ValidateRequirements rejects incomplete protection and ambiguous providers.
+func (m *Manager) ValidateRequirements(required []types.MiddlewareName) error {
+	registered := map[types.MiddlewareName]bool{}
+	for _, mw := range m.middlewares {
+		if mw.Name == "" || mw.Middleware == nil {
+			return fmt.Errorf("invalid middleware %q", mw.Name)
+		}
+		if registered[mw.Name] {
+			return fmt.Errorf("duplicate middleware %q", mw.Name)
+		}
+		registered[mw.Name] = true
+	}
+	for _, name := range required {
+		if !registered[name] {
+			return fmt.Errorf("required middleware %q is not registered", name)
+		}
+	}
+	return nil
 }
 
 // ApplyGlobal applies only global middlewares to a handler

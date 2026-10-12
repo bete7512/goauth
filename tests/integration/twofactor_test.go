@@ -3,7 +3,9 @@
 package integration_test
 
 import (
+	"context"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -33,7 +35,7 @@ func TestTwoFactor_Status_Unauthenticated(t *testing.T) {
 // --- 2FA Setup ---
 
 func TestTwoFactor_Setup(t *testing.T) {
-	_, handler := h.SetupStatelessWithTwoFactor(t)
+	a, handler := h.SetupStatelessWithTwoFactor(t)
 	token, _ := h.SignupAndLogin(t, handler, "setup2fa@example.com", "Test1234", "Setup User")
 
 	w := h.JSONPost(handler, "/auth/2fa/setup", nil, h.AuthHeader(token))
@@ -43,6 +45,12 @@ func TestTwoFactor_Setup(t *testing.T) {
 	setupData, ok := data["data"].(map[string]interface{})
 	require.True(t, ok, "setup response should have data: %v", data)
 	assert.NotEmpty(t, setupData["secret"], "should return TOTP secret")
+	user, err := a.Config().Storage.Core().Users().FindByEmail(context.Background(), "setup2fa@example.com")
+	require.NoError(t, err)
+	record, err := a.Config().Storage.TwoFactorAuth().TwoFactor().GetByUserID(context.Background(), user.ID)
+	require.NoError(t, err)
+	require.True(t, strings.HasPrefix(record.Secret, "v1."), "stored MFA secret must carry an encryption key version")
+	require.NotEqual(t, setupData["secret"], record.Secret)
 }
 
 func TestTwoFactor_Setup_Unauthenticated(t *testing.T) {

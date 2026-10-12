@@ -89,22 +89,28 @@ type ProfileChangedData struct {
 }
 
 // MagicLinkRequestData is used for send.magic-link events.
-// Contains the pre-built magic link and OTP code for notification handlers.
+// Contains the pre-built magic link and/or OTP code for notification handlers.
+// DeliveryMode tells the email sender which fields to render:
+//   - "link": only MagicLink is populated
+//   - "code": only Code is populated
+//   - "both": both are populated (default)
 type MagicLinkRequestData struct {
-	User       *models.User `json:"user"`
-	MagicLink  string       `json:"magic_link"`
-	Code       string       `json:"code,omitempty"`
-	ExpiryTime string       `json:"expiry_time"`
+	User         *models.User          `json:"user"`
+	MagicLink    string                `json:"magic_link,omitempty"`
+	Code         string                `json:"code,omitempty"`
+	DeliveryMode MagicLinkDeliveryMode `json:"delivery_mode"`
+	ExpiryTime   string                `json:"expiry_time"`
 }
 
 // OAuthLoginEventData is emitted after successful OAuth authentication.
-// Contains the authenticated user, provider info, and optional provider tokens.
+// Contains the authenticated user and verified provider identity. Provider
+// credentials are excluded from general notification/audit event streams.
 type OAuthLoginEventData struct {
 	User                 *models.User     `json:"user"`
 	Provider             string           `json:"provider"`
 	ProviderUserID       string           `json:"provider_user_id"`
-	ProviderAccessToken  string           `json:"provider_access_token,omitempty"`
-	ProviderRefreshToken string           `json:"provider_refresh_token,omitempty"`
+	ProviderAccessToken  string           `json:"-"` // Deprecated: never populated by built-in authentication.
+	ProviderRefreshToken string           `json:"-"` // Deprecated: never populated by built-in authentication.
 	IsNewUser            bool             `json:"is_new_user"`
 	Metadata             *RequestMetadata `json:"metadata,omitempty"`
 }

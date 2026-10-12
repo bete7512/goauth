@@ -1,10 +1,10 @@
 package services
 
 import (
-	"github.com/bete7512/goauth/internal/security"
 	"github.com/bete7512/goauth/internal/utils/logger"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/models"
+	"github.com/bete7512/goauth/pkg/types"
 )
 
 type StatelessService struct {
@@ -13,7 +13,7 @@ type StatelessService struct {
 	UserRepository  models.UserRepository
 	TokenRepository models.TokenRepository
 	Logger          logger.Logger
-	SecurityManager *security.SecurityManager
+	SecurityManager types.SecurityManager
 }
 
 func NewStatelessService(
@@ -21,7 +21,7 @@ func NewStatelessService(
 	userRepository models.UserRepository,
 	tokenRepository models.TokenRepository,
 	logger logger.Logger,
-	securityManager *security.SecurityManager,
+	securityManager types.SecurityManager,
 	cfg *config.StatelessModuleConfig,
 ) *StatelessService {
 	return &StatelessService{

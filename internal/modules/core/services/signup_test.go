@@ -115,14 +115,14 @@ func (s *SignupServiceSuite) TestSignup() {
 			errCode: types.ErrInternalError,
 		},
 		{
-			name: "with email verification required - user created inactive",
+			name: "with email verification required - eligibility and verification are separate",
 			req:  &dto.SignupRequest{Email: "new@example.com", Password: "password123"},
 			cfg:  &config.CoreConfig{RequireEmailVerification: true},
 			setup: func(ur *mocks.MockUserRepository) {
 				ur.EXPECT().FindByEmail(gomock.Any(), "new@example.com").Return(nil, models.ErrNotFound)
 				ur.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&models.User{})).DoAndReturn(
 					func(_ context.Context, user *models.User) error {
-						s.False(user.Active, "user should be inactive when email verification required")
+						s.True(user.Active, "administrative eligibility is separate from verification")
 						s.False(user.EmailVerified, "email should not be verified")
 						return nil
 					},

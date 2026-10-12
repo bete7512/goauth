@@ -37,6 +37,10 @@ type OrganizationModule struct {
 }
 
 func New(cfg *Config) *OrganizationModule {
+	if cfg != nil {
+		snapshot := *cfg
+		cfg = &snapshot
+	}
 	if cfg == nil {
 		cfg = &Config{}
 	}
@@ -79,39 +83,26 @@ func (m *OrganizationModule) Init(ctx context.Context, deps config.ModuleDepende
 
 	// Register auth interceptor for org claims enrichment
 	deps.AuthInterceptors.Register("organization", func(ctx context.Context, params *types.InterceptParams) (*types.InterceptResult, error) {
-		memberships, err := memberRepo.ListByUser(ctx, params.User.ID)
-		if err != nil || len(memberships) == 0 {
+		orgID, _ := params.ExistingClaims["active_org_id"].(string)
+		if orgID == "" {
 			return &types.InterceptResult{}, nil
 		}
-
-		// Build org info list with names from the org repo
-		orgInfos := make([]types.OrgInfo, 0, len(memberships))
-		for _, m := range memberships {
-			info := types.OrgInfo{ID: m.OrgID, Role: m.Role}
-			org, orgErr := orgRepo.FindByID(ctx, m.OrgID)
-			if orgErr == nil && org != nil {
-				info.Name = org.Name
-				info.Slug = org.Slug
-			}
-			orgInfos = append(orgInfos, info)
+		member, err := memberRepo.FindByOrgAndUser(ctx, orgID, params.User.ID)
+		if err != nil {
+			return nil, fmt.Errorf("selected organization membership unavailable: %w", err)
 		}
-
-		// Pick default org: always use first membership
-		active := orgInfos[0]
-
-		claims := map[string]interface{}{
-			"active_org_id":   active.ID,
-			"org_role":        active.Role,
-			"org_memberships": orgInfos, // also embedded in JWT for middleware use
+		if !types.HasMinimumRole(member.Role, types.OrgRoleMember) {
+			return nil, fmt.Errorf("unknown organization role")
 		}
+		org, err := orgRepo.FindByID(ctx, orgID)
+		if err != nil {
+			return nil, err
+		}
+		if org == nil || !org.Active {
+			return nil, fmt.Errorf("selected organization is inactive")
+		}
+		return &types.InterceptResult{Claims: map[string]interface{}{"active_org_id": orgID, "org_role": member.Role}, ResponseData: map[string]interface{}{"active_organization": types.OrgInfo{ID: orgID, Role: member.Role, Name: org.Name, Slug: org.Slug}}}, nil
 
-		return &types.InterceptResult{
-			Claims: claims,
-			ResponseData: map[string]interface{}{
-				"organizations":       orgInfos,
-				"active_organization": active,
-			},
-		}, nil
 	}, 50) // Lower priority than 2FA
 
 	deps.Logger.Info("Organization module initialized")

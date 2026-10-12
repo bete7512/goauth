@@ -7,7 +7,7 @@ sidebar_position: 2
 
 # Notification Module
 
-The Notification Module is GoAuth's delivery layer for all transactional email and SMS communication. It subscribes to events emitted by other modules (Core, Two-Factor, Magic Link) and automatically delivers the appropriate message — verification emails, password reset links, welcome messages, login alerts, 2FA codes, and magic links. It does not expose any HTTP routes and does not own any business logic; it is a pure, event-driven delivery layer.
+The Notification Module is GoAuth's delivery layer for all transactional email and SMS communication. It subscribes to events emitted by other modules (Core, Magic Link, Invitation, Organization) and automatically delivers the appropriate message — verification emails, password reset links, welcome messages, login alerts, invitations, and magic links. It does not expose any HTTP routes and does not own any business logic; it is a pure, event-driven delivery layer.
 
 The module is designed to be fully pluggable. You can use the built-in senders for common providers, or implement the `EmailSender` / `SMSSender` interfaces to integrate any email or SMS service. Templates are customizable per message type with branding injection.
 
@@ -15,11 +15,11 @@ The module is designed to be fully pluggable. You can use the built-in senders f
 
 - **Automatic Event-Driven Delivery** — Subscribes to lifecycle events and sends the right message automatically. No manual "send email" calls needed in your application code.
 - **Multiple Email Providers** — Built-in support for SendGrid, SMTP, and Resend. Switch providers by changing one line of configuration.
-- **SMS Delivery** — Built-in Twilio integration for phone verification OTPs, password reset codes, login alerts, and 2FA codes.
+- **SMS Delivery** — Built-in Twilio integration for phone verification OTPs, password reset codes, and login alerts.
 - **Pluggable Senders** — Implement `EmailSender` or `SMSSender` to integrate any provider (Amazon SES, Mailgun, Postmark, MessageBird, Vonage, etc.).
 - **Custom Templates** — Override any built-in email or SMS template with your own. Templates support Go template syntax with automatic branding variable injection.
 - **Branding** — Configure app name, logo, colors, footer text, and contact email once. Every template receives these values automatically.
-- **Per-Feature Toggle** — Enable or disable each notification type independently (welcome email, login alerts, password change alerts, 2FA notifications, magic link emails).
+- **Per-Feature Toggle** — Enable welcome emails, login alerts, and password-change alerts with the three informational flags. Delivery hooks for verification, password reset, magic links, and invitations are always registered.
 - **Template Defaults** — Call `DefaultEmailTemplates()` or `DefaultSMSTemplates()` to get the full default template map as a starting point for customization.
 
 ## Pluggable Infrastructure
@@ -47,10 +47,12 @@ type SMSSender interface {
 Pass your custom sender in the module config:
 
 ```go
-a.Use(notification.New(&notification.Config{
+if err := a.Use(notification.New(&notification.Config{
     EmailSender: myCustomEmailSender, // implements notification.EmailSender
     SMSSender:   myCustomSMSSender,   // implements notification.SMSSender
-}))
+})); err != nil {
+    return err
+}
 ```
 
 ### Built-in Senders
@@ -75,7 +77,7 @@ import (
     "github.com/bete7512/goauth/pkg/modules/notification/senders"
 )
 
-a.Use(notification.New(&notification.Config{
+if err := a.Use(notification.New(&notification.Config{
     EmailSender: senders.NewSendGridEmailSender(&senders.SendGridConfig{
         APIKey:          "SG.xxxxx",
         DefaultFrom:     "noreply@yourapp.com",
@@ -101,13 +103,15 @@ a.Use(notification.New(&notification.Config{
     EnableWelcomeEmail:        true,
     EnableLoginAlerts:         true,
     EnablePasswordChangeAlert: true,
-}))
+})); err != nil {
+    return err
+}
 ```
 
 Pass `nil` for default config (welcome email + password change alert enabled).
 
 :::info Must-have vs optional emails
-**Must-have delivery emails** (password reset, magic link, 2FA codes, invitations, email verification) are always active when the notification module is registered. They only fire when the corresponding module emits the event -- no toggle needed.
+**Must-have delivery emails** (password reset, magic link, invitations, email and phone verification) are always active when the notification module is registered. They only fire when the corresponding module emits the event -- no toggle needed.
 
 **Optional informational emails** (welcome, login alerts, password change alerts) are controlled by config flags.
 :::
@@ -200,7 +204,7 @@ smsSender := senders.NewTwilioSMSSender(&senders.TwilioConfig{
 Override built-in templates by providing `EmailTemplates` or `SMSTemplates` maps:
 
 ```go
-a.Use(notification.New(&notification.Config{
+if err := a.Use(notification.New(&notification.Config{
     EmailSender: emailSender,
     EmailTemplates: map[string]notification.EmailTemplate{
         "welcome": {
@@ -216,12 +220,16 @@ a.Use(notification.New(&notification.Config{
             Body: "{{.Brand.AppName}}: Reset code {{.Code}}, valid {{.ExpiryTime}}.",
         },
     },
-}))
+})); err != nil {
+    return err
+}
 ```
 
 ### Built-in email template names
 
 `welcome`, `email_verification`, `password_reset`, `password_changed`, `two_factor_code`, `login_alert`, `magic_link`, `invitation`, `org_invitation`
+
+Templates named `two_factor_code` are available for customization, but the module does not subscribe to a 2FA-code event or send TOTP codes automatically. TOTP codes come from the user’s authenticator.
 
 ### Built-in SMS template names
 
@@ -329,7 +337,7 @@ func (s *MySMSSender) VerifyConfig(ctx context.Context) error {
 
 ### Async Event Processing
 
-Notification delivery is processed asynchronously via the event system. By default, GoAuth uses an in-memory worker pool (10 workers, 1000 queue size). For production environments that require durability or distributed processing, implement the `types.AsyncBackend` interface to use Kafka, NATS, Redis Streams, RabbitMQ, or any message broker. See the [Enterprise](../enterprise.md) page for details.
+Notification delivery is processed asynchronously via the event system. By default, GoAuth uses an in-memory worker pool (10 workers, 1000 queue size). Use `DurableEvents` with an outbox-capable transactional store for supported durable operations. External backends implement `types.AsyncBackend`; acknowledged delivery has a separate capability. Delivery is at least once, so handlers should deduplicate by event ID. See the [Enterprise](../enterprise.md) page for details.
 
 ## Next Steps
 

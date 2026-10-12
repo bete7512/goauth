@@ -313,10 +313,11 @@ func (s *TwoFactorHandlerSuite) TestStatusHandler_Disabled() {
 // ---------------------------------------------------------------------------
 
 func (s *TwoFactorHandlerSuite) TestVerifyLoginHandler_Success_WithTempToken() {
-	handler, mockService, mockEvents, _, _ := s.setupHandler()
+	handler, mockService, mockEvents, _, core := s.setupHandler()
 
 	// Generate a valid temp token
 	tempToken := testutil.GenerateTempToken("user-123")
+	s.expectContinuation(core, tempToken, true)
 
 	body := `{"temp_token":"` + tempToken + `","code":"123456"}`
 	req := httptest.NewRequest(http.MethodPost, "/2fa/verify-login", bytes.NewBufferString(body))
@@ -365,9 +366,10 @@ func (s *TwoFactorHandlerSuite) TestVerifyLoginHandler_Success_WithTempToken() {
 }
 
 func (s *TwoFactorHandlerSuite) TestVerifyLoginHandler_InvalidCode() {
-	handler, mockService, _, _, _ := s.setupHandler()
+	handler, mockService, _, _, core := s.setupHandler()
 
 	tempToken := testutil.GenerateTempToken("user-123")
+	s.expectContinuation(core, tempToken, false)
 	body := `{"temp_token":"` + tempToken + `","code":"000000"}`
 	req := httptest.NewRequest(http.MethodPost, "/2fa/verify-login", bytes.NewBufferString(body))
 	w := httptest.NewRecorder()
@@ -409,9 +411,10 @@ func (s *TwoFactorHandlerSuite) TestVerifyLoginHandler_ExpiredTempToken() {
 }
 
 func (s *TwoFactorHandlerSuite) TestVerifyLoginHandler_BackupCode() {
-	handler, mockService, mockEvents, _, _ := s.setupHandler()
+	handler, mockService, mockEvents, _, core := s.setupHandler()
 
 	tempToken := testutil.GenerateTempToken("user-123")
+	s.expectContinuation(core, tempToken, true)
 	body := `{"temp_token":"` + tempToken + `","code":"AAAA-BBBB"}`
 	req := httptest.NewRequest(http.MethodPost, "/2fa/verify-login", bytes.NewBufferString(body))
 	w := httptest.NewRecorder()
@@ -444,4 +447,21 @@ func (s *TwoFactorHandlerSuite) TestVerifyLoginHandler_BackupCode() {
 	handler.VerifyLoginHandler(w, req)
 
 	s.Equal(http.StatusOK, w.Code)
+}
+
+func (s *TwoFactorHandlerSuite) expectContinuation(core *mocks.MockCoreStorage, token string, consumed bool) {
+	ctrl := gomock.NewController(s.T())
+	repo := mocks.NewMockTokenRepository(ctrl)
+	core.EXPECT().Tokens().Return(repo).AnyTimes()
+	repo.EXPECT().FindByToken(gomock.Any(), testutil.TestSecurityManager().HashRefreshToken(token)).Return(&models.Token{ID: "pending-1", UserID: "user-123", Type: "2fa_pending", ExpiresAt: time.Now().Add(time.Minute)}, nil)
+	if consumed {
+		repo.EXPECT().MarkAsUsed(gomock.Any(), "pending-1").Return(nil)
+	}
+}
+
+func (s *TwoFactorHandlerSuite) TestVerifyLoginRejectsUserIDWithoutPrimaryAuthentication() {
+	handler, _, _, _, _ := s.setupHandler()
+	w := httptest.NewRecorder()
+	handler.VerifyLoginHandler(w, httptest.NewRequest(http.MethodPost, "/2fa/verify-login", bytes.NewBufferString(`{"user_id":"user-123","code":"123456"}`)))
+	s.Equal(http.StatusBadRequest, w.Code)
 }

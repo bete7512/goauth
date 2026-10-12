@@ -39,10 +39,15 @@ func (s *PasswordServiceSuite) setupService() (
 	mockEvents := mocks.NewMockEventBus(ctrl)
 	mockLogger := mocks.NewMockLogger(ctrl)
 
+	coreStore := mocks.NewMockCoreStorage(ctrl)
+	coreStore.EXPECT().Users().Return(mockUserRepo).AnyTimes()
+	coreStore.EXPECT().Tokens().Return(mockTokenRepo).AnyTimes()
+	coreStore.EXPECT().WithTransaction(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn func(types.CoreStorage) error) error { return fn(coreStore) }).AnyTimes()
 	secMgr := testutil.TestSecurityManager()
 	cfg := testutil.TestCoreConfig()
 
 	deps := config.ModuleDependencies{
+		Storage:         &types.StorageSet{CoreStore: coreStore},
 		Config:          testutil.TestConfig(),
 		Events:          mockEvents,
 		Logger:          mockLogger,

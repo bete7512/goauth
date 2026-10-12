@@ -9,6 +9,8 @@ sidebar_position: 1
 
 The Core Module is the foundation of every GoAuth installation. It is **auto-registered** by `auth.New()` — you never register it manually via `Use()`. It owns the full user lifecycle: registration, profile management, password flows, email/phone verification, and availability checks. It does **not** handle login/logout/refresh — those are managed by the [Session](session.md) or [Stateless](stateless.md) auth module. Every other module depends on Core for user storage and authentication middleware.
 
+Provide `Core: &config.CoreConfig{}` even when all Core options are false. The current signup handler dereferences `Config.Core`; leaving it nil can panic on signup. The complete quickstart supplies it explicitly.
+
 ## Capabilities
 
 - **User Registration** — Email/password signup with optional username, phone, and name fields. Configurable field requirements (require username, require phone, enforce unique phone).
@@ -18,8 +20,8 @@ The Core Module is the foundation of every GoAuth installation. It is **auto-reg
 - **Email Verification** — Send, resend, and verify via secure token. Supports frontend redirect on verification. Integrates with Notification module for delivery.
 - **Phone Verification** — Send, resend, and verify via OTP code. Requires the Notification module with an SMS sender configured for delivery.
 - **Availability Check** — Single endpoint to check email, username, or phone availability before registration.
-- **Account Lockout** — Built-in tracking of failed login attempts with configurable lockout threshold and duration (default: 5 attempts, 15-minute lockout).
-- **Password Policy Enforcement** — Configurable minimum/maximum length (default: 8/128 characters).
+- **Account Lockout** — Built-in tracking of failed login attempts with configurable lockout threshold and duration (when explicitly enabled; numeric defaults: 5 attempts and 15 minutes).
+- **Password Policy Enforcement** — Configurable minimum/maximum length (default: 8–72 bytes, including the bcrypt maximum; no trimming or Unicode normalization).
 - **Event-Driven Architecture** — Emits before/after events for every major action, enabling other modules and custom handlers to react to user lifecycle changes.
 
 ## Configuration
@@ -27,7 +29,7 @@ The Core Module is the foundation of every GoAuth installation. It is **auto-reg
 Core configuration is set via `Config.Core` on the top-level config. Since Core is auto-registered, there is no `Use()` call for it.
 
 ```go
-a, _ := auth.New(&config.Config{
+a, err := auth.New(&config.Config{
     Storage:  store,
     BasePath: "/api/v1",
 
@@ -40,7 +42,7 @@ a, _ := auth.New(&config.Config{
     },
 
     Security: types.SecurityConfig{
-        JwtSecretKey:  "your-secret-key-min-32-chars!!!!",
+        JwtSecretKey:  "replace-with-a-random-secret-at-least-32-bytes",
         EncryptionKey: "your-encryption-key-32-chars!",
         Session: types.SessionConfig{
             AccessTokenTTL:  15 * time.Minute,
@@ -55,14 +57,17 @@ a, _ := auth.New(&config.Config{
         ResetPasswordPath:       "/reset-password",
     },
 })
+if err != nil {
+    return err
+}
 ```
 
 ### CoreConfig Fields
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `RequireEmailVerification` | `bool` | `false` | If true, sends verification email automatically after signup |
-| `RequirePhoneVerification` | `bool` | `false` | If true, sends verification SMS automatically after signup |
+| `RequireEmailVerification` | `bool` | `false` | Requests verification delivery after signup and requires a verified email for authentication |
+| `RequirePhoneVerification` | `bool` | `false` | Requests verification delivery after signup and requires a verified phone for authentication |
 | `RequireUserName` | `bool` | `false` | If true, username is required during signup |
 | `RequirePhoneNumber` | `bool` | `false` | If true, phone number is required during signup |
 | `UniquePhoneNumber` | `bool` | `false` | If true, enforces unique phone numbers |
@@ -140,6 +145,8 @@ Response:
 }
 ```
 
+Signup returns user data, not credentials. Complete required verification, then use `/login` or another enabled authentication method. Credential completion checks administrative activity and required verification independently. Password changes and resets revoke existing credentials through token-version updates. Changing a recovery phone clears its verified state and revokes credentials.
+
 ## Events
 
 The Core Module emits events you can subscribe to:
@@ -210,7 +217,7 @@ type User struct {
 
 Fields hidden from JSON (tagged `json:"-"`):
 - `PasswordHash` — bcrypt hash, never exposed
-- `TokenVersion` — incremented to invalidate all existing tokens for stateless revocation
+- `TokenVersion` — incremented to invalidate existing credentials in both built-in authentication strategies
 - `FailedLoginAttempts` — tracks failed logins for account lockout
 - `LockedUntil` — account lockout expiry timestamp
 
@@ -219,23 +226,31 @@ Fields hidden from JSON (tagged `json:"-"`):
 The Core module uses the shared storage layer configured in `Config.Storage`. Since Core is auto-registered, you do not pass custom storage to it directly. Instead, configure the top-level `Storage` when creating the auth instance:
 
 ```go
-store, _ := storage.NewGormStorage(storage.GormConfig{
+store, err := storage.NewGormStorage(storage.GormConfig{
     Dialect: types.DialectTypePostgres,
-    DSN:     "host=localhost user=postgres ...",
+    DSN:     os.Getenv("DATABASE_DSN"),
 })
+if err != nil {
+    return err
+}
 
-a, _ := auth.New(&config.Config{
+a, err := auth.New(&config.Config{
     Storage: store,
-    // ...
+    Core: &config.CoreConfig{},
+    Security: securityConfig, // validated settings from the quickstart
 })
+if err != nil {
+    _ = store.Close()
+    return err
+}
 ```
 
 Core accesses `Storage.Core()` which provides:
 - **UserRepository** — CRUD operations on the `users` table
 - **TokenRepository** — Manages verification tokens and refresh nonces
-- **VerificationTokenRepository** — Manages email/phone verification tokens
+- Verification and authentication continuation records both use `TokenRepository`; there is no separate `VerificationTokenRepository`.
 
-To use a custom storage backend, implement the `types.Storage` interface and pass it as `Config.Storage`. All modules, including Core, will use your implementation.
+Custom stores must implement the interfaces and atomic operations described in the [Storage guide](../storage.md). Check every constructor error and choose whether GoAuth owns the store or borrows it with `BorrowStorage`. See the [Quick Start](../quickstart.md) for complete error handling.
 
 ## Next Steps
 

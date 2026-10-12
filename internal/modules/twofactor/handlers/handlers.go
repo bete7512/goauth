@@ -2,16 +2,15 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/bete7512/goauth/internal/modules/twofactor/services"
+	"github.com/bete7512/goauth/internal/security"
 	http_utils "github.com/bete7512/goauth/internal/utils/http"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
-	"github.com/golang-jwt/jwt/v5"
 )
 
 type TwoFactorHandler struct {
@@ -44,7 +43,11 @@ func (h *TwoFactorHandler) SetupHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Check if 2FA is already enabled
-	existing, _ := h.service.GetTwoFactorConfig(r.Context(), userID)
+	existing, lookupErr := h.service.GetTwoFactorConfig(r.Context(), userID)
+	if lookupErr != nil && lookupErr.Code != types.ErrTwoFactorNotFound {
+		http_utils.RespondError(w, lookupErr.StatusCode, string(lookupErr.Code), lookupErr.Message)
+		return
+	}
 	if existing != nil && existing.Enabled {
 		authErr := types.NewTwoFactorAlreadyEnabledError()
 		http_utils.RespondError(w, authErr.StatusCode, string(authErr.Code), authErr.Message)
@@ -228,7 +231,6 @@ func (h *TwoFactorHandler) StatusHandler(w http.ResponseWriter, r *http.Request)
 func (h *TwoFactorHandler) VerifyLoginHandler(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		TempToken string `json:"temp_token,omitempty"` // Preferred - from 2FA challenge
-		UserID    string `json:"user_id,omitempty"`    // Fallback for backward compat
 		Code      string `json:"code"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -243,26 +245,51 @@ func (h *TwoFactorHandler) VerifyLoginHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Extract user ID from temp token or use provided user_id
-	userID := req.UserID
-	if req.TempToken != "" {
-		extractedUserID, authErr := h.verifyTempToken(req.TempToken)
+	if req.TempToken == "" {
+		authErr := types.NewValidationError("temp_token is required")
+		http_utils.RespondError(w, authErr.StatusCode, string(authErr.Code), authErr.Message)
+		return
+	}
+	userID, authErr := h.verifyTempToken(req.TempToken)
+	if authErr != nil {
+		http_utils.RespondError(w, authErr.StatusCode, string(authErr.Code), authErr.Message)
+		return
+	}
+	continuation, err := h.deps.Storage.Core().Tokens().FindByToken(r.Context(), h.deps.SecurityManager.HashRefreshToken(req.TempToken))
+	if err != nil || continuation == nil || continuation.Type != "2fa_pending" || continuation.UserID != userID || continuation.Used || !time.Now().Before(continuation.ExpiresAt) {
+		http_utils.RespondError(w, http.StatusUnauthorized, string(types.ErrInvalidToken), "invalid continuation")
+		return
+	}
+
+	if continuation.Data != "" {
+		attempts, err := h.deps.Storage.Core().Tokens().IncrementAttempts(r.Context(), continuation.ID)
+		if err != nil || attempts > 10 {
+			http_utils.RespondError(w, http.StatusUnauthorized, string(types.ErrInvalidToken), "continuation attempt limit reached")
+			return
+		}
+	}
+	// Verify TOTP code or backup code
+	if authErr := h.service.VerifyCodeOrBackup(r.Context(), userID, req.Code); authErr != nil {
+		http_utils.RespondError(w, authErr.StatusCode, string(authErr.Code), authErr.Message)
+		return
+	}
+	if resumer, ok := h.deps.Completion.(types.AuthenticationResumer); ok {
+		user, lookupErr := h.service.GetUser(r.Context(), userID)
+		if lookupErr != nil {
+			http_utils.RespondError(w, lookupErr.StatusCode, string(lookupErr.Code), lookupErr.Message)
+			return
+		}
+		result, authErr := resumer.Resume(r.Context(), req.TempToken, types.ChallengeTwoFactor)
 		if authErr != nil {
 			http_utils.RespondError(w, authErr.StatusCode, string(authErr.Code), authErr.Message)
 			return
 		}
-		userID = extractedUserID
-	}
-
-	if userID == "" {
-		authErr := types.NewValidationError("temp_token or user_id is required")
-		http_utils.RespondError(w, authErr.StatusCode, string(authErr.Code), authErr.Message)
+		http_utils.SetCredentialCookies(w, h.deps.Config.Security, result.AccessToken, result.RefreshToken)
+		http_utils.RespondSuccess(w, map[string]interface{}{"access_token": result.AccessToken, "refresh_token": result.RefreshToken, "session_id": result.SessionID, "expires_in": result.ExpiresIn, "challenges": result.Challenges, "user": user}, nil)
 		return
 	}
-
-	// Verify TOTP code or backup code
-	if authErr := h.service.VerifyCodeOrBackup(r.Context(), userID, req.Code); authErr != nil {
-		http_utils.RespondError(w, authErr.StatusCode, string(authErr.Code), authErr.Message)
+	if err := h.deps.Storage.Core().Tokens().MarkAsUsed(r.Context(), continuation.ID); err != nil {
+		http_utils.RespondError(w, http.StatusUnauthorized, string(types.ErrInvalidToken), "continuation already consumed")
 		return
 	}
 
@@ -296,26 +323,8 @@ func (h *TwoFactorHandler) VerifyLoginHandler(w http.ResponseWriter, r *http.Req
 
 // verifyTempToken verifies and extracts user ID from temporary 2FA token
 func (h *TwoFactorHandler) verifyTempToken(tokenString string) (string, *types.GoAuthError) {
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		// Verify signing method
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-		return []byte(h.deps.Config.Security.JwtSecretKey), nil
-	})
-
-	if err != nil || !token.Valid {
-		return "", types.NewInvalidTokenError()
-	}
-
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok {
-		return "", types.NewInvalidTokenError()
-	}
-
-	// Verify token type
-	tokenType, ok := claims["type"].(string)
-	if !ok || tokenType != "2fa_pending" {
+	claims, err := security.ValidateCredential(h.deps.SecurityManager, tokenString, "2fa_pending")
+	if err != nil {
 		return "", types.NewInvalidTokenError()
 	}
 

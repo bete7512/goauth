@@ -2,9 +2,15 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
+	"reflect"
+	"sync"
+	"sync/atomic"
+	"time"
 
+	"github.com/bete7512/goauth/internal/authentication"
 	"github.com/bete7512/goauth/internal/events"
 	"github.com/bete7512/goauth/internal/interceptor"
 	"github.com/bete7512/goauth/internal/middleware"
@@ -26,7 +32,17 @@ type Auth struct {
 	eventBus           *events.EventBus
 	middlewareManager  *middleware.Manager
 	logger             types.Logger
-	initialized        bool
+	initialized        atomic.Bool
+	lifecycleMu        sync.Mutex
+	registryMu         sync.RWMutex
+	configMu           sync.RWMutex
+	closed             bool
+	closeErr           error
+	moduleOrder        []string
+	startedModules     []config.Module
+	cancel             context.CancelFunc
+	outboxDone         chan struct{}
+	requestSlots       chan struct{}
 }
 
 // New creates a new Auth instance
@@ -34,8 +50,20 @@ type Auth struct {
 //   - auth.Use(session.New(...)) for session-based authentication
 //   - auth.Use(stateless.New(...)) for stateless JWT authentication
 func New(cfg *config.Config) (*Auth, error) {
+	if cfg == nil {
+		return nil, config.ErrConfig("config is required")
+	}
+	cfg = cfg.Clone()
 	if err := cfg.Validate(); err != nil {
 		return nil, err
+	}
+	var securityManager types.SecurityManager = cfg.SecurityManager
+	if securityManager == nil {
+		manager := security.NewSecurityManager(cfg.Security)
+		if err := manager.JWTKeyringError(); err != nil {
+			return nil, fmt.Errorf("invalid JWT configuration: %w", err)
+		}
+		securityManager = manager
 	}
 
 	// Initialize logger
@@ -77,7 +105,7 @@ func New(cfg *config.Config) (*Auth, error) {
 		Global:     true,
 	})
 
-	auth := &Auth{
+	auth := &Auth{requestSlots: make(chan struct{}, cfg.MaxConcurrentRequests),
 		config:            cfg,
 		storage:           cfg.Storage,
 		modules:           make(map[string]config.Module),
@@ -94,7 +122,6 @@ func New(cfg *config.Config) (*Auth, error) {
 		configLogger = authLogger
 	}
 
-	securityManager := security.NewSecurityManager(cfg.Security)
 	interceptorRegistry := interceptor.NewRegistry()
 
 	eventBusAdapter := events.NewEventBusAdapter(eventBus)
@@ -110,14 +137,11 @@ func New(cfg *config.Config) (*Auth, error) {
 
 	// Auto-register core module if not already configured
 	// Core module will get storage from deps.Storage.Core() during initialization
-	if auth.config.ModuleConfigs[string(types.CoreModule)] == nil {
+	{
 		coreConfig := &config.CoreConfig{}
 
 		if auth.config.Core != nil {
-			coreConfig.RequireEmailVerification = auth.config.Core.RequireEmailVerification
-			coreConfig.RequirePhoneVerification = auth.config.Core.RequirePhoneVerification
-			coreConfig.RequireUserName = auth.config.Core.RequireUserName
-			coreConfig.RequirePhoneNumber = auth.config.Core.RequirePhoneNumber
+			*coreConfig = *auth.config.Core
 		}
 
 		// Pass nil for customStorage - core will get storage from deps.Storage.Core()
@@ -134,11 +158,19 @@ func New(cfg *config.Config) (*Auth, error) {
 //   - stateless.New(...) for stateless JWT authentication
 //
 // Note: You cannot use both session and stateless modules together.
-// If neither is registered, stateless will be used as default.
-//
-// IMPORTANT: Registering both session and stateless modules will panic.
-func (a *Auth) Use(module config.Module) error {
-	if a.initialized {
+// Registering both returns an error. If neither is registered, stateless
+// is used as the default during Initialize().
+func (a *Auth) Use(component config.Component) error {
+	a.lifecycleMu.Lock()
+	defer a.lifecycleMu.Unlock()
+	if component == nil || (reflect.ValueOf(component).Kind() == reflect.Ptr && reflect.ValueOf(component).IsNil()) {
+		return fmt.Errorf("module is nil")
+	}
+	module := config.AdaptModule(component)
+	if module.Name() == "" {
+		return fmt.Errorf("module name is empty")
+	}
+	if a.initialized.Load() || a.closed {
 		return fmt.Errorf("cannot add module after initialization")
 	}
 
@@ -146,57 +178,75 @@ func (a *Auth) Use(module config.Module) error {
 		return fmt.Errorf("module already registered: %s", module.Name())
 	}
 
-	// Validate that only one auth module (session or stateless) is registered
-	// This is a hard failure - panic if both are registered
 	moduleName := module.Name()
 	if moduleName == string(types.SessionModule) || moduleName == string(types.StatelessModule) {
 		_, hasSession := a.modules[string(types.SessionModule)]
 		_, hasStateless := a.modules[string(types.StatelessModule)]
 
 		if moduleName == string(types.SessionModule) && hasStateless {
-			panic("goauth: cannot register session module: stateless module is already registered. Only one auth module (session or stateless) can be active at a time")
+			return fmt.Errorf("cannot register session module: stateless module is already registered; only one auth module (session or stateless) can be active at a time")
 		}
 		if moduleName == string(types.StatelessModule) && hasSession {
-			panic("goauth: cannot register stateless module: session module is already registered. Only one auth module (session or stateless) can be active at a time")
+			return fmt.Errorf("cannot register stateless module: session module is already registered; only one auth module (session or stateless) can be active at a time")
 		}
 	}
 
-	// Check dependencies
-	deps := module.Dependencies()
-	for _, dep := range deps {
-		if _, exists := a.modules[dep]; !exists {
-			return fmt.Errorf("module %s requires dependency %s which is not registered", module.Name(), dep)
-		}
-	}
-
+	a.registryMu.Lock()
 	a.modules[module.Name()] = module
+	a.registryMu.Unlock()
 	a.logger.Info("Module registered", "name", module.Name())
 	return nil
 }
 
 func (a *Auth) Config() *config.Config {
-	return a.config
+	a.configMu.RLock()
+	defer a.configMu.RUnlock()
+	return a.config.Clone()
 }
 
 // Routes returns all registered routes with middlewares applied
 func (a *Auth) Routes() []config.RouteInfo {
-	if !a.initialized {
+	if !a.initialized.Load() {
 		a.logger.Warn("Routes called before initialization")
 		return nil
 	}
 
+	a.registryMu.RLock()
+	defer a.registryMu.RUnlock()
 	// Return routes with middlewares applied
 	routesWithMiddleware := make([]config.RouteInfo, len(a.routes))
 	for i, route := range a.routes {
 		// Apply middlewares to route handler based on route's Middlewares attribute
 		// This applies both global middlewares and route-specific middlewares
 		handler := a.middlewareManager.ApplyWithRouteMiddlewares(route.Name, http.HandlerFunc(route.Handler), route.Middlewares)
+		guarded := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if !a.initialized.Load() {
+				http.Error(w, "authentication unavailable", http.StatusServiceUnavailable)
+				return
+			}
+			release, err := a.acquire(r.Context(), route.Name)
+			if err != nil {
+				http.Error(w, "authentication capacity exceeded", http.StatusServiceUnavailable)
+				return
+			}
+			defer release()
+			start := time.Now()
+			if a.config.Observer != nil {
+				observed := &observedResponse{ResponseWriter: w}
+				w = observed
+				defer func() {
+					a.config.Observer.ObserveOperation(r.Context(), route.Name, time.Since(start), observed.status > 0 && observed.status < 400)
+				}()
+			}
+			r.Body = http.MaxBytesReader(w, r.Body, a.config.MaxRequestBodyBytes)
+			handler.ServeHTTP(w, r)
+		})
 
 		routesWithMiddleware[i] = config.RouteInfo{
 			Name:    route.Name,
 			Path:    route.Path,
 			Method:  route.Method,
-			Handler: handler.ServeHTTP,
+			Handler: guarded,
 		}
 	}
 
@@ -204,10 +254,23 @@ func (a *Auth) Routes() []config.RouteInfo {
 }
 
 // Initialize initializes all modules and runs migrations
-func (a *Auth) Initialize(ctx context.Context) error {
-	if a.initialized {
+func (a *Auth) Initialize(ctx context.Context) (initErr error) {
+	a.lifecycleMu.Lock()
+	defer a.lifecycleMu.Unlock()
+	if a.closed {
+		return fmt.Errorf("auth is closed")
+	}
+	if a.initialized.Load() {
 		return fmt.Errorf("auth already initialized")
 	}
+	ctx, a.cancel = context.WithCancel(ctx)
+	defer func() {
+		if initErr != nil {
+			cleanupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			initErr = errors.Join(initErr, a.shutdown(cleanupCtx))
+		}
+	}()
 
 	// Check if an auth module is registered, if not use stateless as default
 	_, hasSession := a.modules[string(types.SessionModule)]
@@ -218,8 +281,41 @@ func (a *Auth) Initialize(ctx context.Context) error {
 		statelessModule := stateless.New(&config.StatelessModuleConfig{
 			RefreshTokenRotation: true,
 		})
+		a.registryMu.Lock()
 		a.modules[statelessModule.Name()] = statelessModule
+		a.registryMu.Unlock()
 	}
+	a.configMu.Lock()
+	if hasSession {
+		a.config.Security.AuthStrategy = types.StrategySession
+	} else {
+		a.config.Security.AuthStrategy = types.StrategyStateless
+	}
+	a.configMu.Unlock()
+	var err error
+	a.moduleOrder, err = a.modulePlan()
+	if err != nil {
+		return err
+	}
+	a.configMu.Lock()
+	storageErr := a.resolveStorage()
+	a.configMu.Unlock()
+	if storageErr != nil {
+		return storageErr
+	}
+	if a.config.DurableEvents {
+		if _, ok := a.config.Storage.(types.TransactionalStorage); !ok {
+			return fmt.Errorf("durable events require transactional storage")
+		}
+		if _, ok := a.config.Storage.(types.OutboxStore); !ok {
+			return fmt.Errorf("durable events require outbox storage")
+		}
+	}
+	engine := &authentication.Engine{Store: a.config.Storage, Config: a.config, Security: a.moduleDependencies.SecurityManager, Interceptors: a.moduleDependencies.AuthInterceptors, Tokens: a.config.Storage.Core().Tokens()}
+	if a.config.Storage.Session() != nil {
+		engine.Sessions = a.config.Storage.Session().Sessions()
+	}
+	a.moduleDependencies.Completion = engine
 
 	// Run migrations
 	if a.config.Migration.Auto {
@@ -238,7 +334,9 @@ func (a *Auth) Initialize(ctx context.Context) error {
 	}
 
 	// Initialize all modules
-	for name, module := range a.modules {
+	for _, name := range a.moduleOrder {
+		module := a.modules[name]
+		a.startedModules = append(a.startedModules, module)
 		a.logger.Info("Initializing module", "name", name)
 		if err := module.Init(ctx, a.moduleDependencies); err != nil {
 			return fmt.Errorf("failed to initialize module %s: %w", name, err)
@@ -262,6 +360,11 @@ func (a *Auth) Initialize(ctx context.Context) error {
 		}
 	}
 
+	a.routes = a.buildRoutes()
+	if err := a.validateRoutes(); err != nil {
+		return err
+	}
+
 	// Start the event bus — registers the dispatcher with the async backend
 	// and begins consuming events. Must happen after all hooks are registered
 	// so that durable backends (NATS, Redis) replay messages to registered handlers.
@@ -270,9 +373,25 @@ func (a *Auth) Initialize(ctx context.Context) error {
 	}
 
 	// Build routes
-	a.routes = a.buildRoutes()
-
-	a.initialized = true
+	if a.config.DurableEvents {
+		a.outboxDone = make(chan struct{})
+		go func() {
+			defer close(a.outboxDone)
+			ticker := time.NewTicker(time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					if err := a.eventBus.DrainOutbox(ctx, a.config.Storage.(types.OutboxStore)); err != nil && ctx.Err() == nil {
+						a.logger.Error("outbox delivery failed", "error", err)
+					}
+				}
+			}
+		}()
+	}
+	a.initialized.Store(true)
 	a.logger.Info("Auth initialization completed", "modules", len(a.modules), "routes", len(a.routes))
 	return nil
 }
@@ -280,7 +399,8 @@ func (a *Auth) Initialize(ctx context.Context) error {
 // buildRoutes collects and processes routes from all modules
 func (a *Auth) buildRoutes() []config.RouteInfo {
 	var routes []config.RouteInfo
-	for _, module := range a.modules {
+	for _, name := range a.moduleOrder {
+		module := a.modules[name]
 		moduleRoutes := module.Routes()
 		for _, route := range moduleRoutes {
 			// Prepend base path
@@ -293,18 +413,20 @@ func (a *Auth) buildRoutes() []config.RouteInfo {
 
 // RequireAuth returns middleware that requires authentication
 func (a *Auth) RequireAuth(next http.Handler) http.Handler {
-	if !a.initialized {
-		a.logger.Warn("RequireAuth called before initialization")
-		return next
-	}
-
-	// Create auth middleware using core configuration and security manager
-	mw := middlewares.NewAuthMiddleware(a.config, a.moduleDependencies.SecurityManager)
-	return mw.AuthMiddleware(next)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !a.initialized.Load() {
+			http.Error(w, "authentication unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		mw := middlewares.NewAuthMiddleware(a.config, a.moduleDependencies.SecurityManager)
+		mw.AuthMiddleware(next).ServeHTTP(w, r)
+	})
 }
 
 // GetModule retrieves a registered module by name
 func (a *Auth) GetModule(name string) (config.Module, error) {
+	a.registryMu.RLock()
+	defer a.registryMu.RUnlock()
 	module, exists := a.modules[name]
 	if !exists {
 		return nil, config.ErrConfig("module not found")
@@ -315,21 +437,51 @@ func (a *Auth) GetModule(name string) (config.Module, error) {
 // Close gracefully shuts down the auth system
 // Closes event bus, async backend, and storage connections
 func (a *Auth) Close() error {
-	// Close event bus (which closes async backend)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	return a.Shutdown(ctx)
+}
+
+// Shutdown stops accepting authentication, stops modules in reverse dependency
+// order, and attempts every cleanup even if an earlier resource fails.
+func (a *Auth) Shutdown(ctx context.Context) error {
+	a.lifecycleMu.Lock()
+	defer a.lifecycleMu.Unlock()
+	return a.shutdown(ctx)
+}
+
+func (a *Auth) shutdown(ctx context.Context) error {
+	if a.closed {
+		return a.closeErr
+	}
+	a.closed = true
+	a.initialized.Store(false)
+	if a.cancel != nil {
+		a.cancel()
+	}
+	var errs []error
+	if a.outboxDone != nil {
+		select {
+		case <-a.outboxDone:
+		case <-ctx.Done():
+			errs = append(errs, ctx.Err())
+		}
+	}
+	for i := len(a.startedModules) - 1; i >= 0; i-- {
+		if m, ok := a.startedModules[i].(config.ModuleShutdown); ok {
+			if err := m.Shutdown(ctx); err != nil {
+				errs = append(errs, fmt.Errorf("shutdown %s: %w", a.startedModules[i].Name(), err))
+			}
+		}
+	}
 	if a.eventBus != nil {
-		if err := a.eventBus.Close(); err != nil {
-			return fmt.Errorf("failed to close event bus: %w", err)
-		}
+		errs = append(errs, a.eventBus.Shutdown(ctx))
 	}
-
-	// Close storage
-	if a.storage != nil {
-		if err := a.storage.Close(); err != nil {
-			return fmt.Errorf("failed to close storage: %w", err)
-		}
+	if a.storage != nil && !a.config.BorrowStorage {
+		errs = append(errs, a.storage.Close())
 	}
-
-	return nil
+	a.closeErr = errors.Join(errs...)
+	return a.closeErr
 }
 
 // On allows users to subscribe to any event type
@@ -356,4 +508,18 @@ func (a *asyncBackendAdapter) Close() error {
 
 func (a *asyncBackendAdapter) Name() string {
 	return a.backend.Name()
+}
+
+func (a *asyncBackendAdapter) Shutdown(ctx context.Context) error {
+	if backend, ok := a.backend.(interface{ Shutdown(context.Context) error }); ok {
+		return backend.Shutdown(ctx)
+	}
+	return a.backend.Close()
+}
+
+func (a *asyncBackendAdapter) SubscribeAcknowledged(ctx context.Context, dispatch func(context.Context, *types.Event) error) error {
+	if backend, ok := a.backend.(types.AcknowledgingBackend); ok {
+		return backend.SubscribeAcknowledged(ctx, dispatch)
+	}
+	return a.backend.Subscribe(ctx, func(ctx context.Context, event *types.Event) { _ = dispatch(ctx, event) })
 }

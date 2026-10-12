@@ -27,9 +27,15 @@ var _ config.Module = (*CaptchaModule)(nil)
 // New creates a new captcha module with the given configuration.
 // If cfg is nil, captcha verification is disabled.
 func New(cfg *config.CaptchaModuleConfig) *CaptchaModule {
+	if cfg != nil {
+		snapshot := *cfg
+		cfg = &snapshot
+	}
 	if cfg == nil {
 		cfg = &config.CaptchaModuleConfig{}
 	}
+	cfg.ApplyToRoutes = append([]types.RouteName(nil), cfg.ApplyToRoutes...)
+	cfg.ExcludeRoutes = append([]types.RouteName(nil), cfg.ExcludeRoutes...)
 	return &CaptchaModule{
 		config: cfg,
 	}

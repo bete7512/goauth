@@ -85,27 +85,7 @@ func (h *StatelessHandler) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *StatelessHandler) setTokenCookies(w http.ResponseWriter, response *dto.AuthResponse) {
-	if response.AccessToken == nil || response.RefreshToken == nil {
-		return
+	if response.AccessToken != nil && response.RefreshToken != nil {
+		http_utils.SetCredentialCookies(w, h.deps.Config.Security, *response.AccessToken, *response.RefreshToken)
 	}
-	accessTokenName := "goauth_access_" + h.deps.Config.Security.Session.Name
-	http.SetCookie(w, &http.Cookie{
-		Name:     accessTokenName,
-		Value:    *response.AccessToken,
-		HttpOnly: h.deps.Config.Security.Session.HttpOnly,
-		Secure:   h.deps.Config.Security.Session.Secure,
-		SameSite: h.deps.Config.Security.Session.SameSite,
-		Path:     h.deps.Config.Security.Session.Path,
-		MaxAge:   h.deps.Config.Security.Session.MaxAge,
-	})
-	refreshTokenName := "goauth_refresh_" + h.deps.Config.Security.Session.Name
-	http.SetCookie(w, &http.Cookie{
-		Name:     refreshTokenName,
-		Value:    *response.RefreshToken,
-		HttpOnly: h.deps.Config.Security.Session.HttpOnly,
-		Secure:   h.deps.Config.Security.Session.Secure,
-		SameSite: h.deps.Config.Security.Session.SameSite,
-		Path:     h.deps.Config.Security.Session.Path,
-		MaxAge:   h.deps.Config.Security.Session.MaxAge,
-	})
 }

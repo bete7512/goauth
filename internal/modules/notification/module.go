@@ -49,6 +49,10 @@ var _ config.Module = (*NotificationModule)(nil)
 
 // New creates a new notification module.
 func New(cfg *Config) *NotificationModule {
+	if cfg != nil {
+		snapshot := *cfg
+		cfg = &snapshot
+	}
 	if cfg == nil {
 		cfg = &Config{
 			EnableWelcomeEmail:        true,

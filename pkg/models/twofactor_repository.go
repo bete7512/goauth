@@ -15,6 +15,7 @@ type BackupCodeRepository interface {
 	CreateBatch(ctx context.Context, codes []*BackupCode) error
 	GetByUserID(ctx context.Context, userID string) ([]*BackupCode, error)
 	GetUnusedByUserID(ctx context.Context, userID string) ([]*BackupCode, error)
+	// MarkUsed atomically consumes an unused code; replay returns ErrConflict.
 	MarkUsed(ctx context.Context, id string) error
 	DeleteByUserID(ctx context.Context, userID string) error
 }

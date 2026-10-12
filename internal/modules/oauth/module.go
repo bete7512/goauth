@@ -38,13 +38,29 @@ var _ config.Module = (*OAuthModule)(nil)
 // Pass nil for cfg to use safe defaults.
 // To provide custom storage, set cfg.CustomCoreStorage / cfg.CustomOAuthStorage / cfg.CustomSessionStorage.
 func New(cfg *config.OAuthModuleConfig) *OAuthModule {
+	if cfg != nil {
+		snapshot := *cfg
+		cfg = &snapshot
+	}
 	if cfg == nil {
 		cfg = &config.OAuthModuleConfig{
 			AllowSignup:            true,
-			AllowAccountLinking:    true,
+			AllowAccountLinking:    false,
 			TrustEmailVerification: true,
 			StateTTL:               10 * time.Minute,
 		}
+	}
+
+	if cfg.Providers != nil {
+		providers := make(map[string]*config.OAuthProviderConfig, len(cfg.Providers))
+		for name, provider := range cfg.Providers {
+			if provider != nil {
+				copy := *provider
+				copy.Scopes = append([]string(nil), provider.Scopes...)
+				providers[name] = &copy
+			}
+		}
+		cfg.Providers = providers
 	}
 
 	// Set defaults
@@ -76,6 +92,9 @@ func (m *OAuthModule) Name() string {
 // Init initializes the module with dependencies
 func (m *OAuthModule) Init(ctx context.Context, deps config.ModuleDependencies) error {
 	m.deps = deps
+	if m.config.CustomCoreStorage != nil || m.config.CustomOAuthStorage != nil || m.config.CustomSessionStorage != nil {
+		return errors.New("OAuth custom stores require a single aggregate transactional Storage adapter")
+	}
 
 	// Get core storage
 	var coreStorage types.CoreStorage
@@ -203,4 +222,16 @@ func (m *OAuthModule) GetRegistry() *providers.Registry {
 
 func (m *OAuthModule) Migrations() types.ModuleMigrations {
 	return utils.ParseMigrations(migrationFS)
+}
+
+// RegisterProvider installs a trusted in-process protocol implementation before Init.
+func (m *OAuthModule) RegisterProvider(connection string, provider providers.OAuthProvider) error {
+	if m.deps.Config != nil {
+		return errors.New("OAuth connections are frozen after initialization")
+	}
+	if !providers.ValidConnectionID(connection) || provider == nil || m.registry.Has(connection) {
+		return errors.New("invalid or duplicate OAuth connection")
+	}
+	m.registry.RegisterConnection(connection, provider)
+	return nil
 }

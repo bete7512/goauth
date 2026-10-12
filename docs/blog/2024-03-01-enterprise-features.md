@@ -7,142 +7,60 @@ tags: [enterprise, security, compliance, organizations, audit]
 
 # Enterprise-Ready Features in GoAuth
 
-GoAuth includes several modules and capabilities aimed at organizations that need more than basic signup/login. This post covers what is available today for multi-tenant setups, compliance, and advanced security.
+GoAuth provides organization membership, administration, audit hooks, passkeys, and shared authentication policy as composable library features. This article is updated for the current checkout, including transactional storage, key rotation, and durable events.
 
 <!-- truncate -->
 
-## Organization Module
+## Organization membership
 
-The organization module provides multi-org support:
+Users can belong to multiple organizations with the recognized roles `owner`, `admin`, and `member`. Unrecognized role strings do not receive privileges. Organizations are membership contexts inside the default identity realm, not separate user directories.
 
-- **Create organizations** with metadata and settings
-- **Role-based membership** -- assign roles (owner, admin, member, or custom) to users within an organization
-- **Invitations** -- invite users to organizations via email with configurable expiration
-- **Multiple memberships** -- users can belong to multiple organizations
+An organization becomes active through explicit selection. The grant carries `active_org_id` and `org_role`; validation rechecks the current organization and membership. Refresh retains that selection. Application-specific permissions remain the application's responsibility.
 
-```go
-import "github.com/bete7512/goauth/pkg/modules/organization"
+## Audit logging and retention
 
-a.Use(organization.New(nil))
-```
-
-The organization module adds its own API endpoints for creating orgs, managing members, sending invitations, and switching organization context.
-
-## Audit Logging
-
-The audit module tracks security-relevant events across your system:
-
-- Login attempts (successful and failed)
-- Password changes and resets
-- 2FA enrollment and verification
-- Admin actions on user accounts
-- Session creation and revocation
-
-Each audit entry includes timestamp, actor ID, action, IP address, user agent, and severity level.
-
-### Retention Policies
-
-Audit logs support configurable retention with automatic cleanup:
+Register Admin alongside Audit so its admin routes can resolve their authorization middleware. Retention uses a map of action patterns to days:
 
 ```go
-import "github.com/bete7512/goauth/pkg/modules/audit"
-
-a.Use(audit.New(&audit.Config{
-    RetentionDays: 90,
-    CleanupInterval: 24 * time.Hour,
-}))
-```
-
-The cleanup runs as a background goroutine that respects context cancellation for graceful shutdown.
-
-## Two-Factor Authentication
-
-GoAuth's 2FA implementation includes:
-
-- **TOTP** (RFC 6238) with configurable issuer, digits, and period
-- **Encrypted secret storage** -- TOTP secrets are encrypted with AES-256-GCM before being written to the database
-- **Backup codes** -- configurable count (default 10) and length (default 8 characters)
-- **Code reuse prevention** -- each TOTP code can only be used once within its validity window
-- **Sync intercept** -- during login, 2FA verification is enforced via `EmitSync` so the login flow blocks until the code is verified
-
-```go
-import "github.com/bete7512/goauth/pkg/modules/twofactor"
-
-a.Use(twofactor.New(&config.TwoFactorConfig{
-    Issuer:           "MyCompany",
-    BackupCodesCount: 10,
-    CodeLength:       8,
-}))
-```
-
-## OAuth with PKCE
-
-The OAuth module supports 4 providers -- Google, GitHub, Microsoft, and Discord -- with PKCE (Proof Key for Code Exchange) for secure authorization code flows:
-
-```go
-import "github.com/bete7512/goauth/pkg/modules/oauth"
-
-a.Use(oauth.New(&config.OAuthModuleConfig{
-    Providers: []config.OAuthProvider{
-        {
-            Name:         "google",
-            ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
-            ClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
-            RedirectURL:  "https://app.example.com/auth/oauth/google/callback",
-        },
+if err := a.Use(admin.New(nil)); err != nil {
+    return err
+}
+if err := a.Use(audit.New(&audit.Config{
+    TrackAuthEvents: true,
+    TrackUserEvents: true,
+    TrackAdminEvents: true,
+    TrackSecurityEvents: true,
+    RetentionDays: map[string]int{
+        "auth.*": 90,
+        "user.*": 90,
+        "admin.*": 365,
+        "security.*": -1,
     },
-}, nil))
+})); err != nil {
+    return err
+}
 ```
 
-## Event Hooks
+This fragment runs before initialization in a function returning `error`. The cleaner runs every 24 hours until its initialization context is cancelled. `SampleRate` is currently unused by the event handler. Audit subscriptions do not prove every operation emits the desired event; assess required coverage and add handlers where needed.
 
-GoAuth's event system supports enterprise integration patterns:
+## Shared authentication policy
 
-- **Multiple handlers per event** -- attach several handlers to the same event type
-- **Priority ordering** -- handlers execute in priority order (higher priority runs first)
-- **Retry policies** -- configure retries for failed event handlers
-- **Dead-letter queue** -- events that exhaust retries are sent to a DLQ for inspection
-- **Custom async backend** -- replace the default in-memory worker pool with your own `types.AsyncBackend` implementation (e.g., backed by a message queue)
+Password, OAuth, passkey, magic-link, and invitation proofs use shared completion. It checks current eligibility and runs interceptors before issuing credentials. TOTP requirements produce a stored, purpose-bound continuation; resumption consumes it atomically after the factor is verified.
 
-```go
-a.On(types.EventAfterSignup, func(ctx context.Context, data interface{}) error {
-    // sync new user to external systems
-    return nil
-})
-```
+Passkeys use RP ID and origin validation, one-use challenges, and atomic authenticator-counter updates. The current policy still applies configured 2FA to passkey login; it does not automatically treat a passkey as a 2FA bypass.
 
-## Pluggable Storage
+OAuth supports Google, GitHub, Microsoft, and Discord as built-in provider types. Named connections permit multiple configurations of a type. Google and Microsoft use verified OIDC ID tokens; Microsoft requires an explicit tenant. Browser-bound state and PKCE protect the authorization-code exchange. See [OAuth](/docs/modules/oauth) for the provider-map configuration.
 
-GoAuth's storage layer is interface-based:
+## Events and transactional storage
 
-- **Built-in**: GORM backend supporting PostgreSQL, MySQL, and SQLite
-- **Cache decorator**: In-memory cache for reducing database load
-- **Custom backends**: Implement `types.Storage` (with `Core()`, `Session()`, `Stateless()` sub-interfaces) to use any data store
+The default in-memory worker pool is suitable when process-local delivery meets the application's needs. `DurableEvents` adds an outbox for supported operations, committing event records with their associated mutations. Delivery is at least once and acknowledged; deduplicate stable event IDs.
 
-This means you can use GoAuth with existing enterprise databases or non-SQL backends without forking the library.
+External broker integration uses the async backend interfaces. Durable local outbox dispatch does not automatically publish every event to an external broker. Review [Enterprise deployment](/docs/enterprise) for the exact contracts.
 
-## What GoAuth Does Not Provide
+The bundled GORM adapter provides transaction-bound stores, conditional token rotation, migration coordination, and outbox leases. A custom `types.Storage` implementation must implement the corresponding capabilities. Combining independent stores in `StorageSet` alone cannot make cross-feature changes atomic.
 
-To be clear about scope:
+## Deployment scope
 
-- **No SAML or LDAP** -- GoAuth handles OAuth 2.0 for social login. For SAML/LDAP, integrate at the identity provider level and use GoAuth for session management.
-- **No RBAC system** -- The organization module has roles for org membership. For application-level permissions, implement your own authorization layer on top of GoAuth's user/org identities.
-- **No built-in Redis or RabbitMQ** -- The `AsyncBackend` and storage interfaces are pluggable, but GoAuth does not ship with Redis or message queue implementations. The in-memory worker pool and GORM storage are the built-in defaults.
-- **No Prometheus metrics or Kubernetes operators** -- GoAuth is a library, not a service. Instrument it with your existing observability stack.
+GoAuth is a library with request observation and admission interfaces, not a hosted identity service. It does not ship SAML, LDAP, a general application RBAC engine, Redis storage, or broker infrastructure. [Compliance](/docs/compliance) describes the operational responsibilities around its security features.
 
-## Getting Started
-
-Add the modules you need:
-
-```go
-a.Use(organization.New(nil))
-a.Use(audit.New(&audit.Config{RetentionDays: 90}))
-a.Use(twofactor.New())
-a.Use(oauth.New(&config.OAuthModuleConfig{...}, nil))
-```
-
-See the [Examples](/docs/showcase) page for complete setup patterns and the individual module docs for configuration details.
-
----
-
-_Follow development on [GitHub](https://github.com/bete7512/goauth)._
+Use [Examples](/docs/showcase), [Storage](/docs/storage), and [Upgrading](/docs/upgrade) when integrating the current API.

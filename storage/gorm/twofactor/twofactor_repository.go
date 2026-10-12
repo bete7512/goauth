@@ -95,15 +95,19 @@ func (r *backupCodeRepository) GetUnusedByUserID(ctx context.Context, userID str
 }
 
 func (r *backupCodeRepository) MarkUsed(ctx context.Context, id string) error {
-	now := time.Now()
-	if err := r.db.WithContext(ctx).
+	now := time.Now().UTC()
+	result := r.db.WithContext(ctx).
 		Model(&models.BackupCode{}).
-		Where("id = ?", id).
+		Where("id = ? AND used = ?", id, false).
 		Updates(map[string]interface{}{
 			"used":    true,
 			"used_at": now,
-		}).Error; err != nil {
-		return fmt.Errorf("backup_code_repository.MarkUsed: %w", err)
+		})
+	if result.Error != nil {
+		return fmt.Errorf("backup_code_repository.MarkUsed: %w", result.Error)
+	}
+	if result.RowsAffected != 1 {
+		return models.ErrConflict
 	}
 	return nil
 }

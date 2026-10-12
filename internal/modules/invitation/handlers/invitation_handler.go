@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"github.com/bete7512/goauth/internal/authentication"
 	"net/http"
 	"strings"
 
@@ -96,16 +97,18 @@ func (h *InvitationHandler) Accept(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Generate auth tokens
-	accessToken, refreshToken, err := h.deps.SecurityManager.GenerateTokens(result.User, nil)
-	if err != nil {
-		http_utils.RespondError(w, http.StatusInternalServerError, string(types.ErrInternalError), "Failed to generate tokens")
+	complete := authentication.ForModule(h.deps, h.deps.Storage.Core().Tokens(), nil, "")
+	authResult, completeErr := complete.Complete(r.Context(), types.AuthenticationEvidence{User: result.User, Method: "invitation"})
+	if completeErr != nil {
+		http_utils.RespondError(w, completeErr.StatusCode, string(completeErr.Code), completeErr.Message)
 		return
 	}
+	http_utils.SetCredentialCookies(w, h.deps.Config.Security, authResult.AccessToken, authResult.RefreshToken)
 
 	http_utils.RespondSuccess(w, &dto.AcceptResultDTO{
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
+		AccessToken:  authResult.AccessToken,
+		RefreshToken: authResult.RefreshToken,
+		Challenges:   authResult.Challenges,
 		User: &dto.AcceptUserDTO{
 			ID:            result.User.ID,
 			Email:         result.User.Email,

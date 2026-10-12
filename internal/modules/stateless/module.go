@@ -6,8 +6,8 @@ import (
 	"errors"
 
 	"github.com/bete7512/goauth/internal/modules/stateless/handlers"
+	"github.com/bete7512/goauth/internal/modules/stateless/handlers/dto"
 	"github.com/bete7512/goauth/internal/modules/stateless/services"
-	"github.com/bete7512/goauth/internal/security"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/types"
 )
@@ -17,6 +17,7 @@ var openapiSpec []byte
 
 type StatelessModule struct {
 	deps     config.ModuleDependencies
+	service  *services.StatelessService
 	handlers *handlers.StatelessHandler
 	config   *config.StatelessModuleConfig
 }
@@ -32,6 +33,8 @@ func New(cfg *config.StatelessModuleConfig) *StatelessModule {
 			RefreshTokenRotation: true,
 		}
 	}
+	snapshot := *cfg
+	cfg = &snapshot
 	return &StatelessModule{
 		config: cfg,
 	}
@@ -52,19 +55,22 @@ func (m *StatelessModule) Init(ctx context.Context, deps config.ModuleDependenci
 		return errors.New("core storage is required for stateless module")
 	}
 	// Initialize security manager
-	securityManager := security.NewSecurityManager(m.deps.Config.Security)
-	m.deps.SecurityManager = securityManager
+	securityManager := m.deps.SecurityManager
+	if securityManager == nil {
+		return errors.New("security manager is required")
+	}
 
 	// Initialize handlers with all dependencies
+	m.service = services.NewStatelessService(
+		m.deps,
+		coreStorage.Users(),
+		coreStorage.Tokens(),
+		m.deps.Logger,
+		securityManager,
+		m.config,
+	)
 	m.handlers = handlers.NewStatelessHandler(
-		services.NewStatelessService(
-			m.deps,
-			coreStorage.Users(),
-			coreStorage.Tokens(),
-			m.deps.Logger,
-			securityManager,
-			m.config,
-		),
+		m.service,
 		m.deps,
 	)
 
@@ -100,4 +106,38 @@ func (m *StatelessModule) Dependencies() []string {
 
 func (m *StatelessModule) Migrations() types.ModuleMigrations {
 	return types.ModuleMigrations{}
+}
+
+func (m *StatelessModule) StorageBindings() config.StorageBindings {
+	return config.StorageBindings{Core: m.config.CustomStorage}
+}
+
+func (m *StatelessModule) SignIn(ctx context.Context, request types.SignInRequest) (types.AuthenticationResult, error) {
+	input := &dto.LoginRequest{Email: request.Email, Username: request.Username, Password: request.Password}
+	if err := input.Validate(); err != nil {
+		return types.AuthenticationResult{Status: types.Denied}, err
+	}
+	if m.deps.Events != nil {
+		if err := m.deps.Events.EmitSync(ctx, types.EventBeforeLogin, &types.BeforeHookData{Body: *input, Metadata: request.Metadata}); err != nil {
+			return types.AuthenticationResult{Status: types.Denied}, types.NewForbiddenError().Wrap(err)
+		}
+	}
+	response, err := m.service.Login(ctx, input)
+	if err != nil {
+		return types.AuthenticationResult{Status: types.Denied}, err
+	}
+	result := types.AuthenticationResult{Status: types.Authenticated, Challenges: response.Challenges, Data: response.Data, ExpiresIn: response.ExpiresIn}
+	if len(result.Challenges) > 0 {
+		result.Status = types.ChallengeRequired
+	}
+	if response.User != nil {
+		result.UserID = response.User.ID
+	}
+	if response.AccessToken != nil {
+		result.AccessToken = *response.AccessToken
+	}
+	if response.RefreshToken != nil {
+		result.RefreshToken = *response.RefreshToken
+	}
+	return result, nil
 }

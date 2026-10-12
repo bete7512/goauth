@@ -2,13 +2,14 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
 	"github.com/bete7512/goauth/internal/modules/session/handlers/dto"
+	"github.com/bete7512/goauth/internal/security"
 	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
-	"github.com/google/uuid"
 )
 
 // Refresh refreshes the access token using a refresh token
@@ -42,20 +43,47 @@ func (s *sessionService) Refresh(ctx context.Context, req *dto.RefreshRequest) (
 		return dto.AuthResponse{}, types.NewInternalError("failed to find user").Wrap(err)
 	}
 
-	// Run auth interceptors for refresh (enrichment only, no challenges)
-	interceptClaims, _, responseData, interceptErr := s.deps.AuthInterceptors.Run(ctx, &types.InterceptParams{
-		Phase: types.PhaseRefresh,
-		User:  user,
+	var grant types.GrantContext
+	if session.AuthData != "" {
+		if err := json.Unmarshal([]byte(session.AuthData), &grant); err != nil {
+			return dto.AuthResponse{}, types.NewInvalidRefreshTokenError()
+		}
+	}
+	if grant.TokenVersion != user.TokenVersion {
+		return dto.AuthResponse{}, types.NewInvalidRefreshTokenError()
+	}
+	if grant.AuthenticatedAt.IsZero() {
+		grant.AuthenticatedAt = session.CreatedAt
+	}
+	// Reevaluate current policy while retaining the original authentication time.
+	if authErr := security.CheckEligibility(user, s.deps.Config.Core); authErr != nil {
+		return dto.AuthResponse{}, authErr
+	}
+	interceptClaims, challenges, responseData, interceptErr := s.deps.AuthInterceptors.Run(ctx, &types.InterceptParams{
+		VerifiedMethods: grant.Methods,
+		ExistingClaims:  map[string]interface{}{"active_org_id": grant.OrganizationID},
+		Phase:           types.PhaseRefresh,
+		User:            user,
 	})
 	if interceptErr != nil {
 		return dto.AuthResponse{}, types.NewInternalError("Token refresh interrupted")
 	}
+	if len(challenges) > 0 && s.deps.Completion != nil {
+		result, authErr := s.deps.Completion.Complete(ctx, types.AuthenticationEvidence{User: user, Method: "refresh", Phase: types.PhaseRefresh, Methods: grant.Methods, AuthenticatedAt: grant.AuthenticatedAt, Claims: map[string]interface{}{"active_org_id": grant.OrganizationID}})
+		if authErr != nil {
+			return dto.AuthResponse{}, authErr
+		}
+		return dto.AuthResponse{Challenges: result.Challenges, Message: "Authentication challenge required"}, nil
+	}
+	if len(challenges) > 0 {
+		return dto.AuthResponse{Challenges: challenges, Message: "Authentication challenge required"}, nil
+	}
 
 	// Generate new session ID for rotation
-	newSessionID := uuid.Must(uuid.NewV7()).String()
+	newSessionID := session.ID
 
 	// Merge interceptor claims with session_id
-	tokenClaims := map[string]interface{}{"session_id": newSessionID}
+	tokenClaims := map[string]interface{}{"session_id": newSessionID, "amr": grant.Methods, "auth_time": grant.AuthenticatedAt.Unix()}
 	for k, v := range interceptClaims {
 		tokenClaims[k] = v
 	}
@@ -66,27 +94,30 @@ func (s *sessionService) Refresh(ctx context.Context, req *dto.RefreshRequest) (
 		return dto.AuthResponse{}, types.NewInternalError("failed to generate tokens").Wrap(err)
 	}
 
-	// Delete old session by hash
-	if err := s.sessionRepository.DeleteByToken(ctx, tokenHash); err != nil {
-		return dto.AuthResponse{}, types.NewInternalError("failed to rotate session").Wrap(err)
+	// The logical session and absolute expiry survive refresh. A conditional
+	// update allows only one caller to replace the expected refresh secret.
+	rotator, ok := s.sessionRepository.(models.SessionRotator)
+	if !ok {
+		return dto.AuthResponse{}, types.NewInternalError("session storage requires atomic rotation")
 	}
-
-	// Create new session with hashed rotated refresh token
-	session.ID = newSessionID
 	session.RefreshToken = s.securityManager.HashRefreshToken(newRefreshToken)
 	session.RefreshTokenExpiresAt = time.Now().Add(s.deps.Config.Security.Session.RefreshTokenTTL)
-	session.ExpiresAt = time.Now().Add(s.deps.Config.Security.Session.SessionTTL)
-	session.CreatedAt = time.Now()
+	if session.RefreshTokenExpiresAt.After(session.ExpiresAt) {
+		session.RefreshTokenExpiresAt = session.ExpiresAt
+	}
 	session.UpdatedAt = time.Now()
 
-	if err := s.sessionRepository.Create(ctx, session); err != nil {
-		return dto.AuthResponse{}, types.NewInternalError("failed to create refreshed session").Wrap(err)
+	if err := rotator.RotateToken(ctx, tokenHash, session); err != nil {
+		if errors.Is(err, models.ErrConflict) {
+			return dto.AuthResponse{}, types.NewInvalidRefreshTokenError()
+		}
+		return dto.AuthResponse{}, types.NewInternalError("failed to rotate session").Wrap(err)
 	}
 
 	return dto.AuthResponse{
 		AccessToken:  accessToken,
 		RefreshToken: newRefreshToken,
-		ExpiresIn:    int64(s.deps.Config.Security.Session.SessionTTL.Seconds()),
+		ExpiresIn:    int64(s.deps.Config.Security.Session.AccessTokenTTL.Seconds()),
 		Message:      "Token refreshed successfully",
 		SessionID:    newSessionID,
 		Data:         responseData,

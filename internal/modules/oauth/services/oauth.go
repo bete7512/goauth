@@ -2,13 +2,16 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/bete7512/goauth/internal/authentication"
+	"github.com/bete7512/goauth/internal/operation"
+	"github.com/bete7512/goauth/pkg/config"
 	"strings"
 	"time"
 
 	"github.com/bete7512/goauth/internal/modules/oauth/providers"
-	"github.com/bete7512/goauth/internal/security"
 	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
 	"github.com/google/uuid"
@@ -19,6 +22,13 @@ const accountTypeOAuth = "oauth"
 
 // Default state TTL if not configured
 const defaultStateTTL = 10 * time.Minute
+
+type oauthContinuation struct {
+	Connection string `json:"connection"`
+	Nonce      string `json:"nonce"`
+	Verifier   string `json:"verifier"`
+	Redirect   string `json:"redirect"`
+}
 
 // InitiateLogin generates state, PKCE, and returns the authorization URL
 func (s *oauthService) InitiateLogin(ctx context.Context, providerName, clientRedirectURI string) (string, *types.GoAuthError) {
@@ -46,7 +56,10 @@ func (s *oauthService) InitiateLogin(ctx context.Context, providerName, clientRe
 	codeChallenge := providers.GenerateCodeChallenge(codeVerifier)
 
 	// Generate nonce for OIDC
-	nonce, _ := providers.GenerateNonce()
+	nonce, err := providers.GenerateNonce()
+	if err != nil {
+		return "", types.NewInternalError("failed to generate nonce").Wrap(err)
+	}
 
 	// Determine state TTL
 	stateTTL := s.config.StateTTL
@@ -54,15 +67,16 @@ func (s *oauthService) InitiateLogin(ctx context.Context, providerName, clientRe
 		stateTTL = defaultStateTTL
 	}
 
-	// Store state + PKCE verifier in Token table
-	// We use Code field to store the verifier, and Email field to store client redirect URI
+	data, err := json.Marshal(oauthContinuation{Connection: providerName, Nonce: nonce, Verifier: codeVerifier, Redirect: clientRedirectURI})
+	if err != nil {
+		return "", types.NewInternalError("failed to encode continuation").Wrap(err)
+	}
 	stateToken := &models.Token{
+		Data:      string(data),
 		ID:        uuid.Must(uuid.NewV7()).String(),
 		UserID:    "", // No user yet
 		Type:      models.TokenTypeOAuthState,
 		Token:     state,
-		Code:      codeVerifier,      // Store verifier in Code field
-		Email:     clientRedirectURI, // Store client redirect URI in Email field
 		ExpiresAt: time.Now().Add(stateTTL),
 		Used:      false,
 		CreatedAt: time.Now(),
@@ -107,14 +121,18 @@ func (s *oauthService) HandleCallback(ctx context.Context, providerName, code, s
 	if stateToken.Used {
 		return nil, types.NewOAuthStateUsedError()
 	}
+	var continuation oauthContinuation
+	if err := json.Unmarshal([]byte(stateToken.Data), &continuation); err != nil || continuation.Connection != providerName || continuation.Nonce == "" || continuation.Verifier == "" {
+		return nil, types.NewOAuthInvalidStateError()
+	}
 
 	// Mark state as used immediately to prevent replay
 	if err := s.tokenRepo.MarkAsUsed(ctx, stateToken.ID); err != nil {
-		s.logger.Errorf("oauth: failed to mark state as used: %v", err)
+		return nil, types.NewOAuthInvalidStateError()
 	}
 
-	codeVerifier := stateToken.Code
-	clientRedirectURI := stateToken.Email
+	codeVerifier := continuation.Verifier
+	clientRedirectURI := continuation.Redirect
 
 	// 2. Get provider
 	provider, err := s.registry.Get(providerName)
@@ -135,19 +153,21 @@ func (s *oauthService) HandleCallback(ctx context.Context, providerName, code, s
 
 	// 4. Get user info (prefer ID token for OIDC providers)
 	var userInfo *providers.UserInfo
-	if provider.SupportsOIDC() && tokenResp.IDToken != "" {
+	if provider.SupportsOIDC() {
+		if tokenResp.IDToken == "" {
+			return nil, types.NewOAuthUserInfoError("ID token required")
+		}
 		userInfo, err = provider.ValidateIDToken(ctx, tokenResp.IDToken)
-		if err != nil {
-			s.logger.Warnf("oauth: ID token validation failed, falling back to userinfo: %v", err)
-			userInfo, err = provider.UserInfo(ctx, tokenResp.AccessToken)
+		if err == nil && (userInfo == nil || userInfo.RawData["nonce"] != continuation.Nonce) {
+			err = fmt.Errorf("ID token nonce mismatch")
 		}
 	} else {
 		userInfo, err = provider.UserInfo(ctx, tokenResp.AccessToken)
 	}
 
-	if err != nil {
+	if err != nil || userInfo == nil || userInfo.ID == "" {
 		s.logger.Errorf("oauth: failed to get user info from %s: %v", providerName, err)
-		return nil, types.NewOAuthUserInfoError(err.Error())
+		return nil, types.NewOAuthUserInfoError("provider identity could not be verified")
 	}
 
 	// 5. Find or create user
@@ -159,101 +179,34 @@ func (s *oauthService) HandleCallback(ctx context.Context, providerName, code, s
 	// 6. Update last login time
 	now := time.Now()
 	user.LastLoginAt = &now
-	if err := s.userRepo.Update(ctx, user); err != nil {
+	var activityErr error
+	if mutator, ok := s.userRepo.(models.UserCredentialMutator); ok {
+		activityErr = mutator.RecordLogin(ctx, user.ID, user.TokenVersion, now)
+	} else {
+		activityErr = s.userRepo.Update(ctx, user)
+	}
+	if err := activityErr; err != nil {
 		s.logger.Warnf("oauth: failed to update last login time: %v", err)
 	}
 
-	// 7. Run auth interceptors (2FA challenges, org enrichment, etc.)
-	interceptClaims, challenges, _, interceptErr := s.deps.AuthInterceptors.Run(ctx, &types.InterceptParams{
-		Phase:    types.PhaseLogin,
-		User:     user,
-		Metadata: metadata,
-	})
-	if interceptErr != nil {
-		s.logger.Errorf("oauth: auth interceptor failed: %v", interceptErr)
-		return nil, types.NewInternalError("Authentication flow interrupted").Wrap(interceptErr)
+	completion := authentication.ForModule(s.deps, s.tokenRepo, s.sessionRepo, "")
+	result, authErr := completion.Complete(ctx, types.AuthenticationEvidence{User: user, Method: "oauth", Metadata: metadata, Claims: map[string]interface{}{"oauth_provider": providerName}})
+	if authErr != nil {
+		return nil, authErr
 	}
-
-	// If challenges were issued, return them without generating tokens
-	if len(challenges) > 0 {
-		return &OAuthResult{
-			User:              user,
-			IsNewUser:         isNewUser,
-			Provider:          providerName,
-			ClientRedirectURI: clientRedirectURI,
-			Challenges:        challenges,
-		}, nil
+	if result.Status == types.ChallengeRequired {
+		return &OAuthResult{User: user, IsNewUser: isNewUser, Provider: providerName, ClientRedirectURI: clientRedirectURI, Challenges: result.Challenges}, nil
 	}
-
-	var accessToken, refreshToken, sessionID string
-	var expiresIn int64
-
-	// 8. Generate auth tokens (session-based or stateless)
-	if s.useSessionAuth() {
-		// Session-based: create session record and embed session_id in JWT
-		sessionID = uuid.Must(uuid.NewV7()).String()
-
-		tokenClaims := map[string]interface{}{
-			"oauth_provider": providerName,
-			"session_id":     sessionID,
-		}
-		for k, v := range interceptClaims {
-			tokenClaims[k] = v
-		}
-
-		accessToken, refreshToken, err = s.securityManager.GenerateTokens(user, tokenClaims)
-		if err != nil {
-			s.logger.Errorf("oauth: failed to generate tokens: %v", err)
-			return nil, types.NewInternalError("failed to generate authentication tokens").Wrap(err)
-		}
-
-		// Create session record — store hashed refresh token
-		session := &models.Session{
-			ID:                    sessionID,
-			UserID:                user.ID,
-			RefreshToken:          security.HashRefreshToken(refreshToken),
-			RefreshTokenExpiresAt: time.Now().Add(s.deps.Config.Security.Session.RefreshTokenTTL),
-			ExpiresAt:             time.Now().Add(s.deps.Config.Security.Session.SessionTTL),
-			UserAgent:             metadata.UserAgent,
-			IPAddress:             metadata.IPAddress,
-			CreatedAt:             time.Now(),
-			UpdatedAt:             time.Now(),
-		}
-
-		if err := s.sessionRepo.Create(ctx, session); err != nil {
-			s.logger.Errorf("oauth: failed to create session: %v", err)
-			return nil, types.NewInternalError("failed to create session").Wrap(err)
-		}
-
-		expiresIn = int64(s.deps.Config.Security.Session.SessionTTL.Seconds())
-	} else {
-		// Stateless: just generate JWT tokens
-		tokenClaims := map[string]interface{}{
-			"oauth_provider": providerName,
-		}
-		for k, v := range interceptClaims {
-			tokenClaims[k] = v
-		}
-
-		accessToken, refreshToken, err = s.securityManager.GenerateTokens(user, tokenClaims)
-		if err != nil {
-			s.logger.Errorf("oauth: failed to generate tokens: %v", err)
-			return nil, types.NewInternalError("failed to generate authentication tokens").Wrap(err)
-		}
-
-		expiresIn = int64(s.deps.Config.Security.Session.AccessTokenTTL.Seconds())
-	}
+	accessToken, refreshToken, sessionID, expiresIn := result.AccessToken, result.RefreshToken, result.SessionID, result.ExpiresIn
 
 	// 8. Emit event
 	if s.deps.Events != nil {
 		eventData := &types.OAuthLoginEventData{
-			User:                 user,
-			Provider:             providerName,
-			ProviderUserID:       userInfo.ID,
-			ProviderAccessToken:  tokenResp.AccessToken,
-			ProviderRefreshToken: tokenResp.RefreshToken,
-			IsNewUser:            isNewUser,
-			Metadata:             metadata,
+			User:           user,
+			Provider:       providerName,
+			ProviderUserID: userInfo.ID,
+			IsNewUser:      isNewUser,
+			Metadata:       metadata,
 		}
 		if emitErr := s.deps.Events.EmitAsync(ctx, types.EventAfterOAuthLogin, eventData); emitErr != nil {
 			s.logger.Warnf("oauth: failed to emit after login event: %v", emitErr)
@@ -278,9 +231,30 @@ func (s *oauthService) HandleCallback(ctx context.Context, providerName, code, s
 
 // findOrCreateUser finds an existing user or creates a new one
 func (s *oauthService) findOrCreateUser(ctx context.Context, providerName string, info *providers.UserInfo, tokenResp *providers.TokenResponse) (*models.User, bool, *types.GoAuthError) {
+	if !s.inTransaction && s.deps.Storage != nil {
+		type identityResult struct {
+			user    *models.User
+			created bool
+		}
+		result, authErr := operation.Run(ctx, s.deps, func(deps config.ModuleDependencies) (identityResult, *types.GoAuthError) {
+			copy := *s
+			copy.deps = deps
+			copy.inTransaction = true
+			copy.userRepo = deps.Storage.Core().Users()
+			copy.accountRepo = deps.Storage.OAuth().Accounts()
+			user, created, err := copy.findOrCreateUser(ctx, providerName, info, tokenResp)
+			return identityResult{user: user, created: created}, err
+		})
+		return result.user, result.created, authErr
+	}
+
+	issuer, _ := info.RawData["iss"].(string)
 	// 1. Check if OAuth account already exists for this provider + provider account ID
 	existingAccount, err := s.accountRepo.FindByProviderAndAccountID(ctx, providerName, info.ID)
 	if err == nil && existingAccount != nil {
+		if existingAccount.Issuer != issuer || (existingAccount.RealmID != "" && existingAccount.RealmID != "default") {
+			return nil, false, types.NewOAuthAccountLinkingDisabledError()
+		}
 		// User already linked, fetch and return
 		user, err := s.userRepo.FindByID(ctx, existingAccount.UserID)
 		if err == nil && user != nil {
@@ -290,8 +264,7 @@ func (s *oauthService) findOrCreateUser(ctx context.Context, providerName string
 			}
 			return user, false, nil
 		}
-		// Orphaned account - remove it
-		s.accountRepo.Delete(ctx, existingAccount.ID)
+		return nil, false, types.NewInternalError("linked identity is unavailable")
 	}
 
 	// 2. Check if user exists with same email
@@ -302,18 +275,13 @@ func (s *oauthService) findOrCreateUser(ctx context.Context, providerName string
 			if !s.config.AllowAccountLinking {
 				return nil, false, types.NewOAuthAccountLinkingDisabledError()
 			}
-
-			// Link OAuth to existing account
-			if linkErr := s.linkProviderToUser(ctx, existingUser.ID, providerName, info.ID, tokenResp); linkErr != nil {
-				s.logger.Warnf("oauth: failed to link provider: %v", linkErr)
+			if !s.config.TrustEmailVerification || !info.EmailVerified || !existingUser.EmailVerified {
+				return nil, false, types.NewOAuthAccountLinkingDisabledError()
 			}
 
-			// Update email verification if trusted
-			if s.config.TrustEmailVerification && info.EmailVerified && !existingUser.EmailVerified {
-				existingUser.EmailVerified = true
-				if err := s.userRepo.Update(ctx, existingUser); err != nil {
-					s.logger.Warnf("oauth: failed to update email verification: %v", err)
-				}
+			// Link OAuth to existing account
+			if linkErr := s.linkProviderToUser(ctx, existingUser.ID, providerName, info.ID, issuer, tokenResp); linkErr != nil {
+				return nil, false, types.NewInternalError("failed to link provider").Wrap(linkErr)
 			}
 
 			// Emit link event
@@ -361,8 +329,8 @@ func (s *oauthService) findOrCreateUser(ctx context.Context, providerName string
 	}
 
 	// Link OAuth provider
-	if linkErr := s.linkProviderToUser(ctx, user.ID, providerName, info.ID, tokenResp); linkErr != nil {
-		s.logger.Warnf("oauth: failed to link provider to new user: %v", linkErr)
+	if linkErr := s.linkProviderToUser(ctx, user.ID, providerName, info.ID, issuer, tokenResp); linkErr != nil {
+		return nil, false, types.NewInternalError("failed to link provider").Wrap(linkErr)
 	}
 
 	// Emit signup event
@@ -382,9 +350,9 @@ func (s *oauthService) findOrCreateUser(ctx context.Context, providerName string
 }
 
 // linkProviderToUser creates an Account record linking the OAuth provider to the user
-func (s *oauthService) linkProviderToUser(ctx context.Context, userID, providerName, providerUserID string, tokenResp *providers.TokenResponse) error {
+func (s *oauthService) linkProviderToUser(ctx context.Context, userID, providerName, providerUserID, issuer string, tokenResp *providers.TokenResponse) error {
 	now := time.Now()
-	account := &models.Account{
+	account := &models.Account{RealmID: "default", Issuer: issuer,
 		ID:                uuid.Must(uuid.NewV7()).String(),
 		UserID:            userID,
 		Provider:          providerName,
@@ -394,6 +362,9 @@ func (s *oauthService) linkProviderToUser(ctx context.Context, userID, providerN
 		UpdatedAt:         now,
 	}
 
+	if issuer != "" {
+		account.Type = string(models.AccountTypeOIDC)
+	}
 	// Store provider tokens if configured (encrypted at rest)
 	if s.config.StoreProviderTokens && tokenResp != nil {
 		if tokenResp.AccessToken != "" {

@@ -5,14 +5,11 @@ sidebar_label: Endpoints
 sidebar_position: 1
 ---
 
-import Tabs from '@theme/Tabs';
-import TabItem from '@theme/TabItem';
-
 # API Endpoints
 
-All paths are prefixed with your `BasePath` (default: `/auth`). Endpoints depend on which modules you register.
+All paths are prefixed with your `BasePath` (default: `/auth`). Endpoints depend on which modules you register. These examples describe the current checkout. Timestamps and token strings are illustrative; fields omitted by a DTO may be absent. The OpenAPI document generated from your initialized instance is available through the [Auth API](api-auth) when enabled.
 
-Every successful response is wrapped in the standard `APIResponse` envelope:
+Most JSON responses use the standard `APIResponse` envelope. OAuth redirects and the raw JWKS response are exceptions:
 
 ```json
 {
@@ -21,7 +18,7 @@ Every successful response is wrapped in the standard `APIResponse` envelope:
 }
 ```
 
-Error responses use the same envelope with an `error` field:
+Handler errors use the response status and structured fields inside `data`. Runtime guards (such as unavailable authentication or admission exhaustion) can return plain-text `503` responses:
 
 ```json
 {
@@ -73,9 +70,6 @@ Only `email` (or `username`) and `password` are required. The other fields are o
 ```json
 {
   "data": {
-    "access_token": "eyJhbGciOi...",
-    "refresh_token": "eyJhbGciOi...",
-    "expires_in": 900,
     "user": {
       "id": "01961abc-...",
       "email": "user@example.com",
@@ -95,7 +89,7 @@ Only `email` (or `username`) and `password` are required. The other fields are o
 }
 ```
 
-If the Two-Factor module is registered and the user has 2FA enabled, the response may include a `challenges` array instead of tokens (see [Two-Factor Module](#two-factor-module)).
+Signup only creates the user; it does not issue credentials. Complete any required contact verification, then authenticate using `/login` or another enabled method. The default password policy accepts 8–72 bytes without trimming or normalization.
 
 **Error** `400`: validation errors (email already exists, password policy violation, etc.)
 
@@ -561,7 +555,7 @@ Revokes a specific session by ID.
 
 **Headers:** `Authorization: Bearer <access_token>`
 
-Revokes all sessions except the current one.
+Revokes all of the user’s sessions, including the current session.
 
 **Response** `200`:
 ```json
@@ -628,11 +622,11 @@ If the Two-Factor module is registered and the user has 2FA enabled, the respons
 </details>
 
 <details>
-<summary><code>POST</code> <code>/logout</code> — Blacklist token <span className="badge badge--primary">Auth</span></summary>
+<summary><code>POST</code> <code>/logout</code> — Revoke user credentials <span className="badge badge--primary">Auth</span></summary>
 
 **Headers:** `Authorization: Bearer <access_token>`
 
-Blacklists the current access token.
+Increments the user’s token version and deletes their stored token records. This invalidates existing credentials for that user across devices; it is not a single-token blacklist.
 
 **Response** `200`:
 ```json
@@ -653,7 +647,7 @@ Blacklists the current access token.
 {"refresh_token": "eyJhbGciOi..."}
 ```
 
-Returns a new access token. If `RefreshTokenRotation: true` (the default), a new refresh token is also issued and the old one is invalidated.
+Returns new access and refresh credentials after conditionally consuming the stored nonce. Rotation is always applied by the current service, including when the legacy `RefreshTokenRotation` flag is false. Reusing the old refresh credential fails.
 
 **Response** `200`:
 ```json
@@ -776,7 +770,7 @@ Called after login returns a `challenges` array with `type: "2fa"`. No auth head
 }
 ```
 
-The `code` can be a TOTP code or a backup code.
+The `code` can be a TOTP code or a backup code. `temp_token` is required and is bound to a persisted, expiring `2fa_pending` continuation. Attempts are counted; successful completion consumes the continuation atomically. It cannot be used as an access token.
 
 **Success Response** `200`:
 ```json
@@ -807,16 +801,17 @@ Requires `oauth.New(...)` with configured providers and `APIURL` set in config.
 
 Redirects the user to the OAuth provider's consent screen.
 
-**Supported providers:** `google`, `github`, `facebook`, `microsoft`, `apple`, `discord`
+**Built-in provider types:** `google`, `github`, `microsoft`, `discord`. The `{provider}` segment is a configured connection ID; a named connection can select a type with `OAuthProviderConfig.Type`. Microsoft requires an explicit tenant UUID.
 
 </details>
 
 <details>
 <summary><code>GET</code> <code>/oauth/&#123;provider&#125;/callback</code> — OAuth callback</summary>
 
-Handles the provider callback. Creates or links the user account, then:
-- Redirects to `DefaultRedirectURL` with tokens in the URL fragment: `#access_token=xxx&refresh_token=xxx`
-- Or returns a JSON response if no redirect URL is configured:
+The callback requires the matching one-use state and browser binding cookie from the start endpoint. It verifies the provider identity, applies account-linking policy, and runs shared completion. A 2FA challenge returns JSON without redirecting or issuing final credentials. A completed flow:
+
+- Redirects to `DefaultRedirectURL`; cookie-only mode omits token fragments, while bearer/both modes include them.
+- Returns JSON when no redirect URL is configured:
 
 ```json
 {
@@ -1369,6 +1364,8 @@ No authentication required. The invitation token is the authorization. If the in
 }
 ```
 
+The invitation mutation commits before authentication completion. The response may contain `challenges` instead of final credentials when the account requires 2FA. Consume that challenge response rather than retrying the already-accepted invitation.
+
 </details>
 
 <details>
@@ -1459,7 +1456,7 @@ Returns all organizations the authenticated user is a member of.
 
 **Headers:** `Authorization: Bearer <access_token>`
 
-Switches the active organization context. Returns new tokens with the organization claims embedded.
+Requires a verified principal and current membership in an active organization. Shared completion preserves the original authentication time and methods, and returns new credentials with `active_org_id` and `org_role`. No first organization is selected automatically and no `org_memberships` claim is added. The current switch handler rejects results that require another challenge.
 
 **Request:**
 ```json
@@ -1544,6 +1541,8 @@ No authentication required. The invitation token is the authorization. If the in
   }
 }
 ```
+
+The invitation mutation commits before authentication completion. The response may contain `challenges` instead of final credentials when the account requires 2FA. Consume that challenge response rather than retrying the already-accepted invitation.
 
 </details>
 
@@ -1805,6 +1804,72 @@ Returns all invitations for the organization.
 
 ---
 
+## Public Signing Keys
+
+<details>
+<summary><code>GET</code> <code>/.well-known/jwks.json</code> — Public JWT verification keys</summary>
+
+Returns a raw JSON Web Key Set with active and unexpired retained asymmetric public keys. It is not wrapped in `data`. An HS256-only configuration returns `404`; HMAC secrets are never published. Successful responses set a one-hour cache lifetime. See [Security](../security.md) for key rotation and custom-manager support.
+
+</details>
+
+## Passkeys Module
+
+Register `passkeys.New(...)` with an RP ID and allowed origins. See [Passkeys](../modules/passkeys.md) for browser serialization and complete ceremony examples.
+
+<details>
+<summary><code>POST</code> <code>/passkeys/register/begin</code> — Begin registration (Auth)</summary>
+
+Returns `data.challenge_token` and `data.public_key` creation options. Authenticate the existing account, then call `navigator.credentials.create` with converted options.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/passkeys/register/finish</code> — Finish registration (Auth)</summary>
+
+Send `challenge_token`, optional `name`, and the actual browser-generated `credential_response` object. The record is consumed before verification, and a successful registration returns `201` with the new credential summary.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/passkeys/login/begin</code> — Begin discoverable login</summary>
+
+No email or user ID is required. Returns `data.challenge_token` and `data.public_key` request options for `navigator.credentials.get`.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/passkeys/login/finish</code> — Finish login</summary>
+
+Send `challenge_token` and the serialized assertion as `credential_response`. After origin, RP, identity, signature, and counter checks, shared completion returns credentials or `challenges`. Cookie transport follows `AuthMode`.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/passkeys</code> — List owned passkeys (Auth)</summary>
+
+Returns an array in `data` containing `id`, `name`, `created_at`, optional `transports`, and optional `last_used_at`. The current login path does not update last-used timestamps.
+
+</details>
+
+<details>
+<summary><code>PUT</code> <code>/passkeys/&#123;id&#125;</code> — Rename an owned passkey (Auth)</summary>
+
+Send `{"name":"Work laptop"}`. Ownership is verified; success returns `200`.
+
+</details>
+
+<details>
+<summary><code>DELETE</code> <code>/passkeys/&#123;id&#125;</code> — Delete an owned passkey (Auth)</summary>
+
+Ownership is verified; success returns `200`. Deleting a passkey does not delete the user account.
+
+</details>
+
+Passkey finish requests are one-use and purpose-bound. A failed finish needs a new begin request. `credential_response` must be a JSON object with base64url-encoded binary fields, not a stringified object. Current challenge expiry is capped at five minutes.
+
+---
+
 ## Authentication
 
 Protected endpoints (marked with <span className="badge badge--primary">Auth</span>) require:
@@ -1813,7 +1878,9 @@ Protected endpoints (marked with <span className="badge badge--primary">Auth</sp
 Authorization: Bearer <access_token>
 ```
 
-Get tokens from the `/login` endpoint (Session or Stateless module). Refresh expired tokens via `/refresh`.
+This header is the bearer example. Cookie or both mode can accept the configured access cookie instead. Conflicting sources are rejected; a refresh token, pending 2FA continuation, or passkey challenge is not an access credential. Both strategies check current user/version state, and session and selected-organization state where applicable.
+
+Get credentials from `/login` or another enabled method. Password, OAuth, magic-link, passkey, and invitation completion may return `data.challenges` instead of final tokens. Send the continuation’s `temp_token` and a factor code to `/2fa/verify-login`; a user ID alone is never sufficient. Refresh via `/refresh` using the configured transport. Cookie-only JSON responses still include token fields.
 
 **Admin** endpoints (marked with <span className="badge badge--danger">Admin</span>) additionally require the `is_super_admin` flag on the user account.
 

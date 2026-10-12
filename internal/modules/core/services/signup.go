@@ -3,6 +3,8 @@ package core_services
 import (
 	"context"
 	"errors"
+	"github.com/bete7512/goauth/internal/operation"
+	"github.com/bete7512/goauth/pkg/config"
 	"strings"
 	"time"
 
@@ -15,6 +17,20 @@ import (
 // Signup creates a new user account
 // Note: This only creates the user. Authentication (tokens/sessions) is handled by auth modules (session or stateless)
 func (s *coreService) Signup(ctx context.Context, req *dto.SignupRequest) (*dto.AuthResponse, *types.GoAuthError) {
+	if s.Deps.Config.DurableEvents && !s.inTransaction {
+		return operation.Run(ctx, s.Deps, func(deps config.ModuleDependencies) (*dto.AuthResponse, *types.GoAuthError) {
+			copy := *s
+			copy.Deps = deps
+			copy.inTransaction = true
+			copy.UserRepository = deps.Storage.Core().Users()
+			copy.TokenRepository = deps.Storage.Core().Tokens()
+			return copy.Signup(ctx, req)
+		})
+	}
+
+	if err := s.Deps.Config.Security.PasswordPolicy.Validate(req.Password); err != nil {
+		return nil, types.NewValidationError(err.Error())
+	}
 	// Check if user already exists
 	if req.Email != "" {
 		existing, err := s.UserRepository.FindByEmail(ctx, req.Email)
@@ -60,9 +76,10 @@ func (s *coreService) Signup(ctx context.Context, req *dto.SignupRequest) (*dto.
 		FirstName:    req.FirstName,
 		LastName:     req.LastName,
 		PhoneNumber:  req.PhoneNumber,
-		Active:       !s.Config.RequireEmailVerification && !s.Config.RequirePhoneVerification,
-		CreatedAt:    now,
-		UpdatedAt:    &now,
+		// Active is administrative eligibility; verification is separate policy.
+		Active:    true,
+		CreatedAt: now,
+		UpdatedAt: &now,
 	}
 	if s.Config.RequireEmailVerification {
 		user.EmailVerified = false

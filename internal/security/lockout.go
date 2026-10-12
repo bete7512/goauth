@@ -81,9 +81,26 @@ func HandleFailedLogin(
 	events types.EventBus,
 	logger types.Logger,
 ) *types.GoAuthError {
-	locked := RecordFailedLogin(user, cfg)
-	if err := userRepo.Update(ctx, user); err != nil {
+	if !cfg.Enabled {
+		return types.NewInvalidCredentialsError()
+	}
+	cfg = NormalizeLockoutConfig(cfg)
+	var locked bool
+	var err error
+	if mutator, ok := userRepo.(models.UserAuthenticationMutator); ok {
+		var updated *models.User
+		updated, err = mutator.RecordFailedLogin(ctx, user.ID, user.TokenVersion, cfg.MaxAttempts, cfg.LockoutDuration)
+		if err == nil {
+			user = updated
+			locked = user.LockedUntil != nil && time.Now().Before(*user.LockedUntil)
+		}
+	} else {
+		locked = RecordFailedLogin(user, cfg)
+		err = userRepo.Update(ctx, user)
+	}
+	if err != nil {
 		logger.Error("failed to update failed login attempts", "error", err, "user_id", user.ID)
+		return types.NewInvalidCredentialsError()
 	}
 	if locked && events != nil {
 		_ = events.EmitAsync(ctx, types.EventSecurityAccountLocked, map[string]interface{}{

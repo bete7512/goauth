@@ -18,6 +18,7 @@ func ContextWithUserID(ctx context.Context, userID string) context.Context {
 func ContextWithAdminUser(ctx context.Context, user *models.User) context.Context {
 	ctx = context.WithValue(ctx, types.UserIDKey, user.ID)
 	ctx = context.WithValue(ctx, types.UserKey, user)
+	ctx = types.WithPrincipal(ctx, types.Principal{UserID: user.ID, RealmID: "default"})
 	return ctx
 }
 
@@ -34,6 +35,7 @@ func AdminRequest(r *http.Request, user *models.User) *http.Request {
 // TestAdminUser creates a super admin user with sensible defaults.
 func TestAdminUser() *models.User {
 	u := TestUser()
+	u.ID = "admin-user-123"
 	u.IsSuperAdmin = true
 	u.Email = "admin@example.com"
 	u.Username = "admin"

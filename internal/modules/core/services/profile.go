@@ -46,6 +46,10 @@ func (s *coreService) UpdateProfile(ctx context.Context, userID string, req *dto
 		user.Name = req.Name
 	}
 	if req.Phone != "" {
+		if req.Phone != user.PhoneNumber {
+			user.PhoneNumberVerified = false
+			user.TokenVersion++
+		}
 		user.PhoneNumber = req.Phone
 	}
 	if req.Avatar != "" {
@@ -54,7 +58,13 @@ func (s *coreService) UpdateProfile(ctx context.Context, userID string, req *dto
 
 	user.UpdatedAt = &now
 
-	if err := s.UserRepository.Update(ctx, user); err != nil {
+	var updateErr error
+	if mutator, ok := s.UserRepository.(models.UserProfileMutator); ok {
+		updateErr = mutator.UpdateProfile(ctx, userID, req.Name, req.Phone, req.Avatar)
+	} else {
+		updateErr = s.UserRepository.Update(ctx, user)
+	}
+	if err := updateErr; err != nil {
 		return nil, types.NewInternalError("failed to update profile").Wrap(err)
 	}
 

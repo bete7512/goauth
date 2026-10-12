@@ -86,6 +86,11 @@ func (s *memberService) UpdateRole(ctx context.Context, orgID, targetUserID stri
 	if targetUserID == org.OwnerID && newRole != types.OrgRoleOwner {
 		return types.NewOrgCannotRemoveOwnerError()
 	}
+	// Ownership is represented by Organization.OwnerID. Role edits cannot
+	// transfer it, and only the actual owner may grant administrative roles.
+	if actorID == "" || actorID != org.OwnerID || (newRole == types.OrgRoleOwner && targetUserID != org.OwnerID) {
+		return types.NewOrgInsufficientRoleError()
+	}
 
 	member, err := s.memberRepo.FindByOrgAndUser(ctx, orgID, targetUserID)
 	if err != nil {
@@ -121,12 +126,21 @@ func (s *memberService) RemoveMember(ctx context.Context, orgID, targetUserID, a
 		return types.NewOrgCannotRemoveOwnerError()
 	}
 
-	_, err = s.memberRepo.FindByOrgAndUser(ctx, orgID, targetUserID)
+	target, err := s.memberRepo.FindByOrgAndUser(ctx, orgID, targetUserID)
 	if err != nil {
 		if errors.Is(err, models.ErrNotFound) {
 			return types.NewOrgMemberNotFoundError()
 		}
 		return types.NewInternalError("failed to find member").Wrap(err)
+	}
+	if actorID == "" {
+		return types.NewOrgInsufficientRoleError()
+	}
+	if actorID != org.OwnerID && actorID != targetUserID {
+		actor, err := s.memberRepo.FindByOrgAndUser(ctx, orgID, actorID)
+		if err != nil || actor.Role != string(types.OrgRoleAdmin) || target.Role != string(types.OrgRoleMember) {
+			return types.NewOrgInsufficientRoleError()
+		}
 	}
 
 	if err := s.memberRepo.DeleteByOrgAndUser(ctx, orgID, targetUserID); err != nil {

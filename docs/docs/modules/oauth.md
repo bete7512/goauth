@@ -7,169 +7,114 @@ sidebar_position: 6
 
 # OAuth Module
 
-The OAuth module adds social login and single sign-on capabilities to your application. Users can authenticate with their existing Google, GitHub, Microsoft, or Discord accounts. It supports the full OAuth 2.0 authorization code flow with optional PKCE (Proof Key for Code Exchange) for enhanced security, account linking to connect multiple providers to a single user, and both stateless JWT and server-side session auth modes.
-
-## Capabilities
-
-- **Multiple Providers** — Google, GitHub, Microsoft, and Discord out of the box. Each provider can be independently enabled/disabled without removing its configuration.
-- **PKCE (Proof Key for Code Exchange)** — Optional per-provider PKCE support prevents authorization code interception attacks. Enabled by default. Particularly important for mobile and SPA clients.
-- **Account Linking** — When enabled, if a user authenticates via OAuth with an email that already exists in your system, the OAuth identity is linked to the existing account rather than creating a duplicate.
-- **Account Unlinking** — Users can disconnect an OAuth provider from their account via `DELETE /oauth/{provider}`, giving them control over linked identities.
-- **Automatic Signup** — New users can be created automatically from OAuth profile data (email, name, avatar). Controlled via `AllowSignup`.
-- **Provider Token Storage** — Optionally store the provider's access and refresh tokens (e.g., to call Google APIs on behalf of the user) via `StoreProviderTokens`.
-- **Trust Email Verification** — When enabled, trusts the OAuth provider's email verification status and marks the user's email as verified in GoAuth.
-- **Dual Auth Mode** — Works with both Stateless (JWT) and Session auth modules. Set `UseSessionAuth: true` to create server-side sessions instead of issuing JWTs.
-- **Frontend Redirect or JSON** — Configurable `DefaultRedirectURL` for SPA flows (tokens in URL fragment) or JSON response for API-first clients.
-- **Error Redirect** — Configurable `ErrorRedirectURL` for graceful error handling in the frontend.
-- **Custom Storage** — Pass custom `CoreStorage`, `OAuthStorage`, and `SessionStorage` implementations.
-- **Provider Discovery** — `GET /oauth/providers` lists all configured providers. `GET /oauth/linked` shows the authenticated user's linked providers.
-
-## Supported Providers
-
-Google, GitHub, Microsoft, Discord.
+OAuth provides authorization-code sign-in through Google, GitHub, Microsoft, and Discord, with named connections and a public interface for custom trusted providers. Successful identity verification enters the same completion service as password, passkey, and magic-link authentication.
 
 ## Registration
 
 ```go
-import (
-    "github.com/bete7512/goauth/pkg/modules/oauth"
-    "github.com/bete7512/goauth/pkg/config"
-)
-
-a.Use(oauth.New(&config.OAuthModuleConfig{
+if err := a.Use(oauth.New(&config.OAuthModuleConfig{
     Providers: map[string]*config.OAuthProviderConfig{
         "google": {
-            ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
+            ClientID: os.Getenv("GOOGLE_CLIENT_ID"),
             ClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
-            PKCE:         true,
-            Enabled:      true,
+            Enabled: true,
+            PKCE: true,
         },
-        "github": {
-            ClientID:     os.Getenv("GITHUB_CLIENT_ID"),
-            ClientSecret: os.Getenv("GITHUB_CLIENT_SECRET"),
-            Enabled:      true,
+        "work": {
+            Type: "microsoft",
+            MicrosoftTenantID: os.Getenv("MICROSOFT_TENANT_ID"),
+            ClientID: os.Getenv("MICROSOFT_CLIENT_ID"),
+            ClientSecret: os.Getenv("MICROSOFT_CLIENT_SECRET"),
+            Enabled: true,
+            PKCE: true,
         },
     },
-    DefaultRedirectURL:     "http://localhost:3000/auth/callback",
-    ErrorRedirectURL:       "http://localhost:3000/auth/error",
-    AllowSignup:            true,
-    AllowAccountLinking:    true,
+    AllowSignup: true,
+    AllowAccountLinking: false,
     TrustEmailVerification: true,
-    StoreProviderTokens:    false,
-    UseSessionAuth:         false, // true to use sessions instead of JWT
-}, nil))
+    DefaultRedirectURL: "http://localhost:3000/auth/callback",
+})); err != nil {
+    return err
+}
 ```
 
-The second argument to `oauth.New` is `*oauth.OAuthStorageOptions` -- pass `nil` to use the shared storage from `deps.Storage`.
+Import `pkg/modules/oauth`, `pkg/config`, and `os`. Set `config.Config.APIURL`, for example `http://localhost:8080`. With `BasePath: "/api/v1"`, register `http://localhost:8080/api/v1/oauth/google/callback` with Google and `/api/v1/oauth/work/callback` with the named Microsoft connection.
 
-**Important**: The OAuth module requires `APIURL` in your config for callback URL construction:
+The constructor takes a single config argument. Boolean values in a supplied config are explicit: omitting `AllowSignup` or `TrustEmailVerification` leaves them false. `oauth.New(nil)` defaults those two to true and linking to false, but has no configured providers.
 
-```go
-a, _ := auth.New(&config.Config{
-    APIURL: "https://api.yourapp.com",
-    // ...
-})
-```
+## Named Connections and Providers
+
+The map key is the **connection ID**, used in URLs and stored account identity. IDs match `[A-Za-z0-9_-]{1,64}`. `Type` selects the built-in adapter; if empty it defaults to the map key. This permits multiple connections to the same provider type.
+
+Microsoft requires `MicrosoftTenantID` to be an explicit tenant UUID. Google and Microsoft verify ID-token signature, exact issuer, audience, lifetime, subject, and the nonce persisted in the login continuation. The built-in implementation does not provide generic OIDC discovery from arbitrary issuer input.
+
+| Provider type | Default scopes |
+| --- | --- |
+| `google` | `openid`, `email`, `profile` |
+| `github` | `user:email`, `read:user` |
+| `microsoft` | `openid`, `email`, `profile`, `User.Read` |
+| `discord` | `identify`, `email` |
+
+The service generates an S256 PKCE challenge/verifier for the flow and supplies it to the provider. The current built-in request construction sends those supplied values; do not use `PKCE: false` as a guarantee that PKCE is disabled.
 
 ## Configuration
 
-### OAuthModuleConfig
+| Field | Effective behavior |
+| --- | --- |
+| `Providers` | Named built-in connections; nil or disabled entries are skipped |
+| `DefaultRedirectURL` | Frontend destination after complete authentication; empty returns JSON |
+| `ErrorRedirectURL` | Error destination with `error`/`error_description` query parameters |
+| `AllowSignup` | Permit a new user to be created from an external identity |
+| `AllowAccountLinking` | Explicit opt-in for matching-email linking; additional verification checks apply |
+| `TrustEmailVerification` | Trust a provider's verified-email result |
+| `StateTTL` | Stored state lifetime, default 10 minutes |
+| `StoreProviderTokens` | Encrypt provider access/refresh tokens before persistence |
+| `UseSessionAuth` | Legacy setting; the initialized runtime's selected Session/Stateless strategy controls final grants |
+| `CustomCoreStorage`, `CustomOAuthStorage`, `CustomSessionStorage` | Currently rejected during OAuth initialization; use a single aggregate transactional storage adapter |
 
-```go
-type OAuthModuleConfig struct {
-    Providers              map[string]*OAuthProviderConfig
-    DefaultRedirectURL     string         // Frontend callback URL (tokens in URL fragment)
-    ErrorRedirectURL       string         // Frontend error URL
-    AllowSignup            bool           // Create new users via OAuth (default: true)
-    AllowAccountLinking    bool           // Link OAuth to existing email accounts (default: true)
-    TrustEmailVerification bool           // Trust provider's email verified status (default: true)
-    StateTTL               time.Duration  // State token validity (default: 10min)
-    StoreProviderTokens    bool           // Store provider access/refresh tokens (default: false)
-    UseSessionAuth         bool           // Use sessions instead of JWT (default: false)
-}
-```
-
-### OAuthProviderConfig
-
-```go
-type OAuthProviderConfig struct {
-    ClientID     string
-    ClientSecret string
-    Scopes       []string  // Uses provider defaults if empty
-    RedirectURL  string    // Override callback URL (auto-generated if empty)
-    PKCE         bool      // Proof Key for Code Exchange (default: true)
-    Enabled      bool      // Allows disabling without removing config
-}
-```
-
-### Default scopes per provider
-
-| Provider | Default Scopes |
-|----------|---------------|
-| Google | `openid`, `email`, `profile` |
-| GitHub | `user:email`, `read:user` |
-| Microsoft | `openid`, `email`, `profile`, `User.Read` |
-| Discord | `identify`, `email` |
-
-### Custom storage
-
-Pass `*oauth.OAuthStorageOptions` as the second argument to `oauth.New` to override storage:
-
-```go
-oauth.New(oauthCfg, &oauth.OAuthStorageOptions{
-    CoreStorage:    customCoreStorage,    // optional
-    OAuthStorage:   customOAuthStorage,   // optional
-    SessionStorage: customSessionStorage, // optional, only needed if UseSessionAuth=true
-})
-```
+A provider config includes `Type`, `MicrosoftTenantID`, `ClientID`, `ClientSecret`, `Scopes`, `RedirectURL`, `PKCE`, and `Enabled`. Set `Enabled: true` explicitly. The runtime service constructs the callback from `APIURL + BasePath + "/oauth/" + connection + "/callback"` and supplies it to the provider; a per-provider `RedirectURL` is not a reliable override of that runtime callback.
 
 ## Endpoints
 
-| Method | Path | Middleware | Description |
-|--------|------|------------|-------------|
-| GET | `/oauth/{provider}` | -- | Start OAuth flow, redirects to provider |
-| GET | `/oauth/{provider}/callback` | -- | Handle OAuth callback |
-| DELETE | `/oauth/{provider}` | Auth | Unlink OAuth account |
-| GET | `/oauth/providers` | -- | List configured providers |
-| GET | `/oauth/linked` | Auth | List user's linked providers |
+All paths are relative to `BasePath`.
+
+| Method | Path | Access auth | Description |
+| --- | --- | --- | --- |
+| GET | `/oauth/{provider}` | No | Start a named connection's flow |
+| GET | `/oauth/{provider}/callback` | No | Complete the browser-bound callback |
+| GET | `/oauth/providers` | No | List enabled connection IDs |
+| GET | `/oauth/linked` | Required | List the user's linked connections |
+| DELETE | `/oauth/{provider}` | Required | Unlink an owned connection |
 
 ## Flow
 
-1. Frontend redirects user to `GET /oauth/google`
-2. GoAuth redirects to Google's consent screen (with PKCE challenge if enabled)
-3. Google redirects back to `GET /oauth/google/callback`
-4. GoAuth creates/links user account
-5. If `DefaultRedirectURL` is set: redirects to `DefaultRedirectURL#access_token=xxx&refresh_token=xxx`
-6. If `DefaultRedirectURL` is empty: returns JSON `AuthResponse`
+1. The browser visits the start endpoint. The service stores state with connection ID, nonce, verifier, and requested frontend destination.
+2. The handler sets an HttpOnly, SameSite=Lax `goauth_oauth_{connection}` binding cookie and redirects to the provider.
+3. The callback must present both matching state and the browser cookie. The binding cookie currently lasts 600 seconds independently of a longer configured `StateTTL`.
+4. The service atomically consumes state, exchanges the code, and verifies the provider identity. OIDC requires the expected nonce; failed OIDC validation does not fall back to unverified userinfo.
+5. Account lookup/link/create runs with transaction-bound Core and OAuth stores.
+6. The common completer checks current eligibility and additional-factor policy before issuing the selected grant.
 
-### Error handling
+Continue the flow in the same browser cookie context. A callback copied into a separate HTTP client without its binding cookie is rejected.
 
-If `ErrorRedirectURL` is set, auth failures redirect to `ErrorRedirectURL?error=xxx&error_description=xxx`. Otherwise a JSON error response is returned.
+If more factors are required, the callback returns JSON `data.challenges`, even when a frontend redirect is configured. After complete authentication, cookie-only mode redirects without token fragments. Bearer/both mode may put credentials in the fragment. No redirect returns the normal JSON auth response. A requested `redirect_uri` must match the scheme and host of configured frontend/error/default destinations.
 
-## Extensibility
+## Account Linking and Identity
 
-### Custom Storage
+A matching email is insufficient on its own. Linking an existing account requires `AllowAccountLinking`, `TrustEmailVerification`, a verified provider email, and a locally verified email. Linking is disabled by default for a nil module config.
 
-Pass `*oauth.OAuthStorageOptions` as the second argument to `oauth.New()` to override any or all storage backends:
+Stored identity includes the connection ID, provider subject, issuer when supplied, and realm `default`. A changed issuer or mismatched realm is rejected. Organizations are membership contexts inside that realm, not independent identity namespaces.
 
-```go
-a.Use(oauth.New(oauthCfg, &oauth.OAuthStorageOptions{
-    CoreStorage:    myUserStore,      // implements types.CoreStorage
-    OAuthStorage:   myOAuthStore,     // implements types.OAuthStorage
-    SessionStorage: mySessionStore,   // implements types.SessionStorage (only if UseSessionAuth=true)
-}))
-```
+## Custom Providers
 
-When `nil`, all storage is obtained from the shared storage layer during initialization.
+Use `oauth.NewWithProviders(cfg, map[string]oauth.Provider)` to install trusted in-process providers before initialization. It returns `(config.Module, error)`. The public package also exports `AuthCodeURLOptions`, `ExchangeOptions`, `TokenResponse`, and `UserInfo` aliases for implementations.
 
-### Provider Token Access
+A custom provider must verify its protocol before returning identity information. Provider registration is frozen after initialization. There is no runtime HTTP endpoint for accepting arbitrary provider implementations or issuer URLs.
 
-When `StoreProviderTokens: true`, the OAuth module stores the provider's access token (and refresh token, if available) alongside the linked account record. This enables your application to make API calls to the OAuth provider on behalf of the user (e.g., accessing Google Calendar, GitHub repositories).
+## Storage and Events
 
-## Dependencies
+OAuth identity mutation requires `types.TransactionalStorage` binding Core and OAuth stores to the same transaction. The shared strategy also needs its credential stores. See [Custom storage](../storage.md).
 
-- **Core** -- requires core module for user storage and authentication.
+`StoreProviderTokens` encrypts stored provider credentials and excludes them from model JSON. Applications needing provider API access must retrieve and decrypt them through their own trusted integration.
 
-## Events
-
-The OAuth module does not subscribe to or emit any events.
+The current service emits `EventAfterOAuthLogin`, `EventOAuthLinkAdded`, and `EventOAuthLinkRemoved` in their corresponding completed paths. The existence of other OAuth event constants does not mean every path emits them.

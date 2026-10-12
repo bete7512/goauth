@@ -7,12 +7,12 @@ sidebar_position: 3
 
 # Quick Start
 
-Build a working authentication system with GoAuth in a few minutes.
+Run a GoAuth HTTP server with SQLite, password sign-in, and stateless JWT credentials. This guide targets the current repository API; see [Upgrading](upgrade.md) when moving from older constructor signatures.
 
 ## Prerequisites
 
-- Go 1.25+ installed
-- GoAuth installed (see [Installation](installation.md))
+- Go 1.25 or later and a C compiler for the SQLite driver.
+- A Go module and two application secrets, loaded from the environment.
 
 ## 1. Project Setup
 
@@ -23,6 +23,8 @@ go mod init goauth-demo
 go get github.com/bete7512/goauth
 ```
 
+When testing an unreleased checkout, point the module at that checkout with `go mod edit -replace github.com/bete7512/goauth=/absolute/path/to/go-auth`. Published versions may not contain the APIs described here yet.
+
 ## 2. Create main.go
 
 ```go
@@ -30,8 +32,13 @@ package main
 
 import (
     "context"
+    "errors"
+    "fmt"
     "log"
     "net/http"
+    "os"
+    "os/signal"
+    "syscall"
     "time"
 
     "github.com/bete7512/goauth/pkg/adapters/stdhttp"
@@ -42,67 +49,98 @@ import (
 )
 
 func main() {
-    // 1. Create storage (SQLite for dev)
+    if err := run(); err != nil {
+        log.Fatal(err)
+    }
+}
+
+func run() error {
     store, err := storage.NewGormStorage(storage.GormConfig{
         Dialect: types.DialectTypeSqlite,
         DSN:     "auth.db",
     })
     if err != nil {
-        log.Fatalf("Storage error: %v", err)
+        return err
     }
-    defer store.Close()
 
-    // 2. Create auth instance (Core module auto-registered)
     a, err := auth.New(&config.Config{
         Storage:   store,
         Migration: config.MigrationConfig{Auto: true},
         BasePath:  "/api/v1",
         Security: types.SecurityConfig{
-            JwtSecretKey:  "your-secret-key-min-32-chars!!!!",
-            EncryptionKey: "your-encryption-key-32-chars!",
+            JwtSecretKey:  os.Getenv("JWT_SECRET_KEY"),
+            EncryptionKey: os.Getenv("ENCRYPTION_KEY"),
+            JWTIssuer:    "goauth-demo",
+            JWTAudience:  "goauth-demo-api",
+            AuthMode:     types.AuthModeBearer,
+            Lockout: types.LockoutConfig{Enabled: true},
             Session: types.SessionConfig{
                 AccessTokenTTL:  15 * time.Minute,
                 RefreshTokenTTL: 7 * 24 * time.Hour,
             },
         },
         Core: &config.CoreConfig{
-            RequireEmailVerification: false,
-            RequirePhoneVerification: false,
+            RequireEmailVerification: false, // Local demo has no mail sender.
         },
     })
     if err != nil {
-        log.Fatalf("Auth error: %v", err)
+        _ = store.Close()
+        return err
     }
-    defer a.Close()
+    defer a.Close() // Auth owns storage unless BorrowStorage is true.
 
-    // 3. Register optional modules here (before Initialize)
-    // By default, stateless JWT auth is used.
-
-    // 4. Initialize
+    // Register optional modules here and check each a.Use(...) error.
+    // With no explicit strategy, Initialize selects stateless JWT.
     if err := a.Initialize(context.Background()); err != nil {
-        log.Fatalf("Initialize error: %v", err)
+        return err
     }
 
-    // 5. Register routes and serve
     mux := http.NewServeMux()
     stdhttp.Register(mux, a)
+    mux.Handle("GET /private", a.RequireAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        principal, ok := types.PrincipalFromContext(r.Context())
+        if !ok {
+            http.Error(w, "unauthorized", http.StatusUnauthorized)
+            return
+        }
+        fmt.Fprintf(w, "Hello %s", principal.UserID)
+    })))
 
-    mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-        w.Header().Set("Content-Type", "application/json")
-        w.Write([]byte(`{"message": "GoAuth is running!"}`))
-    })
+    server := &http.Server{Addr: ":8080", Handler: mux, ReadHeaderTimeout: 5 * time.Second}
+    stopped, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+    defer cancel()
+    serverErrors := make(chan error, 1)
+    go func() { serverErrors <- server.ListenAndServe() }()
+    log.Println("GoAuth API: http://localhost:8080/api/v1")
 
-    log.Println("Server starting on :8080")
-    log.Println("API at: http://localhost:8080/api/v1")
-    log.Fatal(http.ListenAndServe(":8080", mux))
+    select {
+    case err := <-serverErrors:
+        if !errors.Is(err, http.ErrServerClosed) {
+            return err
+        }
+    case <-stopped.Done():
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+        defer cancel()
+        if err := server.Shutdown(ctx); err != nil {
+            return err
+        }
+    }
+    return nil
 }
 ```
 
 ## 3. Run
 
+Generate separate secrets for local development and retain them across restarts. The following commands require OpenSSL:
+
 ```bash
-go run main.go
+export JWT_SECRET_KEY="$(openssl rand -hex 32)"
+export ENCRYPTION_KEY="$(openssl rand -hex 32)"
+go mod tidy
+go run .
 ```
+
+`JwtSecretKey` must be at least 32 bytes and `EncryptionKey` at least 16 bytes. Do not regenerate production secrets on every start; see [Signing and rotation](security.md).
 
 ## 4. Test the API
 
@@ -111,12 +149,7 @@ go run main.go
 ```bash
 curl -X POST http://localhost:8080/api/v1/signup \
   -H "Content-Type: application/json" \
-  -d '{
-    "email": "user@example.com",
-    "password": "SecurePassword123!",
-    "first_name": "John",
-    "last_name": "Doe"
-  }'
+  -d '{"email":"user@example.com","password":"SecurePassword123!","first_name":"John","last_name":"Doe"}'
 ```
 
 ### Login
@@ -124,156 +157,124 @@ curl -X POST http://localhost:8080/api/v1/signup \
 ```bash
 curl -X POST http://localhost:8080/api/v1/login \
   -H "Content-Type: application/json" \
-  -d '{
-    "email": "user@example.com",
-    "password": "SecurePassword123!"
-  }'
+  -d '{"email":"user@example.com","password":"SecurePassword123!"}'
 ```
+
+Read `data.access_token` and `data.refresh_token` from the JSON response. If you later enable two-factor authentication, handle `data.challenges` before treating a response as authenticated.
 
 ### Get Profile (Protected)
 
 ```bash
 curl http://localhost:8080/api/v1/me \
-  -H "Authorization: Bearer YOUR_TOKEN_HERE"
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
+
+### Refresh
+
+```bash
+curl -X POST http://localhost:8080/api/v1/refresh \
+  -H "Content-Type: application/json" \
+  -d '{"refresh_token":"YOUR_REFRESH_TOKEN"}'
+```
+
+Replace both saved credentials with the returned pair. A consumed refresh credential cannot be reused.
 
 ## Three-Phase Pattern
 
+Create the instance, register modules, and initialize exactly once. `Use` returns errors for duplicate modules, invalid modules, conflicting strategies, and registration after initialization. Do not discard those errors.
+
 ```go
-// 1. Create -- Core module auto-registered
-a, _ := auth.New(&config.Config{...})
-
-// 2. Register optional modules
-a.Use(notification.New(&notification.Config{...}))
-a.Use(twofactor.New()) // variadic config, safe defaults if omitted
-
-// 3. Initialize -- runs migrations, wires hooks, builds routes
-a.Initialize(context.Background())
-
-// Then register routes with a framework adapter
-stdhttp.Register(mux, a)
+if err := a.Use(twofactor.New()); err != nil {
+    return err
+}
+if err := a.Initialize(ctx); err != nil {
+    return err
+}
 ```
+
+This is a fragment inside your setup function; add the `pkg/modules/twofactor` import.
 
 ## Adding Modules
 
+Register these before `Initialize`.
+
 ### Session-based Auth
 
-By default, GoAuth uses stateless JWT. To switch to server-side sessions:
-
 ```go
-import "github.com/bete7512/goauth/pkg/modules/session"
-
-a.Use(session.New(&config.SessionModuleConfig{
+if err := a.Use(session.New(&config.SessionModuleConfig{
     EnableSessionManagement: true,
-    Strategy:                types.SessionStrategyCookieCache,
-    SlidingExpiration:       true,
-}, nil))
+})); err != nil {
+    return err
+}
 ```
+
+Import `pkg/modules/session`. Sessions and Stateless cannot be registered together. Session records are checked during protected requests; changing the strategy does not select cookie versus bearer transport.
 
 ### Notifications
 
 ```go
-import (
-    "github.com/bete7512/goauth/pkg/modules/notification"
-    "github.com/bete7512/goauth/pkg/modules/notification/senders"
-)
-
-a.Use(notification.New(&notification.Config{
+if err := a.Use(notification.New(&notification.Config{
     EmailSender: senders.NewSMTPEmailSender(&senders.SMTPConfig{
-        Host:     "smtp.gmail.com",
+        Host:     os.Getenv("SMTP_HOST"),
         Port:     587,
-        Username: "your-email@gmail.com",
-        Password: "your-app-password",
+        Username: os.Getenv("SMTP_USERNAME"),
+        Password: os.Getenv("SMTP_PASSWORD"),
     }),
-    EnableWelcomeEmail:       true,
-    EnablePasswordResetEmail: true,
-}))
+    EnableWelcomeEmail: true,
+})); err != nil {
+    return err
+}
 ```
+
+Import `pkg/modules/notification` and `pkg/modules/notification/senders`. Configure sender addresses and frontend callback paths as described in the [notification guide](modules/notification.md) before enabling required verification.
 
 ### Two-Factor Auth
 
 ```go
-import "github.com/bete7512/goauth/pkg/modules/twofactor"
-
-// With custom config:
-a.Use(twofactor.New(&config.TwoFactorConfig{
-    Issuer:           "MyApp",
-    Required:         false,
+if err := a.Use(twofactor.New(&config.TwoFactorConfig{
+    Issuer: "MyApp",
     BackupCodesCount: 10,
-}))
-
-// Or with safe defaults (no config needed):
-a.Use(twofactor.New())
-```
-
-## Framework Integration
-
-GoAuth provides one-line adapters for popular frameworks:
-
-### Gin
-
-```go
-import "github.com/bete7512/goauth/pkg/adapters/ginadapter"
-
-r := gin.Default()
-ginadapter.Register(r, a)
-r.Run(":8080")
-```
-
-### Chi
-
-```go
-import "github.com/bete7512/goauth/pkg/adapters/chiadapter"
-
-r := chi.NewRouter()
-chiadapter.Register(r, a)
-http.ListenAndServe(":8080", r)
-```
-
-### Fiber
-
-```go
-import "github.com/bete7512/goauth/pkg/adapters/fiberadapter"
-
-app := fiber.New()
-fiberadapter.Register(app, a)
-app.Listen(":8080")
-```
-
-## Production Tips
-
-### Use PostgreSQL
-
-```go
-store, _ := storage.NewGormStorage(storage.GormConfig{
-    Dialect:      types.DialectTypePostgres,
-    DSN:          "host=localhost user=postgres password=secret dbname=authdb sslmode=disable",
-    MaxOpenConns: 25,
-    MaxIdleConns: 5,
-})
-```
-
-### Use Environment Variables
-
-```go
-security := types.SecurityConfig{
-    JwtSecretKey:  os.Getenv("JWT_SECRET_KEY"),
-    EncryptionKey: os.Getenv("ENCRYPTION_KEY"),
-    Session: types.SessionConfig{
-        AccessTokenTTL:  15 * time.Minute,
-        RefreshTokenTTL: 7 * 24 * time.Hour,
-    },
+})); err != nil {
+    return err
 }
 ```
 
-### CORS
+`twofactor.New()` also accepts no arguments. The [2FA guide](modules/twofactor.md) documents the continuation response and verification request.
+
+### Passkeys
 
 ```go
-a, _ := auth.New(&config.Config{})
+if err := a.Use(passkeys.New(&config.PasskeysModuleConfig{
+    RPDisplayName: "MyApp",
+    RPID: "localhost",
+    RPOrigins: []string{"http://localhost:3000"},
+})); err != nil {
+    return err
+}
 ```
+
+Import `pkg/modules/passkeys`. The RP origin identifies the frontend performing the WebAuthn ceremony. See [Passkeys](modules/passkeys.md) for begin/finish payloads and storage requirements.
+
+## Framework Integration
+
+The standard HTTP adapter is in the root module. Gin, Chi, and Fiber adapters are separate Go modules:
+
+```bash
+go get github.com/bete7512/goauth/pkg/adapters/ginadapter
+go get github.com/bete7512/goauth/pkg/adapters/chiadapter
+go get github.com/bete7512/goauth/pkg/adapters/fiberadapter
+```
+
+After initialization, use `ginadapter.Register(router, a)`, `chiadapter.Register(router, a)`, or `fiberadapter.Register(app, a)`. See the [framework guide](frameworks/gin.md).
+
+## Production Tips
+
+Use a persistent database, stable secrets, explicit issuer and audience, and `Security.Session.Secure: true` for HTTPS cookies. Cookie clients also need CSRF protection. Set CORS in your own HTTP/framework middleware; GoAuth has no CORS config field.
+
+Plan migrations with [Migration management](migrations.md). If the application owns an existing storage connection, set `BorrowStorage: true` and close it after GoAuth shuts down. Both JWT and session strategies require shared persistent state across replicas.
 
 ## Next Steps
 
-- [Core Module](/docs/modules/core) -- Full Core module docs
-- [Notification Module](/docs/modules/notification) -- Email/SMS setup
-- [API Reference](/docs/api/endpoints) -- All endpoints
+- [Authentication lifecycle and in-process API](api/auth.md)
+- [Security and credentials](security.md)
+- [API Endpoints](api/endpoints.md)

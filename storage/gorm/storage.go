@@ -3,7 +3,6 @@ package gorm
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/bete7512/goauth/pkg/types"
@@ -12,6 +11,7 @@ import (
 	"github.com/bete7512/goauth/storage/gorm/invitation"
 	"github.com/bete7512/goauth/storage/gorm/oauth"
 	"github.com/bete7512/goauth/storage/gorm/organization"
+	"github.com/bete7512/goauth/storage/gorm/passkeys"
 	"github.com/bete7512/goauth/storage/gorm/session"
 	"github.com/bete7512/goauth/storage/gorm/twofactor"
 	"gorm.io/driver/mysql"
@@ -50,6 +50,7 @@ type Config struct {
 //	store, _ := gorm.NewStorage(gorm.Config{...})
 //	auth.New(&config.Config{Storage: store})
 type GormStorage struct {
+	owned               bool
 	db                  *gorm.DB
 	dialect             types.DialectType
 	coreStorage         *core.GormCoreStorage
@@ -57,6 +58,7 @@ type GormStorage struct {
 	auditLogStoarage    *auditlog.GormAuditLogStorage
 	oauthStorage        *oauth.GormOAuthStorage
 	twoFactorStorage    *twofactor.TwoFactorStorage
+	passkeyStorage      *passkeys.PasskeyStorage
 	invitationStorage   *invitation.GormInvitationStorage
 	organizationStorage *organization.GormOrganizationStorage
 }
@@ -117,6 +119,7 @@ func NewStorage(config Config) (*GormStorage, error) {
 	}
 
 	storage := NewStorageFromDB(db)
+	storage.owned = true
 	storage.dialect = config.Dialect
 	return storage, nil
 }
@@ -131,6 +134,7 @@ func NewStorageFromDB(db *gorm.DB) *GormStorage {
 		auditLogStoarage:    auditlog.NewAuditLogStorage(db),
 		oauthStorage:        oauth.NewOAuthStorage(db),
 		twoFactorStorage:    twofactor.NewTwoFactorStorage(db),
+		passkeyStorage:      passkeys.NewPasskeyStorage(db),
 		invitationStorage:   invitation.NewInvitationStorage(db),
 		organizationStorage: organization.NewOrganizationStorage(db),
 	}
@@ -139,6 +143,10 @@ func NewStorageFromDB(db *gorm.DB) *GormStorage {
 // Core returns storage for the core module
 func (s *GormStorage) Core() types.CoreStorage {
 	return s.coreStorage
+}
+
+func (s *GormStorage) WithTransaction(ctx context.Context, fn func(types.Storage) error) error {
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error { return fn(NewStorageFromDB(tx)) })
 }
 
 // Session returns storage for the session module
@@ -172,6 +180,11 @@ func (s *GormStorage) TwoFactorAuth() types.TwoFactorStorage {
 	return s.twoFactorStorage
 }
 
+// Passkeys returns storage for the WebAuthn/Passkeys module
+func (s *GormStorage) Passkeys() types.PasskeyStorage {
+	return s.passkeyStorage
+}
+
 // Invitation returns storage for the standalone invitation module
 func (s *GormStorage) Invitation() types.InvitationStorage {
 	return s.invitationStorage
@@ -184,6 +197,9 @@ func (s *GormStorage) Organization() types.OrganizationStorage {
 
 // Close closes the database connection
 func (s *GormStorage) Close() error {
+	if !s.owned {
+		return nil
+	}
 	sqlDB, err := s.db.DB()
 	if err != nil {
 		return err
@@ -221,7 +237,8 @@ func (s *GormStorage) AppliedMigrations(ctx context.Context) ([]types.MigrationR
 	records := make([]types.MigrationRecord, len(rows))
 	for i, r := range rows {
 		records[i] = types.MigrationRecord{
-			ID:         r.ID,
+			ID:       r.ID,
+			Checksum: r.Checksum, Dirty: r.Dirty,
 			ModuleName: r.ModuleName,
 			Version:    r.Version,
 			Name:       r.Name,
@@ -232,10 +249,14 @@ func (s *GormStorage) AppliedMigrations(ctx context.Context) ([]types.MigrationR
 	return records, nil
 }
 
-// ExecMigration executes a raw SQL script by splitting on ";" and running each statement.
-// Sufficient for DDL-only migration files (no semicolons inside string literals or comments).
+// ExecMigration parses all statements before applying any of them. Quoted
+// literals, identifiers, comments and PostgreSQL dollar-quoted bodies are kept intact.
 func (s *GormStorage) ExecMigration(ctx context.Context, sql []byte) error {
-	for _, stmt := range splitSQLStatements(string(sql)) {
+	statements, err := splitSQLStatements(string(sql))
+	if err != nil {
+		return err
+	}
+	for _, stmt := range statements {
 		if err := s.db.WithContext(ctx).Exec(stmt).Error; err != nil {
 			return fmt.Errorf("migration statement failed: %w\nSQL: %s", err, stmt)
 		}
@@ -246,7 +267,8 @@ func (s *GormStorage) ExecMigration(ctx context.Context, sql []byte) error {
 // RecordMigration inserts a migration record into goauth_migrations.
 func (s *GormStorage) RecordMigration(ctx context.Context, record types.MigrationRecord) error {
 	row := gormMigrationRecord{
-		ID:         record.ID,
+		ID:       record.ID,
+		Checksum: record.Checksum, Dirty: record.Dirty,
 		ModuleName: record.ModuleName,
 		Version:    record.Version,
 		Name:       record.Name,
@@ -261,16 +283,4 @@ func (s *GormStorage) RemoveMigrationRecord(ctx context.Context, moduleName stri
 	return s.db.WithContext(ctx).
 		Where("module_name = ? AND version = ?", moduleName, version).
 		Delete(&gormMigrationRecord{}).Error
-}
-
-// splitSQLStatements splits a SQL script on ";" and returns non-empty trimmed statements.
-func splitSQLStatements(script string) []string {
-	parts := strings.Split(script, ";")
-	result := make([]string, 0, len(parts))
-	for _, p := range parts {
-		if s := strings.TrimSpace(p); s != "" {
-			result = append(result, s)
-		}
-	}
-	return result
 }

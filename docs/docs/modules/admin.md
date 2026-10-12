@@ -16,7 +16,7 @@ The Admin module provides a complete administrative interface for managing users
 - **User Updates** — Modify user fields (name, email, active status, admin flag, etc.) from the admin panel.
 - **User Deletion** — Permanently delete user accounts. Hard delete (no soft deletes).
 - **Admin-Only Middleware** — The `MiddlewareAdminAuth` middleware (priority 40) is applied exclusively to admin routes. It verifies the authenticated user has admin privileges.
-- **Audit Event Integration** — Subscribes to `EventAdminAction` for admin action logging. When used with the Audit module, all admin operations are automatically logged.
+- **Audit Event Integration** — Subscribes to `EventAdminAction` for admin action logging. Updates and deletes emit events consumed by Audit. Read operations do not automatically produce an audit event.
 - **Custom Storage** — Pass custom `UserRepository` and `AuditLogRepository` implementations to use your own data layer.
 
 ## Registration
@@ -24,16 +24,20 @@ The Admin module provides a complete administrative interface for managing users
 ```go
 import "github.com/bete7512/goauth/pkg/modules/admin"
 
-a.Use(admin.New(nil))
+if err := a.Use(admin.New(nil)); err != nil {
+    return err
+}
 ```
 
 Or with custom repositories:
 
 ```go
-a.Use(admin.New(&admin.Config{
+if err := a.Use(admin.New(&admin.Config{
     UserRepository:     customUserRepo,
     AuditLogRepository: customAuditRepo,
-}))
+})); err != nil {
+    return err
+}
 ```
 
 ## Configuration
@@ -60,7 +64,7 @@ Both fields are optional. When nil, repositories are obtained from the shared st
 | PUT | `/admin/users/{id}` | Auth + Admin | Update user |
 | DELETE | `/admin/users/{id}` | Auth + Admin | Delete user |
 
-All endpoints require `Authorization: Bearer <token>` from a user with admin privileges.
+All endpoints require a verified access credential from a user with `is_super_admin: true`. Credential transport follows `AuthMode` (bearer, cookie, or both).
 
 ## Middleware
 
@@ -73,14 +77,16 @@ The module registers the `MiddlewareAdminAuth` middleware (priority 40). It is n
 Both `UserRepository` and `AuditLogRepository` can be replaced with custom implementations:
 
 ```go
-a.Use(admin.New(&admin.Config{
+if err := a.Use(admin.New(&admin.Config{
     UserRepository:     myCustomUserRepo,     // implements models.UserRepository
     AuditLogRepository: myCustomAuditRepo,    // implements models.AuditLogRepository
-}))
+})); err != nil {
+    return err
+}
 ```
 
 When `nil`, repositories are obtained from the shared storage layer during initialization (`deps.Storage.Core().Users()` for users).
 
 ## Events
 
-Subscribes to `EventAdminAction` for admin action logging. When the Audit module is registered, admin operations are automatically tracked with appropriate severity levels (info for reads/updates, warning for deletes).
+Subscribes to `EventAdminAction` for admin action logging. The update and delete services emit `EventAdminUserUpdated` and `EventAdminUserDeleted`; the Audit module records these when admin-event tracking is enabled. This does not cover every administrative read.

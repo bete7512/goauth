@@ -106,7 +106,7 @@ func main() {
 	if resendAPIKey == "" {
 		log.Fatal("RESEND_API_KEY is not set")
 	}
-	authInstance.Use(notification.New(
+	mustUse(authInstance.Use(notification.New(
 		&notification.Config{
 			EnableWelcomeEmail:        true,
 			EnablePasswordChangeAlert: true,
@@ -126,15 +126,15 @@ func main() {
 				DomainName:   "goauth.io",
 			},
 		},
-	))
+	)))
 
-	authInstance.Use(magiclink.New(&config.MagicLinkModuleConfig{
+	mustUse(authInstance.Use(magiclink.New(&config.MagicLinkModuleConfig{
 		CallbackURL:  "http://localhost:3000",
 		TokenExpiry:  time.Hour,
 		AutoRegister: true,
-	}))
+	})))
 	// --- Option 1: Session-based auth (uncomment to use) ---
-	authInstance.Use(session.New(&config.SessionModuleConfig{
+	mustUse(authInstance.Use(session.New(&config.SessionModuleConfig{
 		EnableSessionManagement: true,
 		Strategy:                types.SessionStrategyCookieCache,
 		CookieEncoding:          types.CookieEncodingCompact,
@@ -142,9 +142,9 @@ func main() {
 		SensitivePaths:          []string{"admin/*"},
 		SlidingExpiration:       true,
 		UpdateAge:               30 * time.Minute,
-	}))
+	})))
 
-	authInstance.Use(organization.New(&organization.Config{}))
+	mustUse(authInstance.Use(organization.New(&organization.Config{})))
 	// // csrf (HMAC-based double-submit cookie pattern)
 	// go.Use(csrf.New(&config.CSRFModuleConfig{
 	// 	TokenExpiry: 2 * time.Hour,
@@ -162,12 +162,12 @@ func main() {
 	// 	SecretKey:     "1x0000000000000000000000000000000AA",  // Cloudflare test secret (always passes)
 	// 	ApplyToRoutes: []types.RouteName{types.RouteSignup, types.RouteLogin},
 	// }))
-	authInstance.Use(admin.New(&admin.Config{}))
+	mustUse(authInstance.Use(admin.New(&admin.Config{})))
 	// Pass nil to use default config which enables all event tracking
-	authInstance.Use(audit.New(nil))
-	authInstance.Use(invitation.New(&invitation.Config{
+	mustUse(authInstance.Use(audit.New(nil)))
+	mustUse(authInstance.Use(invitation.New(&invitation.Config{
 		CallbackURL: "http://localhost:3000/accept",
-	}))
+	})))
 
 	// Register custom hooks (user-defined)
 	authInstance.On(types.EventSendMagicLink, func(ctx context.Context, e *types.Event) error {
@@ -207,17 +207,17 @@ func main() {
 		},
 	}
 
-	authInstance.Use(oauth.New(&config.OAuthModuleConfig{
+	mustUse(authInstance.Use(oauth.New(&config.OAuthModuleConfig{
 		Providers:              oauthConfigs,
 		AllowSignup:            true, // Allow creating new users via OAuth
 		AllowAccountLinking:    true, // Allow linking OAuth to existing accounts with same email
 		TrustEmailVerification: true, // Trust OAuth provider's email verification
 		StateTTL:               10 * time.Minute,
-	}))
+	})))
 
-	authInstance.Use(twofactor.New(&config.TwoFactorConfig{
+	mustUse(authInstance.Use(twofactor.New(&config.TwoFactorConfig{
 		Issuer: "goauth.beteg.dev",
-	}))
+	})))
 
 	// Initialize after all modules are registered
 	if err := authInstance.Initialize(context.Background()); err != nil {
@@ -303,6 +303,12 @@ type statusWriter struct {
 func (w *statusWriter) WriteHeader(code int) {
 	w.status = code
 	w.ResponseWriter.WriteHeader(code)
+}
+
+func mustUse(err error) {
+	if err != nil {
+		log.Fatalf("Failed to register module: %v", err)
+	}
 }
 
 func LoggingMiddleware(next http.Handler) http.Handler {

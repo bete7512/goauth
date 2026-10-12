@@ -7,7 +7,7 @@ sidebar_position: 8
 
 # Audit Module
 
-The Audit module provides comprehensive security event logging for compliance, debugging, and user transparency. It automatically subscribes to lifecycle events across all modules and writes structured audit log entries with action names, severity levels, actor IDs, IP addresses, and metadata. It serves two audiences: end users who want to see their own activity history, and administrators who need a full audit trail for compliance and incident investigation.
+The Audit module provides comprehensive security event logging for compliance, debugging, and user transparency. It subscribes to the event categories listed below and writes structured audit log entries with action names, severity levels, actor IDs, IP addresses, and metadata. It serves two audiences: end users who want to see their own activity history, and administrators who need a full audit trail for compliance and incident investigation.
 
 ## Capabilities
 
@@ -16,7 +16,7 @@ The Audit module provides comprehensive security event logging for compliance, d
 - **Per-Action Retention Policies** — Configure how long each category of logs is retained. Use wildcard patterns like `"auth.*": 90` (days) or `"security.*": -1` (forever). Different compliance requirements can be met per event type.
 - **Automatic Background Cleanup** — A background goroutine runs every 24 hours to purge expired audit logs according to retention policies. Respects `ctx.Done()` for graceful shutdown.
 - **Manual Cleanup Trigger** — Admin endpoint to trigger immediate log cleanup on demand.
-- **Sampling Support** — For high-traffic events, set `SampleRate` (0.0 to 1.0) to log only a percentage of events. Useful for reducing storage costs on non-critical event categories.
+- **Sampling Support** — `SampleRate` is currently a configuration field only: the event handler does not apply sampling. Do not rely on it to reduce writes.
 - **User Self-Service Endpoints** — Users can view their own audit trail, login history, profile changes, and security events. Builds user trust and supports self-service security review.
 - **Admin Audit Endpoints** — Admins can query the full audit trail, filter by user ID or action type, and trigger manual cleanup.
 - **Severity Levels** — Each event is logged with a severity (`info`, `warning`, `critical`) for easy filtering and alerting.
@@ -28,13 +28,15 @@ The Audit module provides comprehensive security event logging for compliance, d
 import "github.com/bete7512/goauth/pkg/modules/audit"
 
 // Default config: all event types tracked, 90/365/forever retention
-a.Use(audit.New(nil))
+if err := a.Use(audit.New(nil)); err != nil {
+    return err
+}
 ```
 
 Or with custom settings:
 
 ```go
-a.Use(audit.New(&audit.Config{
+if err := a.Use(audit.New(&audit.Config{
     TrackAuthEvents:     true,
     TrackUserEvents:     true,
     TrackAdminEvents:    true,
@@ -45,8 +47,10 @@ a.Use(audit.New(&audit.Config{
         "admin.*":    365,  // Keep admin logs 1 year
         "security.*": -1,   // Keep security logs forever
     },
-    SampleRate: 1.0, // 1.0 = log everything, 0.5 = 50%
-}))
+    SampleRate: 1.0, // currently not applied by the event handler
+})); err != nil {
+    return err
+}
 ```
 
 ## Configuration
@@ -59,7 +63,7 @@ type Config struct {
     TrackUserEvents     bool                       // Profile, email, phone, avatar
     TrackAdminEvents    bool                       // Admin CRUD operations
     TrackSecurityEvents bool                       // Suspicious login, lockout, revocation
-    SampleRate          float64                    // 0.0-1.0 sampling rate
+    SampleRate          float64                    // Reserved setting; currently not applied
 }
 ```
 
@@ -76,7 +80,8 @@ When `cfg` is nil, `New(nil)` uses these defaults:
 
 ## Dependencies
 
-- **Core** -- depends on core for authentication middleware.
+- **Core** is the declared module dependency.
+- **Admin** must also be registered: the audit admin routes reference its authorization middleware, and initialization rejects unresolved middleware.
 
 ## Endpoints
 
@@ -100,7 +105,7 @@ When `cfg` is nil, `New(nil)` uses these defaults:
 
 ## Tracked Events
 
-The module subscribes to events via `RegisterHooks`. Each category is independently togglable.
+The module subscribes to events via `RegisterHooks`. Each category is independently togglable. A subscription only logs events that an operation actually emits; it is not a guarantee that every route or authentication method emits every listed event. Review the operations your application needs to audit, and add explicit handlers for shared `authentication.completed` events as needed.
 
 ### Auth Events (`TrackAuthEvents`)
 
@@ -150,11 +155,13 @@ The module subscribes to events via `RegisterHooks`. Each category is independen
 Pass a custom `AuditLogRepository` to store audit logs in a separate database, external SIEM, or append-only store:
 
 ```go
-a.Use(audit.New(&audit.Config{
+if err := a.Use(audit.New(&audit.Config{
     AuditLogRepository: myCustomAuditRepo, // implements models.AuditLogRepository
     TrackAuthEvents:    true,
     TrackSecurityEvents: true,
-}))
+})); err != nil {
+    return err
+}
 ```
 
 When `nil`, the repository is obtained from the shared storage layer during initialization.

@@ -92,8 +92,7 @@ func (s *LoginServiceSuite) TestLogin() {
 			metadata: &types.RequestMetadata{IPAddress: "127.0.0.1", UserAgent: "TestAgent/1.0"},
 			setup: func(u *models.User, ur *mocks.MockUserRepository, _ *mocks.MockSessionRepository, lg *mocks.MockLogger, _ *mocks.MockEventBus) {
 				ur.EXPECT().FindByEmail(gomock.Any(), "test@example.com").Return(u, nil)
-				// Lockout: failed login records attempt and updates user
-				ur.EXPECT().Update(gomock.Any(), gomock.AssignableToTypeOf(&models.User{})).Return(nil)
+				// Lockout is disabled in this fixture: failed verification must not write the user.
 			},
 			wantErr:    true,
 			errCode:    types.ErrInvalidCredentials,

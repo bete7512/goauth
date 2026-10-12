@@ -18,11 +18,11 @@ const (
 
 	// PhaseRefresh runs during token renewal.
 	// Interceptors may enrich claims (carry forward org context) or validate
-	// (e.g., confirm user is still an org member). Challenges are ignored.
+	// (e.g., confirm user is still an org member). Challenges deny issuance until resolved.
 	PhaseRefresh AuthPhase = "refresh"
 
 	// PhaseResume runs after challenges are resolved (post-2FA, post-org-select).
-	// Interceptors enrich claims only. Challenges are ignored.
+	// Interceptors enrich claims only. Challenges deny issuance until resolved.
 	PhaseResume AuthPhase = "resume"
 )
 
@@ -42,6 +42,8 @@ type LoginChallenge struct {
 
 // InterceptParams is the input to every AuthInterceptor.
 type InterceptParams struct {
+	// VerifiedMethods comes from persisted grant/transaction evidence, never client claims.
+	VerifiedMethods []string
 	// Phase indicates what stage of the auth flow we're in.
 	Phase AuthPhase
 
@@ -62,7 +64,7 @@ type InterceptResult struct {
 	// override earlier ones for the same key.
 	Claims map[string]interface{}
 
-	// Challenge to present to the client. Only honored when Phase == PhaseLogin.
+	// Challenge to present to the client. Honored in every phase.
 	// Nil means no challenge from this interceptor.
 	Challenge *LoginChallenge
 
@@ -82,7 +84,7 @@ type AuthInterceptorRegistry interface {
 	Register(name string, interceptor AuthInterceptor, priority int)
 
 	// Run executes all interceptors and returns merged claims, challenges, and response data.
-	// Challenges are only collected when params.Phase == PhaseLogin.
+	// Challenges are collected in every phase.
 	// ResponseData is merged from all interceptors for inclusion in the login response body.
 	Run(ctx context.Context, params *InterceptParams) (mergedClaims map[string]interface{}, challenges []LoginChallenge, responseData map[string]interface{}, err error)
 }

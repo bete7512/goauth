@@ -3,16 +3,23 @@
 package testhelpers
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
 	"encoding/json"
+	"github.com/go-jose/go-jose/v4"
+	"github.com/golang-jwt/jwt/v5"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 // FakeOAuthServer simulates an OAuth provider's token and userinfo endpoints.
 type FakeOAuthServer struct {
-	Server *httptest.Server
+	Server   *httptest.Server
+	Nonce    string
+	ClientID string
 
 	// TokenResponse returned by POST /token (or any path ending in /token)
 	TokenResponse map[string]interface{}
@@ -28,7 +35,12 @@ type FakeOAuthServer struct {
 func NewFakeOAuthServer(t *testing.T) *FakeOAuthServer {
 	t.Helper()
 
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
 	fake := &FakeOAuthServer{
+		ClientID: "fake-google-client-id",
 		TokenResponse: map[string]interface{}{
 			"access_token":  "fake_access_token_123",
 			"token_type":    "Bearer",
@@ -57,7 +69,32 @@ func NewFakeOAuthServer(t *testing.T) *FakeOAuthServer {
 
 		switch {
 		case strings.HasSuffix(r.URL.Path, "/token") || r.URL.Path == "/token":
-			json.NewEncoder(w).Encode(fake.TokenResponse)
+			response := make(map[string]interface{}, len(fake.TokenResponse)+1)
+			for k, v := range fake.TokenResponse {
+				response[k] = v
+			}
+			if fake.Nonce != "" {
+				claims := jwt.MapClaims{}
+				for k, v := range fake.UserInfoResponse {
+					claims[k] = v
+				}
+				claims["iss"] = "https://accounts.google.com"
+				claims["aud"] = fake.ClientID
+				claims["nonce"] = fake.Nonce
+				claims["iat"] = time.Now().Unix()
+				claims["exp"] = time.Now().Add(time.Hour).Unix()
+				token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+				token.Header["kid"] = "fixture"
+				signed, err := token.SignedString(key)
+				if err != nil {
+					http.Error(w, err.Error(), 500)
+					return
+				}
+				response["id_token"] = signed
+			}
+			json.NewEncoder(w).Encode(response)
+		case strings.HasSuffix(r.URL.Path, "/certs"):
+			json.NewEncoder(w).Encode(jose.JSONWebKeySet{Keys: []jose.JSONWebKey{{Key: &key.PublicKey, KeyID: "fixture", Algorithm: "RS256", Use: "sig"}}})
 		case strings.HasSuffix(r.URL.Path, "/emails"):
 			json.NewEncoder(w).Encode(fake.EmailsResponse)
 		default:

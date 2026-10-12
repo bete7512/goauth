@@ -4,6 +4,8 @@ package types
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"time"
 )
 
@@ -11,6 +13,8 @@ type EventType string
 
 // Event represents an event with associated data, identity, and retry tracking.
 type Event struct {
+	SchemaVersion int
+	RealmID       string
 	// ID uniquely identifies this event instance (for idempotency and tracking)
 	ID string
 
@@ -35,6 +39,47 @@ type Event struct {
 
 	// MaxRetries is the maximum number of retries allowed for this event
 	MaxRetries int
+}
+
+// EventEnvelope is the wire representation. Runtime contexts, retry state and
+// errors are deliberately excluded. Consumers deduplicate by ID and handler.
+type EventEnvelope struct {
+	Version   int             `json:"version"`
+	ID        string          `json:"id"`
+	Type      EventType       `json:"type"`
+	RealmID   string          `json:"realm_id"`
+	CreatedAt time.Time       `json:"created_at"`
+	Payload   json.RawMessage `json:"payload"`
+}
+
+func (e *Event) Envelope() (EventEnvelope, error) {
+	payload, err := json.Marshal(e.Data)
+	if err != nil {
+		return EventEnvelope{}, err
+	}
+	version := e.SchemaVersion
+	if version == 0 {
+		version = 1
+	}
+	realm := e.RealmID
+	if realm == "" {
+		realm = "default"
+	}
+	return EventEnvelope{Version: version, ID: e.ID, Type: e.Type, RealmID: realm, CreatedAt: e.CreatedAt, Payload: payload}, nil
+}
+
+func (e EventEnvelope) Event() (*Event, error) {
+	if e.Version != 1 || e.ID == "" || e.Type == "" || e.RealmID != "default" || !json.Valid(e.Payload) {
+		return nil, fmt.Errorf("unsupported or invalid event envelope")
+	}
+	return &Event{SchemaVersion: e.Version, ID: e.ID, Type: e.Type, RealmID: e.RealmID, CreatedAt: e.CreatedAt, Data: append(json.RawMessage(nil), e.Payload...)}, nil
+}
+
+// AcknowledgingBackend is the optional durable-delivery contract. A backend
+// acknowledges only a nil processing result; errors must remain retryable.
+// Handlers must be idempotent because redelivery is at least once.
+type AcknowledgingBackend interface {
+	SubscribeAcknowledged(context.Context, func(context.Context, *Event) error) error
 }
 
 // RetryPolicy configures retry behavior for event handlers.

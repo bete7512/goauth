@@ -47,7 +47,7 @@ func (e *compactEncoder) Decode(cookieValue string) (*types.SessionCookieData, e
 
 	// Verify HMAC
 	expectedSig := e.sign([]byte(payloadPart))
-	actualSig, err := base64.RawURLEncoding.DecodeString(sigPart)
+	actualSig, err := base64.RawURLEncoding.Strict().DecodeString(sigPart)
 	if err != nil {
 		return nil, ErrInvalidFormat
 	}
@@ -56,7 +56,7 @@ func (e *compactEncoder) Decode(cookieValue string) (*types.SessionCookieData, e
 	}
 
 	// Decode payload
-	payload, err := base64.RawURLEncoding.DecodeString(payloadPart)
+	payload, err := base64.RawURLEncoding.Strict().DecodeString(payloadPart)
 	if err != nil {
 		return nil, ErrInvalidFormat
 	}

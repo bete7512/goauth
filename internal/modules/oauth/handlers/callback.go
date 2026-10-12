@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"crypto/subtle"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -44,6 +45,12 @@ func (h *OAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		h.handleError(w, r, "invalid_request", "state parameter is required")
 		return
 	}
+	binding, err := r.Cookie("goauth_oauth_" + providerName)
+	if err != nil || subtle.ConstantTimeCompare([]byte(binding.Value), []byte(state)) != 1 {
+		h.handleError(w, r, string(types.ErrOAuthInvalidState), "browser continuation does not match")
+		return
+	}
+	http.SetCookie(w, &http.Cookie{Name: binding.Name, Value: "", Path: h.deps.Config.BasePath + "/oauth/", HttpOnly: true, Secure: h.deps.Config.Security.Session.Secure, SameSite: http.SameSiteLaxMode, MaxAge: -1})
 
 	// Collect request metadata
 	metadata := &types.RequestMetadata{
@@ -59,6 +66,10 @@ func (h *OAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	result, authErr := h.service.HandleCallback(ctx, providerName, code, state, metadata)
 	if authErr != nil {
 		h.handleError(w, r, string(authErr.Code), authErr.Message)
+		return
+	}
+	if len(result.Challenges) > 0 {
+		http_utils.RespondSuccess(w, map[string]interface{}{"challenges": result.Challenges, "message": "Authentication challenge required"}, nil)
 		return
 	}
 
@@ -96,6 +107,11 @@ func (h *OAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		// Validate redirect URL against allowed origins to prevent open redirect
 		if !h.isAllowedRedirectURL(redirectURL) {
 			h.handleError(w, r, "invalid_redirect_url", "redirect URL is not allowed")
+			return
+		}
+		h.setAuthCookies(w, r, result.AccessToken, result.RefreshToken)
+		if h.deps.Config.Security.AuthMode == types.AuthModeCookie {
+			http.Redirect(w, r, redirectURL, http.StatusFound)
 			return
 		}
 		// Redirect to frontend with tokens in URL fragment
@@ -201,30 +217,5 @@ func (h *OAuthHandler) isAllowedRedirectURL(redirectURL string) bool {
 
 // setAuthCookies sets authentication cookies
 func (h *OAuthHandler) setAuthCookies(w http.ResponseWriter, r *http.Request, accessToken, refreshToken string) {
-	// Get security config for cookie settings
-	secConfig := h.deps.Config.Security.Session
-
-	// Access token cookie
-	http.SetCookie(w, &http.Cookie{
-		Name:     "goauth_access_token",
-		Value:    accessToken,
-		Path:     "/",
-		HttpOnly: true,
-		Secure:   secConfig.Secure,
-		SameSite: secConfig.SameSite,
-		MaxAge:   int(secConfig.AccessTokenTTL.Seconds()),
-	})
-
-	// Refresh token cookie (if provided)
-	if refreshToken != "" {
-		http.SetCookie(w, &http.Cookie{
-			Name:     "goauth_refresh_token",
-			Value:    refreshToken,
-			Path:     "/",
-			HttpOnly: true,
-			Secure:   secConfig.Secure,
-			SameSite: secConfig.SameSite,
-			MaxAge:   int(secConfig.RefreshTokenTTL.Seconds()),
-		})
-	}
+	http_utils.SetCredentialCookies(w, h.deps.Config.Security, accessToken, refreshToken)
 }

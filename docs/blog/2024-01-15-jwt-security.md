@@ -7,113 +7,52 @@ tags: [security, jwt, best-practices, go]
 
 # JWT Security in GoAuth
 
-This post covers how GoAuth handles JWT security -- the signing approach, token lifecycle, refresh token rotation, and the protective measures built into the library.
+GoAuth validates more than a JWT signature. Its current authentication path combines purpose-bound credentials with current user, session, and organization state. This article is updated for the current checkout; use the [Security guide](/docs/security) for detailed configuration.
 
 <!-- truncate -->
 
-## Signing and Algorithms
+## Signing and key rotation
 
-GoAuth uses **HS256** (HMAC-SHA256) for JWT signing. The secret key is configured via `SecurityConfig.JwtSecretKey` and must be at least 32 characters. The library validates algorithm headers on every token parse to prevent algorithm confusion attacks.
+HS256 remains the default. RS256 uses an RSA key of at least 2048 bits; ES256 uses P-256. The active algorithm and key ID select signing material. Retained keys permit overlap during rotation and require an explicit expiration. Unknown or expired key IDs are rejected.
 
-```go
-a, _ := auth.New(&config.Config{
-    Storage: store,
-    Migration: config.MigrationConfig{Auto: true},
-    Security: types.SecurityConfig{
-        JwtSecretKey:  os.Getenv("JWT_SECRET"),       // min 32 chars
-        EncryptionKey: os.Getenv("ENCRYPTION_KEY"),   // for AES-256-GCM
-    },
-})
-```
+The public `GET /auth/.well-known/jwks.json` route exposes asymmetric public keys under the configured base path. HMAC secrets are never published; an HS256-only configuration returns 404. `JwtSecretKey` is still required for shared security helpers even when JWT signing is asymmetric.
 
-## Access and Refresh Token Pair
+Validation checks the configured issuer and audience, expiration, credential purpose, and consistent user identity. Proof tokens and refresh credentials cannot be used as access credentials.
 
-GoAuth issues two tokens on login:
+## Access and refresh credentials
 
-- **Access token** -- Short-lived (default 15 minutes). Carries user claims. Used for API authorization.
-- **Refresh token** -- Longer-lived (default 7 days). Used only to obtain a new access token.
+Access tokens default to 15 minutes. Refresh credentials default to seven days. The Session strategy uses an opaque refresh secret stored as a hash. Stateless uses a signed refresh token with a stored nonce. Both rotate refresh state conditionally so a previously used credential cannot rotate it again.
 
-The TTLs are configurable:
+Session refresh preserves the session's identity and absolute lifetime. Stateless rotation preserves the stored refresh grant's expiry rather than extending it indefinitely. The legacy `RefreshTokenRotation` flag does not disable rotation in the current Stateless service.
 
-```go
-Security: types.SecurityConfig{
-    JwtSecretKey: os.Getenv("JWT_SECRET"),
-    Session: types.SessionConfig{
-        AccessTokenTTL:  15 * time.Minute,
-        RefreshTokenTTL: 7 * 24 * time.Hour,
-    },
-},
-```
+Token versions revoke credentials when security state changes. Stateless logout is user-wide, rather than a single-device logout. For device-level management, use [Session](/docs/modules/session).
 
-## Refresh Token Rotation
+## Current-state checks
 
-How refresh tokens are secured depends on the authentication strategy:
+A valid signature is only one step. The built-in middleware loads the user, compares token version, checks activity and required contact verification, and validates the associated session when present. Selected organization context requires current membership in an active organization with a recognized role.
 
-**Stateless module**: Each refresh token includes a JTI (JWT ID) nonce. The JTI is stored in the database. When a refresh token is used, the old JTI is invalidated and a new token with a fresh JTI is issued. This provides one-time-use semantics -- replaying an old refresh token fails.
+For non-HTTP integration use `a.Authenticate`. Its verified principal includes user, session, methods, authentication time, and selected organization. Do not turn decoded but unverified claims into a trusted principal.
 
-**Session module**: Refresh tokens are hashed with SHA-256 before storage. The raw token is only returned to the client; the database never holds the plaintext. On refresh, the incoming token is hashed and compared against the stored hash.
+## Password and lockout policy
 
-## Account Lockout
+Passwords default to 8–72 **bytes**, with no trimming or Unicode normalization. Bcrypt cannot accept a password exceeding 72 bytes. The cost defaults to 10 through `Security.HashSaltLength`.
 
-GoAuth includes brute-force protection via account lockout:
-
-- **Max attempts**: 5 failed login attempts (configurable)
-- **Lockout window**: 15 minutes (configurable)
-- **Lockout behavior**: Returns a `429` status with time remaining until unlock
-
-This is configured via `Config.Validate()` defaults or explicitly:
+Account lockout must be explicitly enabled:
 
 ```go
 Lockout: types.LockoutConfig{
-    MaxAttempts:     5,
+    Enabled: true,
+    MaxAttempts: 5,
     LockoutDuration: 15 * time.Minute,
 },
 ```
 
-## Password Policy
+This is a fragment of `types.SecurityConfig`. Account lockout is distinct from network rate limiting. The runtime's admission limit bounds concurrent work; it is not a per-IP request-rate policy.
 
-GoAuth enforces password requirements at the config level:
+## Encryption and client transport
 
-- Minimum length: 8 characters (default)
-- Maximum length: 128 characters (default)
-- Configurable via `PasswordPolicy` in the config
+The manager derives an AES-256-GCM key from `EncryptionKey` and supports retained decryption keys. Use independent random secrets and plan overlap when rotating persisted encrypted material.
 
-Passwords are hashed with **bcrypt**. The cost factor is configurable through `SecurityConfig`.
+`AuthMode` controls bearer, cookie, or both transports independently of the selected credential strategy. Conflicting credential sources are rejected. Cookie-only JSON endpoints still return token fields; successful cookie-only redirect flows omit the token fragment. Configure secure cookies for HTTPS and CSRF protection for cookie-authenticated browser traffic.
 
-## Encryption of Sensitive Data
-
-Beyond passwords and JWTs, GoAuth encrypts sensitive fields using AES-256-GCM:
-
-- TOTP secrets stored in the database
-- OAuth provider tokens
-
-The encryption key is set via `SecurityConfig.EncryptionKey` (32 characters for AES-256).
-
-## Token Storage on the Client
-
-GoAuth sets tokens in HTTP-only, secure cookies with `SameSite` attributes when using the session module. For stateless JWT, tokens are returned in JSON response bodies for the client to store as appropriate.
-
-## What GoAuth Does Not Do
-
-To set expectations clearly:
-
-- **No RS256/ES256** -- GoAuth uses HS256 only. If you need asymmetric signing, you would need to implement a custom security manager satisfying the `types.SecurityManager` interface.
-- **No built-in rate limiting middleware** -- Account lockout handles brute-force at the application level. For network-level rate limiting, use your reverse proxy or a dedicated middleware.
-- **No token blacklisting for access tokens** -- Access tokens are short-lived by design. The stateless module blacklists refresh token JTIs on revocation.
-
-## Security Checklist
-
-Before deploying:
-
-- [ ] Set `JwtSecretKey` to a strong, random 32+ character value from environment variables
-- [ ] Set `EncryptionKey` to a separate strong, random 32-character value
-- [ ] Configure appropriate `AccessTokenTTL` (shorter is safer; 15 minutes is a good default)
-- [ ] Enable HTTPS in production (GoAuth sets `Secure` flag on cookies)
-- [ ] Enable account lockout (on by default)
-- [ ] Enable email verification if your app requires confirmed email addresses
-- [ ] Use the CSRF module for browser-based applications
-- [ ] Review audit logs regularly if using the audit module
-
----
-
-_For more details, see the [Stateless Module](/docs/modules/stateless) and [Session Module](/docs/modules/session) documentation._
+See [Security](/docs/security), [Session](/docs/modules/session), [Stateless](/docs/modules/stateless), and [Upgrading](/docs/upgrade) for the exact configuration and compatibility changes.

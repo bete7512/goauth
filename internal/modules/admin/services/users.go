@@ -36,6 +36,9 @@ func NewAdminService(
 
 // ListUsers lists all users with pagination
 func (s *adminService) ListUsers(ctx context.Context, opts models.UserListOpts) ([]*models.User, int64, *types.GoAuthError) {
+	if _, authErr := s.authorize(ctx); authErr != nil {
+		return nil, 0, authErr
+	}
 	users, total, err := s.userRepository.List(ctx, opts)
 	if err != nil {
 		return nil, 0, types.NewInternalError("failed to list users").Wrap(err)
@@ -45,6 +48,9 @@ func (s *adminService) ListUsers(ctx context.Context, opts models.UserListOpts) 
 
 // GetUser retrieves a user by ID
 func (s *adminService) GetUser(ctx context.Context, userID string) (*models.User, *types.GoAuthError) {
+	if _, authErr := s.authorize(ctx); authErr != nil {
+		return nil, authErr
+	}
 	user, err := s.userRepository.FindByID(ctx, userID)
 	if err != nil {
 		if errors.Is(err, models.ErrNotFound) {
@@ -57,9 +63,9 @@ func (s *adminService) GetUser(ctx context.Context, userID string) (*models.User
 
 // UpdateUser updates a user's information
 func (s *adminService) UpdateUser(ctx context.Context, user *models.User) *types.GoAuthError {
-	adminUser, ok := ctx.Value(types.UserKey).(*models.User)
-	if !ok || adminUser == nil {
-		return types.NewUnauthorizedError()
+	adminUser, authErr := s.authorize(ctx)
+	if authErr != nil {
+		return authErr
 	}
 
 	if err := s.userRepository.Update(ctx, user); err != nil {
@@ -82,9 +88,9 @@ func (s *adminService) UpdateUser(ctx context.Context, user *models.User) *types
 // DeleteUser deletes a user by ID
 func (s *adminService) DeleteUser(ctx context.Context, userID string) *types.GoAuthError {
 	// Get admin user for actor_id
-	adminUser, ok := ctx.Value(types.UserKey).(*models.User)
-	if !ok || adminUser == nil {
-		return types.NewUnauthorizedError()
+	adminUser, authErr := s.authorize(ctx)
+	if authErr != nil {
+		return authErr
 	}
 
 	// Get user info before deletion for logging
@@ -130,4 +136,16 @@ func (s *adminService) emitAuditEvent(ctx context.Context, eventType types.Event
 		"target_email": targetEmail,
 		"details":      details,
 	})
+}
+
+func (s *adminService) authorize(ctx context.Context) (*models.User, *types.GoAuthError) {
+	principal, ok := types.PrincipalFromContext(ctx)
+	if !ok || principal.UserID == "" {
+		return nil, types.NewUnauthorizedError()
+	}
+	actor, err := s.userRepository.FindByID(ctx, principal.UserID)
+	if err != nil || actor == nil || !actor.Active || !actor.IsSuperAdmin {
+		return nil, types.NewForbiddenError()
+	}
+	return actor, nil
 }

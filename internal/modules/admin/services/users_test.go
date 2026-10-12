@@ -33,6 +33,8 @@ func (s *AdminServiceSuite) setupService() (
 
 	mockUserRepo := mocks.NewMockUserRepository(ctrl)
 	mockEvents := mocks.NewMockEventBus(ctrl)
+	admin := testutil.TestAdminUser()
+	mockUserRepo.EXPECT().FindByID(gomock.Any(), admin.ID).Return(admin, nil).AnyTimes()
 	mockLogger := mocks.NewMockLogger(ctrl)
 
 	deps := config.ModuleDependencies{
@@ -91,7 +93,7 @@ func (s *AdminServiceSuite) TestListUsers() {
 			svc, mockUserRepo, _ := s.setupService()
 			tt.setup(mockUserRepo)
 
-			users, total, authErr := svc.ListUsers(context.Background(), models.UserListOpts{})
+			users, total, authErr := svc.ListUsers(testutil.ContextWithAdminUser(context.Background(), testutil.TestAdminUser()), models.UserListOpts{})
 
 			if tt.wantErr {
 				s.NotNil(authErr)
@@ -140,7 +142,7 @@ func (s *AdminServiceSuite) TestGetUser() {
 			svc, mockUserRepo, _ := s.setupService()
 			tt.setup(mockUserRepo)
 
-			result, authErr := svc.GetUser(context.Background(), tt.userID)
+			result, authErr := svc.GetUser(testutil.ContextWithAdminUser(context.Background(), testutil.TestAdminUser()), tt.userID)
 
 			if tt.wantErr {
 				s.NotNil(authErr)

@@ -30,13 +30,13 @@ func TestRefreshServiceSuite(t *testing.T) {
 func (s *RefreshServiceSuite) setupService() (
 	services.SessionService,
 	*mocks.MockUserRepository,
-	*mocks.MockSessionRepository,
+	*mocks.MockRotatingSessionRepository,
 ) {
 	ctrl := gomock.NewController(s.T())
 	s.T().Cleanup(ctrl.Finish)
 
 	mockUserRepo := mocks.NewMockUserRepository(ctrl)
-	mockSessionRepo := mocks.NewMockSessionRepository(ctrl)
+	mockSessionRepo := mocks.NewMockRotatingSessionRepository(ctrl)
 	mockLogger := mocks.NewMockLogger(ctrl)
 	mockEvents := mocks.NewMockEventBus(ctrl)
 
@@ -91,7 +91,7 @@ func (s *RefreshServiceSuite) TestRefresh() {
 	tests := []struct {
 		name       string
 		req        *dto.RefreshRequest
-		setup      func(*mocks.MockUserRepository, *mocks.MockSessionRepository)
+		setup      func(*mocks.MockUserRepository, *mocks.MockRotatingSessionRepository)
 		wantErr    bool
 		errCode    types.ErrorCode
 		statusCode int
@@ -99,18 +99,17 @@ func (s *RefreshServiceSuite) TestRefresh() {
 		{
 			name: "success",
 			req:  &dto.RefreshRequest{RefreshToken: "valid-refresh-token"},
-			setup: func(ur *mocks.MockUserRepository, sr *mocks.MockSessionRepository) {
+			setup: func(ur *mocks.MockUserRepository, sr *mocks.MockRotatingSessionRepository) {
 				h := security.HashRefreshToken("valid-refresh-token")
 				sr.EXPECT().FindByToken(gomock.Any(), h).Return(validSession, nil)
 				ur.EXPECT().FindByID(gomock.Any(), testUser.ID).Return(testUser, nil)
-				sr.EXPECT().DeleteByToken(gomock.Any(), h).Return(nil)
-				sr.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&models.Session{})).Return(nil)
+				sr.EXPECT().RotateToken(gomock.Any(), h, gomock.AssignableToTypeOf(&models.Session{})).Return(nil)
 			},
 		},
 		{
 			name: "session not found",
 			req:  &dto.RefreshRequest{RefreshToken: "unknown-token"},
-			setup: func(_ *mocks.MockUserRepository, sr *mocks.MockSessionRepository) {
+			setup: func(_ *mocks.MockUserRepository, sr *mocks.MockRotatingSessionRepository) {
 				sr.EXPECT().FindByToken(gomock.Any(), security.HashRefreshToken("unknown-token")).Return(nil, models.ErrNotFound)
 			},
 			wantErr:    true,
@@ -120,7 +119,7 @@ func (s *RefreshServiceSuite) TestRefresh() {
 		{
 			name: "session expired",
 			req:  &dto.RefreshRequest{RefreshToken: "expired-session-token"},
-			setup: func(_ *mocks.MockUserRepository, sr *mocks.MockSessionRepository) {
+			setup: func(_ *mocks.MockUserRepository, sr *mocks.MockRotatingSessionRepository) {
 				sr.EXPECT().FindByToken(gomock.Any(), security.HashRefreshToken("expired-session-token")).Return(expiredSession, nil)
 			},
 			wantErr:    true,
@@ -130,7 +129,7 @@ func (s *RefreshServiceSuite) TestRefresh() {
 		{
 			name: "refresh token expired",
 			req:  &dto.RefreshRequest{RefreshToken: "expired-refresh-token"},
-			setup: func(_ *mocks.MockUserRepository, sr *mocks.MockSessionRepository) {
+			setup: func(_ *mocks.MockUserRepository, sr *mocks.MockRotatingSessionRepository) {
 				sr.EXPECT().FindByToken(gomock.Any(), security.HashRefreshToken("expired-refresh-token")).Return(expiredRefreshSession, nil)
 			},
 			wantErr:    true,
@@ -140,7 +139,7 @@ func (s *RefreshServiceSuite) TestRefresh() {
 		{
 			name: "user not found",
 			req:  &dto.RefreshRequest{RefreshToken: "valid-refresh-token"},
-			setup: func(ur *mocks.MockUserRepository, sr *mocks.MockSessionRepository) {
+			setup: func(ur *mocks.MockUserRepository, sr *mocks.MockRotatingSessionRepository) {
 				h := security.HashRefreshToken("valid-refresh-token")
 				sr.EXPECT().FindByToken(gomock.Any(), h).Return(validSession, nil)
 				ur.EXPECT().FindByID(gomock.Any(), testUser.ID).Return(nil, models.ErrNotFound)
@@ -150,31 +149,30 @@ func (s *RefreshServiceSuite) TestRefresh() {
 			statusCode: 401,
 		},
 		{
-			name: "delete old session fails",
+			name: "rotation storage fails",
 			req:  &dto.RefreshRequest{RefreshToken: "valid-refresh-token"},
-			setup: func(ur *mocks.MockUserRepository, sr *mocks.MockSessionRepository) {
+			setup: func(ur *mocks.MockUserRepository, sr *mocks.MockRotatingSessionRepository) {
 				h := security.HashRefreshToken("valid-refresh-token")
 				sr.EXPECT().FindByToken(gomock.Any(), h).Return(validSession, nil)
 				ur.EXPECT().FindByID(gomock.Any(), testUser.ID).Return(testUser, nil)
-				sr.EXPECT().DeleteByToken(gomock.Any(), h).Return(errors.New("db error"))
+				sr.EXPECT().RotateToken(gomock.Any(), h, gomock.AssignableToTypeOf(&models.Session{})).Return(errors.New("db error"))
 			},
 			wantErr:    true,
 			errCode:    types.ErrInternalError,
 			statusCode: 500,
 		},
 		{
-			name: "create new session fails",
+			name: "concurrent rotation loses",
 			req:  &dto.RefreshRequest{RefreshToken: "valid-refresh-token"},
-			setup: func(ur *mocks.MockUserRepository, sr *mocks.MockSessionRepository) {
+			setup: func(ur *mocks.MockUserRepository, sr *mocks.MockRotatingSessionRepository) {
 				h := security.HashRefreshToken("valid-refresh-token")
 				sr.EXPECT().FindByToken(gomock.Any(), h).Return(validSession, nil)
 				ur.EXPECT().FindByID(gomock.Any(), testUser.ID).Return(testUser, nil)
-				sr.EXPECT().DeleteByToken(gomock.Any(), h).Return(nil)
-				sr.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&models.Session{})).Return(errors.New("db error"))
+				sr.EXPECT().RotateToken(gomock.Any(), h, gomock.AssignableToTypeOf(&models.Session{})).Return(models.ErrConflict)
 			},
 			wantErr:    true,
-			errCode:    types.ErrInternalError,
-			statusCode: 500,
+			errCode:    types.ErrInvalidRefreshToken,
+			statusCode: 401,
 		},
 	}
 

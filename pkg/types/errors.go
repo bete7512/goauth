@@ -64,6 +64,10 @@ const (
 	ErrCaptchaRequired ErrorCode = "CAPTCHA_REQUIRED"
 	ErrCaptchaFailed   ErrorCode = "CAPTCHA_FAILED"
 
+	// Passkey errors
+	ErrPasskeyNotFound ErrorCode = "PASSKEY_NOT_FOUND"
+	ErrPasskeyInvalid  ErrorCode = "PASSKEY_INVALID"
+
 	// Two-factor errors
 	ErrTwoFactorRequired       ErrorCode = "TWO_FACTOR_REQUIRED"
 	ErrTwoFactorAlreadyEnabled ErrorCode = "TWO_FACTOR_ALREADY_ENABLED"

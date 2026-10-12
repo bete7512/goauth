@@ -49,6 +49,10 @@ type Config struct {
 var _ config.Module = (*AuditModule)(nil)
 
 func New(cfg *Config) *AuditModule {
+	if cfg != nil {
+		snapshot := *cfg
+		cfg = &snapshot
+	}
 	if cfg == nil {
 		cfg = &Config{
 			TrackAuthEvents:     true,

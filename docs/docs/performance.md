@@ -4,27 +4,43 @@ title: Performance & Optimization
 sidebar_label: Performance
 ---
 
-# Performance & Optimization
+# Performance and Optimization
 
-GoAuth is built for low-latency Go applications. Performance characteristics depend primarily on your chosen authentication strategy and storage backend.
+Measure the complete authentication path against your own database and workload. The current implementation favors current-state authorization and conditional persistence over signature-only access validation.
 
 ## Authentication Strategies
 
-| Strategy | Performance Characteristic | Best For |
-|----------|----------------------------|----------|
-| **Stateless (JWT)** | O(1) validation. No DB round-trip. | High-traffic public APIs, Microservices. |
-| **Session (DB)** | O(log N) validation. Requires DB check every request. | Internal tools, High-security banking. |
-| **Session (Cache)** | O(1) validation. Trust-but-verify with periodic DB sync. | Balanced web applications. |
+| Strategy | Work performed by built-in access validation |
+| --- | --- |
+| Stateless | JWT validation plus current user/version/eligibility lookup; organization checks when selected |
+| Session | The same checks plus a live, owned, unexpired session lookup |
+| Session with cookie cache | Common online checks still run; additional cookie-cache handling may revalidate/reissue cache data |
+
+Stateless means no server-side session record, not no persistence. Refresh nonces, challenges, users, and optional memberships remain shared state. Cookie-cache mode does not remove the common user/session lookup.
+
+## Bounded Work
+
+`MaxConcurrentRequests` defaults to 128 and bounds built-in route work plus in-process `SignIn`. Saturation fails with HTTP 503 for routes. `Admission` can enforce a shared operation budget across replicas. `MaxRequestBodyBytes` defaults to 1 MiB for wrapped built-in handlers.
+
+These controls do not provide per-IP rate limiting. Host routes and direct `Authenticate` calls need any additional host-level admission policy you require.
+
+## Password and Token Costs
+
+Bcrypt password hashing/verification is deliberately CPU-intensive; `HashSaltLength` defaults to cost 10. Benchmark with the actual policy and concurrent sign-in load. Session refresh secrets are SHA-256 hashed for lookup; stateless refresh records hold JTIs. Both refresh paths require atomic persistence.
 
 ## Storage Optimization
 
-- **Typed Dialects**: GoAuth uses native database drivers via GORM for the best performance on PostgreSQL, MySQL, and SQLite.
-- **Selective Migrations**: Modules only migrate the tables they need.
-- **Indexing**: Core tables come with optimized indexes for email and username lookups.
+Keep indexes and migrations current, size connection pools against database capacity, and measure queries for user/session/membership checks. Custom caches must preserve the revocation and conditional-write semantics their calling paths require. GoAuth does not ship a general-purpose in-memory repository cache decorator.
 
-## Best Practices
+## Events
 
-1. **Use Stateless by Default**: Reduces database load significantly.
-2. **Configure UpdateAge**: For session-based auth, use `UpdateAge` to prevent constant database updates on every request.
-3. **Enable Async Events**: Offload notification sending to background workers.
-4. **Use GORM Storage**: The factory implementation is optimized for the most common SQL backends.
+The default async backend has ten workers and a queue of 1000. It is in-memory, not a durable message log. Monitor queue pressure and handler latency. With `DurableEvents`, outbox records are delivered by bounded leased batches and may be retried; consumers should be idempotent.
+
+## Measuring
+
+```bash
+go test -run '^$' -bench . -benchmem ./internal/security/...
+go test -run '^$' -bench . -benchmem ./storage/...
+```
+
+These commands run benchmarks that exist in the selected packages; they are not a claim of measured throughput. For application testing, include password sign-in, protected requests, refresh races, database latency, additional-factor flows, and callback delivery. Do not apply latency or complexity claims from older signature-only descriptions to the current implementation.

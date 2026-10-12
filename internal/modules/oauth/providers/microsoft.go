@@ -2,7 +2,6 @@ package providers
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/bete7512/goauth/pkg/config"
+	"github.com/google/uuid"
 )
 
 const (
@@ -24,6 +24,9 @@ var microsoftDefaultScopes = []string{"openid", "email", "profile", "User.Read"}
 
 // MicrosoftProvider implements OAuth for Microsoft (OpenID Connect)
 type MicrosoftProvider struct {
+	verifier oidcVerifier
+	issuer   string
+	jwksURL  string
 	*BaseProvider
 	redirectURL string
 	pkceEnabled bool
@@ -34,6 +37,11 @@ var _ OAuthProvider = (*MicrosoftProvider)(nil)
 
 // NewMicrosoftProvider creates a new Microsoft OAuth provider
 func NewMicrosoftProvider(cfg *config.OAuthProviderConfig, apiURL, basePath string) (*MicrosoftProvider, error) {
+	tenant, err := uuid.Parse(cfg.MicrosoftTenantID)
+	if err != nil {
+		return nil, fmt.Errorf("MicrosoftTenantID must be an explicit tenant UUID")
+	}
+	authority := "https://login.microsoftonline.com/" + tenant.String()
 	scopes := cfg.Scopes
 	if len(scopes) == 0 {
 		scopes = microsoftDefaultScopes
@@ -50,12 +58,14 @@ func NewMicrosoftProvider(cfg *config.OAuthProviderConfig, apiURL, basePath stri
 	}
 
 	return &MicrosoftProvider{
+		issuer:  authority + "/v2.0",
+		jwksURL: authority + "/discovery/v2.0/keys",
 		BaseProvider: NewBaseProvider(
 			ProviderMicrosoft,
 			cfg.ClientID,
 			cfg.ClientSecret,
-			microsoftAuthURL,
-			microsoftTokenURL,
+			authority+"/oauth2/v2.0/authorize",
+			authority+"/oauth2/v2.0/token",
 			microsoftUserInfoURL,
 			scopes,
 		),
@@ -167,35 +177,13 @@ func (p *MicrosoftProvider) SupportsOIDC() bool {
 	return true
 }
 
-// ValidateIDToken validates a Microsoft ID token.
-// For simplicity, we extract claims without full JWT validation.
-// In production, you should validate the signature using Microsoft's public keys.
+// ValidateIDToken verifies the signature against the configured tenant's keys
+// and requires that exact tenant issuer and this connection's client ID.
 func (p *MicrosoftProvider) ValidateIDToken(ctx context.Context, idToken string) (*UserInfo, error) {
-	// Microsoft ID tokens are JWTs - we'll decode the payload
-	// In production, you should validate the signature using Microsoft's JWKS
-	parts := strings.Split(idToken, ".")
-	if len(parts) != 3 {
-		return nil, fmt.Errorf("invalid ID token format")
-	}
-
-	// Decode the payload (second part)
-	payload, err := base64URLDecode(parts[1])
+	claims, err := p.verifier.verify(ctx, p.BaseProvider, p.issuer, p.jwksURL, idToken)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode ID token payload: %w", err)
+		return nil, err
 	}
-
-	var claims map[string]interface{}
-	if err := json.Unmarshal(payload, &claims); err != nil {
-		return nil, fmt.Errorf("failed to parse ID token claims: %w", err)
-	}
-
-	// Verify audience matches our client ID
-	if aud, ok := claims["aud"].(string); ok {
-		if aud != p.ClientID() {
-			return nil, fmt.Errorf("ID token audience mismatch")
-		}
-	}
-
 	return p.parseIDTokenClaims(claims), nil
 }
 
@@ -269,9 +257,6 @@ func (p *MicrosoftProvider) parseIDTokenClaims(claims map[string]interface{}) *U
 	// Check email verification
 	if verified, ok := claims["email_verified"].(bool); ok {
 		info.EmailVerified = verified
-	} else if info.Email != "" {
-		// Microsoft typically verifies emails
-		info.EmailVerified = true
 	}
 
 	if name, ok := claims["name"].(string); ok {
@@ -287,10 +272,4 @@ func (p *MicrosoftProvider) parseIDTokenClaims(claims map[string]interface{}) *U
 	}
 
 	return info
-}
-
-// base64URLDecode decodes a base64url-encoded string (used in JWTs)
-func base64URLDecode(s string) ([]byte, error) {
-	// Use RawURLEncoding which handles the URL-safe alphabet without padding
-	return base64.RawURLEncoding.DecodeString(s)
 }

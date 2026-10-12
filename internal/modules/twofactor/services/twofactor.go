@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"github.com/bete7512/goauth/internal/authentication"
 	"strings"
 	"time"
 
@@ -84,6 +85,13 @@ func (s *twoFactorService) GenerateSecret(ctx context.Context, userEmail string)
 
 // SaveTwoFactorConfig saves or updates 2FA configuration
 func (s *twoFactorService) SaveTwoFactorConfig(ctx context.Context, tfConfig *models.TwoFactor) *types.GoAuthError {
+	copy := *tfConfig
+	tfConfig = &copy
+	encrypted, encryptionErr := s.deps.SecurityManager.Encrypt(tfConfig.Secret)
+	if encryptionErr != nil {
+		return types.NewInternalError("failed to encrypt two-factor secret").Wrap(encryptionErr)
+	}
+	tfConfig.Secret = encrypted
 	tfRepo := s.deps.Storage.TwoFactorAuth().TwoFactor()
 
 	// Check if config already exists
@@ -126,6 +134,17 @@ func (s *twoFactorService) GetTwoFactorConfig(ctx context.Context, userID string
 		return nil, types.NewInternalError("Failed to retrieve 2FA configuration").Wrap(err)
 	}
 
+	// Legacy plaintext records remain readable and are encrypted on the next
+	// write. Versioned records must decrypt successfully; never fall back on error.
+	if strings.HasPrefix(tfConfig.Secret, "v1.") {
+		secret, err := s.deps.SecurityManager.Decrypt(tfConfig.Secret)
+		if err != nil {
+			return nil, types.NewInternalError("two-factor key unavailable").Wrap(err)
+		}
+		copy := *tfConfig
+		tfConfig = &copy
+		tfConfig.Secret = secret
+	}
 	return tfConfig, nil
 }
 
@@ -153,8 +172,6 @@ func (s *twoFactorService) VerifyCode(ctx context.Context, userID, code string) 
 		return types.NewAccountLockedError()
 	}
 
-	tfRepo := s.deps.Storage.TwoFactorAuth().TwoFactor()
-
 	// Verify TOTP code with time window tolerance (±1 period = 60s total window)
 	valid, err := totp.ValidateCustom(code, tfConfig.Secret, time.Now().UTC(), totp.ValidateOpts{
 		Period:    30,
@@ -171,7 +188,7 @@ func (s *twoFactorService) VerifyCode(ctx context.Context, userID, code string) 
 			tfConfig.LockedUntil = &lockUntil
 			s.deps.Logger.Warn("2FA locked due to too many failed attempts", "user_id", userID, "attempts", tfConfig.FailedAttempts)
 		}
-		if updateErr := tfRepo.Update(ctx, tfConfig); updateErr != nil {
+		if updateErr := s.SaveTwoFactorConfig(ctx, tfConfig); updateErr != nil {
 			s.deps.Logger.Error("Failed to update 2FA failed attempts", "error", updateErr)
 		}
 
@@ -183,7 +200,7 @@ func (s *twoFactorService) VerifyCode(ctx context.Context, userID, code string) 
 	if tfConfig.FailedAttempts > 0 || tfConfig.LockedUntil != nil {
 		tfConfig.FailedAttempts = 0
 		tfConfig.LockedUntil = nil
-		if updateErr := tfRepo.Update(ctx, tfConfig); updateErr != nil {
+		if updateErr := s.SaveTwoFactorConfig(ctx, tfConfig); updateErr != nil {
 			s.deps.Logger.Error("Failed to reset 2FA failed attempts", "error", updateErr)
 		}
 	}
@@ -193,21 +210,15 @@ func (s *twoFactorService) VerifyCode(ctx context.Context, userID, code string) 
 
 // EnableTwoFactor enables 2FA for a user
 func (s *twoFactorService) EnableTwoFactor(ctx context.Context, userID string) *types.GoAuthError {
-	tfRepo := s.deps.Storage.TwoFactorAuth().TwoFactor()
-
-	tfConfig, err := tfRepo.GetByUserID(ctx, userID)
-	if err != nil {
-		if errors.Is(err, models.ErrNotFound) {
-			return types.NewTwoFactorNotFoundError()
-		}
-		s.deps.Logger.Error("Failed to get 2FA config", "error", err)
-		return types.NewInternalError("Failed to enable 2FA").Wrap(err)
+	tfConfig, authErr := s.GetTwoFactorConfig(ctx, userID)
+	if authErr != nil {
+		return authErr
 	}
 
 	tfConfig.Enabled = true
 	tfConfig.Verified = true
 
-	if err := tfRepo.Update(ctx, tfConfig); err != nil {
+	if err := s.SaveTwoFactorConfig(ctx, tfConfig); err != nil {
 		s.deps.Logger.Error("Failed to enable 2FA", "error", err)
 		return types.NewInternalError("Failed to enable 2FA").Wrap(err)
 	}
@@ -410,149 +421,17 @@ func (s *twoFactorService) GetUser(ctx context.Context, userID string) (*models.
 // IssueAuthTokenAfter2FA issues session or JWT tokens based on active auth module
 // This method handles ALL repository access for token issuance
 func (s *twoFactorService) IssueAuthTokenAfter2FA(ctx context.Context, user *models.User, metadata *types.RequestMetadata) (map[string]any, *types.GoAuthError) {
-	// Try session-based auth first
-	if sessionStorage := s.deps.Storage.Session(); sessionStorage != nil {
-		return s.issueSessionToken(ctx, user, metadata, sessionStorage)
+	var sessions models.SessionRepository
+	if s.deps.Storage.Session() != nil {
+		sessions = s.deps.Storage.Session().Sessions()
 	}
-
-	// Fall back to stateless auth
-	if statelessStorage := s.deps.Storage.Stateless(); statelessStorage != nil {
-		return s.issueStatelessToken(ctx, user, metadata, statelessStorage)
+	completion := authentication.ForModule(s.deps, s.deps.Storage.Core().Tokens(), sessions, "")
+	result, authErr := completion.Complete(ctx, types.AuthenticationEvidence{User: user, Method: "mfa", Phase: types.PhaseResume, Metadata: metadata})
+	if authErr != nil {
+		return nil, authErr
 	}
-
-	// Neither session nor stateless storage available - should never happen
-	s.deps.Logger.Error("No auth storage available for token issuance")
-	return nil, types.NewInternalError("Authentication system not properly configured")
-}
-
-// issueSessionToken creates a session and returns tokens (session-based auth)
-func (s *twoFactorService) issueSessionToken(ctx context.Context, user *models.User, metadata *types.RequestMetadata, sessionStorage types.SessionStorage) (map[string]any, *types.GoAuthError) {
-	// Run auth interceptors for resume phase (enrichment only, e.g. org claims)
-	interceptClaims, _, _, interceptErr := s.deps.AuthInterceptors.Run(ctx, &types.InterceptParams{
-		Phase:    types.PhaseResume,
-		User:     user,
-		Metadata: metadata,
-	})
-	if interceptErr != nil {
-		s.deps.Logger.Error("Auth interceptor failed after 2FA", "error", interceptErr)
-		return nil, types.NewInternalError("Authentication flow interrupted").Wrap(interceptErr)
+	if result.Status == types.ChallengeRequired {
+		return map[string]any{"challenges": result.Challenges}, nil
 	}
-
-	sessionID := uuid.Must(uuid.NewV7()).String()
-
-	// Merge interceptor claims with session_id
-	tokenClaims := map[string]interface{}{"session_id": sessionID}
-	for k, v := range interceptClaims {
-		tokenClaims[k] = v
-	}
-
-	// Generate tokens with enriched claims
-	accessToken, refreshToken, err := s.deps.SecurityManager.GenerateTokens(user, tokenClaims)
-	if err != nil {
-		s.deps.Logger.Error("Failed to generate session tokens after 2FA", "error", err)
-		return nil, types.NewInternalError("Failed to generate authentication tokens").Wrap(err)
-	}
-
-	// Create session — store hashed refresh token
-	session := &models.Session{
-		ID:                    sessionID,
-		UserID:                user.ID,
-		RefreshToken:          s.deps.SecurityManager.HashRefreshToken(refreshToken),
-		RefreshTokenExpiresAt: time.Now().Add(s.deps.Config.Security.Session.RefreshTokenTTL),
-		ExpiresAt:             time.Now().Add(s.deps.Config.Security.Session.SessionTTL),
-		UserAgent:             metadata.UserAgent,
-		IPAddress:             metadata.IPAddress,
-		CreatedAt:             time.Now(),
-		UpdatedAt:             time.Now(),
-	}
-
-	if err := sessionStorage.Sessions().Create(ctx, session); err != nil {
-		s.deps.Logger.Error("Failed to create session after 2FA", "error", err)
-		return nil, types.NewInternalError("Failed to create session").Wrap(err)
-	}
-
-	// Update last login time
-	now := time.Now()
-	user.LastLoginAt = &now
-	if err := s.deps.Storage.Core().Users().Update(ctx, user); err != nil {
-		s.deps.Logger.Warn("Failed to update user last login time", "error", err)
-	}
-
-	s.deps.Logger.Info("2FA login successful (session-based)", "user_id", user.ID, "session_id", sessionID)
-
-	return map[string]any{
-		"access_token":  accessToken,
-		"refresh_token": refreshToken,
-		"session_id":    sessionID,
-		"user": map[string]any{
-			"id":    user.ID,
-			"email": user.Email,
-			"name":  user.Name,
-		},
-		"expires_in": int64(s.deps.Config.Security.Session.SessionTTL.Seconds()),
-		"message":    "2FA verification successful - session created",
-	}, nil
-}
-
-// issueStatelessToken generates JWT tokens with nonce-based refresh token (stateless auth)
-func (s *twoFactorService) issueStatelessToken(ctx context.Context, user *models.User, metadata *types.RequestMetadata, statelessStorage types.StatelessStorage) (map[string]any, *types.GoAuthError) {
-	// Run auth interceptors for resume phase (enrichment only, e.g. org claims)
-	interceptClaims, _, _, interceptErr := s.deps.AuthInterceptors.Run(ctx, &types.InterceptParams{
-		Phase:    types.PhaseResume,
-		User:     user,
-		Metadata: metadata,
-	})
-	if interceptErr != nil {
-		s.deps.Logger.Error("Auth interceptor failed after 2FA", "error", interceptErr)
-		return nil, types.NewInternalError("Authentication flow interrupted").Wrap(interceptErr)
-	}
-
-	// Generate access token with enriched claims
-	accessToken, err := s.deps.SecurityManager.GenerateAccessToken(*user, interceptClaims)
-	if err != nil {
-		s.deps.Logger.Error("Failed to generate access token after 2FA", "error", err)
-		return nil, types.NewInternalError("Failed to generate authentication tokens").Wrap(err)
-	}
-
-	// Generate stateless refresh token with JTI (nonce)
-	refreshToken, jti, err := s.deps.SecurityManager.GenerateStatelessRefreshToken(user)
-	if err != nil {
-		s.deps.Logger.Error("Failed to generate refresh token after 2FA", "error", err)
-		return nil, types.NewInternalError("Failed to generate authentication tokens").Wrap(err)
-	}
-
-	// Store the JTI (nonce) in the tokens table for revocation checks
-	tokenModel := &models.Token{
-		ID:        uuid.Must(uuid.NewV7()).String(),
-		UserID:    user.ID,
-		Type:      "refresh_nonce",
-		Token:     jti,
-		ExpiresAt: time.Now().Add(s.deps.Config.Security.Session.RefreshTokenTTL),
-		CreatedAt: time.Now(),
-	}
-	if err := s.deps.Storage.Core().Tokens().Create(ctx, tokenModel); err != nil {
-		s.deps.Logger.Error("Failed to save refresh token nonce after 2FA", "error", err)
-		return nil, types.NewInternalError("Failed to complete authentication").Wrap(err)
-	}
-
-	// Update last login time
-	now := time.Now()
-	user.LastLoginAt = &now
-	if err := s.deps.Storage.Core().Users().Update(ctx, user); err != nil {
-		s.deps.Logger.Warn("Failed to update user last login time", "error", err)
-	}
-
-	s.deps.Logger.Info("2FA login successful (stateless)", "user_id", user.ID)
-
-	return map[string]any{
-		"access_token":  accessToken,
-		"refresh_token": refreshToken,
-		"user": map[string]any{
-			"id":    user.ID,
-			"email": user.Email,
-			"name":  user.Name,
-		},
-		"expires_in": int64(s.deps.Config.Security.Session.SessionTTL.Seconds()),
-		"message":    "2FA verification successful - tokens issued",
-	}, nil
+	return map[string]any{"access_token": result.AccessToken, "refresh_token": result.RefreshToken, "session_id": result.SessionID, "expires_in": result.ExpiresIn, "user": map[string]any{"id": user.ID, "email": user.Email, "name": user.Name}}, nil
 }

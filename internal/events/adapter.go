@@ -23,13 +23,8 @@ func (a *EventBusAdapter) Subscribe(eventType types.EventType, handler types.Eve
 
 	// Convert handler signature
 	h := func(ctx context.Context, event *types.Event) error {
-		configEvent := &types.Event{
-			Type:    event.Type,
-			Data:    event.Data,
-			Context: event.Context,
-			Error:   event.Error,
-		}
-		return handler(ctx, configEvent)
+		configEvent := *event
+		return handler(ctx, &configEvent)
 	}
 
 	// Convert opts to SubscribeOptions

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"time"
 
 	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/storage/gorm/helpers"
@@ -139,4 +140,108 @@ func (r *UserRepository) IncrementTokenVersion(ctx context.Context, userID strin
 		return fmt.Errorf("user_repository.IncrementTokenVersion: %w", err)
 	}
 	return nil
+}
+
+func (r *UserRepository) RevokeTokens(ctx context.Context, id string) error {
+	result := r.db.WithContext(ctx).Model(&models.User{}).Where("id = ?", id).UpdateColumn("token_version", gorm.Expr("token_version + 1"))
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected != 1 {
+		return models.ErrNotFound
+	}
+	return nil
+}
+
+func (r *UserRepository) ChangePassword(ctx context.Context, id, previous, next string) error {
+	result := r.db.WithContext(ctx).Model(&models.User{}).Where("id = ? AND password = ?", id, previous).Updates(map[string]interface{}{"password": next, "token_version": gorm.Expr("token_version + 1"), "updated_at": time.Now().UTC(), "failed_login_attempts": 0, "locked_until": nil})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected != 1 {
+		return models.ErrConflict
+	}
+	return nil
+}
+
+func (r *UserRepository) RecordLogin(ctx context.Context, id string, version int, at time.Time) error {
+	result := r.db.WithContext(ctx).Model(&models.User{}).Where("id = ? AND token_version = ?", id, version).Updates(map[string]interface{}{"last_login_at": at.UTC(), "failed_login_attempts": 0, "locked_until": nil})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected != 1 {
+		return models.ErrConflict
+	}
+	return nil
+}
+
+func (r *UserRepository) RecordFailedLogin(ctx context.Context, id string, version, threshold int, duration time.Duration) (*models.User, error) {
+	now := time.Now().UTC()
+	// All expressions use the persisted counter. Expired locks start a new window.
+	count := "CASE WHEN locked_until IS NOT NULL AND locked_until <= ? THEN 1 ELSE failed_login_attempts + 1 END"
+	var user *models.User
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		result := tx.Model(&models.User{}).
+			Where("id = ? AND token_version = ? AND (locked_until IS NULL OR locked_until <= ?)", id, version, now).
+			Updates(map[string]interface{}{
+				"failed_login_attempts": gorm.Expr(count, now),
+				"locked_until":          gorm.Expr("CASE WHEN locked_until <= ? THEN NULL ELSE locked_until END", now),
+			})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return models.ErrConflict
+		}
+		if err := tx.Model(&models.User{}).Where("id = ? AND failed_login_attempts >= ?", id, threshold).
+			UpdateColumn("locked_until", now.Add(duration)).Error; err != nil {
+			return err
+		}
+		var err error
+		user, err = (&UserRepository{db: tx}).FindByID(ctx, id)
+		return err
+	})
+	return user, err
+}
+
+func (r *UserRepository) VerifyContact(ctx context.Context, id, contact string, email bool) error {
+	column, verified := "phone_number", "phone_number_verified"
+	if email {
+		column, verified = "email", "email_verified"
+	}
+	result := r.db.WithContext(ctx).Model(&models.User{}).Where("id = ? AND "+column+" = ?", id, contact).
+		Updates(map[string]interface{}{verified: true, "updated_at": time.Now().UTC()})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected != 1 {
+		return models.ErrConflict
+	}
+	return nil
+}
+
+func (r *UserRepository) UpdateProfile(ctx context.Context, id, name, phone, avatar string) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if phone != "" {
+			if err := tx.Model(&models.User{}).Where("id = ? AND (phone_number IS NULL OR phone_number <> ?)", id, phone).
+				Updates(map[string]interface{}{"phone_number": phone, "phone_number_verified": false, "token_version": gorm.Expr("token_version + 1")}).Error; err != nil {
+				return err
+			}
+		}
+		updates := map[string]interface{}{"updated_at": time.Now().UTC()}
+		if name != "" {
+			updates["name"] = name
+		}
+		if avatar != "" {
+			updates["avatar"] = avatar
+		}
+		result := tx.Model(&models.User{}).Where("id = ?", id).Updates(updates)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return models.ErrNotFound
+		}
+		return nil
+	})
 }

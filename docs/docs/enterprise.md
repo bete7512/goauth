@@ -4,63 +4,72 @@ title: Enterprise Deployment
 sidebar_label: Enterprise
 ---
 
-# Enterprise Deployment
+# Events and Deployment
 
-GoAuth is designed to scale from single-instance startups to high-availability enterprise environments.
+Deploy GoAuth inside your application and share the persistence required by the selected modules across replicas. Both Session and Stateless depend on current user state and persisted refresh/continuation records.
 
-## Scalability
+## Runtime Lifecycle
 
-- **Stateless Authentication**: Default JWT-based [Stateless Module](modules/stateless.md) allows your API nodes to scale horizontally without shared state.
-- **Database Pooling**: Leverages GORM's built-in connection pooling for efficient shared database access.
-- **Async Processing**: The default in-memory worker pool (10 workers, 1000 event queue) handles emails and events without blocking request threads. For production environments that require message durability, distributed processing, or external monitoring, implement the `types.AsyncBackend` interface to use an external message broker.
-
-## Security & Governance
-
-- **Admin Module**: Dedicated [Admin Module](modules/admin.md) for managing large user bases with role-based access controls.
-- **Audit Module**: Comprehensive [Audit Module](modules/audit.md) with per-action retention policies, background cleanup, user self-service activity logs, and admin-facing audit trail.
-- **OAuth / SSO**: Integrate with enterprise identity providers (Google Workspace, Microsoft Azure AD) using the [OAuth Module](modules/oauth.md).
-- **Two-Factor Authentication**: TOTP-based [Two-Factor Module](modules/twofactor.md) with backup codes, code reuse prevention, and optional enforcement for all users.
-- **CSRF & Captcha**: Protect your public signup and login endpoints from automated attacks.
-- **Account Lockout**: Configurable failed login attempt tracking with automatic lockout (default: 5 attempts, 15-minute lockout).
-
-## Customizability
-
-- **Framework Agnostic**: Deploy with `net/http`, Gin, Fiber, or Chi using standard adapters.
-- **Storage Abstraction**: Implement `types.Storage` to use existing enterprise data stores or non-SQL backends. Every module that uses storage accepts an optional custom storage parameter in its constructor.
-- **Event-Driven**: Hook into any lifecycle event to trigger external workflows (e.g., syncing users to CRM). Events support before hooks (sync, abort on error) and after hooks (async, all run). Priority ordering and retry policies per handler.
-- **Pluggable Notifications**: Implement `EmailSender` or `SMSSender` interfaces to integrate any email or SMS provider. Built-in: SendGrid, SMTP, Resend (email), Twilio (SMS).
+Register components and event handlers before initialization. Keep the initialization context alive, drain the host HTTP server on shutdown, then call `Auth.Shutdown(ctx)`. The runtime stops modules in reverse dependency order and closes owned resources. `BorrowStorage` keeps application-owned storage open.
 
 ## Pluggable Async Backend
 
-The event system uses a pluggable async backend for processing events. The default in-memory worker pool is suitable for single-instance deployments. For distributed or high-availability environments, implement the `types.AsyncBackend` interface:
+The default backend is an in-memory worker pool with ten workers and a queue of 1000. A custom backend implements:
 
 ```go
 type AsyncBackend interface {
-    // Publish sends an event to the backend for async processing.
-    Publish(ctx context.Context, eventType EventType, event *Event) error
-
-    // Subscribe registers the event dispatcher to receive events from the backend.
-    Subscribe(ctx context.Context, dispatcher EventDispatcher) error
-
-    // Close shuts down the backend gracefully.
+    Publish(context.Context, types.EventType, *types.Event) error
+    Subscribe(context.Context, types.EventDispatcher) error
     Close() error
-
-    // Name returns a human-readable name for the backend (e.g., "kafka", "nats").
     Name() string
 }
 ```
 
-Use this to replace the in-memory worker pool with:
-- **Kafka** -- for high-throughput event streaming with durable message logs
-- **NATS** -- for lightweight, low-latency pub/sub
-- **Redis Streams** -- for Redis-based event queuing with consumer groups
-- **RabbitMQ** -- for traditional message broker patterns with routing and acknowledgment
+Provide it as `config.Config.AsyncBackend`. GoAuth does not include built-in Kafka, NATS, RabbitMQ, or Redis adapters; those are implementations your application can supply. Being asynchronous does not by itself make delivery durable.
 
-Pass your implementation when creating the auth instance:
+Handlers are registered before backend consumption starts. Synchronous hooks can abort their calling operation; async handlers run through the dispatcher and configured retry policies. Authentication factor policy uses `AuthInterceptors` and the shared completer, not a blocking email/event callback.
+
+## Acknowledged Delivery
+
+A durable backend can additionally implement:
 
 ```go
-a, _ := auth.New(&config.Config{
-    AsyncBackend: myKafkaBackend, // implements types.AsyncBackend
-    // ...
+type AcknowledgingBackend interface {
+    SubscribeAcknowledged(context.Context, func(context.Context, *types.Event) error) error
+}
+```
+
+Acknowledge only nil processing results. Errors remain retryable. Delivery can repeat, so consumers must deduplicate by stable event ID and handler rather than assume exactly-once effects.
+
+`types.EventEnvelope` is the wire representation: version, ID, type, realm, creation time, and JSON payload. It excludes runtime contexts, errors, and retry bookkeeping. The current decoder accepts version 1 and realm `default`. Decoded payloads are JSON; use `types.EventDataAs` or explicit decoding when supporting both local typed payloads and transported events.
+
+## Transactional Outbox
+
+```go
+cfg.DurableEvents = true
+```
+
+This requires aggregate `types.TransactionalStorage` and `types.OutboxStore` on the shared storage and inside its transaction callback. The GORM adapter supplies them.
+
+Authentication completion records `authentication.completed` with user ID, session ID, and verified methods in the same transaction as the grant. Security operations routed through the transaction wrapper can also persist their async events with their mutations. This is not a blanket guarantee that every legacy event emission uses the outbox.
+
+The runtime drains once per second in batches of up to 32, with one-minute leases. Handler failure schedules a retry; successful acknowledged dispatch removes the row. Stable IDs survive retry. This outbox dispatches to registered handlers; it does not automatically turn every event into a message on your custom broker.
+
+```go
+a.On(types.EventType("authentication.completed"), func(ctx context.Context, event *types.Event) error {
+    // Decode event.Data and deduplicate using event.ID before external effects.
+    return nil
 })
 ```
+
+## Composition and Storage
+
+Missing module dependencies, capabilities, or middleware cause initialization errors. Invitation and Audit require Admin. OAuth identity mutations and invitation acceptance need colocated transactional feature stores. Durable Core signup/password operations require them as well. See [Storage contracts](storage.md).
+
+`MaxConcurrentRequests`, `MaxRequestBodyBytes`, `Admission`, and `Observer` provide host integration points. No built-in Prometheus exporter, distributed rate limiter, or external broker is implied by these interfaces.
+
+## Organizations and Identity Providers
+
+Organizations provide membership roles `owner`, `admin`, and `member`, with current-state checks. They are not independent identity realms or a general application-permission system. Use [OAuth named connections](modules/oauth.md) for the supported providers; Microsoft pins an explicit tenant. A custom provider is trusted in-process code, not an arbitrary issuer URL submitted by a client.
+
+See [Security](security.md), [Migration management](migrations.md), and [Upgrading](upgrade.md) before changing a running deployment.

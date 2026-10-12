@@ -146,6 +146,7 @@ func (h *OrgHandler) Switch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	http_utils.SetCredentialCookies(w, h.deps.Config.Security, accessToken, refreshToken)
 	http_utils.RespondSuccess(w, &dto.SwitchOrgResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,

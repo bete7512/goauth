@@ -149,6 +149,7 @@ func (s *ValidatorSuite) TestValidateFromDB_SlidingExtensionTriggers() {
 	// Session expires in 3 minutes (< UpdateAge/2 = 5 minutes)
 	session := &models.Session{
 		ID:        "sess-extend",
+		CreatedAt: time.Now().Add(-time.Minute),
 		UserID:    "user-extend",
 		ExpiresAt: time.Now().Add(3 * time.Minute),
 		UpdatedAt: time.Now().Add(-8 * time.Minute),

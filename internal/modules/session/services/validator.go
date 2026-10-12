@@ -113,7 +113,11 @@ func (v *SessionValidator) ValidateFromDB(ctx context.Context, sessionID string)
 		extensionThreshold := v.config.UpdateAge / 2
 		timeUntilExpiry := time.Until(session.ExpiresAt)
 		if timeUntilExpiry < extensionThreshold {
-			session.ExpiresAt = time.Now().Add(v.config.SessionTTL)
+			absoluteExpiry := session.CreatedAt.Add(v.config.SessionTTL)
+			if !session.ExpiresAt.Before(absoluteExpiry) {
+				return result
+			}
+			session.ExpiresAt = absoluteExpiry
 			session.UpdatedAt = time.Now()
 			// Best-effort update; don't fail the request if this fails
 			_ = v.sessionRepo.Update(ctx, session)

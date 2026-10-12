@@ -2,7 +2,10 @@ package events
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"reflect"
 	"sort"
 	"sync"
 	"time"
@@ -56,11 +59,22 @@ func NewEventBusWithBackend(log logger.Logger, backend types.AsyncBackend) *Even
 // Must be called after all handlers are registered (via Subscribe) — typically
 // at the end of auth.Initialize().
 func (eb *EventBus) Start(ctx context.Context) error {
+	if backend, ok := eb.asyncBackend.(types.AcknowledgingBackend); ok {
+		return backend.SubscribeAcknowledged(ctx, eb.dispatchAcknowledged)
+	}
 	return eb.asyncBackend.Subscribe(ctx, eb.dispatch)
 }
 
 // Close gracefully shuts down the event bus
 func (eb *EventBus) Close() error {
+	return eb.Shutdown(context.Background())
+}
+
+// Shutdown uses the backend's bounded drain capability when available.
+func (eb *EventBus) Shutdown(ctx context.Context) error {
+	if backend, ok := eb.asyncBackend.(interface{ Shutdown(context.Context) error }); ok {
+		return backend.Shutdown(ctx)
+	}
 	if eb.asyncBackend != nil {
 		return eb.asyncBackend.Close()
 	}
@@ -93,17 +107,18 @@ func (eb *EventBus) Subscribe(eventType types.EventType, handler types.EventHand
 // EmitAsync dispatches an event asynchronously via the async backend.
 // The event is published once — the backend delivers it to the dispatcher
 // which executes all registered handlers.
-func (eb *EventBus) EmitAsync(_ context.Context, eventType types.EventType, data interface{}) error {
+func (eb *EventBus) EmitAsync(ctx context.Context, eventType types.EventType, data interface{}) error {
 	eb.mu.RLock()
-	handlers := eb.handlers[eventType]
+	handlers := append([]handlerWithPriority(nil), eb.handlers[eventType]...)
 	eb.mu.RUnlock()
 
 	if len(handlers) == 0 {
 		return nil
 	}
 
-	bgCtx := context.Background()
+	bgCtx := context.WithoutCancel(ctx)
 	event := &types.Event{
+		SchemaVersion: 1, RealmID: "default",
 		ID:        uuid.Must(uuid.NewV7()).String(),
 		Type:      eventType,
 		Data:      data,
@@ -111,8 +126,20 @@ func (eb *EventBus) EmitAsync(_ context.Context, eventType types.EventType, data
 		CreatedAt: time.Now(),
 	}
 
+	// Snapshot async payloads so later caller mutations cannot race consumers.
+	envelope, err := event.Envelope()
+	if err != nil {
+		return err
+	}
+	if data != nil {
+		snapshot := reflect.New(reflect.TypeOf(data))
+		if err := json.Unmarshal(envelope.Payload, snapshot.Interface()); err != nil {
+			return err
+		}
+		event.Data = snapshot.Elem().Interface()
+	}
 	// Single publish — backend queues the event and its consumer calls dispatch
-	if err := eb.asyncBackend.Publish(bgCtx, eventType, event); err != nil {
+	if err := eb.asyncBackend.Publish(ctx, eventType, event); err != nil {
 		if eb.logger != nil {
 			eb.logger.Errorf("Failed to publish event (type=%s, id=%s): %v", eventType, event.ID, err)
 		}
@@ -125,15 +152,25 @@ func (eb *EventBus) EmitAsync(_ context.Context, eventType types.EventType, data
 // dispatch is the EventDispatcher callback invoked by the async backend
 // for each event. It looks up all handlers and executes them with per-handler retry.
 func (eb *EventBus) dispatch(ctx context.Context, event *types.Event) {
+	_ = eb.dispatchAcknowledged(ctx, event)
+}
+
+func (eb *EventBus) dispatchAcknowledged(ctx context.Context, event *types.Event) error {
+	var failures []error
 	eb.mu.RLock()
-	handlers := eb.handlers[event.Type]
+	handlers := append([]handlerWithPriority(nil), eb.handlers[event.Type]...)
 	eb.mu.RUnlock()
 
 	for _, h := range handlers {
+		snapshot := *event
+		event := &snapshot
 		if h.retryPolicy != nil && h.retryPolicy.MaxRetries > 0 {
-			processWithRetry(ctx, h.handler, event, *h.retryPolicy, eb.DLQ(), eb.logger)
+			if err := processWithRetry(ctx, h.handler, event, *h.retryPolicy, eb.DLQ(), eb.logger); err != nil {
+				failures = append(failures, err)
+			}
 		} else {
 			if err := h.handler(ctx, event); err != nil {
+				failures = append(failures, err)
 				if eb.logger != nil {
 					eb.logger.Errorf("Event handler error (event=%s, id=%s): %v", event.Type, event.ID, err)
 				}
@@ -144,13 +181,14 @@ func (eb *EventBus) dispatch(ctx context.Context, event *types.Event) {
 			}
 		}
 	}
+	return errors.Join(failures...)
 }
 
 // EmitSync dispatches an event synchronously to all handlers.
 // Events are assigned a unique ID and timestamp for tracking.
 func (eb *EventBus) EmitSync(ctx context.Context, eventType types.EventType, data interface{}) error {
 	eb.mu.RLock()
-	handlers := eb.handlers[eventType]
+	handlers := append([]handlerWithPriority(nil), eb.handlers[eventType]...)
 	eb.mu.RUnlock()
 
 	if len(handlers) == 0 {
@@ -158,6 +196,7 @@ func (eb *EventBus) EmitSync(ctx context.Context, eventType types.EventType, dat
 	}
 
 	event := &types.Event{
+		SchemaVersion: 1, RealmID: "default",
 		ID:        uuid.Must(uuid.NewV7()).String(),
 		Type:      eventType,
 		Data:      data,

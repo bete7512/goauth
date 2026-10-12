@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"errors"
+	"github.com/bete7512/goauth/internal/operation"
 	"time"
 
 	"github.com/bete7512/goauth/internal/modules/organization/handlers/dto"
@@ -29,6 +30,7 @@ type InvitationService interface {
 }
 
 type invitationService struct {
+	inTransaction    bool
 	deps             config.ModuleDependencies
 	invitationRepo   models.OrgInvitationRepository
 	memberRepo       models.OrganizationMemberRepository
@@ -66,8 +68,8 @@ func (s *invitationService) Invite(ctx context.Context, orgID string, req *dto.I
 	if role == "" {
 		role = string(types.OrgRoleMember)
 	}
-	if !types.IsValidOrgRole(role) {
-		return nil, types.NewValidationError("invalid role: must be owner, admin, or member")
+	if role != string(types.OrgRoleAdmin) && role != string(types.OrgRoleMember) {
+		return nil, types.NewValidationError("invitations can grant only admin or member roles")
 	}
 
 	// Check if invitee is already a member (by email lookup)
@@ -111,6 +113,16 @@ func (s *invitationService) Invite(ctx context.Context, orgID string, req *dto.I
 			return nil, types.NewOrgNotFoundError()
 		}
 		return nil, types.NewInternalError("failed to get organization").Wrap(err)
+	}
+	principal, authenticated := types.PrincipalFromContext(ctx)
+	if !authenticated || principal.UserID != inviterID {
+		return nil, types.NewOrgInsufficientRoleError()
+	}
+	if inviterID != org.OwnerID {
+		actor, err := s.memberRepo.FindByOrgAndUser(ctx, orgID, inviterID)
+		if err != nil || actor.Role != string(types.OrgRoleAdmin) || role != string(types.OrgRoleMember) {
+			return nil, types.NewOrgInsufficientRoleError()
+		}
 	}
 
 	// Get inviter name (non-critical lookup: inviter name is optional display info)
@@ -182,6 +194,19 @@ func (s *invitationService) CancelInvitation(ctx context.Context, orgID, invID s
 }
 
 func (s *invitationService) AcceptInvitation(ctx context.Context, token, name, password string) (*OrgAcceptResult, *types.GoAuthError) {
+	if !s.inTransaction && s.deps.Storage != nil {
+		return operation.Run(ctx, s.deps, func(deps config.ModuleDependencies) (*OrgAcceptResult, *types.GoAuthError) {
+			copy := *s
+			copy.deps = deps
+			copy.inTransaction = true
+			copy.invitationRepo = deps.Storage.Organization().Invitations()
+			copy.memberRepo = deps.Storage.Organization().Members()
+			copy.orgRepo = deps.Storage.Organization().Organizations()
+			copy.userRepo = deps.Storage.Core().Users()
+			return copy.AcceptInvitation(ctx, token, name, password)
+		})
+	}
+
 	inv, err := s.invitationRepo.FindByToken(ctx, token)
 	if err != nil {
 		if errors.Is(err, models.ErrNotFound) {
@@ -194,6 +219,9 @@ func (s *invitationService) AcceptInvitation(ctx context.Context, token, name, p
 	}
 	if time.Now().After(inv.ExpiresAt) {
 		return nil, types.NewInvitationExpiredError()
+	}
+	if inv.Role != string(types.OrgRoleAdmin) && inv.Role != string(types.OrgRoleMember) {
+		return nil, types.NewOrgInsufficientRoleError()
 	}
 
 	// Find or create user

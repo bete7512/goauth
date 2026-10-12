@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/bete7512/goauth/internal/modules/oauth/handlers/dto"
@@ -32,6 +33,12 @@ func (h *OAuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Redirect to provider's authorization URL
+	parsed, err := url.Parse(authURL)
+	if err != nil || parsed.Query().Get("state") == "" {
+		http_utils.RespondError(w, http.StatusInternalServerError, string(types.ErrInternalError), "invalid authorization URL")
+		return
+	}
+	http.SetCookie(w, &http.Cookie{Name: "goauth_oauth_" + providerName, Value: parsed.Query().Get("state"), Path: h.deps.Config.BasePath + "/oauth/", HttpOnly: true, Secure: h.deps.Config.Security.Session.Secure, SameSite: http.SameSiteLaxMode, MaxAge: 600})
 	http.Redirect(w, r, authURL, http.StatusFound)
 }
 

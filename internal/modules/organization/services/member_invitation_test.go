@@ -192,7 +192,7 @@ func (s *InvitationServiceSuite) setup() *inviteTestSetup {
 
 func (s *InvitationServiceSuite) TestInvite_Success() {
 	t := s.setup()
-	org := &models.Organization{ID: "org-1", Name: "Team"}
+	org := &models.Organization{ID: "org-1", Name: "Team", OwnerID: "inviter-1"}
 
 	t.userRepo.EXPECT().FindByEmail(gomock.Any(), "new@example.com").Return(nil, models.ErrNotFound)
 	t.invitationRepo.EXPECT().FindByOrgAndEmail(gomock.Any(), "org-1", "new@example.com").Return(nil, models.ErrNotFound)
@@ -202,7 +202,7 @@ func (s *InvitationServiceSuite) TestInvite_Success() {
 	t.invitationRepo.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&models.OrgInvitation{})).Return(nil)
 	t.events.EXPECT().EmitAsync(gomock.Any(), types.EventOrgInvitationSent, gomock.Any()).Return(nil)
 
-	inv, authErr := t.svc.Invite(context.Background(), "org-1", &dto.InviteRequest{Email: "new@example.com"}, "inviter-1")
+	inv, authErr := t.svc.Invite(types.WithPrincipal(context.Background(), types.Principal{UserID: "inviter-1"}), "org-1", &dto.InviteRequest{Email: "new@example.com"}, "inviter-1")
 	s.Nil(authErr)
 	s.NotNil(inv)
 	s.Equal("new@example.com", inv.Email)

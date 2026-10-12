@@ -171,17 +171,12 @@ components:
 
     TwoFactorVerifyLoginRequest:
       type: object
-      required: [code]
+      required: [temp_token, code]
       properties:
         temp_token:
           type: string
           example: "eyJhbGci..."
-          description: Temporary token from the TWO_FACTOR_REQUIRED login challenge (preferred)
-        user_id:
-          type: string
-          format: uuid
-          example: "6c9c5673-b6cb-40d5-97c0-aba3886fac68"
-          description: User ID fallback (use temp_token instead when available)
+          description: Single-use temporary token bound to a verified primary login
         code:
           type: string
           example: "123456"

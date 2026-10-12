@@ -8,9 +8,9 @@ import (
 	"embed"
 
 	"github.com/bete7512/goauth/internal/modules/session/handlers"
+	"github.com/bete7512/goauth/internal/modules/session/handlers/dto"
 	"github.com/bete7512/goauth/internal/modules/session/middlewares"
 	"github.com/bete7512/goauth/internal/modules/session/services"
-	"github.com/bete7512/goauth/internal/security"
 	cookie_security "github.com/bete7512/goauth/internal/security/cookie"
 	"github.com/bete7512/goauth/internal/utils"
 	"github.com/bete7512/goauth/pkg/config"
@@ -25,6 +25,7 @@ var migrationFS embed.FS
 
 type SessionModule struct {
 	deps      config.ModuleDependencies
+	service   services.SessionService
 	handlers  *handlers.SessionHandler
 	config    *config.SessionModuleConfig
 	validator *services.SessionValidator
@@ -39,6 +40,9 @@ func New(cfg *config.SessionModuleConfig) *SessionModule {
 	if cfg == nil {
 		cfg = &config.SessionModuleConfig{}
 	}
+	snapshot := *cfg
+	snapshot.SensitivePaths = append([]string(nil), cfg.SensitivePaths...)
+	cfg = &snapshot
 	return &SessionModule{
 		config: cfg,
 	}
@@ -70,8 +74,10 @@ func (m *SessionModule) Init(ctx context.Context, deps config.ModuleDependencies
 	}
 
 	// Initialize security manager
-	securityManager := security.NewSecurityManager(m.deps.Config.Security)
-	m.deps.SecurityManager = securityManager
+	securityManager := m.deps.SecurityManager
+	if securityManager == nil {
+		return errors.New("security manager is required")
+	}
 
 	// Create encoder and validator for cookie_cache strategy
 	var encoder cookie_security.CookieEncoder
@@ -103,15 +109,16 @@ func (m *SessionModule) Init(ctx context.Context, deps config.ModuleDependencies
 	handlerDeps.Options = m.config
 
 	// Initialize handlers with all dependencies
+	m.service = services.NewSessionService(
+		m.deps,
+		coreStorage.Users(),
+		sessionStorage.Sessions(),
+		m.deps.Logger,
+		securityManager,
+		m.config,
+	)
 	m.handlers = handlers.NewSessionHandler(
-		services.NewSessionService(
-			m.deps,
-			coreStorage.Users(),
-			sessionStorage.Sessions(),
-			m.deps.Logger,
-			securityManager,
-			m.config,
-		),
+		m.service,
 		handlerDeps,
 		encoder,
 	)
@@ -135,7 +142,7 @@ func (m *SessionModule) Routes() []config.RouteInfo {
 }
 
 func (m *SessionModule) Middlewares() []config.MiddlewareConfig {
-	if m.validator == nil {
+	if m.validator == nil || m.deps.Config.Security.AuthMode == types.AuthModeBearer {
 		return nil
 	}
 
@@ -166,4 +173,35 @@ func (m *SessionModule) Dependencies() []string {
 
 func (m *SessionModule) Migrations() types.ModuleMigrations {
 	return utils.ParseMigrations(migrationFS)
+}
+
+func (m *SessionModule) StorageBindings() config.StorageBindings {
+	return config.StorageBindings{Session: m.config.CustomStorage}
+}
+
+func (m *SessionModule) SignIn(ctx context.Context, request types.SignInRequest) (types.AuthenticationResult, error) {
+	input := &dto.LoginRequest{Email: request.Email, Username: request.Username, Password: request.Password}
+	if err := input.Validate(); err != nil {
+		return types.AuthenticationResult{Status: types.Denied}, err
+	}
+	if m.deps.Events != nil {
+		if err := m.deps.Events.EmitSync(ctx, types.EventBeforeLogin, &types.BeforeHookData{Body: *input, Metadata: request.Metadata}); err != nil {
+			return types.AuthenticationResult{Status: types.Denied}, types.NewForbiddenError().Wrap(err)
+		}
+	}
+	response, err := m.service.Login(ctx, input, request.Metadata)
+	if err != nil {
+		return types.AuthenticationResult{Status: types.Denied}, err
+	}
+	result := types.AuthenticationResult{Status: types.Authenticated, Challenges: response.Challenges, Data: response.Data, ExpiresIn: response.ExpiresIn}
+	if len(result.Challenges) > 0 {
+		result.Status = types.ChallengeRequired
+	}
+	if response.User != nil {
+		result.UserID = response.User.ID
+	}
+	result.AccessToken = response.AccessToken
+	result.RefreshToken = response.RefreshToken
+	result.SessionID = response.SessionID
+	return result, nil
 }

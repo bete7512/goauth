@@ -3,6 +3,7 @@ package interceptor
 import (
 	"context"
 	"fmt"
+	"github.com/bete7512/goauth/internal/security"
 	"sort"
 	"sync"
 
@@ -41,6 +42,9 @@ func (r *Registry) Register(name string, interceptor types.AuthInterceptor, prio
 
 	// Sort descending by priority (higher priority runs first)
 	sort.Slice(r.entries, func(i, j int) bool {
+		if r.entries[i].priority == r.entries[j].priority {
+			return r.entries[i].name < r.entries[j].name
+		}
 		return r.entries[i].priority > r.entries[j].priority
 	})
 }
@@ -66,6 +70,12 @@ func (r *Registry) Run(ctx context.Context, params *types.InterceptParams) (map[
 
 		// Merge claims (later interceptors override earlier ones for same key)
 		for k, v := range result.Claims {
+			if security.IsReservedClaim(k) {
+				return nil, nil, nil, fmt.Errorf("interceptor %q attempted reserved claim %q", e.name, k)
+			}
+			if _, exists := mergedClaims[k]; exists {
+				return nil, nil, nil, fmt.Errorf("duplicate interceptor claim %q", k)
+			}
 			mergedClaims[k] = v
 		}
 
@@ -75,7 +85,7 @@ func (r *Registry) Run(ctx context.Context, params *types.InterceptParams) (map[
 		}
 
 		// Only collect challenges during login phase
-		if params.Phase == types.PhaseLogin && result.Challenge != nil {
+		if result.Challenge != nil {
 			challenges = append(challenges, *result.Challenge)
 		}
 	}

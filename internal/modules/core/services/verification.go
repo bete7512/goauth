@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/bete7512/goauth/internal/operation"
+	"github.com/bete7512/goauth/pkg/config"
 	"time"
 
 	"github.com/bete7512/goauth/internal/modules/core/handlers/dto"
@@ -206,6 +208,17 @@ func (s *coreService) ResendPhoneVerification(ctx context.Context, phone string)
 
 // VerifyEmail validates a token, marks the user's email as verified, and emits EventAfterEmailVerified.
 func (s *coreService) VerifyEmail(ctx context.Context, token string) (*dto.MessageResponse, *types.GoAuthError) {
+	if s.Deps.Config.DurableEvents && !s.inTransaction {
+		return operation.Run(ctx, s.Deps, func(deps config.ModuleDependencies) (*dto.MessageResponse, *types.GoAuthError) {
+			copy := *s
+			copy.Deps = deps
+			copy.inTransaction = true
+			copy.UserRepository = deps.Storage.Core().Users()
+			copy.TokenRepository = deps.Storage.Core().Tokens()
+			return copy.VerifyEmail(ctx, token)
+		})
+	}
+
 	verification, err := s.TokenRepository.FindByToken(ctx, token)
 	if err != nil {
 		if errors.Is(err, models.ErrNotFound) {
@@ -233,17 +246,16 @@ func (s *coreService) VerifyEmail(ctx context.Context, token string) (*dto.Messa
 		}
 		return nil, types.NewInternalError("failed to find user by email").Wrap(err)
 	}
+	if user.ID != verification.UserID {
+		return nil, types.NewInvalidTokenError()
+	}
 
 	now := time.Now()
 	user.EmailVerified = true
 	user.UpdatedAt = &now
 
-	if err := s.UserRepository.Update(ctx, user); err != nil {
-		return nil, types.NewInternalError("failed to update user").Wrap(err)
-	}
-
-	if err := s.TokenRepository.MarkAsUsed(ctx, verification.ID); err != nil {
-		return nil, types.NewInternalError("failed to mark token as used").Wrap(err)
+	if err := s.completeVerification(ctx, verification, user, true); err != nil {
+		return nil, types.NewInvalidTokenError().Wrap(err)
 	}
 
 	// Emit event so notification can send welcome email
@@ -256,6 +268,17 @@ func (s *coreService) VerifyEmail(ctx context.Context, token string) (*dto.Messa
 
 // VerifyPhone validates an OTP code, marks the user's phone as verified.
 func (s *coreService) VerifyPhone(ctx context.Context, code string, phone string) (*dto.MessageResponse, *types.GoAuthError) {
+	if s.Deps.Config.DurableEvents && !s.inTransaction {
+		return operation.Run(ctx, s.Deps, func(deps config.ModuleDependencies) (*dto.MessageResponse, *types.GoAuthError) {
+			copy := *s
+			copy.Deps = deps
+			copy.inTransaction = true
+			copy.UserRepository = deps.Storage.Core().Users()
+			copy.TokenRepository = deps.Storage.Core().Tokens()
+			return copy.VerifyPhone(ctx, code, phone)
+		})
+	}
+
 	verification, err := s.TokenRepository.FindByCode(ctx, code, models.TokenTypePhoneVerification)
 	if err != nil {
 		if errors.Is(err, models.ErrNotFound) {
@@ -264,7 +287,7 @@ func (s *coreService) VerifyPhone(ctx context.Context, code string, phone string
 		return nil, types.NewInternalError("failed to find verification code").Wrap(err)
 	}
 
-	if verification.PhoneNumber != phone {
+	if verification.PhoneNumber != phone || verification.Type != models.TokenTypePhoneVerification {
 		return nil, types.NewGoAuthError(types.ErrInvalidToken, "code does not match phone number", 400)
 	}
 
@@ -276,10 +299,6 @@ func (s *coreService) VerifyPhone(ctx context.Context, code string, phone string
 		return nil, types.NewGoAuthError(types.ErrInvalidToken, "verification code has already been used", 400)
 	}
 
-	if err := s.TokenRepository.MarkAsUsed(ctx, verification.ID); err != nil {
-		return nil, types.NewInternalError("failed to mark code as used").Wrap(err)
-	}
-
 	user, err := s.UserRepository.FindByPhoneNumber(ctx, verification.PhoneNumber)
 	if err != nil {
 		if errors.Is(err, models.ErrNotFound) {
@@ -287,16 +306,39 @@ func (s *coreService) VerifyPhone(ctx context.Context, code string, phone string
 		}
 		return nil, types.NewInternalError("failed to find user by phone").Wrap(err)
 	}
+	if user.ID != verification.UserID {
+		return nil, types.NewInvalidTokenError()
+	}
 
 	now := time.Now()
 	user.PhoneNumberVerified = true
 	user.UpdatedAt = &now
 
-	if err := s.UserRepository.Update(ctx, user); err != nil {
-		return nil, types.NewInternalError("failed to update user").Wrap(err)
+	if err := s.completeVerification(ctx, verification, user, false); err != nil {
+		return nil, types.NewInvalidTokenError().Wrap(err)
 	}
 
 	return &dto.MessageResponse{Message: "Phone verified successfully"}, nil
+}
+
+func (s *coreService) completeVerification(ctx context.Context, token *models.Token, user *models.User, email bool) error {
+	store := s.coreStorage()
+	if store == nil {
+		return errors.New("verification requires transactional core storage")
+	}
+	return store.WithTransaction(ctx, func(tx types.CoreStorage) error {
+		if err := tx.Tokens().MarkAsUsed(ctx, token.ID); err != nil {
+			return err
+		}
+		if mutator, ok := tx.Users().(models.UserAuthenticationMutator); ok {
+			contact := token.PhoneNumber
+			if email {
+				contact = token.Email
+			}
+			return mutator.VerifyContact(ctx, token.UserID, contact, email)
+		}
+		return tx.Users().Update(ctx, user)
+	})
 }
 
 // buildVerificationLink builds a verification link that points to the backend verify-email endpoint.

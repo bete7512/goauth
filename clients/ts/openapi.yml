@@ -1,0 +1,3786 @@
+components:
+    parameters:
+        AdminLimit:
+            description: Maximum number of items to return
+            in: query
+            name: limit
+            schema:
+                default: 20
+                maximum: 100
+                type: integer
+        AdminOffset:
+            description: Number of items to skip
+            in: query
+            name: offset
+            schema:
+                default: 0
+                minimum: 0
+                type: integer
+        AdminSortDir:
+            description: Sort direction
+            in: query
+            name: sort_dir
+            schema:
+                default: desc
+                enum:
+                    - asc
+                    - desc
+                type: string
+        AdminSortField:
+            description: Field to sort results by
+            in: query
+            name: sort_field
+            schema:
+                default: created_at
+                enum:
+                    - created_at
+                    - email
+                    - username
+                    - name
+                type: string
+        AuditLimit:
+            description: Maximum number of items to return
+            in: query
+            name: limit
+            schema:
+                default: 20
+                maximum: 100
+                type: integer
+        AuditOffset:
+            description: Number of items to skip
+            in: query
+            name: offset
+            schema:
+                default: 0
+                minimum: 0
+                type: integer
+        AuditSortDir:
+            description: Sort direction
+            in: query
+            name: sort_dir
+            schema:
+                default: desc
+                enum:
+                    - asc
+                    - desc
+                type: string
+        AuditSortField:
+            description: Field to sort results by
+            in: query
+            name: sort_field
+            schema:
+                default: created_at
+                enum:
+                    - created_at
+                    - action
+                    - severity
+                    - actor_id
+                type: string
+        InvitationInvitationSortField:
+            description: Field to sort invitations by
+            in: query
+            name: sort_field
+            schema:
+                default: created_at
+                enum:
+                    - created_at
+                    - expires_at
+                    - status
+                    - purpose
+                type: string
+        InvitationLimit:
+            description: Maximum number of items to return
+            in: query
+            name: limit
+            schema:
+                default: 20
+                maximum: 100
+                type: integer
+        InvitationOffset:
+            description: Number of items to skip
+            in: query
+            name: offset
+            schema:
+                default: 0
+                minimum: 0
+                type: integer
+        InvitationSortDir:
+            description: Sort direction
+            in: query
+            name: sort_dir
+            schema:
+                default: desc
+                enum:
+                    - asc
+                    - desc
+                type: string
+        OrganizationInvitationSortField:
+            description: Field to sort invitations by
+            in: query
+            name: sort_field
+            schema:
+                default: created_at
+                enum:
+                    - created_at
+                    - expires_at
+                    - status
+                type: string
+        OrganizationLimit:
+            description: Maximum number of items to return
+            in: query
+            name: limit
+            schema:
+                default: 20
+                maximum: 100
+                type: integer
+        OrganizationMemberSortField:
+            description: Field to sort members by
+            in: query
+            name: sort_field
+            schema:
+                default: joined_at
+                enum:
+                    - joined_at
+                    - role
+                type: string
+        OrganizationOffset:
+            description: Number of items to skip
+            in: query
+            name: offset
+            schema:
+                default: 0
+                minimum: 0
+                type: integer
+        OrganizationOrgId:
+            description: Organization ID
+            in: path
+            name: orgId
+            required: true
+            schema:
+                format: uuid
+                type: string
+        OrganizationSortDir:
+            description: Sort direction
+            in: query
+            name: sort_dir
+            schema:
+                default: desc
+                enum:
+                    - asc
+                    - desc
+                type: string
+        OrganizationUserId:
+            description: User ID
+            in: path
+            name: userId
+            required: true
+            schema:
+                format: uuid
+                type: string
+    schemas:
+        AdminUser:
+            properties:
+                active:
+                    type: boolean
+                avatar:
+                    type: string
+                created_at:
+                    format: date-time
+                    type: string
+                email:
+                    format: email
+                    type: string
+                email_verified:
+                    type: boolean
+                first_name:
+                    type: string
+                id:
+                    format: uuid
+                    type: string
+                is_super_admin:
+                    type: boolean
+                last_login_at:
+                    format: date-time
+                    nullable: true
+                    type: string
+                last_name:
+                    type: string
+                name:
+                    type: string
+                phone_number:
+                    type: string
+                phone_number_verified:
+                    type: boolean
+                updated_at:
+                    format: date-time
+                    nullable: true
+                    type: string
+                username:
+                    type: string
+            type: object
+        AdminUserUpdate:
+            properties:
+                active:
+                    type: boolean
+                avatar:
+                    type: string
+                email:
+                    format: email
+                    type: string
+                first_name:
+                    type: string
+                is_super_admin:
+                    type: boolean
+                last_name:
+                    type: string
+                name:
+                    type: string
+                phone_number:
+                    type: string
+                username:
+                    type: string
+            type: object
+        AuditAuditLog:
+            properties:
+                action:
+                    description: Action type
+                    example: auth.login.success
+                    type: string
+                actor_id:
+                    description: User who performed the action
+                    format: uuid
+                    type: string
+                actor_type:
+                    default: user
+                    enum:
+                        - user
+                        - admin
+                        - system
+                    type: string
+                created_at:
+                    format: date-time
+                    type: string
+                details:
+                    description: Human-readable description
+                    type: string
+                id:
+                    format: uuid
+                    type: string
+                ip_address:
+                    example: 192.168.1.1
+                    type: string
+                metadata:
+                    description: JSON metadata
+                    example: '{"ip": "192.168.1.1", "user_agent": "Mozilla/5.0..."}'
+                    type: string
+                organization_id:
+                    description: Organization context (future use)
+                    format: uuid
+                    nullable: true
+                    type: string
+                severity:
+                    default: info
+                    enum:
+                        - info
+                        - warning
+                        - critical
+                    type: string
+                target_id:
+                    description: Resource affected by the action
+                    format: uuid
+                    nullable: true
+                    type: string
+                target_type:
+                    description: Type of resource affected
+                    example: user
+                    nullable: true
+                    type: string
+                user_agent:
+                    example: Mozilla/5.0 (Windows NT 10.0; Win64; x64)...
+                    type: string
+            required:
+                - id
+                - action
+                - actor_id
+                - created_at
+            type: object
+        AuditAuditLogListResponse:
+            properties:
+                data:
+                    properties:
+                        list:
+                            items:
+                                $ref: '#/components/schemas/AuditAuditLog'
+                            type: array
+                        sort_dir:
+                            enum:
+                                - asc
+                                - desc
+                            example: desc
+                            type: string
+                        sort_field:
+                            example: created_at
+                            type: string
+                        total:
+                            type: integer
+                    type: object
+                message:
+                    nullable: true
+                    type: string
+            type: object
+        CoreAuthResponse:
+            properties:
+                expires_in:
+                    description: Token expiration time in seconds
+                    example: 3600
+                    type: integer
+                message:
+                    description: Success message
+                    example: Login successful
+                    type: string
+                refresh_token:
+                    description: Refresh token
+                    example: def456ghi789
+                    type: string
+                token:
+                    description: JWT access token
+                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                    type: string
+                user:
+                    $ref: '#/components/schemas/CoreUserDTO'
+            type: object
+        CoreChangePasswordRequest:
+            properties:
+                new_password:
+                    description: New password (minimum 8 characters)
+                    example: newSecurePassword123
+                    minLength: 8
+                    type: string
+                old_password:
+                    description: Current password
+                    example: oldPassword123
+                    type: string
+            required:
+                - old_password
+                - new_password
+            type: object
+        CoreCheckAvailabilityRequest:
+            description: Provide exactly one of email, username, or phone
+            properties:
+                email:
+                    description: Email to check
+                    example: user@example.com
+                    format: email
+                    type: string
+                phone:
+                    description: Phone number to check
+                    example: 1234567890
+                    pattern: ^\+[1-9]\d{1,14}$
+                    type: string
+                username:
+                    description: Username to check
+                    example: john_doe
+                    type: string
+            type: object
+        CoreCheckAvailabilityResponse:
+            properties:
+                available:
+                    description: Whether the field is available
+                    example: true
+                    type: boolean
+                field:
+                    description: Field that was checked
+                    example: email
+                    type: string
+                message:
+                    description: Availability message
+                    example: Email is available
+                    type: string
+            type: object
+        CoreErrorResponse:
+            properties:
+                code:
+                    description: HTTP status code
+                    example: 400
+                    type: integer
+                error:
+                    description: Error message
+                    example: Validation failed
+                    type: string
+                message:
+                    description: Additional error information
+                    example: Additional error details
+                    type: string
+            type: object
+        CoreForgotPasswordRequest:
+            properties:
+                email:
+                    description: Email address (provide email or phone)
+                    example: user@example.com
+                    format: email
+                    type: string
+                phone:
+                    description: Phone number in E.164 format (provide email or phone)
+                    example: 1234567890
+                    pattern: ^\+[1-9]\d{1,14}$
+                    type: string
+            type: object
+        CoreJWK:
+            description: One public key in JSON Web Key format (RFC 7517). Only the fields needed by relying parties are populated — private components are never included.
+            properties:
+                alg:
+                    example: RS256
+                    type: string
+                crv:
+                    description: EC curve name (EC keys only)
+                    example: P-256
+                    type: string
+                e:
+                    description: RSA exponent, base64url-encoded (RSA keys only)
+                    type: string
+                kid:
+                    description: Key ID — matches the JWT header "kid"
+                    type: string
+                kty:
+                    description: Key type ("RSA" or "EC")
+                    example: RSA
+                    type: string
+                "n":
+                    description: RSA modulus, base64url-encoded (RSA keys only)
+                    type: string
+                use:
+                    example: sig
+                    type: string
+                x:
+                    description: EC x-coordinate, base64url-encoded (EC keys only)
+                    type: string
+                "y":
+                    description: EC y-coordinate, base64url-encoded (EC keys only)
+                    type: string
+            type: object
+        CoreJWKS:
+            properties:
+                keys:
+                    items:
+                        $ref: '#/components/schemas/CoreJWK'
+                    type: array
+            type: object
+        CoreLoginRequest:
+            properties:
+                email:
+                    description: Email address
+                    example: user@example.com
+                    format: email
+                    type: string
+                password:
+                    description: Password
+                    example: securePassword123
+                    type: string
+                username:
+                    description: Username
+                    example: john_doe
+                    type: string
+            required:
+                - password
+            type: object
+        CoreMessageResponse:
+            properties:
+                message:
+                    description: Response message
+                    example: Operation completed successfully
+                    type: string
+                success:
+                    description: Operation success status
+                    example: true
+                    type: boolean
+            type: object
+        CoreResetPasswordRequest:
+            properties:
+                code:
+                    description: Reset code from SMS
+                    example: "123456"
+                    type: string
+                email:
+                    description: Email address
+                    example: user@example.com
+                    format: email
+                    type: string
+                new_password:
+                    description: New password (minimum 8 characters)
+                    example: newSecurePassword123
+                    minLength: 8
+                    type: string
+                phone:
+                    description: Phone number
+                    example: 1234567890
+                    pattern: ^\+[1-9]\d{1,14}$
+                    type: string
+                token:
+                    description: Reset token from email
+                    example: abc123def456
+                    type: string
+            required:
+                - new_password
+            type: object
+        CoreSendVerificationEmailRequest:
+            properties:
+                email:
+                    description: Email address to verify
+                    example: user@example.com
+                    format: email
+                    type: string
+            required:
+                - email
+            type: object
+        CoreSendVerificationPhoneRequest:
+            properties:
+                phone:
+                    description: Phone number in E.164 format
+                    example: 1234567890
+                    pattern: ^\+[1-9]\d{1,14}$
+                    type: string
+            required:
+                - phone
+            type: object
+        CoreSignupRequest:
+            properties:
+                email:
+                    description: User email address
+                    example: user@example.com
+                    format: email
+                    type: string
+                name:
+                    description: Full name
+                    example: John Doe
+                    type: string
+                password:
+                    description: Password (minimum 8 characters)
+                    example: securePassword123
+                    minLength: 8
+                    type: string
+                phone:
+                    description: Phone number in E.164 format
+                    example: 1234567890
+                    pattern: ^\+[1-9]\d{1,14}$
+                    type: string
+                username:
+                    description: Username (3-30 chars, letters, numbers, underscore, hyphen)
+                    example: john_doe
+                    maxLength: 30
+                    minLength: 3
+                    pattern: ^[a-zA-Z0-9_-]+$
+                    type: string
+            required:
+                - password
+            type: object
+        CoreUpdateProfileRequest:
+            properties:
+                avatar:
+                    description: Avatar image URL
+                    example: https://example.com/avatar.jpg
+                    format: uri
+                    type: string
+                name:
+                    description: Full name
+                    example: John Doe
+                    type: string
+                phone:
+                    description: Phone number in E.164 format
+                    example: 1234567890
+                    pattern: ^\+[1-9]\d{1,14}$
+                    type: string
+            type: object
+        CoreUserDTO:
+            properties:
+                active:
+                    description: Account active status
+                    example: true
+                    type: boolean
+                avatar:
+                    description: Avatar image URL
+                    example: https://example.com/avatar.jpg
+                    format: uri
+                    type: string
+                created_at:
+                    description: Account creation timestamp
+                    example: "2023-01-01T00:00:00Z"
+                    format: date-time
+                    type: string
+                email:
+                    description: Email address
+                    example: user@example.com
+                    format: email
+                    type: string
+                email_verified:
+                    description: Email verification status
+                    example: true
+                    type: boolean
+                id:
+                    description: User unique identifier
+                    example: 123e4567-e89b-12d3-a456-426614174000
+                    format: uuid
+                    type: string
+                name:
+                    description: Full name
+                    example: John Doe
+                    type: string
+                phone:
+                    description: Phone number
+                    example: 1234567890
+                    type: string
+                phone_verified:
+                    description: Phone verification status
+                    example: false
+                    type: boolean
+                updated_at:
+                    description: Last update timestamp
+                    example: "2023-01-01T00:00:00Z"
+                    format: date-time
+                    type: string
+                username:
+                    description: Username
+                    example: john_doe
+                    type: string
+            type: object
+        CoreVerifyPhoneRequest:
+            properties:
+                code:
+                    description: 6-digit verification code from SMS
+                    example: "123456"
+                    pattern: ^\d{6}$
+                    type: string
+                phone:
+                    description: Phone number being verified
+                    example: 1234567890
+                    pattern: ^\+[1-9]\d{1,14}$
+                    type: string
+            required:
+                - code
+                - phone
+            type: object
+        CsrfCSRFTokenResponse:
+            properties:
+                data:
+                    properties:
+                        csrf_token:
+                            description: HMAC-signed CSRF token
+                            type: string
+                    type: object
+            type: object
+        CsrfErrorResponse:
+            properties:
+                error:
+                    properties:
+                        code:
+                            example: INTERNAL_ERROR
+                            type: string
+                        message:
+                            example: Failed to generate CSRF token
+                            type: string
+                    type: object
+            type: object
+        InvitationAcceptInvitationRequest:
+            properties:
+                name:
+                    description: Required when the invited user has no account yet
+                    type: string
+                password:
+                    description: Required when the invited user has no account yet
+                    type: string
+                token:
+                    description: Invitation token received via email
+                    type: string
+            required:
+                - token
+            type: object
+        InvitationAcceptInvitationResponse:
+            properties:
+                access_token:
+                    description: JWT access token
+                    type: string
+                is_new_user:
+                    description: True if a new account was created during acceptance
+                    type: boolean
+                refresh_token:
+                    description: JWT refresh token
+                    type: string
+                user:
+                    properties:
+                        email:
+                            format: email
+                            type: string
+                        email_verified:
+                            type: boolean
+                        id:
+                            format: uuid
+                            type: string
+                        name:
+                            type: string
+                    type: object
+            type: object
+        InvitationInvitation:
+            properties:
+                accepted_at:
+                    format: date-time
+                    nullable: true
+                    type: string
+                created_at:
+                    format: date-time
+                    type: string
+                email:
+                    format: email
+                    type: string
+                expires_at:
+                    format: date-time
+                    type: string
+                id:
+                    format: uuid
+                    type: string
+                inviter_id:
+                    format: uuid
+                    type: string
+                metadata:
+                    description: JSON string for consumer-defined data
+                    nullable: true
+                    type: string
+                purpose:
+                    example: platform
+                    type: string
+                status:
+                    enum:
+                        - pending
+                        - accepted
+                        - declined
+                        - expired
+                    type: string
+            type: object
+        InvitationInvitationTokenRequest:
+            properties:
+                token:
+                    description: Invitation token received via email
+                    type: string
+            required:
+                - token
+            type: object
+        InvitationSendInvitationRequest:
+            properties:
+                email:
+                    description: Email of the person to invite
+                    format: email
+                    type: string
+                metadata:
+                    description: JSON string for consumer-defined data
+                    type: string
+                purpose:
+                    default: platform
+                    description: Purpose of the invitation (e.g., platform, beta, referral)
+                    type: string
+            required:
+                - email
+            type: object
+        MagiclinkAuthResponse:
+            properties:
+                access_token:
+                    type: string
+                expires_in:
+                    format: int64
+                    type: integer
+                message:
+                    type: string
+                refresh_token:
+                    type: string
+                user:
+                    $ref: '#/components/schemas/MagiclinkUserDTO'
+            type: object
+        MagiclinkErrorResponse:
+            properties:
+                data:
+                    properties:
+                        code:
+                            type: string
+                        message:
+                            type: string
+                        status_code:
+                            type: integer
+                    type: object
+            type: object
+        MagiclinkMagicLinkSendRequest:
+            properties:
+                email:
+                    example: user@example.com
+                    format: email
+                    type: string
+            required:
+                - email
+            type: object
+        MagiclinkMagicLinkVerifyByCodeRequest:
+            properties:
+                code:
+                    description: 6-digit OTP code
+                    example: "123456"
+                    type: string
+                email:
+                    example: user@example.com
+                    format: email
+                    type: string
+            required:
+                - email
+                - code
+            type: object
+        MagiclinkMessageResponse:
+            properties:
+                message:
+                    type: string
+            type: object
+        MagiclinkUserDTO:
+            properties:
+                active:
+                    type: boolean
+                avatar:
+                    type: string
+                created_at:
+                    format: date-time
+                    type: string
+                email:
+                    type: string
+                email_verified:
+                    type: boolean
+                first_name:
+                    type: string
+                id:
+                    type: string
+                last_login_at:
+                    format: date-time
+                    type: string
+                last_name:
+                    type: string
+                name:
+                    type: string
+                phone_number:
+                    type: string
+                phone_number_verified:
+                    type: boolean
+                updated_at:
+                    format: date-time
+                    type: string
+                username:
+                    type: string
+            type: object
+        OauthAuthResponse:
+            properties:
+                data:
+                    properties:
+                        access_token:
+                            description: JWT access token
+                            type: string
+                        expires_in:
+                            description: Access token expiration time in seconds
+                            type: integer
+                        is_new_user:
+                            description: True if this is a newly created user
+                            type: boolean
+                        provider:
+                            description: OAuth provider used for authentication
+                            type: string
+                        refresh_token:
+                            description: Refresh token for obtaining new access tokens
+                            type: string
+                        token_type:
+                            default: Bearer
+                            type: string
+                        user:
+                            $ref: '#/components/schemas/OauthUser'
+                    type: object
+            type: object
+        OauthErrorResponse:
+            properties:
+                error:
+                    properties:
+                        code:
+                            description: Error code
+                            enum:
+                                - OAUTH_PROVIDER_NOT_FOUND
+                                - OAUTH_PROVIDER_DISABLED
+                                - OAUTH_INVALID_STATE
+                                - OAUTH_STATE_EXPIRED
+                                - OAUTH_STATE_USED
+                                - OAUTH_TOKEN_EXCHANGE_FAILED
+                                - OAUTH_USER_INFO_FAILED
+                                - OAUTH_EMAIL_EXISTS
+                                - OAUTH_SIGNUP_DISABLED
+                                - OAUTH_NOT_LINKED
+                                - OAUTH_EMAIL_REQUIRED
+                            type: string
+                        message:
+                            description: Human-readable error message
+                            type: string
+                    type: object
+            type: object
+        OauthLinkedProvidersResponse:
+            properties:
+                data:
+                    properties:
+                        providers:
+                            description: List of linked provider names
+                            items:
+                                type: string
+                            type: array
+                    type: object
+            type: object
+        OauthMessageResponse:
+            properties:
+                data:
+                    properties:
+                        message:
+                            type: string
+                    type: object
+            type: object
+        OauthProvidersResponse:
+            properties:
+                data:
+                    properties:
+                        providers:
+                            items:
+                                properties:
+                                    enabled:
+                                        type: boolean
+                                    name:
+                                        description: Provider identifier
+                                        type: string
+                                type: object
+                            type: array
+                    type: object
+            type: object
+        OauthUser:
+            properties:
+                active:
+                    type: boolean
+                avatar:
+                    format: uri
+                    type: string
+                created_at:
+                    format: date-time
+                    type: string
+                email:
+                    format: email
+                    type: string
+                email_verified:
+                    type: boolean
+                first_name:
+                    type: string
+                id:
+                    format: uuid
+                    type: string
+                last_login_at:
+                    format: date-time
+                    type: string
+                last_name:
+                    type: string
+                name:
+                    type: string
+                username:
+                    type: string
+            type: object
+        OrganizationAcceptInvitationRequest:
+            properties:
+                name:
+                    description: Required when the invited user has no account yet
+                    type: string
+                password:
+                    description: Required when the invited user has no account yet
+                    type: string
+                token:
+                    description: Invitation token received via email
+                    type: string
+            required:
+                - token
+            type: object
+        OrganizationAcceptOrgInvitationResponse:
+            properties:
+                access_token:
+                    description: JWT access token
+                    type: string
+                is_new_user:
+                    description: True if a new account was created during acceptance
+                    type: boolean
+                member:
+                    $ref: '#/components/schemas/OrganizationOrganizationMember'
+                refresh_token:
+                    description: JWT refresh token
+                    type: string
+                user:
+                    properties:
+                        email:
+                            format: email
+                            type: string
+                        email_verified:
+                            type: boolean
+                        id:
+                            format: uuid
+                            type: string
+                        name:
+                            type: string
+                    type: object
+            type: object
+        OrganizationCreateOrgRequest:
+            properties:
+                name:
+                    example: Acme Corp
+                    type: string
+                slug:
+                    description: URL-friendly identifier. Auto-generated from name if omitted.
+                    example: acme-corp
+                    type: string
+            required:
+                - name
+            type: object
+        OrganizationInvitation:
+            properties:
+                accepted_at:
+                    format: date-time
+                    nullable: true
+                    type: string
+                created_at:
+                    format: date-time
+                    type: string
+                email:
+                    format: email
+                    type: string
+                expires_at:
+                    format: date-time
+                    type: string
+                id:
+                    format: uuid
+                    type: string
+                inviter_id:
+                    format: uuid
+                    type: string
+                org_id:
+                    format: uuid
+                    type: string
+                role:
+                    enum:
+                        - owner
+                        - admin
+                        - member
+                    type: string
+                status:
+                    enum:
+                        - pending
+                        - accepted
+                        - declined
+                        - expired
+                    type: string
+            type: object
+        OrganizationInvitationTokenRequest:
+            properties:
+                token:
+                    description: Invitation token received via email
+                    type: string
+            required:
+                - token
+            type: object
+        OrganizationInviteRequest:
+            properties:
+                email:
+                    description: Email of the user to invite
+                    format: email
+                    type: string
+                role:
+                    default: member
+                    description: Role to assign. Cannot invite as owner.
+                    enum:
+                        - admin
+                        - member
+                    type: string
+            required:
+                - email
+            type: object
+        OrganizationMemberWithUser:
+            allOf:
+                - $ref: '#/components/schemas/OrganizationOrganizationMember'
+                - properties:
+                    user:
+                        $ref: '#/components/schemas/OrganizationUserSummary'
+                  type: object
+        OrganizationOrganization:
+            properties:
+                active:
+                    default: true
+                    type: boolean
+                created_at:
+                    format: date-time
+                    type: string
+                id:
+                    format: uuid
+                    type: string
+                logo_url:
+                    example: https://example.com/logo.png
+                    nullable: true
+                    type: string
+                metadata:
+                    description: JSON string for extensibility
+                    nullable: true
+                    type: string
+                name:
+                    example: Acme Corp
+                    type: string
+                owner_id:
+                    format: uuid
+                    type: string
+                slug:
+                    example: acme-corp
+                    type: string
+                updated_at:
+                    format: date-time
+                    nullable: true
+                    type: string
+            type: object
+        OrganizationOrganizationMember:
+            properties:
+                id:
+                    format: uuid
+                    type: string
+                joined_at:
+                    format: date-time
+                    type: string
+                org_id:
+                    format: uuid
+                    type: string
+                role:
+                    enum:
+                        - owner
+                        - admin
+                        - member
+                    type: string
+                updated_at:
+                    format: date-time
+                    nullable: true
+                    type: string
+                user_id:
+                    format: uuid
+                    type: string
+            type: object
+        OrganizationSwitchOrgRequest:
+            properties:
+                org_id:
+                    description: Target organization to switch to
+                    format: uuid
+                    type: string
+            required:
+                - org_id
+            type: object
+        OrganizationTokenPair:
+            properties:
+                access_token:
+                    description: JWT with active_org_id and org_role claims
+                    type: string
+                refresh_token:
+                    type: string
+            type: object
+        OrganizationUpdateOrgRequest:
+            properties:
+                logo_url:
+                    type: string
+                metadata:
+                    description: JSON string for extensibility
+                    type: string
+                name:
+                    type: string
+            type: object
+        OrganizationUpdateRoleRequest:
+            properties:
+                role:
+                    description: New role for the member
+                    enum:
+                        - owner
+                        - admin
+                        - member
+                    type: string
+            required:
+                - role
+            type: object
+        OrganizationUserSummary:
+            description: User info returned with member data (password hash excluded)
+            properties:
+                avatar:
+                    nullable: true
+                    type: string
+                email:
+                    format: email
+                    type: string
+                id:
+                    format: uuid
+                    type: string
+                name:
+                    type: string
+                username:
+                    type: string
+            type: object
+        PasskeysAuthResponse:
+            properties:
+                access_token:
+                    type: string
+                expires_in:
+                    format: int64
+                    type: integer
+                message:
+                    type: string
+                refresh_token:
+                    type: string
+                user:
+                    type: object
+            type: object
+        PasskeysBeginLoginResponse:
+            properties:
+                challenge_token:
+                    type: string
+                public_key:
+                    description: PublicKeyCredentialRequestOptions passed to navigator.credentials.get()
+                    type: object
+            type: object
+        PasskeysBeginRegistrationResponse:
+            properties:
+                challenge_token:
+                    description: Opaque token the client must return to /register/finish
+                    type: string
+                public_key:
+                    description: PublicKeyCredentialCreationOptions passed to navigator.credentials.create()
+                    type: object
+            type: object
+        PasskeysFinishLoginRequest:
+            properties:
+                challenge_token:
+                    type: string
+                credential_response:
+                    type: object
+            required:
+                - challenge_token
+                - credential_response
+            type: object
+        PasskeysFinishRegistrationRequest:
+            properties:
+                challenge_token:
+                    type: string
+                credential_response:
+                    description: Raw WebAuthn attestation response from the browser
+                    type: object
+                name:
+                    description: User-friendly label for the passkey ("iPhone 15", "YubiKey")
+                    type: string
+            required:
+                - challenge_token
+                - credential_response
+            type: object
+        PasskeysPasskeySummary:
+            properties:
+                created_at:
+                    format: date-time
+                    type: string
+                id:
+                    type: string
+                last_used_at:
+                    format: date-time
+                    type: string
+                name:
+                    type: string
+                transports:
+                    items:
+                        type: string
+                    type: array
+            type: object
+        PasskeysRenameRequest:
+            properties:
+                name:
+                    type: string
+            required:
+                - name
+            type: object
+        StatelessAuthResponse:
+            properties:
+                data:
+                    properties:
+                        access_token:
+                            type: string
+                        challenges:
+                            description: Login challenges (e.g. 2FA) if any
+                            items:
+                                type: object
+                            type: array
+                        expires_in:
+                            description: Token lifetime in seconds
+                            type: integer
+                        message:
+                            type: string
+                        refresh_token:
+                            type: string
+                        user:
+                            $ref: '#/components/schemas/StatelessUserDTO'
+                    type: object
+                success:
+                    example: true
+                    type: boolean
+            type: object
+        StatelessErrorResponse:
+            properties:
+                data:
+                    properties:
+                        code:
+                            example: INVALID_CREDENTIALS
+                            type: string
+                        message:
+                            example: Invalid email or password
+                            type: string
+                    type: object
+                success:
+                    example: false
+                    type: boolean
+            type: object
+        StatelessMessageResponse:
+            properties:
+                data:
+                    properties:
+                        message:
+                            type: string
+                    type: object
+                success:
+                    type: boolean
+            type: object
+        StatelessUserDTO:
+            properties:
+                active:
+                    type: boolean
+                created_at:
+                    format: date-time
+                    type: string
+                email:
+                    type: string
+                email_verified:
+                    type: boolean
+                id:
+                    type: string
+                name:
+                    type: string
+                username:
+                    type: string
+            type: object
+        TwofactorErrorResponse:
+            properties:
+                code:
+                    description: HTTP status code
+                    example: 401
+                    type: integer
+                error:
+                    description: Error message
+                    example: Invalid code
+                    type: string
+                message:
+                    description: Additional error information
+                    example: The provided verification code is invalid
+                    type: string
+            type: object
+        TwofactorMessageResponse:
+            properties:
+                message:
+                    description: Response message
+                    example: Two-factor authentication enabled successfully
+                    type: string
+                success:
+                    description: Operation success status
+                    example: true
+                    type: boolean
+            type: object
+        TwofactorTwoFactorAuthResponse:
+            properties:
+                access_token:
+                    description: JWT access token
+                    type: string
+                expires_in:
+                    description: Access token TTL in seconds
+                    example: 2592000
+                    type: integer
+                message:
+                    example: 2FA verification successful - tokens issued
+                    type: string
+                refresh_token:
+                    description: Refresh token
+                    type: string
+                session_id:
+                    description: Session ID (session-based auth only)
+                    format: uuid
+                    type: string
+                user:
+                    properties:
+                        email:
+                            format: email
+                            type: string
+                        id:
+                            format: uuid
+                            type: string
+                        name:
+                            type: string
+                    type: object
+            type: object
+        TwofactorTwoFactorSetupResponse:
+            properties:
+                backup_codes:
+                    description: One-time backup codes — save these securely, shown only once
+                    example:
+                        - ABCD-EFGH
+                        - IJKL-MNOP
+                    items:
+                        type: string
+                    type: array
+                message:
+                    description: Setup instructions
+                    example: Scan the QR code with your authenticator app, then verify with a code to enable 2FA
+                    type: string
+                qr_url:
+                    description: QR code URL — scan with authenticator app (Google Authenticator, Authy, etc.)
+                    example: otpauth://totp/GoAuth:user@example.com?secret=JBSWY3DPEHPK3PXP&issuer=GoAuth
+                    format: uri
+                    type: string
+                secret:
+                    description: TOTP secret key (base32 encoded) — store securely
+                    example: JBSWY3DPEHPK3PXP
+                    type: string
+            type: object
+        TwofactorTwoFactorStatusResponse:
+            properties:
+                enabled:
+                    description: Whether 2FA is enabled
+                    example: true
+                    type: boolean
+                method:
+                    description: 2FA method being used
+                    enum:
+                        - totp
+                        - sms
+                        - email
+                    example: totp
+                    type: string
+                verified:
+                    description: Whether 2FA has been verified
+                    example: true
+                    type: boolean
+            type: object
+        TwofactorTwoFactorVerifyLoginRequest:
+            properties:
+                code:
+                    description: 6-digit TOTP code from authenticator app, or 8-character backup code (e.g. "ABCD-EFGH")
+                    example: "123456"
+                    type: string
+                temp_token:
+                    description: Single-use temporary token bound to a verified primary login
+                    example: eyJhbGci...
+                    type: string
+            required:
+                - temp_token
+                - code
+            type: object
+        TwofactorTwoFactorVerifyRequest:
+            properties:
+                code:
+                    description: 6-digit TOTP code from authenticator app (or 8-character backup code e.g. "ABCD-EFGH")
+                    example: "123456"
+                    type: string
+            required:
+                - code
+            type: object
+    securitySchemes:
+        BearerAuth:
+            bearerFormat: JWT
+            scheme: bearer
+            type: http
+        bearerAuth:
+            bearerFormat: JWT
+            scheme: bearer
+            type: http
+        captchaToken:
+            description: |
+                Captcha verification token from a client-side widget (Google reCAPTCHA v3 or Cloudflare Turnstile). Required on routes configured with captcha protection (typically signup and login).
+            in: header
+            name: X-Captcha-Token
+            type: apiKey
+        cookieAuth:
+            in: cookie
+            name: goauth_access_session
+            type: apiKey
+        csrfToken:
+            description: |
+                CSRF token for state-changing requests. Obtain a token from GET /csrf-token, then include it in the X-CSRF-Token header on POST/PUT/DELETE/PATCH requests.
+            in: header
+            name: X-CSRF-Token
+            type: apiKey
+info:
+    description: Merged OpenAPI spec for the GoAuth authentication library. Generated by clients/ts/scripts/merge-openapi.go — do not edit by hand.
+    title: GoAuth API
+    version: 0.0.0
+openapi: 3.0.3
+paths:
+    /.well-known/jwks.json:
+        get:
+            description: |
+                Returns the active public key in JWKS format (RFC 7517) so downstream
+                consumers (API gateways, microservices) can verify access and stateless
+                refresh tokens without sharing a secret. Only served when
+                `SecurityConfig.JWTAlgorithm` is asymmetric (`RS256` or `ES256`); a
+                `HS256` deployment returns 404 because the symmetric secret must not be
+                exposed.
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CoreJWKS'
+                    description: JWKS document
+                "404":
+                    description: Not available — the deployment is using HS256
+            summary: Public JSON Web Key Set
+            tags:
+                - Core Authentication Module Docs
+    /2fa/disable:
+        post:
+            description: Disable 2FA for the authenticated user. Requires current TOTP code to confirm.
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/TwofactorTwoFactorVerifyRequest'
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TwofactorMessageResponse'
+                    description: 2FA disabled successfully
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TwofactorErrorResponse'
+                    description: Invalid or missing code
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TwofactorErrorResponse'
+                    description: Not authenticated
+            security:
+                - cookieAuth: []
+                - bearerAuth: []
+            summary: Disable two-factor authentication
+            tags:
+                - Two-Factor Authentication Module
+    /2fa/setup:
+        post:
+            description: Initialize 2FA setup for the authenticated user and get QR code
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TwofactorTwoFactorSetupResponse'
+                    description: 2FA setup initiated successfully
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TwofactorErrorResponse'
+                    description: Not authenticated
+                "500":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TwofactorErrorResponse'
+                    description: Internal server error
+            security:
+                - cookieAuth: []
+                - bearerAuth: []
+            summary: Setup two-factor authentication
+            tags:
+                - Two-Factor Authentication Module
+    /2fa/status:
+        get:
+            description: Retrieve the current 2FA status for the authenticated user
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TwofactorTwoFactorStatusResponse'
+                    description: 2FA status retrieved successfully
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TwofactorErrorResponse'
+                    description: Not authenticated
+            security:
+                - cookieAuth: []
+                - bearerAuth: []
+            summary: Get two-factor authentication status
+            tags:
+                - Two-Factor Authentication Module
+    /2fa/verify:
+        post:
+            description: Verify the TOTP code from authenticator app and enable 2FA
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/TwofactorTwoFactorVerifyRequest'
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TwofactorMessageResponse'
+                    description: 2FA enabled successfully
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TwofactorErrorResponse'
+                    description: Invalid request
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TwofactorErrorResponse'
+                    description: Invalid code or not authenticated
+            security:
+                - cookieAuth: []
+                - bearerAuth: []
+            summary: Verify and enable two-factor authentication
+            tags:
+                - Two-Factor Authentication Module
+    /2fa/verify-login:
+        post:
+            description: |
+                Submit a TOTP code (or backup code) to complete the login flow after receiving
+                a `TWO_FACTOR_REQUIRED` challenge from the login endpoint.
+                Use the `temp_token` returned by the login challenge in the request body.
+                On success, returns the same tokens as a normal login response.
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/TwofactorTwoFactorVerifyLoginRequest'
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TwofactorTwoFactorAuthResponse'
+                    description: 2FA verified — authentication tokens issued
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TwofactorErrorResponse'
+                    description: Missing or invalid request fields
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TwofactorErrorResponse'
+                    description: Invalid or expired temp_token / wrong TOTP code
+            summary: Complete login with two-factor authentication
+            tags:
+                - Two-Factor Authentication Module
+    /admin/audit:
+        get:
+            description: Retrieve all audit logs (admin only)
+            parameters:
+                - $ref: '#/components/parameters/AuditLimit'
+                - $ref: '#/components/parameters/AuditOffset'
+                - $ref: '#/components/parameters/AuditSortField'
+                - $ref: '#/components/parameters/AuditSortDir'
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/AuditAuditLogListResponse'
+                    description: Successful response
+                "403":
+                    description: Forbidden - super admin access required
+            security:
+                - BearerAuth: []
+            summary: List all audit logs
+            tags:
+                - Audit Logs
+    /admin/audit/actions/{action}:
+        get:
+            description: Retrieve audit logs filtered by action type (admin only)
+            parameters:
+                - description: Action type (e.g., "auth.login.success", "admin.user.delete")
+                  example: auth.login.success
+                  in: path
+                  name: action
+                  required: true
+                  schema:
+                    type: string
+                - $ref: '#/components/parameters/AuditLimit'
+                - $ref: '#/components/parameters/AuditOffset'
+                - $ref: '#/components/parameters/AuditSortField'
+                - $ref: '#/components/parameters/AuditSortDir'
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/AuditAuditLogListResponse'
+                    description: Successful response
+                "403":
+                    description: Forbidden - super admin access required
+            security:
+                - BearerAuth: []
+            summary: Get audit logs by action
+            tags:
+                - Audit Logs
+    /admin/audit/cleanup:
+        post:
+            description: Deletes old audit logs based on the configured retention policy (admin only)
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    message:
+                                        example: audit log cleanup completed successfully
+                                        type: string
+                                type: object
+                    description: Cleanup completed successfully
+                "401":
+                    description: Unauthorized
+                "403":
+                    description: Forbidden - admin access required
+                "500":
+                    description: Internal server error
+            security:
+                - BearerAuth: []
+            summary: Trigger audit log cleanup
+            tags:
+                - Audit Logs
+    /admin/audit/users/{id}:
+        get:
+            description: Retrieve audit logs for a specific user (admin only)
+            parameters:
+                - description: User ID
+                  in: path
+                  name: id
+                  required: true
+                  schema:
+                    format: uuid
+                    type: string
+                - $ref: '#/components/parameters/AuditLimit'
+                - $ref: '#/components/parameters/AuditOffset'
+                - $ref: '#/components/parameters/AuditSortField'
+                - $ref: '#/components/parameters/AuditSortDir'
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/AuditAuditLogListResponse'
+                    description: Successful response
+                "403":
+                    description: Forbidden - super admin access required
+            security:
+                - BearerAuth: []
+            summary: Get user audit logs
+            tags:
+                - Audit Logs
+    /admin/users:
+        get:
+            description: Retrieve a paginated list of all users (admin only)
+            parameters:
+                - $ref: '#/components/parameters/AdminLimit'
+                - $ref: '#/components/parameters/AdminOffset'
+                - $ref: '#/components/parameters/AdminSortField'
+                - $ref: '#/components/parameters/AdminSortDir'
+                - description: Search users by name, email, or username
+                  in: query
+                  name: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    data:
+                                        properties:
+                                            list:
+                                                items:
+                                                    $ref: '#/components/schemas/AdminUser'
+                                                type: array
+                                            sort_dir:
+                                                enum:
+                                                    - asc
+                                                    - desc
+                                                example: desc
+                                                type: string
+                                            sort_field:
+                                                example: created_at
+                                                type: string
+                                            total:
+                                                type: integer
+                                        type: object
+                                    message:
+                                        nullable: true
+                                        type: string
+                                type: object
+                    description: Successful response
+                "401":
+                    description: Unauthorized - authentication required
+                "403":
+                    description: Forbidden - super admin access required
+            security:
+                - BearerAuth: []
+            summary: List all users
+            tags:
+                - Users
+    /admin/users/{id}:
+        delete:
+            description: Permanently delete a user (admin only)
+            parameters:
+                - in: path
+                  name: id
+                  required: true
+                  schema:
+                    format: uuid
+                    type: string
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    message:
+                                        type: string
+                                type: object
+                    description: User deleted successfully
+                "403":
+                    description: Forbidden - super admin access required
+                "404":
+                    description: User not found
+            security:
+                - BearerAuth: []
+            summary: Delete user
+            tags:
+                - Users
+        get:
+            description: Retrieve a specific user's details (admin only)
+            parameters:
+                - description: User ID
+                  in: path
+                  name: id
+                  required: true
+                  schema:
+                    format: uuid
+                    type: string
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/AdminUser'
+                    description: Successful response
+                "403":
+                    description: Forbidden - super admin access required
+                "404":
+                    description: User not found
+            security:
+                - BearerAuth: []
+            summary: Get user by ID
+            tags:
+                - Users
+        put:
+            description: Update a user's information (admin only)
+            parameters:
+                - in: path
+                  name: id
+                  required: true
+                  schema:
+                    format: uuid
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/AdminUserUpdate'
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    message:
+                                        type: string
+                                    user:
+                                        $ref: '#/components/schemas/AdminUser'
+                                type: object
+                    description: User updated successfully
+                "403":
+                    description: Forbidden - super admin access required
+                "404":
+                    description: User not found
+            security:
+                - BearerAuth: []
+            summary: Update user
+            tags:
+                - Users
+    /change-password:
+        put:
+            description: Change user password (requires old password)
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/CoreChangePasswordRequest'
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CoreMessageResponse'
+                    description: Password changed successfully
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CoreErrorResponse'
+                    description: Validation error or invalid old password
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CoreErrorResponse'
+                    description: Not authenticated
+            security:
+                - cookieAuth: []
+                  csrfToken: []
+                - bearerAuth: []
+                  csrfToken: []
+            summary: Change password
+            tags:
+                - Core Authentication Module Docs
+    /csrf-token:
+        get:
+            description: |
+                Generates a new CSRF token using HMAC-based double-submit cookie pattern.
+                The token is returned in the response body and also set as a cookie.
+                Clients must include this token in the X-CSRF-Token header (or csrf_token form field)
+                on all state-changing requests (POST, PUT, DELETE, PATCH).
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CsrfCSRFTokenResponse'
+                    description: CSRF token generated successfully
+                    headers:
+                        Set-Cookie:
+                            description: CSRF cookie (non-HttpOnly so JS can read it)
+                            schema:
+                                type: string
+                "500":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CsrfErrorResponse'
+                    description: CSRF token generation error
+            summary: Get CSRF token
+            tags:
+                - CSRF Module Docs
+    /forgot-password:
+        post:
+            description: Send password reset link/code via email or SMS
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/CoreForgotPasswordRequest'
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CoreMessageResponse'
+                    description: Password reset instructions sent (always succeeds to prevent user enumeration)
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CoreErrorResponse'
+                    description: Validation error
+            security:
+                - csrfToken: []
+            summary: Request password reset
+            tags:
+                - Core Authentication Module Docs
+    /invitations:
+        get:
+            description: List invitations sent by the authenticated user with pagination and filtering
+            parameters:
+                - $ref: '#/components/parameters/InvitationLimit'
+                - $ref: '#/components/parameters/InvitationOffset'
+                - $ref: '#/components/parameters/InvitationInvitationSortField'
+                - $ref: '#/components/parameters/InvitationSortDir'
+                - description: Filter invitations by status
+                  in: query
+                  name: status
+                  schema:
+                    enum:
+                        - pending
+                        - accepted
+                        - declined
+                        - expired
+                    type: string
+                - description: Filter invitations by purpose
+                  in: query
+                  name: purpose
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    data:
+                                        properties:
+                                            list:
+                                                items:
+                                                    $ref: '#/components/schemas/InvitationInvitation'
+                                                type: array
+                                            sort_dir:
+                                                enum:
+                                                    - asc
+                                                    - desc
+                                                example: desc
+                                                type: string
+                                            sort_field:
+                                                example: created_at
+                                                type: string
+                                            total:
+                                                type: integer
+                                        type: object
+                                    message:
+                                        nullable: true
+                                        type: string
+                                type: object
+                    description: Successful response
+                "401":
+                    description: Authentication required
+            security:
+                - BearerAuth: []
+            summary: List my sent invitations
+            tags:
+                - Invitations
+        post:
+            description: Send a standalone invitation to an email address. The inviter must be authenticated.
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/InvitationSendInvitationRequest'
+                required: true
+            responses:
+                "201":
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    data:
+                                        $ref: '#/components/schemas/InvitationInvitation'
+                                    message:
+                                        nullable: true
+                                        type: string
+                                type: object
+                    description: Invitation sent
+                "400":
+                    description: Invalid request (missing email or invalid purpose)
+                "401":
+                    description: Authentication required
+                "409":
+                    description: A pending invitation already exists for this email and purpose
+            security:
+                - BearerAuth: []
+            summary: Send invitation
+            tags:
+                - Invitations
+    /invitations/{invId}:
+        delete:
+            description: Cancel a pending invitation. Only the inviter can cancel their own invitations.
+            parameters:
+                - description: Invitation ID
+                  in: path
+                  name: invId
+                  required: true
+                  schema:
+                    format: uuid
+                    type: string
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    data:
+                                        nullable: true
+                                        type: object
+                                    message:
+                                        nullable: true
+                                        type: string
+                                type: object
+                    description: Invitation cancelled
+                "401":
+                    description: Authentication required
+                "404":
+                    description: Invitation not found or not owned by the caller
+            security:
+                - BearerAuth: []
+            summary: Cancel invitation
+            tags:
+                - Invitations
+    /invitations/accept:
+        post:
+            description: |
+                Accept a standalone invitation by token. No authentication required — the token is the authorization.
+                If the invited email has no account, a new user is created (name and password required).
+                If the user already exists, the invitation is simply accepted.
+                Returns auth tokens so the user is immediately logged in.
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/InvitationAcceptInvitationRequest'
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    data:
+                                        $ref: '#/components/schemas/InvitationAcceptInvitationResponse'
+                                    message:
+                                        nullable: true
+                                        type: string
+                                type: object
+                    description: Invitation accepted, auth tokens returned
+                "400":
+                    description: Missing token, expired, or missing name/password for new user
+                "404":
+                    description: Invitation not found
+            summary: Accept invitation (public)
+            tags:
+                - Invitations
+    /invitations/decline:
+        post:
+            description: Decline a standalone invitation by token. No authentication required.
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/InvitationInvitationTokenRequest'
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    data:
+                                        nullable: true
+                                        type: object
+                                    message:
+                                        nullable: true
+                                        type: string
+                                type: object
+                    description: Invitation declined
+                "400":
+                    description: Missing token
+                "404":
+                    description: Invitation not found
+            summary: Decline invitation (public)
+            tags:
+                - Invitations
+    /invitations/my:
+        get:
+            description: List all pending invitations for the authenticated user's email
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    data:
+                                        items:
+                                            $ref: '#/components/schemas/InvitationInvitation'
+                                        type: array
+                                    message:
+                                        nullable: true
+                                        type: string
+                                type: object
+                    description: Successful response
+                "401":
+                    description: Authentication required
+            security:
+                - BearerAuth: []
+            summary: List my pending invitations
+            tags:
+                - Invitations
+    /is-available:
+        post:
+            description: Check if an email, username, or phone is available. Provide exactly one field.
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/CoreCheckAvailabilityRequest'
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CoreCheckAvailabilityResponse'
+                    description: Availability check completed
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CoreErrorResponse'
+                    description: Validation error (missing field, multiple fields, or invalid format)
+            security:
+                - csrfToken: []
+            summary: Check email/phone/username availability
+            tags:
+                - Core Authentication Module Docs
+    /login:
+        post:
+            operationId: statelessLogin
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                email:
+                                    description: User email (required if username not provided)
+                                    format: email
+                                    type: string
+                                password:
+                                    format: password
+                                    type: string
+                                username:
+                                    description: Username (required if email not provided)
+                                    type: string
+                            required:
+                                - password
+                            type: object
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/StatelessAuthResponse'
+                    description: Login successful
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/StatelessErrorResponse'
+                    description: Invalid credentials
+                "423":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/StatelessErrorResponse'
+                    description: Account locked due to too many failed attempts
+            summary: Authenticate with email/username and password
+            tags:
+                - Authentication
+    /logout:
+        post:
+            operationId: statelessLogout
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/StatelessMessageResponse'
+                    description: Logout successful
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/StatelessErrorResponse'
+                    description: Unauthorized
+            security:
+                - BearerAuth: []
+            summary: Revoke all refresh tokens for the authenticated user
+            tags:
+                - Authentication
+    /magic-link/resend:
+        post:
+            description: Resend a magic link to the user's email. Deletes the previous token and generates a new one.
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/MagiclinkMagicLinkSendRequest'
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/MagiclinkMessageResponse'
+                    description: Magic link resent
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/MagiclinkErrorResponse'
+                    description: Validation error
+            summary: Resend magic link
+            tags:
+                - Magic Link Module Docs
+    /magic-link/send:
+        post:
+            description: |
+                Send a passwordless sign-in message to the user's email. The email contains
+                a link, a 6-digit code, or both — controlled by the module's `DeliveryMode`
+                config (`link` | `code` | `both`, default `both`). If auto-register is
+                enabled and the email is not found, a new account is created automatically.
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/MagiclinkMagicLinkSendRequest'
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/MagiclinkMessageResponse'
+                    description: Magic link sent (generic message regardless of whether the email exists)
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/MagiclinkErrorResponse'
+                    description: Validation error
+                "500":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/MagiclinkErrorResponse'
+                    description: Internal server error
+            summary: Send magic link / email OTP
+            tags:
+                - Magic Link Module Docs
+    /magic-link/verify:
+        get:
+            description: |
+                Verify the magic link token from the email. Behavior depends on configuration:
+                - If `CallbackURL` is configured, redirects to the frontend with tokens in the URL fragment.
+                - Otherwise, sets auth cookies and returns a JSON AuthResponse.
+            parameters:
+                - description: The magic link token from the email
+                  in: query
+                  name: token
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/MagiclinkAuthResponse'
+                    description: Token verified, auth tokens returned
+                    headers:
+                        Set-Cookie:
+                            schema:
+                                description: Auth cookies (access + refresh tokens)
+                                type: string
+                "302":
+                    description: Redirect to CallbackURL with tokens in URL fragment (when CallbackURL is configured)
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/MagiclinkErrorResponse'
+                    description: Invalid or expired token
+            summary: Verify magic link token
+            tags:
+                - Magic Link Module Docs
+    /magic-link/verify-code:
+        post:
+            description: |
+                Verify the 6-digit OTP code associated with the given email. Used as the
+                primary entrypoint when `DeliveryMode` is `code`, and as a fallback for
+                email clients that mangle URLs when mode is `both`. After `MaxCodeAttempts`
+                failed attempts (default 5) the code is invalidated and the user must
+                request a new one.
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/MagiclinkMagicLinkVerifyByCodeRequest'
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/MagiclinkAuthResponse'
+                    description: Code verified, auth tokens returned
+                    headers:
+                        Set-Cookie:
+                            schema:
+                                description: Auth cookies (access + refresh tokens)
+                                type: string
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/MagiclinkErrorResponse'
+                    description: Invalid email or code
+                "429":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/MagiclinkErrorResponse'
+                    description: Too many failed attempts for this code — request a new one
+            summary: Verify email OTP code
+            tags:
+                - Magic Link Module Docs
+    /me:
+        get:
+            description: Retrieve current authenticated user information
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CoreUserDTO'
+                    description: User information retrieved
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CoreErrorResponse'
+                    description: Not authenticated
+            security:
+                - cookieAuth: []
+                - bearerAuth: []
+            summary: Get current user
+            tags:
+                - Core Authentication Module Docs
+    /me/audit:
+        get:
+            description: Retrieve audit logs for the current user (both as actor and target)
+            parameters:
+                - $ref: '#/components/parameters/AuditLimit'
+                - $ref: '#/components/parameters/AuditOffset'
+                - $ref: '#/components/parameters/AuditSortField'
+                - $ref: '#/components/parameters/AuditSortDir'
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/AuditAuditLogListResponse'
+                    description: Successful response
+                "401":
+                    description: Unauthorized - authentication required
+            security:
+                - BearerAuth: []
+            summary: Get my audit logs
+            tags:
+                - Audit Logs
+    /me/audit/changes:
+        get:
+            description: Retrieve profile change history for the current user
+            parameters:
+                - $ref: '#/components/parameters/AuditLimit'
+                - $ref: '#/components/parameters/AuditOffset'
+                - $ref: '#/components/parameters/AuditSortField'
+                - $ref: '#/components/parameters/AuditSortDir'
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/AuditAuditLogListResponse'
+                    description: Successful response
+            security:
+                - BearerAuth: []
+            summary: Get my profile changes
+            tags:
+                - Audit Logs
+    /me/audit/logins:
+        get:
+            description: Retrieve login history for the current user
+            parameters:
+                - $ref: '#/components/parameters/AuditLimit'
+                - $ref: '#/components/parameters/AuditOffset'
+                - $ref: '#/components/parameters/AuditSortField'
+                - $ref: '#/components/parameters/AuditSortDir'
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/AuditAuditLogListResponse'
+                    description: Successful response
+                "401":
+                    description: Unauthorized
+            security:
+                - BearerAuth: []
+            summary: Get my login history
+            tags:
+                - Audit Logs
+    /me/audit/security:
+        get:
+            description: Retrieve security-related events for the current user
+            parameters:
+                - $ref: '#/components/parameters/AuditLimit'
+                - $ref: '#/components/parameters/AuditOffset'
+                - $ref: '#/components/parameters/AuditSortField'
+                - $ref: '#/components/parameters/AuditSortDir'
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/AuditAuditLogListResponse'
+                    description: Successful response
+            security:
+                - BearerAuth: []
+            summary: Get my security events
+            tags:
+                - Audit Logs
+    /oauth/{provider}:
+        delete:
+            description: Removes an OAuth provider link from the current user's account
+            operationId: oauth.unlink
+            parameters:
+                - description: OAuth provider name to unlink
+                  in: path
+                  name: provider
+                  required: true
+                  schema:
+                    enum:
+                        - google
+                        - github
+                        - microsoft
+                        - discord
+                    type: string
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/OauthMessageResponse'
+                    description: Provider unlinked successfully
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/OauthErrorResponse'
+                    description: Provider not linked or cannot unlink only login method
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/OauthErrorResponse'
+                    description: Unauthorized
+            security:
+                - BearerAuth: []
+            summary: Unlink OAuth provider
+            tags:
+                - OAuth
+        get:
+            description: |
+                Initiates the OAuth login flow by redirecting to the provider's authorization page.
+                After authorization, the provider redirects back to the callback endpoint.
+            operationId: oauth.login
+            parameters:
+                - description: OAuth provider name (google, github, microsoft, discord)
+                  in: path
+                  name: provider
+                  required: true
+                  schema:
+                    required: true
+                    type: string
+                - description: |
+                    Optional frontend URL to redirect to after successful authentication.
+                    Tokens are passed in the URL fragment.
+                  in: query
+                  name: redirect_uri
+                  required: false
+                  schema:
+                    format: uri
+                    type: string
+            responses:
+                "302":
+                    description: Redirect to OAuth provider authorization page
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/OauthErrorResponse'
+                    description: Invalid provider
+            summary: Initiate OAuth login
+            tags:
+                - OAuth
+    /oauth/{provider}/callback:
+        get:
+            description: |
+                Handles the OAuth provider callback after user authorization.
+                Exchanges the authorization code for tokens and authenticates the user.
+            operationId: oauth.callback
+            parameters:
+                - description: OAuth provider name
+                  in: path
+                  name: provider
+                  required: true
+                  schema:
+                    enum:
+                        - google
+                        - github
+                        - microsoft
+                        - discord
+                    type: string
+                - description: Authorization code from the OAuth provider
+                  in: query
+                  name: code
+                  required: true
+                  schema:
+                    type: string
+                - description: State parameter for CSRF protection
+                  in: query
+                  name: state
+                  required: true
+                  schema:
+                    type: string
+                - description: Error code if the provider returned an error
+                  in: query
+                  name: error
+                  required: false
+                  schema:
+                    type: string
+                - description: Error description from the provider
+                  in: query
+                  name: error_description
+                  required: false
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/OauthAuthResponse'
+                    description: Authentication successful (when no redirect URL configured)
+                "302":
+                    description: |
+                        Redirect to frontend with tokens in URL fragment.
+                        Fragment format: #access_token=xxx&refresh_token=xxx&token_type=Bearer&expires_in=3600
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/OauthErrorResponse'
+                    description: Invalid state, expired state, or token exchange failed
+            summary: OAuth callback
+            tags:
+                - OAuth
+    /oauth/linked:
+        get:
+            description: Returns the OAuth providers linked to the current user's account
+            operationId: oauth.linked
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/OauthLinkedProvidersResponse'
+                    description: List of linked providers
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/OauthErrorResponse'
+                    description: Unauthorized
+            security:
+                - BearerAuth: []
+            summary: Get linked OAuth providers
+            tags:
+                - OAuth
+    /oauth/providers:
+        get:
+            description: Returns the list of enabled OAuth providers
+            operationId: oauth.providers
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/OauthProvidersResponse'
+                    description: List of enabled providers
+            summary: List enabled OAuth providers
+            tags:
+                - OAuth
+    /org:
+        post:
+            description: Create a new organization. The authenticated user becomes the owner.
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/OrganizationCreateOrgRequest'
+                required: true
+            responses:
+                "201":
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    data:
+                                        $ref: '#/components/schemas/OrganizationOrganization'
+                                    message:
+                                        nullable: true
+                                        type: string
+                                type: object
+                    description: Organization created
+                "400":
+                    description: Invalid request (missing name or slug taken)
+                "401":
+                    description: Authentication required
+            security:
+                - BearerAuth: []
+            summary: Create organization
+            tags:
+                - Organizations
+    /org/{orgId}:
+        delete:
+            description: Permanently delete an organization and all its memberships. Requires owner role.
+            parameters:
+                - $ref: '#/components/parameters/OrganizationOrgId'
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    data:
+                                        nullable: true
+                                        type: object
+                                    message:
+                                        nullable: true
+                                        type: string
+                                type: object
+                    description: Organization deleted
+                "401":
+                    description: Authentication required
+                "403":
+                    description: Insufficient role (requires owner)
+                "404":
+                    description: Organization not found
+            security:
+                - BearerAuth: []
+            summary: Delete organization
+            tags:
+                - Organizations
+        get:
+            description: Get organization details. Requires membership (any role).
+            parameters:
+                - $ref: '#/components/parameters/OrganizationOrgId'
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    data:
+                                        $ref: '#/components/schemas/OrganizationOrganization'
+                                    message:
+                                        nullable: true
+                                        type: string
+                                type: object
+                    description: Successful response
+                "401":
+                    description: Authentication required
+                "403":
+                    description: Not a member of this organization
+                "404":
+                    description: Organization not found
+            security:
+                - BearerAuth: []
+            summary: Get organization
+            tags:
+                - Organizations
+        put:
+            description: Update organization name, logo, or metadata. Requires admin or owner role.
+            parameters:
+                - $ref: '#/components/parameters/OrganizationOrgId'
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/OrganizationUpdateOrgRequest'
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    data:
+                                        $ref: '#/components/schemas/OrganizationOrganization'
+                                    message:
+                                        nullable: true
+                                        type: string
+                                type: object
+                    description: Organization updated
+                "401":
+                    description: Authentication required
+                "403":
+                    description: Insufficient role (requires admin or owner)
+                "404":
+                    description: Organization not found
+            security:
+                - BearerAuth: []
+            summary: Update organization
+            tags:
+                - Organizations
+    /org/{orgId}/invitations:
+        get:
+            description: List organization invitations with pagination. Requires admin or owner role.
+            parameters:
+                - $ref: '#/components/parameters/OrganizationOrgId'
+                - $ref: '#/components/parameters/OrganizationLimit'
+                - $ref: '#/components/parameters/OrganizationOffset'
+                - $ref: '#/components/parameters/OrganizationInvitationSortField'
+                - $ref: '#/components/parameters/OrganizationSortDir'
+                - description: Filter invitations by status
+                  in: query
+                  name: status
+                  schema:
+                    enum:
+                        - pending
+                        - accepted
+                        - declined
+                        - expired
+                    type: string
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    data:
+                                        properties:
+                                            list:
+                                                items:
+                                                    $ref: '#/components/schemas/OrganizationInvitation'
+                                                type: array
+                                            sort_dir:
+                                                enum:
+                                                    - asc
+                                                    - desc
+                                                example: desc
+                                                type: string
+                                            sort_field:
+                                                example: created_at
+                                                type: string
+                                            total:
+                                                type: integer
+                                        type: object
+                                    message:
+                                        nullable: true
+                                        type: string
+                                type: object
+                    description: Successful response
+                "401":
+                    description: Authentication required
+                "403":
+                    description: Insufficient role (requires admin or owner)
+            security:
+                - BearerAuth: []
+            summary: List invitations
+            tags:
+                - Invitations
+    /org/{orgId}/invitations/{invId}:
+        delete:
+            description: Cancel a pending invitation. Requires admin or owner role.
+            parameters:
+                - $ref: '#/components/parameters/OrganizationOrgId'
+                - description: Invitation ID
+                  in: path
+                  name: invId
+                  required: true
+                  schema:
+                    format: uuid
+                    type: string
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    data:
+                                        nullable: true
+                                        type: object
+                                    message:
+                                        nullable: true
+                                        type: string
+                                type: object
+                    description: Invitation cancelled
+                "401":
+                    description: Authentication required
+                "403":
+                    description: Insufficient role (requires admin or owner)
+                "404":
+                    description: Invitation not found
+            security:
+                - BearerAuth: []
+            summary: Cancel invitation
+            tags:
+                - Invitations
+    /org/{orgId}/invite:
+        post:
+            description: Invite a user to the organization by email. Requires admin or owner role. Checks for duplicate invitations and member limits.
+            parameters:
+                - $ref: '#/components/parameters/OrganizationOrgId'
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/OrganizationInviteRequest'
+                required: true
+            responses:
+                "201":
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    data:
+                                        $ref: '#/components/schemas/OrganizationInvitation'
+                                    message:
+                                        nullable: true
+                                        type: string
+                                type: object
+                    description: Invitation sent
+                "400":
+                    description: Missing email or invalid role
+                "401":
+                    description: Authentication required
+                "403":
+                    description: Insufficient role (requires admin or owner)
+                "409":
+                    description: User is already a member or invitation already exists
+                "429":
+                    description: Organization has reached the maximum member limit
+            security:
+                - BearerAuth: []
+            summary: Send invitation
+            tags:
+                - Invitations
+    /org/{orgId}/members:
+        get:
+            description: List organization members with pagination. Requires membership (any role).
+            parameters:
+                - $ref: '#/components/parameters/OrganizationOrgId'
+                - $ref: '#/components/parameters/OrganizationLimit'
+                - $ref: '#/components/parameters/OrganizationOffset'
+                - $ref: '#/components/parameters/OrganizationMemberSortField'
+                - $ref: '#/components/parameters/OrganizationSortDir'
+                - description: Filter members by role
+                  in: query
+                  name: role
+                  schema:
+                    enum:
+                        - owner
+                        - admin
+                        - member
+                    type: string
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    data:
+                                        properties:
+                                            list:
+                                                items:
+                                                    $ref: '#/components/schemas/OrganizationMemberWithUser'
+                                                type: array
+                                            sort_dir:
+                                                enum:
+                                                    - asc
+                                                    - desc
+                                                example: desc
+                                                type: string
+                                            sort_field:
+                                                example: joined_at
+                                                type: string
+                                            total:
+                                                type: integer
+                                        type: object
+                                    message:
+                                        nullable: true
+                                        type: string
+                                type: object
+                    description: Successful response
+                "401":
+                    description: Authentication required
+                "403":
+                    description: Not a member of this organization
+            security:
+                - BearerAuth: []
+            summary: List members
+            tags:
+                - Members
+    /org/{orgId}/members/{userId}:
+        delete:
+            description: Remove a member from the organization. Requires admin or owner role. Cannot remove the org owner.
+            parameters:
+                - $ref: '#/components/parameters/OrganizationOrgId'
+                - $ref: '#/components/parameters/OrganizationUserId'
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    data:
+                                        nullable: true
+                                        type: object
+                                    message:
+                                        nullable: true
+                                        type: string
+                                type: object
+                    description: Member removed
+                "401":
+                    description: Authentication required
+                "403":
+                    description: Insufficient role or cannot remove owner
+                "404":
+                    description: Member not found
+            security:
+                - BearerAuth: []
+            summary: Remove member
+            tags:
+                - Members
+        get:
+            description: Get a specific member's details. Requires membership (any role).
+            parameters:
+                - $ref: '#/components/parameters/OrganizationOrgId'
+                - $ref: '#/components/parameters/OrganizationUserId'
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    data:
+                                        $ref: '#/components/schemas/OrganizationMemberWithUser'
+                                    message:
+                                        nullable: true
+                                        type: string
+                                type: object
+                    description: Successful response
+                "401":
+                    description: Authentication required
+                "403":
+                    description: Not a member of this organization
+                "404":
+                    description: Member not found
+            security:
+                - BearerAuth: []
+            summary: Get member
+            tags:
+                - Members
+        put:
+            description: Change a member's role. Requires admin or owner role. Cannot demote the org owner.
+            parameters:
+                - $ref: '#/components/parameters/OrganizationOrgId'
+                - $ref: '#/components/parameters/OrganizationUserId'
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/OrganizationUpdateRoleRequest'
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    data:
+                                        nullable: true
+                                        type: object
+                                    message:
+                                        nullable: true
+                                        type: string
+                                type: object
+                    description: Role updated
+                "400":
+                    description: Invalid role
+                "401":
+                    description: Authentication required
+                "403":
+                    description: Insufficient role or cannot demote owner
+                "404":
+                    description: Member not found
+            security:
+                - BearerAuth: []
+            summary: Update member role
+            tags:
+                - Members
+    /org/invitations/accept:
+        post:
+            description: |
+                Accept an organization invitation by token. No authentication required — the token is the authorization.
+                If the invited email has no account, a new user is created (name and password required).
+                If the user already exists, the invitation is accepted and org membership is created.
+                Returns auth tokens and membership details.
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/OrganizationAcceptInvitationRequest'
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    data:
+                                        $ref: '#/components/schemas/OrganizationAcceptOrgInvitationResponse'
+                                    message:
+                                        nullable: true
+                                        type: string
+                                type: object
+                    description: Invitation accepted, membership created, auth tokens returned
+                "400":
+                    description: Missing token, expired, or missing name/password for new user
+                "404":
+                    description: Invitation not found
+                "409":
+                    description: Already a member of this organization
+            summary: Accept org invitation (public)
+            tags:
+                - Invitations
+    /org/invitations/decline:
+        post:
+            description: Decline an organization invitation by token. No authentication required.
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/OrganizationInvitationTokenRequest'
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    data:
+                                        nullable: true
+                                        type: object
+                                    message:
+                                        nullable: true
+                                        type: string
+                                type: object
+                    description: Invitation declined
+                "400":
+                    description: Missing token
+                "404":
+                    description: Invitation not found
+            summary: Decline org invitation (public)
+            tags:
+                - Invitations
+    /org/my:
+        get:
+            description: List all organizations the authenticated user belongs to
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    data:
+                                        items:
+                                            $ref: '#/components/schemas/OrganizationOrganization'
+                                        type: array
+                                    message:
+                                        nullable: true
+                                        type: string
+                                type: object
+                    description: Successful response
+                "401":
+                    description: Authentication required
+            security:
+                - BearerAuth: []
+            summary: List my organizations
+            tags:
+                - Organizations
+    /org/my/invitations:
+        get:
+            description: List all pending invitations for the authenticated user's email
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    data:
+                                        items:
+                                            $ref: '#/components/schemas/OrganizationInvitation'
+                                        type: array
+                                    message:
+                                        nullable: true
+                                        type: string
+                                type: object
+                    description: Successful response
+                "401":
+                    description: Authentication required
+            security:
+                - BearerAuth: []
+            summary: List my pending invitations
+            tags:
+                - Invitations
+    /org/switch:
+        post:
+            description: Switch the user's active organization context. Returns new JWT tokens with the target org's claims.
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/OrganizationSwitchOrgRequest'
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    data:
+                                        $ref: '#/components/schemas/OrganizationTokenPair'
+                                    message:
+                                        nullable: true
+                                        type: string
+                                type: object
+                    description: Switched successfully, new tokens returned
+                "400":
+                    description: Missing org_id
+                "401":
+                    description: Authentication required
+                "403":
+                    description: User is not a member of the target organization
+            security:
+                - BearerAuth: []
+            summary: Switch active organization
+            tags:
+                - Organizations
+    /passkeys:
+        get:
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                items:
+                                    $ref: '#/components/schemas/PasskeysPasskeySummary'
+                                type: array
+                    description: List of passkeys
+            security:
+                - bearerAuth: []
+            summary: List user's passkeys
+            tags:
+                - Passkeys Module Docs
+    /passkeys/{id}:
+        delete:
+            parameters:
+                - in: path
+                  name: id
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Deleted
+                "403":
+                    description: Passkey does not belong to user
+                "404":
+                    description: Not found
+            security:
+                - bearerAuth: []
+            summary: Revoke a passkey
+            tags:
+                - Passkeys Module Docs
+        put:
+            parameters:
+                - in: path
+                  name: id
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/PasskeysRenameRequest'
+                required: true
+            responses:
+                "200":
+                    description: Renamed
+                "403":
+                    description: Passkey does not belong to user
+                "404":
+                    description: Not found
+            security:
+                - bearerAuth: []
+            summary: Rename a passkey
+            tags:
+                - Passkeys Module Docs
+    /passkeys/login/begin:
+        post:
+            description: |
+                Start a discoverable-credential WebAuthn assertion ceremony. The client
+                is not required to supply a username — the authenticator chooses the
+                credential.
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/PasskeysBeginLoginResponse'
+                    description: Assertion options
+            summary: Begin passkey login
+            tags:
+                - Passkeys Module Docs
+    /passkeys/login/finish:
+        post:
+            description: Verify the assertion and issue access + refresh tokens on success.
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/PasskeysFinishLoginRequest'
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/PasskeysAuthResponse'
+                    description: Auth tokens
+                "401":
+                    description: Invalid assertion
+            summary: Finish passkey login
+            tags:
+                - Passkeys Module Docs
+    /passkeys/register/begin:
+        post:
+            description: |
+                Start a WebAuthn registration ceremony for the authenticated user.
+                Returns PublicKeyCredentialCreationOptions for navigator.credentials.create()
+                plus an opaque `challenge_token` the client must send back with the
+                registration response.
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/PasskeysBeginRegistrationResponse'
+                    description: Creation options
+            security:
+                - bearerAuth: []
+            summary: Begin passkey registration
+            tags:
+                - Passkeys Module Docs
+    /passkeys/register/finish:
+        post:
+            description: Verify the attestation produced by the authenticator and persist the credential.
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/PasskeysFinishRegistrationRequest'
+                required: true
+            responses:
+                "201":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/PasskeysPasskeySummary'
+                    description: Passkey registered
+                "400":
+                    description: Invalid attestation or expired challenge
+            security:
+                - bearerAuth: []
+            summary: Finish passkey registration
+            tags:
+                - Passkeys Module Docs
+    /profile:
+        put:
+            description: Update user profile information
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/CoreUpdateProfileRequest'
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CoreUserDTO'
+                    description: Profile updated successfully
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CoreErrorResponse'
+                    description: Validation error
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CoreErrorResponse'
+                    description: Not authenticated
+            security:
+                - cookieAuth: []
+                  csrfToken: []
+                - bearerAuth: []
+                  csrfToken: []
+            summary: Update user profile
+            tags:
+                - Core Authentication Module Docs
+    /refresh:
+        post:
+            description: |
+                The old refresh token is revoked after use (rotation).
+                Reusing an old refresh token will fail with 401.
+            operationId: statelessRefresh
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                refresh_token:
+                                    description: JWT refresh token from login or previous refresh
+                                    type: string
+                            required:
+                                - refresh_token
+                            type: object
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/StatelessAuthResponse'
+                    description: Tokens refreshed
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/StatelessErrorResponse'
+                    description: Invalid or revoked refresh token
+            summary: Exchange a refresh token for new access and refresh tokens
+            tags:
+                - Authentication
+    /resend-verification-email:
+        post:
+            description: Resend verification email (deletes any existing token first)
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/CoreSendVerificationEmailRequest'
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CoreMessageResponse'
+                    description: Verification email resent
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CoreErrorResponse'
+                    description: Validation error
+            security:
+                - csrfToken: []
+            summary: Resend email verification
+            tags:
+                - Core Authentication Module Docs
+    /resend-verification-phone:
+        post:
+            description: Resend verification SMS (deletes any existing token first)
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/CoreSendVerificationPhoneRequest'
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CoreMessageResponse'
+                    description: Verification SMS resent
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CoreErrorResponse'
+                    description: Validation error
+            security:
+                - csrfToken: []
+            summary: Resend phone verification
+            tags:
+                - Core Authentication Module Docs
+    /reset-password:
+        post:
+            description: Reset password using token/code from email/SMS
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/CoreResetPasswordRequest'
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CoreMessageResponse'
+                    description: Password reset successfully
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CoreErrorResponse'
+                    description: Validation error or invalid token/code
+                "404":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CoreErrorResponse'
+                    description: User not found
+            security:
+                - csrfToken: []
+            summary: Reset password
+            tags:
+                - Core Authentication Module Docs
+    /send-verification-email:
+        post:
+            description: Send verification email to user's email address
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/CoreSendVerificationEmailRequest'
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CoreMessageResponse'
+                    description: Verification email sent (always succeeds to prevent user enumeration)
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CoreErrorResponse'
+                    description: Validation error
+            security:
+                - csrfToken: []
+            summary: Send email verification
+            tags:
+                - Core Authentication Module Docs
+    /send-verification-phone:
+        post:
+            description: Send verification SMS with OTP code to user's phone number
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/CoreSendVerificationPhoneRequest'
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CoreMessageResponse'
+                    description: Verification SMS sent (always succeeds to prevent user enumeration)
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CoreErrorResponse'
+                    description: Validation error
+            security:
+                - csrfToken: []
+            summary: Send phone verification
+            tags:
+                - Core Authentication Module Docs
+    /signup:
+        post:
+            description: Create a new user account with email/password
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/CoreSignupRequest'
+                required: true
+            responses:
+                "201":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CoreAuthResponse'
+                    description: User created successfully
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CoreErrorResponse'
+                    description: Validation error
+                "409":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CoreErrorResponse'
+                    description: User already exists
+            security:
+                - csrfToken: []
+            summary: Register a new user
+            tags:
+                - Core Authentication Module Docs
+    /verify-email:
+        get:
+            description: Verify email using token from email link. Redirects to frontend with success/error status if frontend config is set, otherwise returns JSON.
+            parameters:
+                - description: Verification token from email
+                  example: abc123def456
+                  in: query
+                  name: token
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CoreMessageResponse'
+                    description: Email verified (JSON fallback when no frontend config)
+                "302":
+                    description: Redirects to frontend verify-email page with status query parameter
+                    headers:
+                        Location:
+                            description: Redirect URL to frontend
+                            schema:
+                                example: http://localhost:3000/verify-email?status=success
+                                type: string
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CoreErrorResponse'
+                    description: Invalid or expired token
+            summary: Verify email address
+            tags:
+                - Core Authentication Module Docs
+    /verify-phone:
+        post:
+            description: Verify phone number using 6-digit OTP code from SMS
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/CoreVerifyPhoneRequest'
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CoreMessageResponse'
+                    description: Phone verified successfully
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CoreErrorResponse'
+                    description: Invalid or expired code
+            security:
+                - csrfToken: []
+            summary: Verify phone number
+            tags:
+                - Core Authentication Module Docs
+servers:
+    - description: Configured BasePath
+      url: '{baseUrl}'
+      variables:
+        baseUrl:
+            default: /auth
+            description: Value of config.BasePath
+tags:
+    - description: Audit Logs log management endpoints
+      name: Audit Logs
+    - description: Core Authentication Module API Documentation - Handles user authentication, profile management, email/phone verification, password recovery, and account operations
+      name: Core Authentication Module Docs
+    - description: Organization invitation flow
+      name: Invitations
+    - description: Organization member management
+      name: Members
+    - description: OAuth 2.0 / OpenID Connect authentication endpoints
+      name: OAuth
+    - description: Organization CRUD and switching
+      name: Organizations
+    - description: |
+        WebAuthn / Passkeys — phishing-resistant, shared-secret-free authentication.
+        v1 supports primary login via discoverable credentials plus post-signup
+        credential management. Use-as-2FA (passkey as a second factor during
+        password login) is planned for v1.1 via the AuthInterceptors framework.
+      name: Passkeys Module Docs
+    - description: Two-factor authentication (2FA) endpoints for enhanced account security
+      name: Two-Factor Authentication Module
+    - description: User management endpoints
+      name: Users

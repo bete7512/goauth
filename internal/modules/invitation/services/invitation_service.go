@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/bete7512/goauth/internal/operation"
 	"time"
 
 	"github.com/bete7512/goauth/internal/modules/invitation/handlers/dto"
@@ -32,6 +33,7 @@ type InvitationService interface {
 }
 
 type invitationService struct {
+	inTransaction      bool
 	deps               config.ModuleDependencies
 	invitationRepo     models.InvitationRepository
 	userRepo           models.UserRepository
@@ -165,6 +167,17 @@ func (s *invitationService) Cancel(ctx context.Context, invID, inviterID string)
 }
 
 func (s *invitationService) Accept(ctx context.Context, token, name, password string) (*AcceptResult, *types.GoAuthError) {
+	if !s.inTransaction && s.deps.Storage != nil {
+		return operation.Run(ctx, s.deps, func(deps config.ModuleDependencies) (*AcceptResult, *types.GoAuthError) {
+			copy := *s
+			copy.deps = deps
+			copy.inTransaction = true
+			copy.invitationRepo = deps.Storage.Invitation().Invitations()
+			copy.userRepo = deps.Storage.Core().Users()
+			return copy.Accept(ctx, token, name, password)
+		})
+	}
+
 	inv, err := s.invitationRepo.FindByToken(ctx, token)
 	if err != nil {
 		if errors.Is(err, models.ErrNotFound) {
