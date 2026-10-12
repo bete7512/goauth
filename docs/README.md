@@ -66,6 +66,11 @@ it is not the former Docusaurus static `build/` directory. No deployment runs as
 part of local development. `npm` and `package-lock.json` are the supported install
 path.
 
+On Vercel, set the project's Root Directory to `docs`. The `vercel.json` in this
+directory selects the Next.js framework, runs `npm run build`, and sets the output
+directory to `.next`, overriding any previous Docusaurus framework or `build`
+output setting. Redeploy after applying this configuration.
+
 The Markdown serializer is pinned to `2.1.2` because newer versions trigger
 [a Fumadocs stringifier regression](https://github.com/fuma-nama/fumadocs/issues/3604)
 with the reference site's Fumadocs version. Recheck the override when upgrading

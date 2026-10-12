@@ -52,7 +52,7 @@ jobs:
           POSTGRES_PASSWORD: contract-password
         ports: ['5432:5432']
         options: >-
-          --health-cmd 'pg_isready -U goauth -d goauth_contracts'
+          --health-cmd "pg_isready -U goauth -d goauth_contracts"
           --health-interval 5s --health-timeout 5s --health-retries 12
       mysql:
         image: mysql:8.4
@@ -61,7 +61,7 @@ jobs:
           MYSQL_ROOT_PASSWORD: contract-password
         ports: ['3306:3306']
         options: >-
-          --health-cmd 'mysqladmin ping -h localhost -pcontract-password'
+          --health-cmd "mysqladmin ping -h localhost -pcontract-password"
           --health-interval 5s --health-timeout 5s --health-retries 24
     steps:
       - uses: actions/checkout@v4
