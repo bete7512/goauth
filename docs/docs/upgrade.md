@@ -7,6 +7,22 @@ title: Upgrading to the Current API
 
 These docs describe the current working-tree API, including changes that may not yet be published as a tagged release. Match your dependency version to the source you deploy. For local verification, use a Go module replacement pointing to this checkout.
 
+## Upgrading from v0.2.x
+
+The first beta changes credentials, schema and several defaults at once, so plan a maintenance deployment rather than a rolling one. The [CHANGELOG](https://github.com/bete7512/goauth/blob/main/CHANGELOG.md) lists every breaking change.
+
+1. Move to Go 1.26 and update imports to `pkg/modules/<name>`, with one config argument per constructor (table below).
+2. Drain old instances; do not run old and new writers side by side.
+3. Back up the database, inspect pending migrations with `MigrationStatus`, then apply them once (`Migration.Auto` or `ApplyMigrations`).
+4. Start the new instances. Credentials issued by v0.2.x are rejected, so every user signs in again.
+5. Review the new defaults before going live:
+   - rate limiting is on; set `Config.TrustedProxies` behind a load balancer, and give it a shared store for several replicas,
+   - cookies are Secure; local plain-HTTP setups need `Security.Session.AllowInsecureCookies`,
+   - OAuth sign-up needs a provider-verified email; Microsoft tenants need the optional `xms_edov` claim,
+   - invitation links need `CallbackURL`, because tokens are stored only as digests.
+
+Ask users with pending email-verification, password-reset or invitation links to request new ones after the upgrade.
+
 ## Constructor and Lifecycle Changes
 
 | Earlier usage or assumption | Current API |
@@ -54,7 +70,7 @@ Email linking is explicit and requires verified ownership. Organization claims c
 ## Configuration Defaults and Limits
 
 - Password bounds are 8–72 **bytes**, not 8–128 characters.
-- Enable lockout explicitly with `Lockout.Enabled: true`.
+- Lockout is on by default; set `Lockout.Disabled: true` to turn it off. A locked account answers `INVALID_CREDENTIALS` unless `Lockout.RevealLocked` is set.
 - Magic-link lifetime defaults to ten minutes; delivery supports link, code, or both with attempt limits.
 - The current session-management flag does not remove routes; `ChallengeTTL` is not yet applied by the passkey ceremony implementation.
 - `twofactor.verify` is not implemented as per-route step-up middleware, and `Required` does not supply a public enrollment flow.
