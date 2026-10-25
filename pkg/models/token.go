@@ -17,6 +17,9 @@ const (
 	TokenTypeOAuthState        = "oauth_state"
 )
 
+// Token is a stored credential record with a type, an owner, an expiry and a
+// single-use state: verification, password-reset, magic-link and OAuth state
+// tokens, refresh nonces, short codes and authentication continuations.
 type Token struct {
 	// Data stores typed, purpose-specific continuation state; never serialize it.
 	Data        string     `json:"-" gorm:"type:text"`
@@ -34,6 +37,7 @@ type Token struct {
 	CreatedAt   time.Time  `json:"created_at"`
 }
 
+// TokenRepository persists Token records.
 type TokenRepository interface {
 	Create(ctx context.Context, token *Token) error
 	FindByToken(ctx context.Context, token string) (*Token, error)
@@ -57,11 +61,14 @@ type TokenRotator interface {
 	Rotate(ctx context.Context, expected *Token, replacement *Token) error
 }
 
+// RotatingTokenRepository is a TokenRepository that rotates a refresh record
+// atomically.
 type RotatingTokenRepository interface {
 	TokenRepository
 	TokenRotator
 }
 
+// TableName returns the database table name.
 func (Token) TableName() string {
 	return "tokens"
 }

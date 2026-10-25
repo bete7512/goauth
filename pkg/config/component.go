@@ -20,7 +20,12 @@ type ModuleConstraints struct {
 	Conflicts []string
 }
 
+// ConstrainedModule is implemented by modules that declare capabilities they
+// provide, require or conflict with.
 type ConstrainedModule interface{ Constraints() ModuleConstraints }
+
+// ModuleShutdown is implemented by modules that release resources when the
+// Auth instance shuts down.
 type ModuleShutdown interface{ Shutdown(context.Context) error }
 
 // StorageBindings declares application-wide credential stores. It is resolved
@@ -29,6 +34,9 @@ type StorageBindings struct {
 	Core    types.CoreStorage
 	Session types.SessionStorage
 }
+
+// StorageBindingModule is implemented by modules that supply
+// application-wide credential stores.
 type StorageBindingModule interface{ StorageBindings() StorageBindings }
 
 // AdaptModule preserves the original contract for GetModule and old consumers.

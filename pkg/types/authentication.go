@@ -6,8 +6,10 @@ import (
 	"time"
 )
 
+// AuthenticationStatus is the outcome of completing an authentication.
 type AuthenticationStatus string
 
+// Authentication outcomes.
 const (
 	Authenticated     AuthenticationStatus = "authenticated"
 	ChallengeRequired AuthenticationStatus = "challenge_required"
@@ -47,6 +49,8 @@ type SignInRequest struct {
 	Metadata *RequestMetadata
 }
 
+// PasswordAuthenticator signs a user in with a password, outside HTTP. Auth
+// implements it through SignIn.
 type PasswordAuthenticator interface {
 	SignIn(context.Context, SignInRequest) (AuthenticationResult, error)
 }
@@ -60,6 +64,8 @@ type GrantContext struct {
 	OrganizationID  string    `json:"organization_id,omitempty"`
 }
 
+// AuthenticationCompleter turns verified evidence into credentials or a
+// challenge. Modules receive it as ModuleDependencies.Completion.
 type AuthenticationCompleter interface {
 	Complete(context.Context, AuthenticationEvidence) (AuthenticationResult, *GoAuthError)
 }

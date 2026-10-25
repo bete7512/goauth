@@ -13,6 +13,9 @@ type OutboxStore interface {
 	AckEvent(context.Context, string, string) error
 	RetryEvent(context.Context, string, string, time.Time) error
 }
+
+// OutboxEvent is a claimed outbox row: the event envelope and its delivery
+// attempts so far.
 type OutboxEvent struct {
 	Envelope EventEnvelope
 	Attempts int

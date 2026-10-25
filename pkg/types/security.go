@@ -8,6 +8,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+// SessionConfig configures credential lifetimes and cookies.
 type SessionConfig struct {
 	Name            string
 	SessionTTL      time.Duration
@@ -30,6 +31,7 @@ type SessionConfig struct {
 // AuthMode defines the authentication mode for the application
 type AuthMode string
 
+// Credential transports.
 const (
 	AuthModeCookie AuthMode = "cookie" // Cookie-based authentication only
 	AuthModeBearer AuthMode = "bearer" // Bearer token authentication only
@@ -37,6 +39,8 @@ const (
 	AuthModeCustom AuthMode = "custom" // Custom authentication schemes
 )
 
+// SecurityConfig holds secrets, signing keys, credential lifetimes, and the
+// password, lockout and cookie policies.
 type SecurityConfig struct {
 	// RetainedJWTKeys are verification-only keys kept during a rotation window.
 	RetainedJWTKeys []JWTVerificationKey
@@ -83,6 +87,8 @@ type SecurityConfig struct {
 	JWTKeyID string
 }
 
+// JWTVerificationKey is a retired signing key kept to verify tokens issued
+// before a rotation, until NotAfter.
 type JWTVerificationKey struct {
 	ID           string
 	Algorithm    JWTAlgorithm
@@ -107,11 +113,14 @@ type LockoutConfig struct {
 // AuthStrategy determines the authentication strategy
 type AuthStrategy string
 
+// Authentication strategies.
 const (
 	StrategySession   AuthStrategy = "session"   // Default stateful session
 	StrategyStateless AuthStrategy = "stateless" // JWT-only stateless
 )
 
+// PasswordPolicy constrains new passwords. Lengths count bytes, and the
+// maximum is capped at 72, the bcrypt input limit.
 type PasswordPolicy struct {
 	MinLength        int
 	MaxLength        int
@@ -121,6 +130,8 @@ type PasswordPolicy struct {
 	RequireSpecial   bool
 }
 
+// CustomClaimsProvider adds application claims to issued access tokens.
+// Reserved identity, purpose and lifetime claims cannot be overridden.
 type CustomClaimsProvider interface {
 	GetClaims(user *models.User) (jwt.MapClaims, error)
 }

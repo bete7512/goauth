@@ -9,6 +9,25 @@ run:
 linters:
   # errcheck, govet, ineffassign, staticcheck, unused
   default: standard
+  enable:
+    - revive
+  settings:
+    revive:
+      rules:
+        # Every exported identifier in the public API carries a doc comment,
+        # because pkg.go.dev is the reference for library users.
+        - name: exported
+          arguments:
+            - disableStutteringCheck
+  exclusions:
+    rules:
+      # internal/, storage/, tests and tools are not public API.
+      - path-except: ^pkg/
+        linters:
+          - revive
+      - path: _test\.go
+        linters:
+          - revive
 
 formatters:
   enable:

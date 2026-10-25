@@ -24,6 +24,8 @@ import (
 	"github.com/bete7512/goauth/pkg/types"
 )
 
+// Auth is a GoAuth instance. Create it with New, register modules with Use,
+// call Initialize, then mount Routes on your router.
 type Auth struct {
 	config             *config.Config
 	storage            types.Storage
@@ -203,6 +205,7 @@ func (a *Auth) Use(component config.Component) error {
 	return nil
 }
 
+// Config returns a copy of the validated configuration.
 func (a *Auth) Config() *config.Config {
 	a.configMu.RLock()
 	defer a.configMu.RUnlock()

@@ -10,6 +10,7 @@ import (
 // AccountType represents the type of authentication account
 type AccountType string
 
+// Account types describe how an external identity is linked.
 const (
 	AccountTypeOAuth       AccountType = "oauth"
 	AccountTypeOIDC        AccountType = "oidc"
@@ -37,6 +38,7 @@ type Account struct {
 	UpdatedAt         time.Time  `json:"updated_at"`
 }
 
+// TableName returns the database table name.
 func (Account) TableName() string {
 	return "accounts"
 }

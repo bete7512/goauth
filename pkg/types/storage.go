@@ -11,6 +11,7 @@ import (
 // DialectType represents database dialect for SQL databases
 type DialectType string
 
+// Supported SQL dialects.
 const (
 	DialectTypePostgres DialectType = "postgres"
 	DialectTypeMysql    DialectType = "mysql"
@@ -20,12 +21,15 @@ const (
 // DriverType represents storage backend type
 type DriverType string
 
+// Storage drivers.
 const (
 	DriverTypeGorm  DriverType = "gorm"
 	DriverTypeMongo DriverType = "mongo"
 	DriverTypeSqlc  DriverType = "sqlc"
 )
 
+// Storage gives each module its store. Accessors for features a backend does
+// not implement return nil.
 type Storage interface {
 	// Core returns storage for the core module (users, tokens, etc.)
 	Core() CoreStorage
@@ -94,6 +98,7 @@ type StatelessStorage interface {
 type AdminStorage interface {
 }
 
+// AuditLogStorage defines storage for the audit module.
 type AuditLogStorage interface {
 	AuditLogs() models.AuditLogRepository
 	WithTransaction(ctx context.Context, fn func(tx AuditLogStorage) error) error

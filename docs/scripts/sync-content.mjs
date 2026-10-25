@@ -155,6 +155,7 @@ export function syncContent() {
         "modules",
         "---Guides---",
         "security",
+        "production",
         "storage",
         "migrations",
         "upgrade",

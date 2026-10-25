@@ -27,7 +27,7 @@ That's the whole mental model.
 - **Lego-style modules.** Start with signup and login. Add 2FA, OAuth, passkeys, or organizations later with one line each.
 - **Any framework.** Adapters for `net/http`, Gin, Chi, and Fiber. Everything else works through plain `http.Handler`.
 - **Your database.** PostgreSQL, MySQL, or SQLite through GORM, with embedded migrations per module.
-- **Secure by default.** bcrypt password hashing, account lockout, request rate limiting, refresh-token rotation, hashed refresh tokens, 2FA attempt lockout, and AES-256-GCM encryption.
+- **Secure by default.** bcrypt password hashing, account lockout, request rate limiting, Secure cookies, refresh-token rotation, single-use secrets stored as digests, single-use TOTP codes, and AES-256-GCM encryption.
 - **Hookable.** Every important moment fires an event you can subscribe to.
 - **Typed client for free.** Each module ships an OpenAPI spec, and a TypeScript client is generated from them.
 
@@ -122,25 +122,27 @@ You didn't register any modules, so GoAuth used its defaults. **Core** handles s
 
 Pick what you need. Each one brings its own routes, tables, and OpenAPI docs.
 
-| Module | What it gives you |
-|---|---|
-| **Core** | Signup, profile, password reset and change, email and phone verification. Always on. |
-| **Stateless** | JWT access and refresh tokens with rotation. The default when no auth mode is chosen. |
-| **Session** | Server-side sessions, cookie strategies, sliding expiry, and listing or revoking devices. |
-| **Notification** | Email and SMS through Resend, SendGrid, SMTP, or Twilio, with branded templates. |
-| **Two-Factor** | TOTP authenticator apps plus backup codes. |
-| **OAuth** | Google, GitHub, Microsoft, Discord, and any OIDC provider, with PKCE. |
-| **Magic Link** | Passwordless login by email. |
-| **Passkeys** | WebAuthn login with Touch ID, Face ID, Windows Hello, or security keys. |
-| **Organization** | Multi-tenant orgs with members, roles, invitations, and org switching. |
-| **Invitation** | Invite-only signups for apps without organizations. |
-| **Admin** | User management endpoints behind admin middleware. |
-| **Audit** | A security event trail covering logins, password changes, and more. |
-| **Captcha** | reCAPTCHA v3 or Cloudflare Turnstile on the routes you choose. |
-| **CSRF** | Double-submit cookie protection for state-changing requests. |
-| **Rate Limit** | Per-IP and per-identifier budgets on login, verification, resets, sends, and signup. On by default, with a pluggable store for multiple replicas. |
+| Module | What it gives you | Stability |
+|---|---|---|
+| **Core** | Signup, profile, password reset and change, email and phone verification. Always on. | Stable |
+| **Stateless** | JWT access and refresh tokens with rotation. The default when no auth mode is chosen. | Stable |
+| **Session** | Server-side sessions, cookie strategies, sliding expiry, and listing or revoking devices. | Stable |
+| **Notification** | Email and SMS through Resend, SendGrid, SMTP, or Twilio, with branded templates. | Stable |
+| **Two-Factor** | TOTP authenticator apps plus backup codes. | Stable |
+| **OAuth** | Google, GitHub, Microsoft, and Discord with PKCE; plug in other providers with `oauth.NewWithProviders`. | Stable |
+| **Magic Link** | Passwordless login by email. | Stable |
+| **Passkeys** | WebAuthn login with Touch ID, Face ID, Windows Hello, or security keys. | Experimental |
+| **Organization** | Multi-tenant orgs with members, roles, invitations, and org switching. | Experimental |
+| **Invitation** | Invite-only signups for apps without organizations. | Experimental |
+| **Admin** | User management endpoints behind admin middleware. | Experimental |
+| **Audit** | A security event trail covering logins, password changes, and more. | Stable |
+| **Captcha** | reCAPTCHA v3 or Cloudflare Turnstile on the routes you choose. | Stable |
+| **CSRF** | Double-submit cookie protection for state-changing requests. | Stable |
+| **Rate Limit** | Per-IP and per-identifier budgets on login, verification, resets, sends, and signup. On by default, with a pluggable store for multiple replicas. | Stable |
 
 > **Session and Stateless are mutually exclusive.** Choose one, or register neither to get Stateless.
+>
+> **Experimental** modules work and are tested, but their API and schema may change during the beta.
 
 ### Adding modules
 
@@ -316,7 +318,7 @@ GoAuth is **pre-1.0**. The first public beta, `v0.3.0-beta.1`, is prepared in th
 | CI: lint, govulncheck, tidy and mock drift checks | Done (#27) |
 | Release workflow, CHANGELOG, SECURITY.md, CONTRIBUTING | Done (#28) |
 | Two-factor service tests, regression tests | #29 |
-| Exported API docs, production checklist | #30 |
+| Exported API docs, production checklist | Done (#30) |
 | OAuth links for unverified emails under the opt-in | #41 |
 
 Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md). Contributions are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md).

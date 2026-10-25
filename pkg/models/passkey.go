@@ -29,6 +29,7 @@ type PasskeyCredential struct {
 	CreatedAt         time.Time  `json:"created_at"`
 }
 
+// TableName returns the database table name.
 func (PasskeyCredential) TableName() string {
 	return "passkey_credentials"
 }

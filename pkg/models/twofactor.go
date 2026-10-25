@@ -19,6 +19,7 @@ type TwoFactor struct {
 	UpdatedAt    time.Time `json:"updated_at"`
 }
 
+// TableName returns the database table name.
 func (TwoFactor) TableName() string {
 	return "two_factors"
 }
@@ -33,6 +34,7 @@ type BackupCode struct {
 	CreatedAt time.Time  `json:"created_at"`
 }
 
+// TableName returns the database table name.
 func (BackupCode) TableName() string {
 	return "backup_codes"
 }

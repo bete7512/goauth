@@ -11,6 +11,8 @@ import (
 	"github.com/bete7512/goauth/pkg/types"
 )
 
+// RouteInfo describes one HTTP route: its unique name, method, path, handler
+// and the middleware it requires.
 type RouteInfo struct {
 	Name        string // Unique route identifier (e.g., "core.login", "admin.users.list")
 	Method      string
@@ -30,6 +32,8 @@ type MigrationConfig struct {
 	OutputDir string
 }
 
+// Module is the full module contract. Auth.Use also accepts the smaller
+// Component and adapts it to Module.
 type Module interface {
 	// Name returns the module identifier
 	Name() string
@@ -57,6 +61,9 @@ type Module interface {
 	Migrations() types.ModuleMigrations
 }
 
+// ModuleDependencies is passed to every module's Init: storage, configuration,
+// logger, event bus, middleware manager, security manager and the shared
+// authentication completer.
 type ModuleDependencies struct {
 	Completion        types.AuthenticationCompleter
 	Storage           types.Storage
@@ -85,6 +92,8 @@ type MiddlewareManager interface {
 	ApplyGlobal(handler http.Handler) http.Handler
 }
 
+// Config is the root configuration passed to auth.New. Validate fills
+// defaults and rejects invalid combinations.
 type Config struct {
 	MaxConcurrentRequests int
 	Admission             types.AdmissionController
@@ -143,6 +152,8 @@ type Config struct {
 	APIURL string
 }
 
+// FrontendConfig locates the frontend pages that verification, password-reset
+// and redirect links point to.
 type FrontendConfig struct {
 	Domain                  string
 	URL                     string
@@ -155,6 +166,8 @@ type FrontendConfig struct {
 	ChangePasswordPath      string
 }
 
+// CoreConfig configures the core module: signup requirements, verification
+// and short-code attempt limits.
 type CoreConfig struct {
 	RequirePhoneNumber       bool
 	RequireUserName          bool
@@ -252,7 +265,6 @@ type CSRFModuleConfig struct {
 	ProtectedMethods []string
 }
 
-// CaptchaModuleConfig holds configuration for CAPTCHA verification module
 // RateLimitRuleConfig is one rate-limit rule applied to matching routes.
 type RateLimitRuleConfig struct {
 	// Name identifies the rule in headers, events and logs. Required and unique.
@@ -314,6 +326,7 @@ type RateLimitModuleConfig struct {
 	MaxTrackedKeys int
 }
 
+// CaptchaModuleConfig holds configuration for the CAPTCHA verification module.
 type CaptchaModuleConfig struct {
 	// Provider is the captcha provider: types.CaptchaProviderGoogle or types.CaptchaProviderCloudflare
 	Provider types.CaptchaProvider
@@ -486,7 +499,7 @@ type OAuthProviderConfig struct {
 	Enabled bool
 }
 
-// two factor
+// TwoFactorConfig configures the two-factor (TOTP) module.
 type TwoFactorConfig struct {
 	Issuer           string // Name shown in authenticator app
 	Required         bool   // Make 2FA mandatory for all users
@@ -620,6 +633,8 @@ func (c *Config) Validate() error {
 	return nil
 }
 
+// GetModuleConfig returns the opaque configuration stored under name in
+// ModuleConfigs, or nil.
 func (c *Config) GetModuleConfig(name string) interface{} {
 	return c.ModuleConfigs[name]
 }

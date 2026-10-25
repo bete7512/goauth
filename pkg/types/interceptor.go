@@ -29,6 +29,7 @@ const (
 // LoginChallengeType identifies the kind of challenge a module issues.
 type LoginChallengeType string
 
+// Login challenge types.
 const (
 	ChallengeTwoFactor LoginChallengeType = "2fa"
 	ChallengeOrgSelect LoginChallengeType = "org_select"

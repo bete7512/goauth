@@ -7,6 +7,8 @@ import (
 	"time"
 )
 
+// User is an account. PasswordHash is a bcrypt hash, and incrementing
+// TokenVersion invalidates every credential issued before.
 type User struct {
 	ID                  string `json:"id" gorm:"primaryKey"`
 	Name                string `json:"name"`
@@ -31,6 +33,7 @@ type User struct {
 	UpdatedAt           *time.Time `json:"updated_at"`
 }
 
+// UserRepository persists users.
 type UserRepository interface {
 	Create(ctx context.Context, user *User) error
 	FindByEmail(ctx context.Context, email string) (*User, error)
@@ -64,6 +67,7 @@ type UserProfileMutator interface {
 	UpdateProfile(context.Context, string, string, string, string) error
 }
 
+// TableName returns the database table name.
 func (User) TableName() string {
 	return "users"
 }

@@ -7,6 +7,8 @@ import (
 	"time"
 )
 
+// Session is a server-side login session. RefreshToken holds the SHA-256
+// digest of the refresh secret, never the secret itself.
 type Session struct {
 	AuthData              string    `json:"-" gorm:"type:text"`
 	ID                    string    `json:"id" gorm:"primaryKey"`
@@ -27,15 +29,19 @@ type SessionRotator interface {
 	RotateToken(ctx context.Context, oldToken string, session *Session) error
 }
 
+// RotatingSessionRepository is a SessionRepository that rotates refresh
+// secrets atomically.
 type RotatingSessionRepository interface {
 	SessionRepository
 	SessionRotator
 }
 
+// TableName returns the database table name.
 func (Session) TableName() string {
 	return "sessions"
 }
 
+// SessionRepository persists sessions.
 type SessionRepository interface {
 	Create(ctx context.Context, session *Session) error
 	FindByID(ctx context.Context, id string) (*Session, error)
