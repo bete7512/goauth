@@ -55,3 +55,17 @@ sdk-spec:
 # Requires npm; installs deps on first run.
 sdk: sdk-spec
 	cd clients/ts && (test -d node_modules || npm install) && npm run generate
+
+# Storage contract tests against a disposable database container (requires docker).
+.PHONY: test-contracts-mysql test-contracts-postgres
+test-contracts-mysql:
+	docker rm -f goauth-contracts-mysql >/dev/null 2>&1 || true
+	docker run -d --name goauth-contracts-mysql -e MYSQL_DATABASE=goauth_contracts -e MYSQL_ROOT_PASSWORD=contract-password -p 127.0.0.1:33306:3306 mysql:8.4 >/dev/null
+	@until docker exec goauth-contracts-mysql mysqladmin ping -h 127.0.0.1 -pcontract-password --silent >/dev/null 2>&1; do sleep 2; done; sleep 5
+	GOAUTH_CONTRACT_DIALECT=mysql GOAUTH_CONTRACT_DSN='root:contract-password@tcp(127.0.0.1:33306)/goauth_contracts?parseTime=true&loc=UTC' go test -race ./storage/gorm -count=1; status=$$?; docker rm -f goauth-contracts-mysql >/dev/null; exit $$status
+
+test-contracts-postgres:
+	docker rm -f goauth-contracts-postgres >/dev/null 2>&1 || true
+	docker run -d --name goauth-contracts-postgres -e POSTGRES_DB=goauth_contracts -e POSTGRES_USER=goauth -e POSTGRES_PASSWORD=contract-password -p 127.0.0.1:35432:5432 postgres:17 >/dev/null
+	@until docker exec goauth-contracts-postgres pg_isready -U goauth -d goauth_contracts >/dev/null 2>&1; do sleep 2; done
+	GOAUTH_CONTRACT_DIALECT=postgres GOAUTH_CONTRACT_DSN='host=127.0.0.1 user=goauth password=contract-password dbname=goauth_contracts port=35432 sslmode=disable' go test -race ./storage/gorm -count=1; status=$$?; docker rm -f goauth-contracts-postgres >/dev/null; exit $$status
