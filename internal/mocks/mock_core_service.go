@@ -102,21 +102,6 @@ func (mr *MockCoreServiceMockRecorder) GetCurrentUser(ctx, userID any) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCurrentUser", reflect.TypeOf((*MockCoreService)(nil).GetCurrentUser), ctx, userID)
 }
 
-// GetProfile mocks base method.
-func (m *MockCoreService) GetProfile(ctx context.Context, userID string) (*dto.UserDTO, *types.GoAuthError) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetProfile", ctx, userID)
-	ret0, _ := ret[0].(*dto.UserDTO)
-	ret1, _ := ret[1].(*types.GoAuthError)
-	return ret0, ret1
-}
-
-// GetProfile indicates an expected call of GetProfile.
-func (mr *MockCoreServiceMockRecorder) GetProfile(ctx, userID any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProfile", reflect.TypeOf((*MockCoreService)(nil).GetProfile), ctx, userID)
-}
-
 // ResendEmailVerification mocks base method.
 func (m *MockCoreService) ResendEmailVerification(ctx context.Context, email string) (*dto.MessageResponse, *types.GoAuthError) {
 	m.ctrl.T.Helper()

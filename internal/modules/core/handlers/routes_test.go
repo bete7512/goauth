@@ -150,7 +150,7 @@ func (s *CoreHandlerSuite) TestMe() {
 			name:   "success",
 			userID: "user-1",
 			setup: func(svc *mocks.MockCoreService) {
-				svc.EXPECT().GetProfile(gomock.Any(), "user-1").Return(userDTO, nil)
+				svc.EXPECT().GetCurrentUser(gomock.Any(), "user-1").Return(userDTO, nil)
 			},
 			wantStatus: http.StatusOK,
 		},
@@ -164,7 +164,7 @@ func (s *CoreHandlerSuite) TestMe() {
 			name:   "service error",
 			userID: "user-1",
 			setup: func(svc *mocks.MockCoreService) {
-				svc.EXPECT().GetProfile(gomock.Any(), "user-1").Return(nil, types.NewInternalError("db error"))
+				svc.EXPECT().GetCurrentUser(gomock.Any(), "user-1").Return(nil, types.NewInternalError("db error"))
 			},
 			wantStatus: http.StatusInternalServerError,
 		},

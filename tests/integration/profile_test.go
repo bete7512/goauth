@@ -35,3 +35,17 @@ func TestProfile_CheckAvailability(t *testing.T) {
 	w = h.JSONPost(handler, "/auth/is-available", map[string]interface{}{"email": "free@example.com"})
 	assert.Equal(t, http.StatusOK, w.Code, "check free: %s", w.Body.String())
 }
+
+// TestProfile_MeReturnsAccountState guards against /me serving a partial DTO:
+// account flags and identifiers must reflect the stored user, not zero values.
+func TestProfile_MeReturnsAccountState(t *testing.T) {
+	_, handler := h.SetupStatelessAuth(t)
+	token, _ := h.SignupAndLogin(t, handler, "state@example.com", "Test1234", "State User")
+
+	me := h.Me(t, handler, token)
+	assert.Equal(t, "state@example.com", me["email"])
+	assert.Equal(t, true, me["active"])
+	assert.Equal(t, false, me["email_verified"])
+	assert.NotEmpty(t, me["username"])
+	assert.NotEmpty(t, me["last_login_at"])
+}
