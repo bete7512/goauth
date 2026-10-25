@@ -3640,6 +3640,12 @@ paths:
                             schema:
                                 $ref: '#/components/schemas/CoreErrorResponse'
                     description: User not found
+                "429":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CoreErrorResponse'
+                    description: Too many wrong codes; the code is invalidated, request a new one
             security:
                 - csrfToken: []
             summary: Reset password
@@ -3789,6 +3795,12 @@ paths:
                             schema:
                                 $ref: '#/components/schemas/CoreErrorResponse'
                     description: Invalid or expired code
+                "429":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CoreErrorResponse'
+                    description: Too many wrong codes; the code is invalidated, request a new one
             security:
                 - csrfToken: []
             summary: Verify phone number

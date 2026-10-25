@@ -109,6 +109,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Too many wrong codes; the code is invalidated, request a new one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: User not found
           content:
@@ -283,6 +289,12 @@ paths:
                 $ref: '#/components/schemas/MessageResponse'
         '400':
           description: Invalid or expired code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Too many wrong codes; the code is invalidated, request a new one
           content:
             application/json:
               schema:

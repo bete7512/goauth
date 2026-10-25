@@ -3,6 +3,7 @@ package core_services_test
 import (
 	"context"
 	"errors"
+	"net/http"
 	"testing"
 	"time"
 
@@ -207,11 +208,12 @@ func (s *PasswordServiceSuite) TestResetPassword() {
 	expiredToken := testutil.TestExpiredVerificationToken(testUser.ID, models.TokenTypePasswordReset)
 
 	tests := []struct {
-		name    string
-		req     *dto.ResetPasswordRequest
-		setup   func(*mocks.MockUserRepository, *mocks.MockTokenRepository, *mocks.MockEventBus)
-		wantErr bool
-		errCode types.ErrorCode
+		name       string
+		req        *dto.ResetPasswordRequest
+		setup      func(*mocks.MockUserRepository, *mocks.MockTokenRepository, *mocks.MockEventBus)
+		wantErr    bool
+		errCode    types.ErrorCode
+		wantStatus int
 	}{
 		{
 			name: "success with token",
@@ -267,6 +269,69 @@ func (s *PasswordServiceSuite) TestResetPassword() {
 			wantErr: true,
 			errCode: types.ErrUserNotFound,
 		},
+		{
+			name: "success with phone code",
+			req:  &dto.ResetPasswordRequest{Code: "123456", Phone: "+15550001001", NewPassword: "newpassword456"},
+			setup: func(ur *mocks.MockUserRepository, tr *mocks.MockTokenRepository, ev *mocks.MockEventBus) {
+				tok := testutil.TestVerificationToken(testUser.ID, models.TokenTypePasswordReset)
+				tok.PhoneNumber = "+15550001001"
+				tr.EXPECT().FindByPhoneAndType(gomock.Any(), "+15550001001", models.TokenTypePasswordReset).Return(tok, nil)
+				ur.EXPECT().FindByID(gomock.Any(), testUser.ID).Return(testUser, nil)
+				ur.EXPECT().Update(gomock.Any(), gomock.AssignableToTypeOf(&models.User{})).Return(nil)
+				tr.EXPECT().MarkAsUsed(gomock.Any(), tok.ID).Return(nil)
+				ev.EXPECT().EmitAsync(gomock.Any(), types.EventAfterResetPassword, gomock.AssignableToTypeOf(&types.PasswordChangedData{})).Return(nil)
+			},
+		},
+		{
+			name: "wrong phone code counts an attempt",
+			req:  &dto.ResetPasswordRequest{Code: "000000", Phone: "+15550001001", NewPassword: "newpassword456"},
+			setup: func(_ *mocks.MockUserRepository, tr *mocks.MockTokenRepository, _ *mocks.MockEventBus) {
+				tok := testutil.TestVerificationToken(testUser.ID, models.TokenTypePasswordReset)
+				tok.PhoneNumber = "+15550001001"
+				tr.EXPECT().FindByPhoneAndType(gomock.Any(), "+15550001001", models.TokenTypePasswordReset).Return(tok, nil)
+				tr.EXPECT().IncrementAttempts(gomock.Any(), tok.ID).Return(1, nil)
+			},
+			wantErr:    true,
+			errCode:    types.ErrInvalidToken,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name: "last wrong phone code consumes the token",
+			req:  &dto.ResetPasswordRequest{Code: "000000", Phone: "+15550001001", NewPassword: "newpassword456"},
+			setup: func(_ *mocks.MockUserRepository, tr *mocks.MockTokenRepository, _ *mocks.MockEventBus) {
+				tok := testutil.TestVerificationToken(testUser.ID, models.TokenTypePasswordReset)
+				tok.PhoneNumber = "+15550001001"
+				tok.Attempts = 4
+				tr.EXPECT().FindByPhoneAndType(gomock.Any(), "+15550001001", models.TokenTypePasswordReset).Return(tok, nil)
+				tr.EXPECT().IncrementAttempts(gomock.Any(), tok.ID).Return(5, nil)
+				tr.EXPECT().MarkAsUsed(gomock.Any(), tok.ID).Return(nil)
+			},
+			wantErr:    true,
+			errCode:    types.ErrInvalidToken,
+			wantStatus: http.StatusTooManyRequests,
+		},
+		{
+			name: "exhausted phone code rejects even the right value",
+			req:  &dto.ResetPasswordRequest{Code: "123456", Phone: "+15550001001", NewPassword: "newpassword456"},
+			setup: func(_ *mocks.MockUserRepository, tr *mocks.MockTokenRepository, _ *mocks.MockEventBus) {
+				tok := testutil.TestVerificationToken(testUser.ID, models.TokenTypePasswordReset)
+				tok.PhoneNumber = "+15550001001"
+				tok.Attempts = 5
+				tr.EXPECT().FindByPhoneAndType(gomock.Any(), "+15550001001", models.TokenTypePasswordReset).Return(tok, nil)
+			},
+			wantErr:    true,
+			errCode:    types.ErrInvalidToken,
+			wantStatus: http.StatusTooManyRequests,
+		},
+		{
+			name: "phone code is looked up by account, not by code",
+			req:  &dto.ResetPasswordRequest{Code: "123456", Phone: "+15550009999", NewPassword: "newpassword456"},
+			setup: func(_ *mocks.MockUserRepository, tr *mocks.MockTokenRepository, _ *mocks.MockEventBus) {
+				tr.EXPECT().FindByPhoneAndType(gomock.Any(), "+15550009999", models.TokenTypePasswordReset).Return(nil, models.ErrNotFound)
+			},
+			wantErr: true,
+			errCode: types.ErrInvalidToken,
+		},
 	}
 
 	for _, tt := range tests {
@@ -280,6 +345,9 @@ func (s *PasswordServiceSuite) TestResetPassword() {
 				s.Nil(resp)
 				s.NotNil(goauthErr)
 				s.Equal(tt.errCode, goauthErr.Code)
+				if tt.wantStatus != 0 {
+					s.Equal(tt.wantStatus, goauthErr.StatusCode)
+				}
 			} else {
 				s.Nil(goauthErr)
 				s.NotNil(resp)

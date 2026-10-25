@@ -162,6 +162,11 @@ type CoreConfig struct {
 	RequirePhoneVerification bool
 	UniquePhoneNumber        bool
 
+	// MaxCodeAttempts caps wrong submissions of the short codes sent by SMS for
+	// password reset and phone verification. The code is invalidated once the
+	// cap is reached and a new one must be requested. Default: 5.
+	MaxCodeAttempts int
+
 	// CustomStorage is optional. If nil, storage is obtained from deps.Storage.Core() during Init.
 	CustomStorage types.CoreStorage
 }

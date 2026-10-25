@@ -130,10 +130,16 @@ func (s *coreService) SendPhoneVerification(ctx context.Context, phone string) (
 	if err != nil {
 		return nil, types.NewInternalError("failed to generate OTP").Wrap(err)
 	}
+	// tokens.token is unique; phone codes need an opaque value of their own.
+	opaque, err := s.Deps.SecurityManager.GenerateRandomToken(32)
+	if err != nil {
+		return nil, types.NewInternalError("failed to generate token").Wrap(err)
+	}
 
 	verificationToken := &models.Token{
 		ID:          uuid.Must(uuid.NewV7()).String(),
 		UserID:      user.ID,
+		Token:       opaque,
 		Code:        code,
 		Type:        models.TokenTypePhoneVerification,
 		PhoneNumber: phone,
@@ -181,10 +187,16 @@ func (s *coreService) ResendPhoneVerification(ctx context.Context, phone string)
 	if err != nil {
 		return nil, types.NewInternalError("failed to generate OTP").Wrap(err)
 	}
+	// tokens.token is unique; phone codes need an opaque value of their own.
+	opaque, err := s.Deps.SecurityManager.GenerateRandomToken(32)
+	if err != nil {
+		return nil, types.NewInternalError("failed to generate token").Wrap(err)
+	}
 
 	verificationToken := &models.Token{
 		ID:          uuid.Must(uuid.NewV7()).String(),
 		UserID:      user.ID,
+		Token:       opaque,
 		Code:        code,
 		Type:        models.TokenTypePhoneVerification,
 		PhoneNumber: phone,
@@ -279,12 +291,15 @@ func (s *coreService) VerifyPhone(ctx context.Context, code string, phone string
 		})
 	}
 
-	verification, err := s.TokenRepository.FindByCode(ctx, code, models.TokenTypePhoneVerification)
+	verification, err := s.TokenRepository.FindByPhoneAndType(ctx, phone, models.TokenTypePhoneVerification)
 	if err != nil {
 		if errors.Is(err, models.ErrNotFound) {
 			return nil, types.NewGoAuthError(types.ErrInvalidToken, "invalid verification code", 400)
 		}
 		return nil, types.NewInternalError("failed to find verification code").Wrap(err)
+	}
+	if authErr := s.checkCode(ctx, verification, code); authErr != nil {
+		return nil, authErr
 	}
 
 	if verification.PhoneNumber != phone || verification.Type != models.TokenTypePhoneVerification {
