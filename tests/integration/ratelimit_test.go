@@ -44,23 +44,20 @@ func TestRateLimit_RegisteredByDefault(t *testing.T) {
 }
 
 // TestRateLimit_IPRuleCoversManyAccounts: spraying different identifiers from
-// one address is stopped by the per-IP credential rule (30 per minute). The
-// bucket refills while the requests run, and each unknown-account login costs
-// a password hash, so the rejection is expected shortly after the 30th attempt
-// rather than at an exact count.
+// one address is stopped by a per-IP rule. The rule uses a long window so the
+// bucket cannot refill during the test: unknown-account logins spend a
+// password hash each, which is slow under the race detector.
 func TestRateLimit_IPRuleCoversManyAccounts(t *testing.T) {
-	_, handler := testhelpers.SetupStatelessWithRateLimit(t, nil, nil)
-	allowed := 0
-	for i := 0; i < 45; i++ {
+	cfg := &config.RateLimitModuleConfig{Rules: []config.RateLimitRuleConfig{{
+		Name: "credential_ip", ApplyTo: []types.RouteName{types.RouteLogin}, Key: types.RateLimitKeyIP, Limit: 5, Window: time.Hour,
+	}}}
+	_, handler := testhelpers.SetupStatelessWithRateLimit(t, cfg, nil)
+	for i := 0; i < 5; i++ {
 		w := login(handler, fmt.Sprintf("user%d@example.com", i))
-		if w.Code == http.StatusTooManyRequests {
-			break
-		}
 		require.Equal(t, http.StatusUnauthorized, w.Code, "attempt %d", i+1)
-		allowed++
 	}
-	require.GreaterOrEqual(t, allowed, 30, "the burst must be served")
-	require.Less(t, allowed, 45, "the per-IP rule must reject the spray")
+	w := login(handler, "user-final@example.com")
+	require.Equal(t, http.StatusTooManyRequests, w.Code, "a sixth identifier from the same address must be limited")
 }
 
 // TestRateLimit_DisabledByConfig: Disabled removes the module entirely.
