@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/bete7512/goauth/pkg/types"
 	h "github.com/bete7512/goauth/tests/integration/testhelpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -139,6 +140,7 @@ func TestInvitation_Cancel_NotInviter(t *testing.T) {
 
 func TestInvitation_AcceptInvitation(t *testing.T) {
 	a, handler := h.SetupStatelessWithInvitation(t)
+	events := h.RecordEvents(a, types.EventInvitationSent)
 
 	// User 1 sends invitation to User 2's email
 	token1, _ := invitationAdmin(t, a, handler, "sender@example.com", "Test1234", "Sender")
@@ -150,9 +152,7 @@ func TestInvitation_AcceptInvitation(t *testing.T) {
 	invData, ok := h.ParseJSON(t, w.Body)["data"].(map[string]interface{})
 	require.True(t, ok, "invite response should have data")
 	require.NotContains(t, invData, "token", "inviter responses must not disclose the emailed bearer secret")
-	invitation, err := a.Config().Storage.Invitation().Invitations().FindByID(context.Background(), invData["id"].(string))
-	require.NoError(t, err)
-	invToken := invitation.Token
+	invToken := h.InvitationToken(t, events, invData["id"].(string))
 
 	// User 2 accepts
 	token2, _ := h.SignupAndLogin(t, handler, "accepter@example.com", "Test1234", "Accepter")
@@ -164,6 +164,7 @@ func TestInvitation_AcceptInvitation(t *testing.T) {
 
 func TestInvitation_DeclineInvitation(t *testing.T) {
 	a, handler := h.SetupStatelessWithInvitation(t)
+	events := h.RecordEvents(a, types.EventInvitationSent)
 
 	// User 1 sends invitation
 	token1, _ := invitationAdmin(t, a, handler, "sender2@example.com", "Test1234", "Sender")
@@ -175,9 +176,7 @@ func TestInvitation_DeclineInvitation(t *testing.T) {
 	invData, ok := h.ParseJSON(t, w.Body)["data"].(map[string]interface{})
 	require.True(t, ok)
 	require.NotContains(t, invData, "token", "inviter responses must not disclose the emailed bearer secret")
-	invitation, err := a.Config().Storage.Invitation().Invitations().FindByID(context.Background(), invData["id"].(string))
-	require.NoError(t, err)
-	invToken := invitation.Token
+	invToken := h.InvitationToken(t, events, invData["id"].(string))
 
 	// User 2 declines
 	token2, _ := h.SignupAndLogin(t, handler, "decliner@example.com", "Test1234", "Decliner")
@@ -189,6 +188,7 @@ func TestInvitation_DeclineInvitation(t *testing.T) {
 
 func TestInvitation_AcceptRequiresNewUserDetails(t *testing.T) {
 	a, handler := h.SetupStatelessWithInvitation(t)
+	events := h.RecordEvents(a, types.EventInvitationSent)
 
 	// User 1 sends invitation to a different email
 	token1, _ := invitationAdmin(t, a, handler, "sender3@example.com", "Test1234", "Sender")
@@ -200,9 +200,7 @@ func TestInvitation_AcceptRequiresNewUserDetails(t *testing.T) {
 	invData, ok := h.ParseJSON(t, w.Body)["data"].(map[string]interface{})
 	require.True(t, ok)
 	require.NotContains(t, invData, "token", "inviter responses must not disclose the emailed bearer secret")
-	invitation, err := a.Config().Storage.Invitation().Invitations().FindByID(context.Background(), invData["id"].(string))
-	require.NoError(t, err)
-	invToken := invitation.Token
+	invToken := h.InvitationToken(t, events, invData["id"].(string))
 
 	// A different current user must not become the invited identity.
 	// The emailed invitation selects a new identity, which still requires registration details.

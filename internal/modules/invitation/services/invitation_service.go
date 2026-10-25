@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/bete7512/goauth/internal/operation"
+	"github.com/bete7512/goauth/internal/security"
 	"time"
 
 	"github.com/bete7512/goauth/internal/modules/invitation/handlers/dto"
@@ -110,7 +111,7 @@ func (s *invitationService) Send(ctx context.Context, req *dto.SendInvitationReq
 		Email:     req.Email,
 		Purpose:   purpose,
 		InviterID: inviterID,
-		Token:     token,
+		Token:     security.TokenDigest(token),
 		Status:    models.InvitationStatusPending,
 		Metadata:  req.Metadata,
 		ExpiresAt: time.Now().Add(s.invitationExpiry),
@@ -178,7 +179,7 @@ func (s *invitationService) Accept(ctx context.Context, token, name, password st
 		})
 	}
 
-	inv, err := s.invitationRepo.FindByToken(ctx, token)
+	inv, err := security.FindByTokenDigest(ctx, token, s.invitationRepo.FindByToken)
 	if err != nil {
 		if errors.Is(err, models.ErrNotFound) {
 			return nil, types.NewInvitationNotFoundError()
@@ -244,7 +245,7 @@ func (s *invitationService) Accept(ctx context.Context, token, name, password st
 }
 
 func (s *invitationService) Decline(ctx context.Context, token string) *types.GoAuthError {
-	inv, err := s.invitationRepo.FindByToken(ctx, token)
+	inv, err := security.FindByTokenDigest(ctx, token, s.invitationRepo.FindByToken)
 	if err != nil {
 		if errors.Is(err, models.ErrNotFound) {
 			return types.NewInvitationNotFoundError()

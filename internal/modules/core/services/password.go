@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/bete7512/goauth/internal/operation"
+	"github.com/bete7512/goauth/internal/security"
 	"github.com/bete7512/goauth/pkg/config"
 	"time"
 
@@ -63,11 +64,16 @@ func (s *coreService) ForgotPassword(ctx context.Context, req *dto.ForgotPasswor
 	resetLink := s.buildPasswordResetLink(token)
 
 	// Create password reset token
+	tokenID := uuid.Must(uuid.NewV7()).String()
+	storedCode := ""
+	if code != "" {
+		storedCode = security.CodeDigest(s.codeKey(), tokenID, code)
+	}
 	verificationToken := &models.Token{
-		ID:          uuid.Must(uuid.NewV7()).String(),
+		ID:          tokenID,
 		UserID:      user.ID,
-		Token:       token,
-		Code:        code,
+		Token:       security.TokenDigest(token),
+		Code:        storedCode,
 		Type:        models.TokenTypePasswordReset,
 		Email:       user.Email,
 		PhoneNumber: user.PhoneNumber,
@@ -116,7 +122,7 @@ func (s *coreService) ResetPassword(ctx context.Context, req *dto.ResetPasswordR
 
 	// Find reset token
 	if req.Token != "" {
-		verification, err = s.TokenRepository.FindByToken(ctx, req.Token)
+		verification, err = security.FindByTokenDigest(ctx, req.Token, s.TokenRepository.FindByToken)
 		if err != nil {
 			if errors.Is(err, models.ErrNotFound) {
 				return nil, types.NewInvalidTokenError()

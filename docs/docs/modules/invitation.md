@@ -161,7 +161,7 @@ When the notification module is registered with an `EmailSender`, invitation ema
 The email uses the `"invitation"` template with these variables:
 - `{{.InviterName}}` -- name of the person who sent the invitation
 - `{{.Purpose}}` -- invitation purpose
-- `{{.InviteLink}}` -- frontend link (only when `CallbackURL` is configured)
+- `{{.InviteLink}}` -- frontend link (only when `CallbackURL` is configured). The link is the only place the invitation token appears: GoAuth stores its digest, so configure `CallbackURL` or the invitation cannot be accepted.
 - `{{.ExpiresAt}}` -- formatted expiry date
 - `{{.Brand.*}}` -- branding variables (AppName, PrimaryColor, etc.)
 

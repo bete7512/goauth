@@ -3,6 +3,7 @@ package services_test
 import (
 	"context"
 	"errors"
+	"github.com/bete7512/goauth/internal/security"
 	"testing"
 	"time"
 
@@ -246,7 +247,7 @@ func (s *InvitationServiceSuite) TestAcceptInvitation_ExistingUser() {
 	existingUser.Email = "user@example.com"
 	org := &models.Organization{ID: "org-1", Name: "Team"}
 
-	t.invitationRepo.EXPECT().FindByToken(gomock.Any(), "valid-token").Return(inv, nil)
+	t.invitationRepo.EXPECT().FindByToken(gomock.Any(), security.TokenDigest("valid-token")).Return(inv, nil)
 	t.userRepo.EXPECT().FindByEmail(gomock.Any(), "user@example.com").Return(existingUser, nil)
 	t.memberRepo.EXPECT().FindByOrgAndUser(gomock.Any(), "org-1", existingUser.ID).Return(nil, models.ErrNotFound)
 	t.memberRepo.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&models.OrganizationMember{})).Return(nil)
@@ -271,7 +272,7 @@ func (s *InvitationServiceSuite) TestAcceptInvitation_NewUser() {
 	}
 	org := &models.Organization{ID: "org-1", Name: "Team"}
 
-	t.invitationRepo.EXPECT().FindByToken(gomock.Any(), "valid-token").Return(inv, nil)
+	t.invitationRepo.EXPECT().FindByToken(gomock.Any(), security.TokenDigest("valid-token")).Return(inv, nil)
 	t.userRepo.EXPECT().FindByEmail(gomock.Any(), "new@example.com").Return(nil, models.ErrNotFound)
 	t.userRepo.EXPECT().Create(gomock.Any(), gomock.Any()).Return(nil)
 	t.memberRepo.EXPECT().FindByOrgAndUser(gomock.Any(), "org-1", gomock.Any()).Return(nil, models.ErrNotFound)
@@ -293,7 +294,7 @@ func (s *InvitationServiceSuite) TestAcceptInvitation_Expired() {
 		Token: "expired-token", Status: models.InvitationStatusPending,
 		Email: "user@example.com", ExpiresAt: time.Now().Add(-1 * time.Hour),
 	}
-	t.invitationRepo.EXPECT().FindByToken(gomock.Any(), "expired-token").Return(inv, nil)
+	t.invitationRepo.EXPECT().FindByToken(gomock.Any(), security.TokenDigest("expired-token")).Return(inv, nil)
 
 	_, authErr := t.svc.AcceptInvitation(context.Background(), "expired-token", "", "")
 	s.NotNil(authErr)
@@ -304,7 +305,7 @@ func (s *InvitationServiceSuite) TestDeclineInvitation_Success() {
 	t := s.setup()
 	inv := &models.OrgInvitation{Token: "tok", Status: models.InvitationStatusPending, OrgID: "org-1", Email: "user@example.com"}
 
-	t.invitationRepo.EXPECT().FindByToken(gomock.Any(), "tok").Return(inv, nil)
+	t.invitationRepo.EXPECT().FindByToken(gomock.Any(), security.TokenDigest("tok")).Return(inv, nil)
 	t.invitationRepo.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil)
 	t.events.EXPECT().EmitAsync(gomock.Any(), types.EventOrgInvitationDeclined, gomock.Any()).Return(nil)
 
@@ -314,6 +315,7 @@ func (s *InvitationServiceSuite) TestDeclineInvitation_Success() {
 
 func (s *InvitationServiceSuite) TestDeclineInvitation_NotFound() {
 	t := s.setup()
+	t.invitationRepo.EXPECT().FindByToken(gomock.Any(), security.TokenDigest("bad-tok")).Return(nil, models.ErrNotFound)
 	t.invitationRepo.EXPECT().FindByToken(gomock.Any(), "bad-tok").Return(nil, models.ErrNotFound)
 
 	authErr := t.svc.DeclineInvitation(context.Background(), "bad-tok")

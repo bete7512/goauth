@@ -88,6 +88,12 @@ Password policy uses **bytes**, matching bcrypt's 72-byte input limit. Defaults 
 
 A locked account receives the same `INVALID_CREDENTIALS` answer as a wrong password, so lockout cannot be used to confirm that an account exists or to learn that a deliberate lockout worked; set `Lockout.RevealLocked: true` to answer `ACCOUNT_LOCKED` (423) instead. The password is still checked while an account is locked, and a login for an unknown identifier costs one password hash, so response timing does not reveal account or lock state. Enable lockout explicitly with `Lockout.Enabled: true`. Defaults for its numeric fields are five attempts and a 15-minute duration; config validation does not turn a false `Enabled` value into true. Use the centralized password flow rather than bypassing it with direct repository writes.
 
+## Stored Secrets
+
+Single-use secrets are stored as digests, so a database read or a leaked backup yields nothing that can be redeemed. Email-verification, password-reset, magic-link and invitation tokens are stored as SHA-256 digests (`s1:` prefix) and looked up by digest. The six-digit codes sent for password reset, phone verification and magic-link sign-in are stored as HMAC-SHA256 digests (`h1:` prefix) keyed from `Security.JwtSecretKey` and bound to their token row, because an unkeyed hash of a six-digit code is reversed by trying a million values. Refresh tokens and authentication continuations were already stored as digests.
+
+The raw value exists only in the delivered link or message, so GoAuth cannot show it again: a lost invitation is re-sent, not re-read. Invitation links therefore require `CallbackURL` (or `InvitationCallbackURL` for organizations). Tokens and codes issued before digests were introduced stay redeemable until they expire; a submitted value shaped like a stored digest is never looked up as a plain token. Rotating `JwtSecretKey` invalidates codes still in flight, which live an hour at most.
+
 ## Authentication Challenges
 
 Challenges block issuance in login, refresh, and resume phases. A pending token is purpose-bound and persisted; it cannot authorize a protected endpoint. The current 2FA HTTP flow requires `temp_token` and `code`, limits attempts, and atomically consumes the continuation before final issuance. See [Two-Factor](modules/twofactor.md) for enforcement and enrollment limits.

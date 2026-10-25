@@ -3,10 +3,10 @@
 package integration_test
 
 import (
-	"context"
 	"net/http"
 	"testing"
 
+	"github.com/bete7512/goauth/pkg/types"
 	h "github.com/bete7512/goauth/tests/integration/testhelpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -221,6 +221,7 @@ func TestOrg_SwitchOrg(t *testing.T) {
 
 func TestOrg_AcceptInvitation(t *testing.T) {
 	a, handler := h.SetupStatelessWithOrg(t)
+	events := h.RecordEvents(a, types.EventOrgInvitationSent)
 
 	// User 1 creates org and invites
 	token1, _ := h.SignupAndLogin(t, handler, "owner@example.com", "Test1234", "Owner")
@@ -238,9 +239,7 @@ func TestOrg_AcceptInvitation(t *testing.T) {
 	invData, ok := invResp["data"].(map[string]interface{})
 	require.True(t, ok, "invite response should have data: %v", invResp)
 	require.NotContains(t, invData, "token", "inviter responses must not disclose the emailed bearer secret")
-	invitation, err := a.Config().Storage.Organization().Invitations().FindByID(context.Background(), invData["id"].(string))
-	require.NoError(t, err)
-	invToken := invitation.Token
+	invToken := h.OrgInvitationToken(t, events, "invitee@example.com")
 
 	// User 2 accepts the invitation
 	token2, _ := h.SignupAndLogin(t, handler, "invitee@example.com", "Test1234", "Invitee")
@@ -252,6 +251,7 @@ func TestOrg_AcceptInvitation(t *testing.T) {
 
 func TestOrg_DeclineInvitation(t *testing.T) {
 	a, handler := h.SetupStatelessWithOrg(t)
+	events := h.RecordEvents(a, types.EventOrgInvitationSent)
 
 	// User 1 creates org and invites
 	token1, _ := h.SignupAndLogin(t, handler, "owner2@example.com", "Test1234", "Owner")
@@ -267,9 +267,7 @@ func TestOrg_DeclineInvitation(t *testing.T) {
 	invData, ok := h.ParseJSON(t, w.Body)["data"].(map[string]interface{})
 	require.True(t, ok)
 	require.NotContains(t, invData, "token", "inviter responses must not disclose the emailed bearer secret")
-	invitation, err := a.Config().Storage.Organization().Invitations().FindByID(context.Background(), invData["id"].(string))
-	require.NoError(t, err)
-	invToken := invitation.Token
+	invToken := h.OrgInvitationToken(t, events, "decliner@example.com")
 
 	// User 2 declines
 	token2, _ := h.SignupAndLogin(t, handler, "decliner@example.com", "Test1234", "Decliner")
