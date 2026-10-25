@@ -5,6 +5,8 @@ title: Passkeys
 
 # Passkeys
 
+> **Experimental.** This module works and is tested, but its API and schema may change during the beta.
+
 The Passkeys module adds WebAuthn credential registration, discoverable sign-in, and credential management. A verified assertion enters GoAuth's shared completion flow, so current account policy, the selected session/JWT strategy, and additional challenges still apply.
 
 ## Registration

@@ -18,6 +18,8 @@ type GoAuthError struct {
 	Err        error     `json:"-"`
 }
 
+// Error codes. A GoAuthError carries one in Code, and API error responses
+// return it in the "code" field. Each code has a New...Error constructor.
 const (
 	// User related errors
 	ErrUserNotFound          ErrorCode = "USER_NOT_FOUND"
@@ -162,6 +164,8 @@ func NewGoAuthError(code ErrorCode, message string, statusCode int) *GoAuthError
 }
 
 // User related error factory functions
+
+// NewUserNotFoundError returns the USER_NOT_FOUND error (HTTP 404) with the message "User not found".
 func NewUserNotFoundError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrUserNotFound,
@@ -170,6 +174,7 @@ func NewUserNotFoundError() *GoAuthError {
 	}
 }
 
+// NewUserAlreadyExistsError returns the USER_ALREADY_EXISTS error (HTTP 409) with the message "User with this email already exists".
 func NewUserAlreadyExistsError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrUserAlreadyExists,
@@ -178,6 +183,7 @@ func NewUserAlreadyExistsError() *GoAuthError {
 	}
 }
 
+// NewUserNotActiveError returns the USER_NOT_ACTIVE error (HTTP 403) with the message "User account is not active".
 func NewUserNotActiveError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrUserNotActive,
@@ -186,6 +192,7 @@ func NewUserNotActiveError() *GoAuthError {
 	}
 }
 
+// NewUserBlockedError returns the USER_BLOCKED error (HTTP 403) with the message "User account is blocked".
 func NewUserBlockedError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrUserBlocked,
@@ -194,6 +201,7 @@ func NewUserBlockedError() *GoAuthError {
 	}
 }
 
+// NewEmailNotVerifiedError returns the EMAIL_NOT_VERIFIED error (HTTP 403) with the message "Email address not verified".
 func NewEmailNotVerifiedError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrEmailNotVerified,
@@ -202,6 +210,7 @@ func NewEmailNotVerifiedError() *GoAuthError {
 	}
 }
 
+// NewPhoneNotVerifiedError returns the PHONE_NOT_VERIFIED error (HTTP 403) with the message "Phone number not verified".
 func NewPhoneNotVerifiedError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrPhoneNotVerified,
@@ -210,6 +219,7 @@ func NewPhoneNotVerifiedError() *GoAuthError {
 	}
 }
 
+// NewAccountDeactivatedError returns the ACCOUNT_DEACTIVATED error (HTTP 403) with the message "Account has been deactivated".
 func NewAccountDeactivatedError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrAccountDeactivated,
@@ -218,6 +228,7 @@ func NewAccountDeactivatedError() *GoAuthError {
 	}
 }
 
+// NewEmailAlreadyVerifiedError returns the EMAIL_ALREADY_VERIFIED error (HTTP 400) with the message "Email address already verified".
 func NewEmailAlreadyVerifiedError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrEmailAlreadyVerified,
@@ -226,6 +237,7 @@ func NewEmailAlreadyVerifiedError() *GoAuthError {
 	}
 }
 
+// NewPhoneAlreadyVerifiedError returns the PHONE_ALREADY_VERIFIED error (HTTP 400) with the message "Phone number already verified".
 func NewPhoneAlreadyVerifiedError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrPhoneAlreadyVerified,
@@ -234,6 +246,7 @@ func NewPhoneAlreadyVerifiedError() *GoAuthError {
 	}
 }
 
+// NewPhoneAlreadyInUseError returns the PHONE_ALREADY_IN_USE error (HTTP 400) with the message "Phone number already in use".
 func NewPhoneAlreadyInUseError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrPhoneAlreadyInUse,
@@ -243,6 +256,8 @@ func NewPhoneAlreadyInUseError() *GoAuthError {
 }
 
 // Authentication error factory functions
+
+// NewInvalidCredentialsError returns the INVALID_CREDENTIALS error (HTTP 401) with the message "Invalid email or password".
 func NewInvalidCredentialsError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrInvalidCredentials,
@@ -251,6 +266,7 @@ func NewInvalidCredentialsError() *GoAuthError {
 	}
 }
 
+// NewInvalidTokenError returns the INVALID_TOKEN error (HTTP 401) with the message "Invalid or expired token".
 func NewInvalidTokenError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrInvalidToken,
@@ -259,6 +275,7 @@ func NewInvalidTokenError() *GoAuthError {
 	}
 }
 
+// NewTokenExpiredError returns the TOKEN_EXPIRED error (HTTP 401) with the message "Token has expired".
 func NewTokenExpiredError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrTokenExpired,
@@ -267,6 +284,7 @@ func NewTokenExpiredError() *GoAuthError {
 	}
 }
 
+// NewTokenNotFoundError returns the TOKEN_NOT_FOUND error (HTTP 400) with the message "Token not found".
 func NewTokenNotFoundError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrTokenNotFound,
@@ -275,6 +293,7 @@ func NewTokenNotFoundError() *GoAuthError {
 	}
 }
 
+// NewTokenAlreadyUsedError returns the TOKEN_ALREADY_USED error (HTTP 400) with the message "Token already used".
 func NewTokenAlreadyUsedError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrTokenAlreadyUsed,
@@ -283,6 +302,7 @@ func NewTokenAlreadyUsedError() *GoAuthError {
 	}
 }
 
+// NewInvalidRefreshTokenError returns the INVALID_REFRESH_TOKEN error (HTTP 401) with the message "Invalid refresh token".
 func NewInvalidRefreshTokenError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrInvalidRefreshToken,
@@ -291,6 +311,7 @@ func NewInvalidRefreshTokenError() *GoAuthError {
 	}
 }
 
+// NewAccountLockedError returns the ACCOUNT_LOCKED error (HTTP 423) with the message "Account is temporarily locked due to too many failed attempts".
 func NewAccountLockedError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrAccountLocked,
@@ -299,6 +320,7 @@ func NewAccountLockedError() *GoAuthError {
 	}
 }
 
+// NewPasswordExpiredError returns the PASSWORD_EXPIRED error (HTTP 401) with the message "Password has expired".
 func NewPasswordExpiredError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrPasswordExpired,
@@ -308,6 +330,8 @@ func NewPasswordExpiredError() *GoAuthError {
 }
 
 // Validation error factory functions
+
+// NewInvalidEmailError returns the INVALID_EMAIL error (HTTP 400) with the message "Invalid email format".
 func NewInvalidEmailError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrInvalidEmail,
@@ -316,6 +340,7 @@ func NewInvalidEmailError() *GoAuthError {
 	}
 }
 
+// NewInvalidPasswordError returns the INVALID_PASSWORD error (HTTP 400) with the message "Invalid password format".
 func NewInvalidPasswordError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrInvalidPassword,
@@ -324,6 +349,7 @@ func NewInvalidPasswordError() *GoAuthError {
 	}
 }
 
+// NewInvalidPhoneError returns the INVALID_PHONE error (HTTP 400) with the message "Invalid phone number format".
 func NewInvalidPhoneError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrInvalidPhone,
@@ -332,6 +358,7 @@ func NewInvalidPhoneError() *GoAuthError {
 	}
 }
 
+// NewMissingFieldsError returns the MISSING_FIELDS error (HTTP 400) with the message "Missing required fields", followed by fields when it is not empty.
 func NewMissingFieldsError(fields string) *GoAuthError {
 	message := "Missing required fields"
 	if fields != "" {
@@ -344,6 +371,7 @@ func NewMissingFieldsError(fields string) *GoAuthError {
 	}
 }
 
+// NewValidationError returns the INVALID_REQUEST_BODY error (HTTP 400) with the given message.
 func NewValidationError(message string) *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrInvalidRequestBody,
@@ -352,6 +380,7 @@ func NewValidationError(message string) *GoAuthError {
 	}
 }
 
+// NewInvalidJSONError returns the INVALID_JSON error (HTTP 400) with the message "Invalid JSON format".
 func NewInvalidJSONError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrInvalidJSON,
@@ -361,6 +390,8 @@ func NewInvalidJSONError() *GoAuthError {
 }
 
 // Authorization error factory functions
+
+// NewUnauthorizedError returns the UNAUTHORIZED error (HTTP 401) with the message "Unauthorized access".
 func NewUnauthorizedError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrUnauthorized,
@@ -369,6 +400,7 @@ func NewUnauthorizedError() *GoAuthError {
 	}
 }
 
+// NewForbiddenError returns the FORBIDDEN error (HTTP 403) with the message "Access forbidden".
 func NewForbiddenError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrForbidden,
@@ -377,6 +409,7 @@ func NewForbiddenError() *GoAuthError {
 	}
 }
 
+// NewInvalidCSRFError returns the INVALID_CSRF error (HTTP 403) with the message "Invalid CSRF token".
 func NewInvalidCSRFError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrInvalidCSRF,
@@ -385,6 +418,7 @@ func NewInvalidCSRFError() *GoAuthError {
 	}
 }
 
+// NewCaptchaRequiredError returns the CAPTCHA_REQUIRED error (HTTP 403) with the message "Captcha token required".
 func NewCaptchaRequiredError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrCaptchaRequired,
@@ -393,6 +427,7 @@ func NewCaptchaRequiredError() *GoAuthError {
 	}
 }
 
+// NewCaptchaFailedError returns the CAPTCHA_FAILED error (HTTP 403) with the message "Captcha verification failed".
 func NewCaptchaFailedError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrCaptchaFailed,
@@ -402,6 +437,8 @@ func NewCaptchaFailedError() *GoAuthError {
 }
 
 // Method error factory functions
+
+// NewMethodNotAllowedError returns the METHOD_NOT_ALLOWED error (HTTP 405) with the message "Method not allowed".
 func NewMethodNotAllowedError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrMethodNotAllowed,
@@ -411,6 +448,8 @@ func NewMethodNotAllowedError() *GoAuthError {
 }
 
 // System error factory functions
+
+// NewInternalError returns the INTERNAL_ERROR error (HTTP 500) with the given message, or "An unexpected error occurred" when it is empty.
 func NewInternalError(message string) *GoAuthError {
 	if message == "" {
 		message = "An unexpected error occurred"
@@ -422,6 +461,7 @@ func NewInternalError(message string) *GoAuthError {
 	}
 }
 
+// NewUsernameAlreadyExistsError returns the USERNAME_ALREADY_EXISTS error (HTTP 400) with the message "Username already exists".
 func NewUsernameAlreadyExistsError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrUsernameAlreadyExists,
@@ -430,6 +470,7 @@ func NewUsernameAlreadyExistsError() *GoAuthError {
 	}
 }
 
+// NewDatabaseError returns the DATABASE_ERROR error (HTTP 500) with the message "Database operation failed".
 func NewDatabaseError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrDatabaseError,
@@ -438,6 +479,7 @@ func NewDatabaseError() *GoAuthError {
 	}
 }
 
+// NewEmailSendFailedError returns the EMAIL_SEND_FAILED error (HTTP 500) with the message "Failed to send email".
 func NewEmailSendFailedError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrEmailSendFailed,
@@ -446,6 +488,7 @@ func NewEmailSendFailedError() *GoAuthError {
 	}
 }
 
+// NewSmsSendFailedError returns the SMS_SEND_FAILED error (HTTP 500) with the message "Failed to send SMS".
 func NewSmsSendFailedError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrSmsSendFailed,
@@ -454,6 +497,7 @@ func NewSmsSendFailedError() *GoAuthError {
 	}
 }
 
+// NewConfigurationError returns the CONFIGURATION_ERROR error (HTTP 500) with the given message, or "Configuration error" when it is nil.
 func NewConfigurationError(message *string) *GoAuthError {
 	if message == nil {
 		msg := "Configuration error"
@@ -466,6 +510,7 @@ func NewConfigurationError(message *string) *GoAuthError {
 	}
 }
 
+// NewUnknownError returns the UNKNOWN_ERROR error (HTTP 500) with the given message, or "An unexpected error occurred" when it is nil.
 func NewUnknownError(message *string) *GoAuthError {
 	if message == nil {
 		msg := "An unexpected error occurred"
@@ -478,6 +523,7 @@ func NewUnknownError(message *string) *GoAuthError {
 	}
 }
 
+// NewInvalidSessionError returns the INVALID_SESSION error (HTTP 401) with the message "Invalid session".
 func NewInvalidSessionError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrInvalidSession,
@@ -486,6 +532,7 @@ func NewInvalidSessionError() *GoAuthError {
 	}
 }
 
+// NewSessionNotFoundError returns the SESSION_NOT_FOUND error (HTTP 404) with the message "Session not found".
 func NewSessionNotFoundError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrSessionNotFound,
@@ -494,6 +541,7 @@ func NewSessionNotFoundError() *GoAuthError {
 	}
 }
 
+// NewSessionExpiredError returns the SESSION_EXPIRED error (HTTP 401) with the message "Session has expired".
 func NewSessionExpiredError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrSessionExpired,
@@ -502,6 +550,7 @@ func NewSessionExpiredError() *GoAuthError {
 	}
 }
 
+// NewSessionInvalidError returns the SESSION_INVALID error (HTTP 401) with the message "Session is invalid".
 func NewSessionInvalidError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrSessionInvalid,
@@ -510,6 +559,7 @@ func NewSessionInvalidError() *GoAuthError {
 	}
 }
 
+// NewCustomError returns the CUSTOM_ERROR error with the given message and no HTTP status set.
 func NewCustomError(message string) *GoAuthError {
 	return &GoAuthError{
 		Code:    ErrCustom,
@@ -517,6 +567,7 @@ func NewCustomError(message string) *GoAuthError {
 	}
 }
 
+// NewTwoFactorRequiredError returns the TWO_FACTOR_REQUIRED error (HTTP 200) with the message "Two-factor authentication required" and the given details.
 func NewTwoFactorRequiredError(details map[string]any) *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrTwoFactorRequired,
@@ -526,6 +577,7 @@ func NewTwoFactorRequiredError(details map[string]any) *GoAuthError {
 	}
 }
 
+// NewTwoFactorAlreadyEnabledError returns the TWO_FACTOR_ALREADY_ENABLED error (HTTP 400) with the message "Two-factor authentication is already enabled".
 func NewTwoFactorAlreadyEnabledError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrTwoFactorAlreadyEnabled,
@@ -534,6 +586,7 @@ func NewTwoFactorAlreadyEnabledError() *GoAuthError {
 	}
 }
 
+// NewTwoFactorNotEnabledError returns the TWO_FACTOR_NOT_ENABLED error (HTTP 400) with the message "Two-factor authentication is not enabled".
 func NewTwoFactorNotEnabledError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrTwoFactorNotEnabled,
@@ -542,6 +595,7 @@ func NewTwoFactorNotEnabledError() *GoAuthError {
 	}
 }
 
+// NewTwoFactorInvalidError returns the TWO_FACTOR_INVALID error (HTTP 400) with the message "Two-factor authentication is invalid".
 func NewTwoFactorInvalidError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrTwoFactorInvalid,
@@ -550,6 +604,7 @@ func NewTwoFactorInvalidError() *GoAuthError {
 	}
 }
 
+// NewTwoFactorExpiredError returns the TWO_FACTOR_EXPIRED error (HTTP 400) with the message "Two-factor authentication has expired".
 func NewTwoFactorExpiredError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrTwoFactorExpired,
@@ -558,6 +613,7 @@ func NewTwoFactorExpiredError() *GoAuthError {
 	}
 }
 
+// NewTwoFactorNotFoundError returns the TWO_FACTOR_NOT_FOUND error (HTTP 400) with the message "Two-factor authentication not found".
 func NewTwoFactorNotFoundError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrTwoFactorNotFound,
@@ -566,6 +622,7 @@ func NewTwoFactorNotFoundError() *GoAuthError {
 	}
 }
 
+// NewTwoFactorAlreadyUsedError returns the TWO_FACTOR_ALREADY_USED error (HTTP 400) with the message "Two-factor authentication has already been used".
 func NewTwoFactorAlreadyUsedError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrTwoFactorAlreadyUsed,
@@ -574,6 +631,7 @@ func NewTwoFactorAlreadyUsedError() *GoAuthError {
 	}
 }
 
+// NewInvalidVerificationTokenError returns the INVALID_VERIFICATION_TOKEN error (HTTP 400) with the message "Invalid verification token".
 func NewInvalidVerificationTokenError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrInvalidVerificationToken,
@@ -582,6 +640,7 @@ func NewInvalidVerificationTokenError() *GoAuthError {
 	}
 }
 
+// NewVerificationTokenExpiredError returns the VERIFICATION_TOKEN_EXPIRED error (HTTP 400) with the message "Verification token has expired".
 func NewVerificationTokenExpiredError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrVerificationTokenExpired,
@@ -590,6 +649,7 @@ func NewVerificationTokenExpiredError() *GoAuthError {
 	}
 }
 
+// NewInvalidVerificationCodeError returns the INVALID_VERIFICATION_CODE error (HTTP 400) with the message "Invalid verification code".
 func NewInvalidVerificationCodeError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrInvalidVerificationCode,
@@ -598,6 +658,7 @@ func NewInvalidVerificationCodeError() *GoAuthError {
 	}
 }
 
+// NewVerificationCodeExpiredError returns the VERIFICATION_CODE_EXPIRED error (HTTP 400) with the message "Verification code has expired".
 func NewVerificationCodeExpiredError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrVerificationCodeExpired,
@@ -607,6 +668,8 @@ func NewVerificationCodeExpiredError() *GoAuthError {
 }
 
 // OAuth error factory functions
+
+// NewOAuthProviderNotFoundError returns the OAUTH_PROVIDER_NOT_FOUND error (HTTP 400) with a message that names provider.
 func NewOAuthProviderNotFoundError(provider string) *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrOAuthProviderNotFound,
@@ -615,6 +678,7 @@ func NewOAuthProviderNotFoundError(provider string) *GoAuthError {
 	}
 }
 
+// NewOAuthProviderDisabledError returns the OAUTH_PROVIDER_DISABLED error (HTTP 400) with a message that names provider.
 func NewOAuthProviderDisabledError(provider string) *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrOAuthProviderDisabled,
@@ -623,6 +687,7 @@ func NewOAuthProviderDisabledError(provider string) *GoAuthError {
 	}
 }
 
+// NewOAuthInvalidStateError returns the OAUTH_INVALID_STATE error (HTTP 400) with the message "Invalid OAuth state parameter".
 func NewOAuthInvalidStateError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrOAuthInvalidState,
@@ -631,6 +696,7 @@ func NewOAuthInvalidStateError() *GoAuthError {
 	}
 }
 
+// NewOAuthStateExpiredError returns the OAUTH_STATE_EXPIRED error (HTTP 400) with the message "OAuth state has expired. Please try again.".
 func NewOAuthStateExpiredError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrOAuthStateExpired,
@@ -639,6 +705,7 @@ func NewOAuthStateExpiredError() *GoAuthError {
 	}
 }
 
+// NewOAuthStateUsedError returns the OAUTH_STATE_USED error (HTTP 400) with the message "OAuth state has already been used".
 func NewOAuthStateUsedError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrOAuthStateUsed,
@@ -647,6 +714,7 @@ func NewOAuthStateUsedError() *GoAuthError {
 	}
 }
 
+// NewOAuthTokenExchangeError returns the OAUTH_TOKEN_EXCHANGE_FAILED error (HTTP 400) with the given message, or "Failed to exchange authorization code for tokens" when it is empty.
 func NewOAuthTokenExchangeError(message string) *GoAuthError {
 	if message == "" {
 		message = "Failed to exchange authorization code for tokens"
@@ -658,6 +726,7 @@ func NewOAuthTokenExchangeError(message string) *GoAuthError {
 	}
 }
 
+// NewOAuthUserInfoError returns the OAUTH_USER_INFO_FAILED error (HTTP 400) with the given message, or "Failed to retrieve user information from OAuth provider" when it is empty.
 func NewOAuthUserInfoError(message string) *GoAuthError {
 	if message == "" {
 		message = "Failed to retrieve user information from OAuth provider"
@@ -669,6 +738,7 @@ func NewOAuthUserInfoError(message string) *GoAuthError {
 	}
 }
 
+// NewOAuthEmailExistsError returns the OAUTH_EMAIL_EXISTS error (HTTP 409) with the message "An account with this email already exists".
 func NewOAuthEmailExistsError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrOAuthEmailExists,
@@ -677,6 +747,7 @@ func NewOAuthEmailExistsError() *GoAuthError {
 	}
 }
 
+// NewOAuthSignupDisabledError returns the OAUTH_SIGNUP_DISABLED error (HTTP 403) with the message "Signup via OAuth is disabled".
 func NewOAuthSignupDisabledError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrOAuthSignupDisabled,
@@ -685,6 +756,7 @@ func NewOAuthSignupDisabledError() *GoAuthError {
 	}
 }
 
+// NewOAuthProviderError returns the OAUTH_PROVIDER_ERROR error (HTTP 400) with the given message, or "OAuth provider returned an error" when it is empty.
 func NewOAuthProviderError(message string) *GoAuthError {
 	if message == "" {
 		message = "OAuth provider returned an error"
@@ -696,6 +768,7 @@ func NewOAuthProviderError(message string) *GoAuthError {
 	}
 }
 
+// NewOAuthNotLinkedError returns the OAUTH_NOT_LINKED error (HTTP 400) with a message that names provider.
 func NewOAuthNotLinkedError(provider string) *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrOAuthNotLinked,
@@ -704,6 +777,7 @@ func NewOAuthNotLinkedError(provider string) *GoAuthError {
 	}
 }
 
+// NewOAuthAlreadyLinkedError returns the OAUTH_ALREADY_LINKED error (HTTP 409) with a message that names provider.
 func NewOAuthAlreadyLinkedError(provider string) *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrOAuthAlreadyLinked,
@@ -712,6 +786,7 @@ func NewOAuthAlreadyLinkedError(provider string) *GoAuthError {
 	}
 }
 
+// NewOAuthEmailRequiredError returns the OAUTH_EMAIL_REQUIRED error (HTTP 400) with the message "Email address is required from OAuth provider".
 func NewOAuthEmailRequiredError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrOAuthEmailRequired,
@@ -730,6 +805,7 @@ func NewOAuthEmailUnverifiedError() *GoAuthError {
 	}
 }
 
+// NewOAuthAccountLinkingDisabledError returns the OAUTH_ACCOUNT_LINKING_DISABLED error (HTTP 403) with the message "Account linking via OAuth is disabled".
 func NewOAuthAccountLinkingDisabledError() *GoAuthError {
 	return &GoAuthError{
 		Code:       ErrOAuthAccountLinkingDisabled,
@@ -740,50 +816,62 @@ func NewOAuthAccountLinkingDisabledError() *GoAuthError {
 
 // Organization error factory functions
 
+// NewOrgNotFoundError returns the ORG_NOT_FOUND error (HTTP 404) with the message "Organization not found".
 func NewOrgNotFoundError() *GoAuthError {
 	return &GoAuthError{Code: ErrOrgNotFound, Message: "Organization not found", StatusCode: http.StatusNotFound}
 }
 
+// NewOrgSlugTakenError returns the ORG_SLUG_TAKEN error (HTTP 409) with the message "Organization slug is already taken".
 func NewOrgSlugTakenError() *GoAuthError {
 	return &GoAuthError{Code: ErrOrgSlugTaken, Message: "Organization slug is already taken", StatusCode: http.StatusConflict}
 }
 
+// NewOrgMemberExistsError returns the ORG_MEMBER_EXISTS error (HTTP 409) with the message "User is already a member of this organization".
 func NewOrgMemberExistsError() *GoAuthError {
 	return &GoAuthError{Code: ErrOrgMemberExists, Message: "User is already a member of this organization", StatusCode: http.StatusConflict}
 }
 
+// NewOrgMemberNotFoundError returns the ORG_MEMBER_NOT_FOUND error (HTTP 404) with the message "Organization member not found".
 func NewOrgMemberNotFoundError() *GoAuthError {
 	return &GoAuthError{Code: ErrOrgMemberNotFound, Message: "Organization member not found", StatusCode: http.StatusNotFound}
 }
 
+// NewOrgNotMemberError returns the ORG_NOT_MEMBER error (HTTP 403) with the message "You are not a member of this organization".
 func NewOrgNotMemberError() *GoAuthError {
 	return &GoAuthError{Code: ErrOrgNotMember, Message: "You are not a member of this organization", StatusCode: http.StatusForbidden}
 }
 
+// NewOrgInsufficientRoleError returns the ORG_INSUFFICIENT_ROLE error (HTTP 403) with the message "Insufficient role for this operation".
 func NewOrgInsufficientRoleError() *GoAuthError {
 	return &GoAuthError{Code: ErrOrgInsufficientRole, Message: "Insufficient role for this operation", StatusCode: http.StatusForbidden}
 }
 
+// NewOrgCannotRemoveOwnerError returns the ORG_CANNOT_REMOVE_OWNER error (HTTP 403) with the message "Cannot remove the organization owner".
 func NewOrgCannotRemoveOwnerError() *GoAuthError {
 	return &GoAuthError{Code: ErrOrgCannotRemoveOwner, Message: "Cannot remove the organization owner", StatusCode: http.StatusForbidden}
 }
 
+// NewOrgMaxMembersError returns the ORG_MAX_MEMBERS error (HTTP 403) with the message "Organization has reached the maximum number of members".
 func NewOrgMaxMembersError() *GoAuthError {
 	return &GoAuthError{Code: ErrOrgMaxMembers, Message: "Organization has reached the maximum number of members", StatusCode: http.StatusForbidden}
 }
 
+// NewInvitationNotFoundError returns the INVITATION_NOT_FOUND error (HTTP 404) with the message "Invitation not found".
 func NewInvitationNotFoundError() *GoAuthError {
 	return &GoAuthError{Code: ErrInvitationNotFound, Message: "Invitation not found", StatusCode: http.StatusNotFound}
 }
 
+// NewInvitationExpiredError returns the INVITATION_EXPIRED error (HTTP 400) with the message "Invitation has expired".
 func NewInvitationExpiredError() *GoAuthError {
 	return &GoAuthError{Code: ErrInvitationExpired, Message: "Invitation has expired", StatusCode: http.StatusBadRequest}
 }
 
+// NewInvitationExistsError returns the INVITATION_ALREADY_EXISTS error (HTTP 409) with the message "A pending invitation already exists for this email".
 func NewInvitationExistsError() *GoAuthError {
 	return &GoAuthError{Code: ErrInvitationExists, Message: "A pending invitation already exists for this email", StatusCode: http.StatusConflict}
 }
 
+// NewInvitationEmailMismatchError returns the INVITATION_EMAIL_MISMATCH error (HTTP 403) with the message "Your email does not match the invitation".
 func NewInvitationEmailMismatchError() *GoAuthError {
 	return &GoAuthError{Code: ErrInvitationEmailMismatch, Message: "Your email does not match the invitation", StatusCode: http.StatusForbidden}
 }

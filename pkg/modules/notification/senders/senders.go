@@ -8,10 +8,14 @@ import (
 
 // Config types — re-exported so callers import only from pkg/.
 type (
-	ResendConfig   = internal.ResendConfig
+	// ResendConfig configures the Resend email sender.
+	ResendConfig = internal.ResendConfig
+	// SendGridConfig configures the SendGrid email sender.
 	SendGridConfig = internal.SendGridConfig
-	SMTPConfig     = internal.SMTPConfig
-	TwilioConfig   = internal.TwilioConfig
+	// SMTPConfig configures the SMTP email sender.
+	SMTPConfig = internal.SMTPConfig
+	// TwilioConfig configures the Twilio SMS sender.
+	TwilioConfig = internal.TwilioConfig
 )
 
 // Constructors — re-exported as function variables preserving original signatures.

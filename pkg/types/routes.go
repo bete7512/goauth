@@ -1,7 +1,10 @@
 package types
 
+// RouteName is the stable name of a built-in route, such as "core.login".
 type RouteName string
 
+// Built-in route names. Use them in route patterns for middleware, rate-limit
+// and captcha configuration; a pattern such as "core.*" matches a whole module.
 const (
 	// Core Routes
 	RouteSignup         RouteName = "core.signup"

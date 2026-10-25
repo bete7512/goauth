@@ -11,6 +11,7 @@ type OpenAPISecurityScheme struct {
 	Flows        map[string]interface{} // OAuth2 flows (for oauth2 type)
 }
 
+// OpenAPIConfig configures the generated OpenAPI document and its UI.
 type OpenAPIConfig struct {
 	Title           string
 	Path            string
@@ -21,6 +22,7 @@ type OpenAPIConfig struct {
 	UseDefaultAuth  bool                             // Use default auth based on SecurityConfig.AuthMode
 }
 
+// OpenAPIServer is a server entry in the OpenAPI document.
 type OpenAPIServer struct {
 	URL         string
 	Description string

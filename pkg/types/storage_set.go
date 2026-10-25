@@ -18,17 +18,40 @@ type StorageSet struct {
 	CloseFunc         func() error
 }
 
-func (s *StorageSet) Core() CoreStorage                 { return s.CoreStore }
-func (s *StorageSet) Session() SessionStorage           { return s.SessionStore }
-func (s *StorageSet) Stateless() StatelessStorage       { return s.StatelessStore }
-func (s *StorageSet) Admin() AdminStorage               { return nil }
-func (s *StorageSet) OAuth() OAuthStorage               { return s.OAuthStore }
-func (s *StorageSet) TwoFactorAuth() TwoFactorStorage   { return s.TwoFactorStore }
-func (s *StorageSet) Passkeys() PasskeyStorage          { return s.PasskeyStore }
-func (s *StorageSet) AuditLog() AuditLogStorage         { return s.AuditStore }
-func (s *StorageSet) Invitation() InvitationStorage     { return s.InvitationStore }
+// Core returns CoreStore.
+func (s *StorageSet) Core() CoreStorage { return s.CoreStore }
+
+// Session returns SessionStore.
+func (s *StorageSet) Session() SessionStorage { return s.SessionStore }
+
+// Stateless returns StatelessStore.
+func (s *StorageSet) Stateless() StatelessStorage { return s.StatelessStore }
+
+// Admin returns nil: a StorageSet has no administrative store.
+func (s *StorageSet) Admin() AdminStorage { return nil }
+
+// OAuth returns OAuthStore.
+func (s *StorageSet) OAuth() OAuthStorage { return s.OAuthStore }
+
+// TwoFactorAuth returns TwoFactorStore.
+func (s *StorageSet) TwoFactorAuth() TwoFactorStorage { return s.TwoFactorStore }
+
+// Passkeys returns PasskeyStore.
+func (s *StorageSet) Passkeys() PasskeyStorage { return s.PasskeyStore }
+
+// AuditLog returns AuditStore.
+func (s *StorageSet) AuditLog() AuditLogStorage { return s.AuditStore }
+
+// Invitation returns InvitationStore.
+func (s *StorageSet) Invitation() InvitationStorage { return s.InvitationStore }
+
+// Organization returns OrganizationStore.
 func (s *StorageSet) Organization() OrganizationStorage { return s.OrganizationStore }
-func (s *StorageSet) DB() interface{}                   { return nil }
+
+// DB returns nil: a StorageSet has no single underlying database handle.
+func (s *StorageSet) DB() interface{} { return nil }
+
+// Close calls CloseFunc when it is set.
 func (s *StorageSet) Close() error {
 	if s.CloseFunc != nil {
 		return s.CloseFunc()

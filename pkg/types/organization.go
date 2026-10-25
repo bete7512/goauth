@@ -3,6 +3,7 @@ package types
 // OrgRole represents a user's role within an organization.
 type OrgRole string
 
+// Organization member roles.
 const (
 	OrgRoleOwner  OrgRole = "owner"
 	OrgRoleAdmin  OrgRole = "admin"

@@ -17,22 +17,30 @@ type Config = internal.Config
 
 // Sender interfaces — implement these to plug in your own email/SMS provider.
 type (
+	// EmailSender delivers email messages; package senders has built-in ones.
 	EmailSender = internal_models.EmailSender
-	SMSSender   = internal_models.SMSSender
+	// SMSSender delivers SMS messages.
+	SMSSender = internal_models.SMSSender
 )
 
 // Message types used by the sender interfaces.
 type (
+	// EmailMessage is a rendered email handed to an EmailSender.
 	EmailMessage = internal_models.EmailMessage
-	SMSMessage   = internal_models.SMSMessage
-	Attachment   = internal_models.Attachment
+	// SMSMessage is a rendered SMS handed to an SMSSender.
+	SMSMessage = internal_models.SMSMessage
+	// Attachment is a file attached to an EmailMessage.
+	Attachment = internal_models.Attachment
 )
 
 // Template types for overriding built-in email/SMS templates.
 type (
-	Branding      = internal_templates.Branding
+	// Branding holds the app name, logo, colors and footer used by the templates.
+	Branding = internal_templates.Branding
+	// EmailTemplate is a named subject, plain-text and HTML body template.
 	EmailTemplate = internal_templates.EmailTemplate
-	SMSTemplate   = internal_templates.SMSTemplate
+	// SMSTemplate is a named SMS body template.
+	SMSTemplate = internal_templates.SMSTemplate
 )
 
 // DefaultEmailTemplates returns the built-in email template map.

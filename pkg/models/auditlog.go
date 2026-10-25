@@ -24,6 +24,7 @@ type AuditLog struct {
 	CreatedAt  time.Time `json:"created_at" gorm:"index"`
 }
 
+// TableName returns the database table name.
 func (AuditLog) TableName() string {
 	return "audit_logs"
 }

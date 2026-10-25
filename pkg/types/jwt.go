@@ -5,6 +5,7 @@ package types
 // RS256 and ES256 are asymmetric and require PEM-encoded key material via JWTPrivateKeyPEM/PEMFile.
 type JWTAlgorithm string
 
+// Supported JWT signing algorithms.
 const (
 	JWTAlgorithmHS256 JWTAlgorithm = "HS256"
 	JWTAlgorithmRS256 JWTAlgorithm = "RS256"

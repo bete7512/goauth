@@ -9,6 +9,7 @@ import (
 	"time"
 )
 
+// EventType names an event emitted on the event bus, such as "after.signup".
 type EventType string
 
 // Event represents an event with associated data, identity, and retry tracking.
@@ -52,6 +53,7 @@ type EventEnvelope struct {
 	Payload   json.RawMessage `json:"payload"`
 }
 
+// Envelope returns the serializable form of e for durable backends.
 func (e *Event) Envelope() (EventEnvelope, error) {
 	payload, err := json.Marshal(e.Data)
 	if err != nil {
@@ -68,6 +70,8 @@ func (e *Event) Envelope() (EventEnvelope, error) {
 	return EventEnvelope{Version: version, ID: e.ID, Type: e.Type, RealmID: realm, CreatedAt: e.CreatedAt, Payload: payload}, nil
 }
 
+// Event decodes an envelope written by Envelope. It rejects unknown versions,
+// realms other than "default", and payloads that are not valid JSON.
 func (e EventEnvelope) Event() (*Event, error) {
 	if e.Version != 1 || e.ID == "" || e.Type == "" || e.RealmID != "default" || !json.Valid(e.Payload) {
 		return nil, fmt.Errorf("unsupported or invalid event envelope")
@@ -149,6 +153,9 @@ type AsyncBackend interface {
 	Name() string
 }
 
+// Built-in event types. Subscribe with Auth.On or a module's RegisterHooks.
+// "before.*" events can veto an operation when emitted synchronously;
+// "after.*", "send.*" and security events are delivered asynchronously.
 const (
 	// Hook Events
 	EventBeforeSignup                     EventType = "before.signup"
