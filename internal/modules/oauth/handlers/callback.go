@@ -148,7 +148,7 @@ func (h *OAuthHandler) handleError(w http.ResponseWriter, r *http.Request, error
 		statusCode = http.StatusBadRequest
 	case string(types.ErrOAuthProviderError):
 		statusCode = http.StatusBadGateway
-	case string(types.ErrOAuthSignupDisabled):
+	case string(types.ErrOAuthSignupDisabled), string(types.ErrOAuthEmailUnverified):
 		statusCode = http.StatusForbidden
 	case string(types.ErrOAuthEmailExists):
 		statusCode = http.StatusConflict

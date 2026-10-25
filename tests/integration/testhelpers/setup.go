@@ -293,6 +293,13 @@ func SetupStatelessWithNotification(t *testing.T) (*auth.Auth, http.Handler, *Em
 //	GITHUB_OAUTH_CLIENT_ID, GITHUB_OAUTH_CLIENT_SECRET
 func SetupStatelessWithOAuth(t *testing.T) (*auth.Auth, http.Handler) {
 	t.Helper()
+	return SetupStatelessWithOAuthConfig(t, nil)
+}
+
+// SetupStatelessWithOAuthConfig is SetupStatelessWithOAuth with a hook to adjust
+// the OAuth module configuration before registration.
+func SetupStatelessWithOAuthConfig(t *testing.T, mutate func(*config.OAuthModuleConfig)) (*auth.Auth, http.Handler) {
+	t.Helper()
 
 	providerConfigs := make(map[string]*config.OAuthProviderConfig)
 
@@ -329,11 +336,15 @@ func SetupStatelessWithOAuth(t *testing.T) (*auth.Auth, http.Handler) {
 	})
 	require.NoError(t, err)
 
-	require.NoError(t, authInstance.Use(oauth.New(&config.OAuthModuleConfig{
+	oauthCfg := &config.OAuthModuleConfig{
 		AllowSignup:         true,
 		AllowAccountLinking: true,
 		Providers:           providerConfigs,
-	})))
+	}
+	if mutate != nil {
+		mutate(oauthCfg)
+	}
+	require.NoError(t, authInstance.Use(oauth.New(oauthCfg)))
 
 	return authInstance, initAuth(t, authInstance)
 }

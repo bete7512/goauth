@@ -479,3 +479,56 @@ func (s *OAuthServiceSuite) TestListEnabledProviders() {
 	providers := t.svc.ListEnabledProviders()
 	s.Contains(providers, "google")
 }
+
+func (s *OAuthServiceSuite) TestHandleCallback_UnverifiedEmailSignupRejected() {
+	t := s.setup()
+	state := s.validStateToken()
+	tokenResp := s.validTokenResponse()
+	userInfo := s.validUserInfo()
+	userInfo.EmailVerified = false
+
+	t.tokenRepo.EXPECT().FindByToken(gomock.Any(), "valid-state").Return(state, nil)
+	t.tokenRepo.EXPECT().MarkAsUsed(gomock.Any(), state.ID).Return(nil)
+	t.provider.EXPECT().SupportsOIDC().Return(false)
+	t.provider.EXPECT().Exchange(gomock.Any(), "auth-code", gomock.Any()).Return(tokenResp, nil)
+	t.provider.EXPECT().UserInfo(gomock.Any(), tokenResp.AccessToken).Return(userInfo, nil)
+	t.accountRepo.EXPECT().FindByProviderAndAccountID(gomock.Any(), "google", userInfo.ID).Return(nil, models.ErrNotFound)
+	t.userRepo.EXPECT().FindByEmail(gomock.Any(), userInfo.Email).Return(nil, models.ErrNotFound)
+
+	_, authErr := t.svc.HandleCallback(context.Background(), "google", "auth-code", "valid-state", nil)
+
+	s.NotNil(authErr)
+	s.Equal(types.ErrOAuthEmailUnverified, authErr.Code)
+}
+
+func (s *OAuthServiceSuite) TestHandleCallback_UnverifiedEmailSignupAllowedCreatesUnverifiedUser() {
+	t := s.setup(func(c *config.OAuthModuleConfig) {
+		c.AllowUnverifiedEmailSignup = true
+	})
+	state := s.validStateToken()
+	tokenResp := s.validTokenResponse()
+	userInfo := s.validUserInfo()
+	userInfo.EmailVerified = false
+	metadata := &types.RequestMetadata{IPAddress: "127.0.0.1", UserAgent: "TestAgent"}
+
+	t.tokenRepo.EXPECT().FindByToken(gomock.Any(), "valid-state").Return(state, nil)
+	t.tokenRepo.EXPECT().MarkAsUsed(gomock.Any(), state.ID).Return(nil)
+	t.provider.EXPECT().SupportsOIDC().Return(false)
+	t.provider.EXPECT().Exchange(gomock.Any(), "auth-code", gomock.Any()).Return(tokenResp, nil)
+	t.provider.EXPECT().UserInfo(gomock.Any(), tokenResp.AccessToken).Return(userInfo, nil)
+	t.accountRepo.EXPECT().FindByProviderAndAccountID(gomock.Any(), "google", userInfo.ID).Return(nil, models.ErrNotFound)
+	t.userRepo.EXPECT().FindByEmail(gomock.Any(), userInfo.Email).Return(nil, models.ErrNotFound)
+	t.userRepo.EXPECT().Create(gomock.Any(), gomock.Cond(func(u *models.User) bool { return u.Email == userInfo.Email && !u.EmailVerified })).Return(nil)
+	t.accountRepo.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&models.Account{})).Return(nil)
+	t.userRepo.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil)
+	t.events.EXPECT().EmitAsync(gomock.Any(), types.EventAfterSignup, gomock.Any()).Return(nil)
+	t.events.EXPECT().EmitAsync(gomock.Any(), types.EventOAuthLinkAdded, gomock.Any()).Return(nil)
+	t.tokenRepo.EXPECT().Create(gomock.Any(), gomock.Cond(func(token *models.Token) bool { return token.Type == "refresh_nonce" })).Return(nil)
+	t.events.EXPECT().EmitAsync(gomock.Any(), types.EventAfterOAuthLogin, gomock.Any()).Return(nil)
+
+	result, authErr := t.svc.HandleCallback(context.Background(), "google", "auth-code", "valid-state", metadata)
+
+	s.Nil(authErr)
+	s.NotNil(result)
+	s.True(result.IsNewUser)
+}

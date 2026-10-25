@@ -306,6 +306,11 @@ func (s *oauthService) findOrCreateUser(ctx context.Context, providerName string
 	if info.Email == "" {
 		return nil, false, types.NewOAuthEmailRequiredError()
 	}
+	// An email the provider has not verified may belong to someone else, and an
+	// account created for it would let a third party pre-register that address.
+	if !info.EmailVerified && !s.config.AllowUnverifiedEmailSignup {
+		return nil, false, types.NewOAuthEmailUnverifiedError()
+	}
 
 	now := time.Now()
 	user := &models.User{

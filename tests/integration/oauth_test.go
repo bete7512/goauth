@@ -4,9 +4,11 @@ package integration_test
 
 import (
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"testing"
 
+	"github.com/bete7512/goauth/pkg/config"
 	h "github.com/bete7512/goauth/tests/integration/testhelpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -238,4 +240,54 @@ func TestOAuth_ContinuationBinding(t *testing.T) {
 			require.NotContains(t, response.Body.String(), "access_token")
 		})
 	}
+}
+
+// unverifiedFake returns a fake provider whose identity carries an email the
+// provider has not verified, for both the OIDC (Google) and GitHub email paths.
+func unverifiedFake(t *testing.T) *h.FakeOAuthServer {
+	fake := h.NewFakeOAuthServer(t)
+	fake.UserInfoResponse["email_verified"] = false
+	fake.EmailsResponse = []map[string]interface{}{{"email": "oauthuser@example.com", "primary": true, "verified": false}}
+	return fake
+}
+
+func oauthCallback(t *testing.T, handler http.Handler, fake *h.FakeOAuthServer, provider string) *httptest.ResponseRecorder {
+	t.Helper()
+	w := h.JSONGet(handler, "/auth/oauth/"+provider)
+	require.Equal(t, http.StatusFound, w.Code)
+	parsed, _ := url.Parse(w.Header().Get("Location"))
+	fake.Nonce = parsed.Query().Get("nonce")
+	fake.ClientID = parsed.Query().Get("client_id")
+	binding := map[string]string{"Cookie": w.Result().Cookies()[0].String()}
+	return h.JSONGet(handler, "/auth/oauth/"+provider+"/callback?code=fake_auth_code&state="+parsed.Query().Get("state"), binding)
+}
+
+// TestOAuth_UnverifiedProviderEmailCannotSignUp: by default an identity whose
+// email the provider has not verified cannot create an account.
+func TestOAuth_UnverifiedProviderEmailCannotSignUp(t *testing.T) {
+	fake := unverifiedFake(t)
+	cleanup := h.InstallFakeTransport(fake.Server.URL)
+	defer cleanup()
+	_, handler := h.SetupStatelessWithOAuth(t)
+
+	for _, provider := range []string{"google", "github"} {
+		w := oauthCallback(t, handler, fake, provider)
+		require.Equal(t, http.StatusForbidden, w.Code, "%s callback: %s", provider, w.Body.String())
+		assert.Equal(t, "OAUTH_EMAIL_UNVERIFIED", h.ParseJSON(t, w.Body)["data"].(map[string]interface{})["code"])
+	}
+}
+
+// TestOAuth_UnverifiedProviderEmailSignupWhenAllowed: the explicit opt-in
+// creates the account with an unverified email.
+func TestOAuth_UnverifiedProviderEmailSignupWhenAllowed(t *testing.T) {
+	fake := unverifiedFake(t)
+	cleanup := h.InstallFakeTransport(fake.Server.URL)
+	defer cleanup()
+	_, handler := h.SetupStatelessWithOAuthConfig(t, func(c *config.OAuthModuleConfig) { c.AllowUnverifiedEmailSignup = true })
+
+	w := oauthCallback(t, handler, fake, "google")
+	require.Equal(t, http.StatusOK, w.Code, "google callback: %s", w.Body.String())
+	data := h.ParseJSON(t, w.Body)["data"].(map[string]interface{})
+	assert.Equal(t, true, data["is_new_user"])
+	assert.Equal(t, false, data["user"].(map[string]interface{})["email_verified"])
 }

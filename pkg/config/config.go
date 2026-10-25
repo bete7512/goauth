@@ -431,6 +431,14 @@ type OAuthModuleConfig struct {
 	// If true, sets EmailVerified=true when provider reports email as verified
 	TrustEmailVerification bool
 
+	// AllowUnverifiedEmailSignup creates accounts for identities whose email the
+	// provider has not verified. Off by default: an unverified address may belong
+	// to someone else, and creating an account for it lets a third party
+	// pre-register that person's email. When enabled, keep
+	// Core.RequireEmailVerification on so the account cannot be used until the
+	// address is confirmed.
+	AllowUnverifiedEmailSignup bool
+
 	// StateTTL is how long OAuth state tokens remain valid (default: 10 minutes)
 	StateTTL time.Duration
 

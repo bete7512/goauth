@@ -109,6 +109,7 @@ const (
 	ErrOAuthNotLinked              ErrorCode = "OAUTH_NOT_LINKED"
 	ErrOAuthAlreadyLinked          ErrorCode = "OAUTH_ALREADY_LINKED"
 	ErrOAuthEmailRequired          ErrorCode = "OAUTH_EMAIL_REQUIRED"
+	ErrOAuthEmailUnverified        ErrorCode = "OAUTH_EMAIL_UNVERIFIED"
 	ErrOAuthAccountLinkingDisabled ErrorCode = "OAUTH_ACCOUNT_LINKING_DISABLED"
 
 	// Organization errors
@@ -716,6 +717,16 @@ func NewOAuthEmailRequiredError() *GoAuthError {
 		Code:       ErrOAuthEmailRequired,
 		Message:    "Email address is required from OAuth provider",
 		StatusCode: http.StatusBadRequest,
+	}
+}
+
+// NewOAuthEmailUnverifiedError rejects signup from a provider identity whose
+// email address the provider has not verified.
+func NewOAuthEmailUnverifiedError() *GoAuthError {
+	return &GoAuthError{
+		Code:       ErrOAuthEmailUnverified,
+		Message:    "The identity provider has not verified this email address",
+		StatusCode: http.StatusForbidden,
 	}
 }
 

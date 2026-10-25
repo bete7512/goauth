@@ -254,9 +254,13 @@ func (p *MicrosoftProvider) parseIDTokenClaims(claims map[string]interface{}) *U
 		}
 	}
 
-	// Check email verification
+	// Entra ID tokens rarely carry email_verified. The optional xms_edov claim
+	// (email domain owner verified) is Microsoft's signal that the address is
+	// trustworthy; hosts add it to the app registration's ID token claims.
 	if verified, ok := claims["email_verified"].(bool); ok {
 		info.EmailVerified = verified
+	} else if claimTrue(claims["xms_edov"]) {
+		info.EmailVerified = true
 	}
 
 	if name, ok := claims["name"].(string); ok {
@@ -272,4 +276,18 @@ func (p *MicrosoftProvider) parseIDTokenClaims(claims map[string]interface{}) *U
 	}
 
 	return info
+}
+
+// claimTrue accepts the boolean and string forms identity providers use for
+// boolean claims.
+func claimTrue(value interface{}) bool {
+	switch v := value.(type) {
+	case bool:
+		return v
+	case string:
+		return v == "true" || v == "1"
+	case float64:
+		return v == 1
+	}
+	return false
 }
