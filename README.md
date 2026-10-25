@@ -1,24 +1,47 @@
-# GoAuth
+<div align="center">
+
+# 🔐 GoAuth
+
+**Authentication for Go, assembled from parts you actually need.**
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/bete7512/goauth)](https://goreportcard.com/report/github.com/bete7512/goauth)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/bete7512/goauth)](https://go.dev/)
 [![License](https://img.shields.io/github/license/bete7512/goauth)](LICENSE)
 
-A modular, framework-agnostic authentication library for Go. Compose the auth features you need — session or stateless JWT, 2FA, OAuth, notifications, admin — and drop it into any web framework.
+[Docs](https://goauth.beteg.dev) · [Quick Start](#-quick-start) · [Modules](#-modules) · [Examples](./examples)
 
-Module path: `github.com/bete7512/goauth` · Go 1.25
+</div>
 
 ---
 
-## Installation
+GoAuth is a **library, not a service**. You import it, plug in the modules you want, and mount the routes on the router you already use. Your database, your server, your users.
+
+```
+auth.New(config)  →  auth.Use(modules...)  →  auth.Initialize(ctx)
+```
+
+That's the whole mental model.
+
+## ✨ Why GoAuth
+
+- **Lego-style modules.** Start with signup and login. Add 2FA, OAuth, passkeys, or organizations later with one line each.
+- **Any framework.** Adapters for `net/http`, Gin, Chi, and Fiber. Everything else works through plain `http.Handler`.
+- **Your database.** PostgreSQL, MySQL, or SQLite through GORM, with embedded migrations per module.
+- **Secure by default.** bcrypt password hashing, account lockout, refresh-token rotation, hashed refresh tokens, TOTP replay protection, and AES-256-GCM encryption.
+- **Hookable.** Every important moment fires an event you can subscribe to.
+- **Typed client for free.** Each module ships an OpenAPI spec, and a TypeScript client is generated from them.
+
+## 📦 Install
 
 ```bash
 go get github.com/bete7512/goauth
 ```
 
----
+Requires Go 1.25+.
 
-## Quick Start
+## 🚀 Quick Start
+
+A working auth server in about 40 lines, using SQLite so there's nothing to set up:
 
 ```go
 package main
@@ -27,41 +50,32 @@ import (
     "context"
     "log"
     "net/http"
-    "time"
 
     "github.com/bete7512/goauth/pkg/adapters/stdhttp"
     "github.com/bete7512/goauth/pkg/auth"
     "github.com/bete7512/goauth/pkg/config"
-    "github.com/bete7512/goauth/pkg/modules/session"
     "github.com/bete7512/goauth/pkg/types"
     "github.com/bete7512/goauth/storage"
 )
 
 func main() {
-    // 1. Storage
     store, err := storage.NewGormStorage(storage.GormConfig{
-        Dialect: types.DialectTypePostgres,
-        DSN:     "host=localhost user=postgres password=secret dbname=authdb sslmode=disable",
+        Dialect: types.DialectTypeSqlite,
+        DSN:     "auth.db",
     })
     if err != nil {
         log.Fatal(err)
     }
     defer store.Close()
 
-    // 2. Auth instance (core module is auto-registered)
     a, err := auth.New(&config.Config{
-        Storage:  store,
-        BasePath: "/api/v1",
-        Migration: config.MigrationConfig{
-            Auto: true, // apply pending migrations on startup
-        },
+        Storage:   store,
+        BasePath:  "/auth",
+        Migration: config.MigrationConfig{Auto: true},
+        Core:      &config.CoreConfig{},
         Security: types.SecurityConfig{
-            JwtSecretKey:  "your-secret-key-min-32-chars!!",
-            EncryptionKey: "your-encryption-key-32-chars!!!",
-            Session: types.SessionConfig{
-                AccessTokenTTL:  15 * time.Minute,
-                RefreshTokenTTL: 7 * 24 * time.Hour,
-            },
+            JwtSecretKey:  "change-me-to-a-32-char-secret!!!",
+            EncryptionKey: "change-me-to-a-32-char-key!!!!!!",
         },
     })
     if err != nil {
@@ -69,384 +83,208 @@ func main() {
     }
     defer a.Close()
 
-    // 3. Register optional modules (must be before Initialize)
-    a.Use(session.New(&config.SessionModuleConfig{
-        EnableSessionManagement: true,
-    }, nil))
-
-    // 4. Initialize
     if err := a.Initialize(context.Background()); err != nil {
         log.Fatal(err)
     }
 
-    // 5. Mount routes and serve
     mux := http.NewServeMux()
-    stdhttp.Register(mux, a)
-    log.Fatal(http.ListenAndServe(":8080", mux))
+    mux.Handle("GET /hello", a.RequireAuth(http.HandlerFunc(hello)))
+
+    log.Fatal(http.ListenAndServe(":8080", stdhttp.Register(mux, a)))
+}
+
+func hello(w http.ResponseWriter, r *http.Request) {
+    userID := r.Context().Value(types.UserIDKey).(string)
+    w.Write([]byte("hello, " + userID))
 }
 ```
 
----
+Try it:
 
-## Lifecycle
+```bash
+# sign up
+curl -X POST localhost:8080/auth/signup \
+  -d '{"email":"ada@example.com","password":"S3cure-pass!"}'
 
-```
-auth.New(config) → auth.Use(module...) → auth.Initialize(ctx)
-```
+# log in and grab the access token
+curl -X POST localhost:8080/auth/login \
+  -d '{"email":"ada@example.com","password":"S3cure-pass!"}'
 
-`Use()` panics after `Initialize()`. Modules register in order — dependencies must be registered before dependents.
-
----
-
-## Storage
-
-Type-safe storage hierarchy backed by GORM (PostgreSQL, MySQL, SQLite). Pass an existing `*gorm.DB` or implement `types.Storage` for a custom backend.
-
-```go
-// Built-in GORM storage
-store, err := storage.NewGormStorage(storage.GormConfig{
-    Dialect: types.DialectTypePostgres,
-    DSN:     "...",
-})
-
-// From existing connection
-store := storage.NewGormStorageFromDB(existingDB)
+# call your protected route
+curl localhost:8080/hello -H "Authorization: Bearer <access_token>"
 ```
 
-```
-types.Storage
-  ├── Core()          → Users, Tokens, ExtendedAttributes
-  ├── Session()       → Sessions
-  ├── OAuth()         → Accounts
-  ├── TwoFactorAuth() → TwoFactor, BackupCodes
-  └── AuditLog()      → AuditLogs
-```
+You didn't register any modules, so GoAuth used its defaults. **Core** handles signup, profile, and passwords. **Stateless JWT** handles login, refresh with rotation, and logout.
 
----
+## 🧩 Modules
 
-## Migrations
+Pick what you need. Each one brings its own routes, tables, and OpenAPI docs.
 
-GoAuth ships embedded, per-dialect SQL migrations for each module. Two modes:
+| Module | What it gives you |
+|---|---|
+| **Core** | Signup, profile, password reset and change, email and phone verification. Always on. |
+| **Stateless** | JWT access and refresh tokens with rotation. The default when no auth mode is chosen. |
+| **Session** | Server-side sessions, cookie strategies, sliding expiry, and listing or revoking devices. |
+| **Notification** | Email and SMS through Resend, SendGrid, SMTP, or Twilio, with branded templates. |
+| **Two-Factor** | TOTP authenticator apps plus backup codes. |
+| **OAuth** | Google, GitHub, Microsoft, Discord, and any OIDC provider, with PKCE. |
+| **Magic Link** | Passwordless login by email. |
+| **Passkeys** | WebAuthn login with Touch ID, Face ID, Windows Hello, or security keys. |
+| **Organization** | Multi-tenant orgs with members, roles, invitations, and org switching. |
+| **Invitation** | Invite-only signups for apps without organizations. |
+| **Admin** | User management endpoints behind admin middleware. |
+| **Audit** | A security event trail covering logins, password changes, and more. |
+| **Captcha** | reCAPTCHA v3 or Cloudflare Turnstile on the routes you choose. |
+| **CSRF** | Double-submit cookie protection for state-changing requests. |
 
-**Auto-apply on startup** — runs pending migrations and records them in a `goauth_migrations` tracking table:
+> **Session and Stateless are mutually exclusive.** Choose one, or register neither to get Stateless.
 
-```go
-Migration: config.MigrationConfig{Auto: true}
-```
+### Adding modules
 
-**Generate SQL files for manual review** — writes one combined `goauth_{timestamp}_up.sql` and `goauth_{timestamp}_down.sql` containing only the modules not yet tracked:
-
-```go
-Migration: config.MigrationConfig{OutputDir: "./migrations"}
-```
-
-Both can be combined. Check migration status at runtime:
-
-```go
-records, err := a.MigrationStatus(ctx)
-```
-
-Supported dialects: `postgres`, `mysql`, `sqlite`.
-
----
-
-## Modules
-
-### Core (auto-registered)
-
-Signup, profile (`/me`, update), password reset & change, email/phone verification, username/email availability checks.
-
-### Authentication — pick one
-
-Session and stateless are **mutually exclusive**. Registering both panics. If neither is registered, stateless JWT is the default.
-
-**Session-based** — server-side sessions, cookie strategies, session management (list/revoke), sliding expiration:
-
-```go
-import "github.com/bete7512/goauth/pkg/modules/session"
-
-a.Use(session.New(&config.SessionModuleConfig{
-    EnableSessionManagement: true,
-    Strategy:                types.SessionStrategyCookieCache,
-    CookieCacheTTL:          5 * time.Minute,
-    SlidingExpiration:       true,
-}, nil))
-```
-
-**Stateless JWT** — access + refresh tokens with optional rotation:
-
-```go
-import "github.com/bete7512/goauth/pkg/modules/stateless"
-
-a.Use(stateless.New(&config.StatelessModuleConfig{
-    RefreshTokenRotation: true,
-}, nil))
-```
-
-### Notification
-
-Email/SMS delivery with pluggable senders. Hooks into core events (signup, password reset, login alerts). No HTTP routes.
+Each module is one `Use()` call made before `Initialize()`:
 
 ```go
 import (
     "github.com/bete7512/goauth/pkg/modules/notification"
     "github.com/bete7512/goauth/pkg/modules/notification/senders"
+    "github.com/bete7512/goauth/pkg/modules/oauth"
+    "github.com/bete7512/goauth/pkg/modules/session"
+    "github.com/bete7512/goauth/pkg/modules/twofactor"
 )
 
-a.Use(notification.New(&notification.Config{
-    EmailSender: senders.NewSendGridEmailSender(&senders.SendGridConfig{
-        APIKey:      "SG.xxx",
-        DefaultFrom: "noreply@yourapp.com",
-    }),
-    EnableWelcomeEmail:       true,
-    EnablePasswordResetEmail: true,
-    EnableLoginAlerts:        true,
+// Server-side sessions instead of stateless JWT
+a.Use(session.New(&config.SessionModuleConfig{
+    EnableSessionManagement: true,
+    SlidingExpiration:       true,
 }))
-```
 
-Built-in senders: SendGrid, Twilio. Implement `notification.EmailSender` or `notification.SMSSender` for custom providers.
+// Send real emails
+a.Use(notification.New(&notification.Config{
+    EmailSender: senders.NewResendEmailSender(&senders.ResendConfig{
+        APIKey:      os.Getenv("RESEND_API_KEY"),
+        DefaultFrom: "hello@yourapp.com",
+    }),
+    EnableWelcomeEmail: true,
+}))
 
-### Two-Factor Authentication
-
-TOTP + backup codes. Endpoints: setup, verify, disable, status.
-
-```go
-import "github.com/bete7512/goauth/pkg/modules/twofactor"
-
-a.Use(twofactor.New(&config.TwoFactorConfig{
-    Issuer:           "MyApp",
-    Required:         false,
-    BackupCodesCount: 10,
-}, nil))
-```
-
-### OAuth
-
-Social login: Google, GitHub, Facebook, Microsoft, Apple, Discord.
-
-```go
-import "github.com/bete7512/goauth/pkg/modules/oauth"
-
+// "Sign in with Google"
 a.Use(oauth.New(&config.OAuthModuleConfig{
     Providers: map[string]*config.OAuthProviderConfig{
-        "google": {
-            ClientID:     "your-client-id",
-            ClientSecret: "your-client-secret",
-            Scopes:       []string{"openid", "email", "profile"},
-        },
+        "google": {ClientID: "...", ClientSecret: "..."},
     },
-    DefaultRedirectURL: "http://localhost:3000/auth/callback",
+    DefaultRedirectURL: "https://app.yourapp.com/auth/callback",
     AllowSignup:        true,
-}, nil))
-```
-
-### Admin
-
-User CRUD (list, get, update, delete) behind admin middleware. Audit log cleanup endpoint.
-
-```go
-import "github.com/bete7512/goauth/pkg/modules/admin"
-
-a.Use(admin.New(nil, nil))
-```
-
-### Audit
-
-Records security-relevant events (login, logout, password change, etc.) for compliance and debugging.
-
-### Captcha
-
-reCAPTCHA v3 or Cloudflare Turnstile, applied to specific routes by name.
-
-```go
-import "github.com/bete7512/goauth/pkg/modules/captcha"
-
-a.Use(captcha.New(&config.CaptchaModuleConfig{
-    Provider:       types.CaptchaProviderGoogle,
-    SiteKey:        "your-site-key",
-    SecretKey:      "your-secret-key",
-    ApplyToRoutes:  []types.RouteName{types.RouteSignup, types.RouteLogin},
-}, nil))
-```
-
-### CSRF
-
-Token-based CSRF protection for state-changing requests.
-
-```go
-import "github.com/bete7512/goauth/pkg/modules/csrf"
-
-a.Use(csrf.New(&config.CSRFModuleConfig{
-    TokenExpiry:      time.Hour,
-    Secure:           true,
-    ProtectedMethods: []string{"POST", "PUT", "DELETE", "PATCH"},
 }))
+
+// Authenticator-app 2FA
+a.Use(twofactor.New(&config.TwoFactorConfig{Issuer: "YourApp"}))
 ```
 
-### Magic Link
+`Use()` returns an error when a module is duplicated, conflicts with another, or is missing a dependency. Always check it.
 
-Passwordless authentication via email.
+More recipes for passkeys, organizations, captcha, and the rest are on the [docs site](https://goauth.beteg.dev).
 
----
-
-## Framework Adapters
-
-One-line route registration for common frameworks:
+## 🔌 Bring Your Own Framework
 
 ```go
-// net/http
-stdhttp.Register(mux, a)
-
-// Gin
-ginadapter.Register(router, a)
-
-// Chi
-chiadapter.Register(router, a)
-
-// Fiber
-fiberadapter.Register(app, a)
+stdhttp.Register(mux, a)          // net/http
+ginadapter.Register(router, a)    // Gin
+chiadapter.Register(router, a)    // Chi
+fiberadapter.Register(app, a)     // Fiber
 ```
 
-All adapters live in `pkg/adapters/`.
+Using something else? `a.Routes()` returns plain method, path, and handler triples you can wire up anywhere.
 
----
+## 🪝 Hook Into Everything
 
-## Event System
-
-Subscribe to events for custom business logic:
+React to auth events without forking anything:
 
 ```go
 a.On(types.EventAfterSignup, func(ctx context.Context, e *types.Event) error {
-    // send welcome email, set up trial, etc.
-    return nil
-})
-
-a.On(types.EventAfterLogin, func(ctx context.Context, e *types.Event) error {
-    // analytics, rate limiting, etc.
+    // start a trial, sync to your CRM, post to Slack...
     return nil
 })
 ```
 
-Async events are processed by a built-in worker pool (10 workers, 1000 queue). For distributed systems, provide a custom `types.AsyncBackend`:
+Events run on a built-in worker pool. For multi-instance deployments, pass your own `types.AsyncBackend` through config, such as NATS, Redis, or Kafka. The [example app](./examples) includes a NATS JetStream backend.
+
+## 🗄️ Storage and Migrations
 
 ```go
-a, _ := auth.New(&config.Config{
-    AsyncBackend: myRedisBackend, // implements types.AsyncBackend
-})
+store, _ := storage.NewGormStorage(storage.GormConfig{Dialect: types.DialectTypePostgres, DSN: dsn})
+store    := storage.NewGormStorageFromDB(existingGormDB) // reuse your connection
 ```
 
-Key events: `EventAfterSignup`, `EventAfterLogin`, `EventAfterLogout`, `EventBeforeLogin`, `EventAfterPasswordVerified`, `EventSendPasswordResetEmail`, `EventAfterEmailVerified`, `EventAuthLoginSuccess`.
-
----
-
-## Protecting Routes
+Migrations are embedded per module and per dialect. You can apply them on startup, or write them to SQL files for review:
 
 ```go
-mux.Handle("/api/v1/dashboard", a.RequireAuth(dashboardHandler))
-```
-
-`RequireAuth` validates the JWT and injects `user_id` (and `session_id` if session-based) into the request context:
-
-```go
-userID := r.Context().Value(types.UserIDKey).(string)
-```
-
----
-
-## Configuration Reference
-
-```go
-&config.Config{
-    Storage:  store,
-    BasePath: "/api/v1",                // default: "/auth"
-    APIURL:   "https://api.example.com",
-
-    Migration: config.MigrationConfig{
-        Auto:      true,        // apply on startup
-        OutputDir: "./sql",     // write SQL files (can combine with Auto)
-    },
-
-    Security: types.SecurityConfig{
-        JwtSecretKey:  "min-32-chars",
-        EncryptionKey: "min-32-chars",
-        HashSaltLength: 10,
-        Session: types.SessionConfig{
-            Name:            "session_token",
-            AccessTokenTTL:  15 * time.Minute,
-            RefreshTokenTTL: 7 * 24 * time.Hour,
-            SessionTTL:      30 * 24 * time.Hour,
-        },
-        PasswordPolicy: types.PasswordPolicy{
-            MinLength:        8,
-            RequireUppercase: true,
-            RequireSpecial:   true,
-        },
-    },
-
-    Core: &config.CoreConfig{
-        RequireEmailVerification: true,
-        RequirePhoneVerification: false,
-        RequireUserName:          false,
-        UniquePhoneNumber:        true,
-    },
-
-    FrontendConfig: &config.FrontendConfig{
-        URL:                     "https://app.example.com",
-        Domain:                  "example.com",
-        ResetPasswordPath:       "/reset-password",
-        VerifyEmailCallbackPath: "/verify-email",
-    },
-
-    Logger: myLogger, // implements types.Logger; defaults to logrus
+Migration: config.MigrationConfig{
+    Auto:      true,            // apply pending migrations at startup
+    OutputDir: "./migrations",  // and/or write up/down SQL files
 }
 ```
 
----
+Need a different database? Implement `types.Storage`.
 
-## Custom Modules
+## 🔑 JWT Signing and JWKS
 
-Implement `config.Module` (8 methods) and register with `auth.Use()`:
+HS256 is the default. Switch to **RS256** or **ES256** so other services can verify tokens without sharing a secret:
 
 ```go
-type config.Module interface {
-    Name()          string
-    Init(ctx, deps) error
-    Routes()        []config.RouteInfo
-    Middlewares()   []config.MiddlewareConfig
-    RegisterHooks(events types.EventBus) error
-    Dependencies()  []string
-    OpenAPISpecs()  []byte
-    Migrations()    types.ModuleMigrations
+Security: types.SecurityConfig{
+    JWTAlgorithm:      types.JWTAlgorithmRS256,
+    JWTPrivateKeyFile: "/etc/goauth/jwt.key",
+    // ...
 }
 ```
 
-Pattern: exported interface + unexported struct + constructor. Include a compile-time check:
+The public keys are then served at `{BasePath}/.well-known/jwks.json`. Every token carries a `kid`, so key rotation is a config change.
 
-```go
-var _ config.Module = (*MyModule)(nil)
-```
+## 🟦 TypeScript Client
 
-Reference implementation: [internal/modules/core/module.go](internal/modules/core/module.go)
-
----
-
-## Development
+Every module ships an OpenAPI spec. From those specs, GoAuth generates a typed fetch client, `@goauth/client`:
 
 ```bash
-make build          # compile
-make test           # unit tests
-make test-core      # core module only
-make test-session   # session module only
-make test-coverage  # coverage report
-make mocks          # regenerate mocks (uber/mock)
-make lint           # golangci-lint
-make test-integration  # needs GOAUTH_TEST_DSN env var
+make sdk
 ```
 
----
+See [`clients/ts`](./clients/ts) for details.
 
-## License
+## 🛠️ Write Your Own Module
 
-MIT — see [LICENSE](LICENSE).
+A module is any type that implements `config.Module`. That means a name, routes, middlewares, hooks, migrations, and an OpenAPI spec. It gets the same storage, events, logger, and security manager as the built-in ones.
 
-Copyright (c) 2025 bete7512
+```go
+var _ config.Module = (*BillingModule)(nil)
+
+a.Use(&BillingModule{})
+```
+
+The [core module](internal/modules/core/module.go) is the reference implementation.
+
+## 🧪 Development
+
+```bash
+make build              # compile everything
+make test               # unit tests
+make test-integration   # full auth lifecycle against in-memory SQLite
+make test-bench         # benchmarks
+make lint               # golangci-lint
+make mocks              # regenerate mocks
+```
+
+## 🗺️ Repository Map
+
+```
+pkg/        public API: auth, config, types, modules, adapters
+internal/   module implementations, events, security
+storage/    GORM backend and cache decorators
+clients/ts  generated TypeScript client
+examples/   a full server using most modules
+demo/       Next.js demo app
+docs/       documentation site
+```
+
+## 📄 License
+
+MIT. See [LICENSE](LICENSE).
