@@ -231,7 +231,9 @@ type CSRFModuleConfig struct {
 	// FormFieldName is the form field name for the token (default: "csrf_token")
 	FormFieldName string
 
-	// Secure sets the Secure flag on the CSRF cookie (default: true)
+	// Secure forces the Secure flag on the CSRF cookie. The cookie is Secure
+	// whenever Security.Session.AllowInsecureCookies is false, so this only
+	// matters for keeping it Secure in an otherwise insecure local setup.
 	Secure bool
 
 	// SameSite sets the SameSite attribute on the CSRF cookie (default: Lax)
@@ -565,8 +567,10 @@ func (c *Config) Validate() error {
 		c.Security.Session.SameSite = http.SameSiteLaxMode
 	}
 	c.Security.Session.HttpOnly = true
-	if c.Security.Session.SameSite == http.SameSiteNoneMode && !c.Security.Session.Secure {
-		return ErrConfig("SameSite=None requires secure cookies")
+	// Cookies are Secure unless the host explicitly opts out for local HTTP.
+	c.Security.Session.Secure = !c.Security.Session.AllowInsecureCookies
+	if c.Security.Session.SameSite == http.SameSiteNoneMode && c.Security.Session.AllowInsecureCookies {
+		return ErrConfig("SameSite=None requires secure cookies; remove Security.Session.AllowInsecureCookies")
 	}
 	if err := (&http.Cookie{Name: "goauth_access_" + c.Security.Session.Name, Path: c.Security.Session.Path, Domain: c.Security.Session.Domain}).Valid(); err != nil {
 		return ErrConfig("invalid credential cookie configuration")

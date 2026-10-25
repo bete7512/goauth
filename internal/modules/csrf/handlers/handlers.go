@@ -10,12 +10,17 @@ import (
 type CSRFHandler struct {
 	service csrf_services.CSRFService
 	config  *config.CSRFModuleConfig
+	// allowInsecureCookies mirrors Security.Session.AllowInsecureCookies.
+	allowInsecureCookies bool
 }
 
-func NewCSRFHandler(service csrf_services.CSRFService, cfg *config.CSRFModuleConfig) *CSRFHandler {
+// NewCSRFHandler creates the handler. allowInsecureCookies comes from the root
+// Security.Session setting; the CSRF cookie is Secure unless it is true.
+func NewCSRFHandler(service csrf_services.CSRFService, cfg *config.CSRFModuleConfig, allowInsecureCookies bool) *CSRFHandler {
 	return &CSRFHandler{
-		service: service,
-		config:  cfg,
+		service:              service,
+		config:               cfg,
+		allowInsecureCookies: allowInsecureCookies,
 	}
 }
 

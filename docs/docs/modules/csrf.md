@@ -15,7 +15,7 @@ The CSRF module provides stateless cross-site request forgery protection using t
 - **Stateless** — No server-side token storage. Tokens are self-validating via HMAC, making this compatible with horizontally scaled deployments.
 - **Configurable Token Expiry** — Tokens expire after a configurable duration (default: 1 hour).
 - **SameSite Cookie Support** — Configure the `SameSite` attribute on the CSRF cookie (default: `Lax`). Use `Strict` for maximum security or `None` for cross-origin scenarios.
-- **Secure Cookie Flag** — Set `Secure: true` for HTTPS. The current constructor leaves the boolean false when omitted, including `csrf.New(nil)`.
+- **Secure Cookie Flag** — The CSRF cookie is Secure unless the root `Security.Session.AllowInsecureCookies` is set; `Secure: true` keeps it Secure even in that local-development case.
 - **Path and Domain Scoping** — Configure `CookiePath` and `CookieDomain` to scope the CSRF cookie to specific paths or subdomains.
 - **Excluded Paths** — Skip CSRF validation for specific paths (e.g., webhooks, API endpoints authenticated via other means). Useful for paths like the CSRF token endpoint itself.
 - **Configurable Protected Methods** — By default, `POST`, `PUT`, `DELETE`, and `PATCH` require CSRF validation. `GET`, `HEAD`, and `OPTIONS` are always exempt.

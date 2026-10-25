@@ -19,7 +19,7 @@ GoAuth separates proof of identity, authentication completion, and access author
 
 If multiple enabled sources supply different credentials, validation rejects the request. Identical values are allowed. The default cookie names are `goauth_access_session` and `goauth_refresh_session`; the suffix is `Security.Session.Name`.
 
-Issued credential cookies are HttpOnly and use `Session.Secure`, `Session.SameSite`, and `Session.Path`. `Name` defaults to `session`, `Path` to `/`, and SameSite to Lax. The current shared cookie helper does **not** set the configured `Session.Domain`; cookies remain host-only. `Session.MaxAge` does not override the per-credential TTL used by that helper.
+Issued credential cookies are HttpOnly and Secure by default; `Session.AllowInsecureCookies` drops the Secure attribute for local development over plain HTTP (Initialize logs a warning). They use `Session.SameSite` and `Session.Path`. `Name` defaults to `session`, `Path` to `/`, and SameSite to Lax. The current shared cookie helper does **not** set the configured `Session.Domain`; cookies remain host-only. `Session.MaxAge` does not override the per-credential TTL used by that helper.
 
 Bearer-only mode does not issue credential cookies, but OAuth still needs its browser-binding cookie. Cookie-only mode controls credential extraction and cookies; successful JSON responses can still contain token fields. It is not a guarantee that credentials are omitted from response bodies.
 
