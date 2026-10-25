@@ -17,7 +17,10 @@ jobs:
           go-version-file: go.mod
           check-latest: true
           cache: true
-      - run: go test -race ./...
+      - name: Unit tests
+        run: go test -race -coverprofile=coverage.out ./...
+      - name: Coverage summary
+        run: echo "Unit test statement coverage $(go tool cover -func=coverage.out | tail -1 | awk '{print $NF}')" >> "$GITHUB_STEP_SUMMARY"
       - run: go test -race -tags=integration ./tests/integration/...
       - name: Compile nested modules
         run: |

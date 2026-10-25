@@ -18,7 +18,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
-	"golang.org/x/crypto/bcrypt"
 )
 
 // TwoFactorService interface - exported for testing
@@ -342,7 +341,8 @@ func (s *twoFactorService) SaveBackupCodes(ctx context.Context, userID string, p
 	// Hash and create backup code models
 	backupCodes := make([]*models.BackupCode, len(plainCodes))
 	for i, plainCode := range plainCodes {
-		hashedCode, err := bcrypt.GenerateFromPassword([]byte(plainCode), bcrypt.DefaultCost)
+		// bcrypt at the configured cost (Security.HashSaltLength), like passwords.
+		hashedCode, err := s.deps.SecurityManager.HashToken(plainCode)
 		if err != nil {
 			s.deps.Logger.Error("Failed to hash backup code", "error", err)
 			return types.NewInternalError("Failed to save backup codes").Wrap(err)
@@ -351,7 +351,7 @@ func (s *twoFactorService) SaveBackupCodes(ctx context.Context, userID string, p
 		backupCodes[i] = &models.BackupCode{
 			ID:     uuid.Must(uuid.NewV7()).String(),
 			UserID: userID,
-			Code:   string(hashedCode),
+			Code:   hashedCode,
 			Used:   false,
 		}
 	}
@@ -382,10 +382,14 @@ func (s *twoFactorService) UseBackupCode(ctx context.Context, userID, plainCode 
 
 	// Try to match against hashed codes
 	for _, bc := range backupCodes {
-		err := bcrypt.CompareHashAndPassword([]byte(bc.Code), []byte(plainCode))
+		err := s.deps.SecurityManager.ValidateHashedToken(bc.Code, plainCode)
 		if err == nil {
 			// Match found! Mark as used
 			if err := bcRepo.MarkUsed(ctx, bc.ID); err != nil {
+				// A concurrent submission consumed it first: the code is spent.
+				if errors.Is(err, models.ErrConflict) {
+					return types.NewTwoFactorInvalidError()
+				}
 				s.deps.Logger.Error("Failed to mark backup code as used", "error", err)
 				return types.NewInternalError("Failed to use backup code").Wrap(err)
 			}
