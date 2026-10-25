@@ -45,5 +45,6 @@ Work through this list before real users sign in. Each item points to the page t
 - Register the [audit module](modules/audit.md), or subscribe to `security.*` and `ratelimit.exceeded` events, and alert on bursts.
 - Use `Config.Observer` for per-route metrics and `Config.Admission` for a concurrency budget shared across replicas.
 - Call `Shutdown(ctx)` when the process stops so background workers drain.
+- Build with the latest Go patch release: GoAuth requires Go 1.26, but early 1.26 patches have standard-library advisories that `govulncheck` reports.
 - Run `govulncheck` on your application and keep GoAuth current.
 - Report vulnerabilities as described in [SECURITY.md](https://github.com/bete7512/goauth/blob/main/SECURITY.md).
