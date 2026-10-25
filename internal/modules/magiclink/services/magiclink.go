@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/bete7512/goauth/internal/authentication"
+	"github.com/bete7512/goauth/internal/security"
 	"strings"
 	"time"
 
@@ -78,7 +79,7 @@ func (s *magicLinkService) ResendMagicLink(ctx context.Context, req *dto.MagicLi
 }
 
 func (s *magicLinkService) VerifyMagicLink(ctx context.Context, tokenStr string) (*coredto.AuthResponse, *types.GoAuthError) {
-	verification, err := s.tokenRepository.FindByToken(ctx, tokenStr)
+	verification, err := security.FindByTokenDigest(ctx, tokenStr, s.tokenRepository.FindByToken)
 	if err != nil {
 		if errors.Is(err, models.ErrNotFound) {
 			return nil, types.NewGoAuthError(types.ErrInvalidToken, "invalid magic link token", 400)
@@ -105,7 +106,7 @@ func (s *magicLinkService) VerifyByCode(ctx context.Context, req *dto.MagicLinkV
 		return nil, types.NewGoAuthError(types.ErrInvalidToken, "too many attempts, request a new code", 429)
 	}
 
-	if verification.Code == "" || verification.Code != req.Code {
+	if !security.CodeMatches(s.codeKey(), verification.ID, verification.Code, req.Code) {
 		if _, incErr := s.tokenRepository.IncrementAttempts(ctx, verification.ID); incErr != nil {
 			s.logger.Errorf("magiclink: failed to increment attempts: %v", incErr)
 		}
@@ -135,11 +136,12 @@ func (s *magicLinkService) sendMagicLinkForUser(ctx context.Context, user *model
 		return nil, types.NewInternalError("failed to generate code").Wrap(err)
 	}
 
+	tokenID := uuid.Must(uuid.NewV7()).String()
 	magicLinkToken := &models.Token{
-		ID:        uuid.Must(uuid.NewV7()).String(),
+		ID:        tokenID,
 		UserID:    user.ID,
-		Token:     token,
-		Code:      code,
+		Token:     security.TokenDigest(token),
+		Code:      security.CodeDigest(s.codeKey(), tokenID, code),
 		Type:      models.TokenTypeMagicLink,
 		Email:     user.Email,
 		ExpiresAt: time.Now().Add(s.tokenExpiry()),
@@ -264,6 +266,14 @@ func (s *magicLinkService) deliveryMode() types.MagicLinkDeliveryMode {
 	default:
 		return types.MagicLinkDeliveryModeBoth
 	}
+}
+
+// codeKey is the key for short-code digests, derived from the JWT secret.
+func (s *magicLinkService) codeKey() []byte {
+	if s.deps.Config == nil {
+		return security.CodeKey(types.SecurityConfig{})
+	}
+	return security.CodeKey(s.deps.Config.Security)
 }
 
 func (s *magicLinkService) maxCodeAttempts() int {

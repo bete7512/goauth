@@ -2,7 +2,7 @@ package core_services
 
 import (
 	"context"
-	"crypto/subtle"
+	"github.com/bete7512/goauth/internal/security"
 	"net/http"
 
 	"github.com/bete7512/goauth/pkg/models"
@@ -29,7 +29,7 @@ func (s *coreService) checkCode(ctx context.Context, token *models.Token, submit
 	if token.Attempts >= max {
 		return tooManyCodeAttempts()
 	}
-	if token.Code != "" && subtle.ConstantTimeCompare([]byte(token.Code), []byte(submitted)) == 1 {
+	if security.CodeMatches(s.codeKey(), token.ID, token.Code, submitted) {
 		return nil
 	}
 	attempts, err := s.TokenRepository.IncrementAttempts(ctx, token.ID)
@@ -50,6 +50,14 @@ func (s *coreService) checkCode(ctx context.Context, token *models.Token, submit
 
 func invalidCode() *types.GoAuthError {
 	return types.NewGoAuthError(types.ErrInvalidToken, "invalid code", http.StatusBadRequest)
+}
+
+// codeKey is the key for short-code digests, derived from the JWT secret.
+func (s *coreService) codeKey() []byte {
+	if s.Deps.Config == nil {
+		return security.CodeKey(types.SecurityConfig{})
+	}
+	return security.CodeKey(s.Deps.Config.Security)
 }
 
 func tooManyCodeAttempts() *types.GoAuthError {

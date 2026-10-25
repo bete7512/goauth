@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"github.com/bete7512/goauth/internal/security"
 	"testing"
 	"time"
 
@@ -175,7 +176,7 @@ func (s *MagicLinkServiceSuite) TestVerifyMagicLink() {
 				token := testutil.TestVerificationToken(user.ID, models.TokenTypeMagicLink)
 				token.Token = "valid-token"
 
-				tr.EXPECT().FindByToken(gomock.Any(), "valid-token").Return(token, nil)
+				tr.EXPECT().FindByToken(gomock.Any(), security.TokenDigest("valid-token")).Return(token, nil)
 				ur.EXPECT().FindByID(gomock.Any(), user.ID).Return(user, nil)
 				tr.EXPECT().MarkAsUsed(gomock.Any(), token.ID).Return(nil)
 				tr.EXPECT().Create(gomock.Any(), gomock.Cond(func(t *models.Token) bool { return t.Type == "refresh_nonce" && t.UserID == token.UserID })).Return(nil)
@@ -187,6 +188,7 @@ func (s *MagicLinkServiceSuite) TestVerifyMagicLink() {
 			name:  "invalid token",
 			token: "bad-token",
 			setup: func(ur *mocks.MockUserRepository, tr *mocks.MockTokenRepository, ev *mocks.MockEventBus, lg *mocks.MockLogger) {
+				tr.EXPECT().FindByToken(gomock.Any(), security.TokenDigest("bad-token")).Return(nil, models.ErrNotFound)
 				tr.EXPECT().FindByToken(gomock.Any(), "bad-token").Return(nil, models.ErrNotFound)
 			},
 			wantErr: true,
@@ -200,7 +202,7 @@ func (s *MagicLinkServiceSuite) TestVerifyMagicLink() {
 				token := testutil.TestExpiredVerificationToken(user.ID, models.TokenTypeMagicLink)
 				token.Token = "expired-token"
 
-				tr.EXPECT().FindByToken(gomock.Any(), "expired-token").Return(token, nil)
+				tr.EXPECT().FindByToken(gomock.Any(), security.TokenDigest("expired-token")).Return(token, nil)
 			},
 			wantErr: true,
 			errCode: types.ErrTokenExpired,
@@ -214,7 +216,7 @@ func (s *MagicLinkServiceSuite) TestVerifyMagicLink() {
 				token.Token = "used-token"
 				token.Used = true
 
-				tr.EXPECT().FindByToken(gomock.Any(), "used-token").Return(token, nil)
+				tr.EXPECT().FindByToken(gomock.Any(), security.TokenDigest("used-token")).Return(token, nil)
 			},
 			wantErr: true,
 			errCode: types.ErrInvalidToken,
@@ -226,7 +228,7 @@ func (s *MagicLinkServiceSuite) TestVerifyMagicLink() {
 				token := testutil.TestVerificationToken("nonexistent-user", models.TokenTypeMagicLink)
 				token.Token = "orphan-token"
 
-				tr.EXPECT().FindByToken(gomock.Any(), "orphan-token").Return(token, nil)
+				tr.EXPECT().FindByToken(gomock.Any(), security.TokenDigest("orphan-token")).Return(token, nil)
 				ur.EXPECT().FindByID(gomock.Any(), "nonexistent-user").Return(nil, models.ErrNotFound)
 			},
 			wantErr: true,
@@ -312,6 +314,36 @@ func (s *MagicLinkServiceSuite) TestVerifyByCode() {
 				token.Attempts = 5 // at the default cap
 
 				tr.EXPECT().FindByEmailAndType(gomock.Any(), "test@example.com", models.TokenTypeMagicLink).Return(token, nil)
+			},
+			wantErr: true,
+			errCode: types.ErrInvalidToken,
+		},
+		{
+			name: "code stored as a digest",
+			req:  &magiclink_dto.MagicLinkVerifyByCodeRequest{Email: "test@example.com", Code: "123456"},
+			setup: func(ur *mocks.MockUserRepository, tr *mocks.MockTokenRepository, ev *mocks.MockEventBus, lg *mocks.MockLogger) {
+				user := testutil.TestUser()
+				token := testutil.TestVerificationToken(user.ID, models.TokenTypeMagicLink)
+				token.Code = security.CodeDigest(security.CodeKey(testutil.TestConfig().Security), token.ID, "123456")
+
+				tr.EXPECT().FindByEmailAndType(gomock.Any(), "test@example.com", models.TokenTypeMagicLink).Return(token, nil)
+				ur.EXPECT().FindByID(gomock.Any(), user.ID).Return(user, nil)
+				tr.EXPECT().MarkAsUsed(gomock.Any(), token.ID).Return(nil)
+				tr.EXPECT().Create(gomock.Any(), gomock.Cond(func(t *models.Token) bool { return t.Type == "refresh_nonce" && t.UserID == token.UserID })).Return(nil)
+				ur.EXPECT().Update(gomock.Any(), gomock.AssignableToTypeOf(&models.User{})).Return(nil)
+				ev.EXPECT().EmitAsync(gomock.Any(), types.EventAfterMagicLinkVerified, gomock.Any()).Return(nil)
+			},
+		},
+		{
+			name: "stored digest submitted as the code",
+			req:  &magiclink_dto.MagicLinkVerifyByCodeRequest{Email: "test@example.com", Code: "h1:00"},
+			setup: func(ur *mocks.MockUserRepository, tr *mocks.MockTokenRepository, ev *mocks.MockEventBus, lg *mocks.MockLogger) {
+				user := testutil.TestUser()
+				token := testutil.TestVerificationToken(user.ID, models.TokenTypeMagicLink)
+				token.Code = security.CodeDigest(security.CodeKey(testutil.TestConfig().Security), token.ID, "123456")
+
+				tr.EXPECT().FindByEmailAndType(gomock.Any(), "test@example.com", models.TokenTypeMagicLink).Return(token, nil)
+				tr.EXPECT().IncrementAttempts(gomock.Any(), token.ID).Return(1, nil)
 			},
 			wantErr: true,
 			errCode: types.ErrInvalidToken,

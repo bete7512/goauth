@@ -8,8 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/bete7512/goauth/pkg/auth"
-	"github.com/bete7512/goauth/pkg/models"
+	"github.com/bete7512/goauth/pkg/types"
 	h "github.com/bete7512/goauth/tests/integration/testhelpers"
 	"github.com/stretchr/testify/require"
 )
@@ -22,14 +21,21 @@ func signupWithPhone(t *testing.T, handler http.Handler, email, phone string) {
 	require.Equal(t, http.StatusCreated, w.Code, "signup: %s", w.Body.String())
 }
 
-// latestCode reads the newest live short code for phone straight from storage,
-// standing in for the SMS the user would receive.
-func latestCode(t *testing.T, a *auth.Auth, phone, tokenType string) string {
+// resetCode returns the n-th password-reset code sent to phone, as the SMS
+// sender would receive it. Codes are stored only as keyed digests.
+func resetCode(t *testing.T, events *h.EventRecorder, phone string, n int) string {
 	t.Helper()
-	tok, err := a.Config().Storage.Core().Tokens().FindByPhoneAndType(context.Background(), phone, tokenType)
-	require.NoError(t, err)
-	require.NotEmpty(t, tok.Code)
-	return tok.Code
+	data := h.Nth(t, events, n, func(d *types.PasswordResetRequestData) bool { return d.PhoneNumber == phone && d.Code != "" })
+	return data.Code
+}
+
+// verificationCode returns the n-th phone-verification code sent to phone.
+func verificationCode(t *testing.T, events *h.EventRecorder, phone string, n int) string {
+	t.Helper()
+	data := h.Nth(t, events, n, func(d *types.PhoneVerificationRequestData) bool {
+		return d.User != nil && d.User.PhoneNumber == phone && d.Code != ""
+	})
+	return data.Code
 }
 
 func resetWithCode(handler http.Handler, phone, code, password string) *httptest.ResponseRecorder {
@@ -44,12 +50,13 @@ func verifyPhone(handler http.Handler, phone, code string) *httptest.ResponseRec
 // the right value is then rejected, and a fresh code can be requested at once.
 func TestPhoneReset_WrongCodesExhaustTheBudget(t *testing.T) {
 	a, handler := h.SetupStatelessAuth(t)
+	events := h.RecordEvents(a, types.EventSendPasswordResetEmail)
 	const phone, email = "+15550001001", "reset-phone@example.com"
 	signupWithPhone(t, handler, email, phone)
 
 	w := h.JSONPost(handler, "/auth/forgot-password", map[string]interface{}{"phone": phone})
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
-	code := latestCode(t, a, phone, models.TokenTypePasswordReset)
+	code := resetCode(t, events, phone, 1)
 
 	for i := 1; i <= 4; i++ {
 		w = resetWithCode(handler, phone, "000000", "NewPass1234")
@@ -66,7 +73,7 @@ func TestPhoneReset_WrongCodesExhaustTheBudget(t *testing.T) {
 	// A fresh code is issued immediately and works once.
 	w = h.JSONPost(handler, "/auth/forgot-password", map[string]interface{}{"phone": phone})
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
-	fresh := latestCode(t, a, phone, models.TokenTypePasswordReset)
+	fresh := resetCode(t, events, phone, 2)
 	w = resetWithCode(handler, phone, fresh, "NewPass1234")
 	require.Equal(t, http.StatusOK, w.Code, "fresh code: %s", w.Body.String())
 	w = h.JSONPost(handler, "/auth/login", map[string]interface{}{"email": email, "password": "NewPass1234"})
@@ -79,13 +86,14 @@ func TestPhoneReset_WrongCodesExhaustTheBudget(t *testing.T) {
 // reset the password of another account.
 func TestPhoneReset_CodeIsBoundToItsAccount(t *testing.T) {
 	a, handler := h.SetupStatelessAuth(t)
+	events := h.RecordEvents(a, types.EventSendPasswordResetEmail)
 	signupWithPhone(t, handler, "alice@example.com", "+15550002001")
 	signupWithPhone(t, handler, "bob@example.com", "+15550002002")
 	for _, phone := range []string{"+15550002001", "+15550002002"} {
 		w := h.JSONPost(handler, "/auth/forgot-password", map[string]interface{}{"phone": phone})
 		require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 	}
-	aliceCode := latestCode(t, a, "+15550002001", models.TokenTypePasswordReset)
+	aliceCode := resetCode(t, events, "+15550002001", 1)
 
 	w := resetWithCode(handler, "+15550002002", aliceCode, "Hijack1234")
 	require.Equal(t, http.StatusBadRequest, w.Code, "another account's code must be a plain wrong guess: %s", w.Body.String())
@@ -100,12 +108,13 @@ func TestPhoneReset_CodeIsBoundToItsAccount(t *testing.T) {
 // phone verification codes.
 func TestPhoneVerification_WrongCodesExhaustTheBudget(t *testing.T) {
 	a, handler := h.SetupStatelessAuth(t)
+	events := h.RecordEvents(a, types.EventSendPhoneVerification)
 	const phone = "+15550003001"
 	signupWithPhone(t, handler, "verify-phone@example.com", phone)
 
 	w := h.JSONPost(handler, "/auth/send-verification-phone", map[string]interface{}{"phone": phone})
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
-	code := latestCode(t, a, phone, models.TokenTypePhoneVerification)
+	code := verificationCode(t, events, phone, 1)
 
 	for i := 1; i <= 4; i++ {
 		w = verifyPhone(handler, phone, "000000")
@@ -118,7 +127,7 @@ func TestPhoneVerification_WrongCodesExhaustTheBudget(t *testing.T) {
 
 	w = h.JSONPost(handler, "/auth/send-verification-phone", map[string]interface{}{"phone": phone})
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
-	fresh := latestCode(t, a, phone, models.TokenTypePhoneVerification)
+	fresh := verificationCode(t, events, phone, 2)
 	w = verifyPhone(handler, phone, fresh)
 	require.Equal(t, http.StatusOK, w.Code, "fresh code: %s", w.Body.String())
 

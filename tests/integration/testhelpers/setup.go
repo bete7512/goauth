@@ -215,7 +215,7 @@ func SetupStatelessWithOrg(t *testing.T) (*auth.Auth, http.Handler) {
 	})
 	require.NoError(t, err)
 
-	require.NoError(t, authInstance.Use(organization.New(nil)))
+	require.NoError(t, authInstance.Use(organization.New(&organization.Config{InvitationCallbackURL: "https://app.example.com/org/invitations/accept"})))
 
 	return authInstance, initAuth(t, authInstance)
 }
@@ -234,7 +234,7 @@ func SetupStatelessWithInvitation(t *testing.T) (*auth.Auth, http.Handler) {
 	require.NoError(t, err)
 
 	require.NoError(t, authInstance.Use(admin.New(nil)))
-	require.NoError(t, authInstance.Use(invitation.New(nil)))
+	require.NoError(t, authInstance.Use(invitation.New(&invitation.Config{CallbackURL: "https://app.example.com/invitations/accept"})))
 
 	return authInstance, initAuth(t, authInstance)
 }
@@ -408,5 +408,22 @@ func SetupSessionAuthInsecureCookies(t *testing.T) (*auth.Auth, http.Handler) {
 	})
 	require.NoError(t, err)
 	require.NoError(t, authInstance.Use(session.New(&config.SessionModuleConfig{EnableSessionManagement: true})))
+	return authInstance, initAuth(t, authInstance)
+}
+
+// SetupStatelessAuthWithFrontend is SetupStatelessAuth with a frontend
+// configuration, so verification and reset events carry links.
+func SetupStatelessAuthWithFrontend(t *testing.T, frontend *config.FrontendConfig) (*auth.Auth, http.Handler) {
+	t.Helper()
+	authInstance, err := auth.New(&config.Config{
+		Storage:        newStore(t),
+		BasePath:       "/auth",
+		Security:       defaultSecurityConfig("frontend-test-secret-key-32chars", "frontend-test-encryption-key-32!"),
+		Core:           &config.CoreConfig{RequireEmailVerification: false},
+		RateLimit:      &config.RateLimitModuleConfig{Disabled: true},
+		FrontendConfig: frontend,
+		Migration:      config.MigrationConfig{Auto: true},
+	})
+	require.NoError(t, err)
 	return authInstance, initAuth(t, authInstance)
 }

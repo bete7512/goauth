@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/bete7512/goauth/internal/operation"
+	"github.com/bete7512/goauth/internal/security"
 	"github.com/bete7512/goauth/pkg/config"
 	"time"
 
@@ -40,7 +41,7 @@ func (s *coreService) SendEmailVerification(ctx context.Context, email string) (
 	verificationToken := &models.Token{
 		ID:        uuid.Must(uuid.NewV7()).String(),
 		UserID:    user.ID,
-		Token:     token,
+		Token:     security.TokenDigest(token),
 		Type:      models.TokenTypeEmailVerification,
 		Email:     email,
 		ExpiresAt: time.Now().Add(24 * time.Hour),
@@ -92,7 +93,7 @@ func (s *coreService) ResendEmailVerification(ctx context.Context, email string)
 	verificationToken := &models.Token{
 		ID:        uuid.Must(uuid.NewV7()).String(),
 		UserID:    user.ID,
-		Token:     token,
+		Token:     security.TokenDigest(token),
 		Type:      models.TokenTypeEmailVerification,
 		Email:     email,
 		ExpiresAt: time.Now().Add(24 * time.Hour),
@@ -136,11 +137,12 @@ func (s *coreService) SendPhoneVerification(ctx context.Context, phone string) (
 		return nil, types.NewInternalError("failed to generate token").Wrap(err)
 	}
 
+	tokenID := uuid.Must(uuid.NewV7()).String()
 	verificationToken := &models.Token{
-		ID:          uuid.Must(uuid.NewV7()).String(),
+		ID:          tokenID,
 		UserID:      user.ID,
-		Token:       opaque,
-		Code:        code,
+		Token:       security.TokenDigest(opaque),
+		Code:        security.CodeDigest(s.codeKey(), tokenID, code),
 		Type:        models.TokenTypePhoneVerification,
 		PhoneNumber: phone,
 		ExpiresAt:   time.Now().Add(15 * time.Minute),
@@ -193,11 +195,12 @@ func (s *coreService) ResendPhoneVerification(ctx context.Context, phone string)
 		return nil, types.NewInternalError("failed to generate token").Wrap(err)
 	}
 
+	tokenID := uuid.Must(uuid.NewV7()).String()
 	verificationToken := &models.Token{
-		ID:          uuid.Must(uuid.NewV7()).String(),
+		ID:          tokenID,
 		UserID:      user.ID,
-		Token:       opaque,
-		Code:        code,
+		Token:       security.TokenDigest(opaque),
+		Code:        security.CodeDigest(s.codeKey(), tokenID, code),
 		Type:        models.TokenTypePhoneVerification,
 		PhoneNumber: phone,
 		ExpiresAt:   time.Now().Add(15 * time.Minute),
@@ -231,7 +234,7 @@ func (s *coreService) VerifyEmail(ctx context.Context, token string) (*dto.Messa
 		})
 	}
 
-	verification, err := s.TokenRepository.FindByToken(ctx, token)
+	verification, err := security.FindByTokenDigest(ctx, token, s.TokenRepository.FindByToken)
 	if err != nil {
 		if errors.Is(err, models.ErrNotFound) {
 			return nil, types.NewGoAuthError(types.ErrInvalidToken, "invalid verification token", 400)

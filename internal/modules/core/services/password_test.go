@@ -3,7 +3,9 @@ package core_services_test
 import (
 	"context"
 	"errors"
+	"github.com/bete7512/goauth/internal/security"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -160,7 +162,11 @@ func (s *PasswordServiceSuite) TestForgotPassword() {
 			setup: func(ur *mocks.MockUserRepository, tr *mocks.MockTokenRepository, ev *mocks.MockEventBus) {
 				ur.EXPECT().FindByEmail(gomock.Any(), testUser.Email).Return(testUser, nil)
 				tr.EXPECT().FindByEmailAndType(gomock.Any(), testUser.Email, models.TokenTypePasswordReset).Return(nil, models.ErrNotFound)
-				tr.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&models.Token{})).Return(nil)
+				tr.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&models.Token{})).DoAndReturn(func(_ context.Context, tok *models.Token) error {
+					s.True(strings.HasPrefix(tok.Token, "s1:"), "reset token must be stored as a digest, got %q", tok.Token)
+					s.Empty(tok.Code, "email resets carry no short code")
+					return nil
+				})
 				ev.EXPECT().EmitAsync(gomock.Any(), types.EventSendPasswordResetEmail, gomock.AssignableToTypeOf(&types.PasswordResetRequestData{})).Return(nil)
 			},
 		},
@@ -219,7 +225,7 @@ func (s *PasswordServiceSuite) TestResetPassword() {
 			name: "success with token",
 			req:  &dto.ResetPasswordRequest{Token: validToken.Token, NewPassword: "newpassword456"},
 			setup: func(ur *mocks.MockUserRepository, tr *mocks.MockTokenRepository, ev *mocks.MockEventBus) {
-				tr.EXPECT().FindByToken(gomock.Any(), validToken.Token).Return(validToken, nil)
+				tr.EXPECT().FindByToken(gomock.Any(), security.TokenDigest(validToken.Token)).Return(validToken, nil)
 				ur.EXPECT().FindByID(gomock.Any(), testUser.ID).Return(testUser, nil)
 				ur.EXPECT().Update(gomock.Any(), gomock.AssignableToTypeOf(&models.User{})).Return(nil)
 				tr.EXPECT().MarkAsUsed(gomock.Any(), validToken.ID).Return(nil)
@@ -230,6 +236,7 @@ func (s *PasswordServiceSuite) TestResetPassword() {
 			name: "invalid token",
 			req:  &dto.ResetPasswordRequest{Token: "invalid-token", NewPassword: "newpassword456"},
 			setup: func(_ *mocks.MockUserRepository, tr *mocks.MockTokenRepository, _ *mocks.MockEventBus) {
+				tr.EXPECT().FindByToken(gomock.Any(), security.TokenDigest("invalid-token")).Return(nil, models.ErrNotFound)
 				tr.EXPECT().FindByToken(gomock.Any(), "invalid-token").Return(nil, models.ErrNotFound)
 			},
 			wantErr: true,
@@ -239,7 +246,7 @@ func (s *PasswordServiceSuite) TestResetPassword() {
 			name: "expired token",
 			req:  &dto.ResetPasswordRequest{Token: expiredToken.Token, NewPassword: "newpassword456"},
 			setup: func(_ *mocks.MockUserRepository, tr *mocks.MockTokenRepository, _ *mocks.MockEventBus) {
-				tr.EXPECT().FindByToken(gomock.Any(), expiredToken.Token).Return(expiredToken, nil)
+				tr.EXPECT().FindByToken(gomock.Any(), security.TokenDigest(expiredToken.Token)).Return(expiredToken, nil)
 			},
 			wantErr: true,
 			errCode: types.ErrTokenExpired,
@@ -263,7 +270,7 @@ func (s *PasswordServiceSuite) TestResetPassword() {
 					ExpiresAt: time.Now().Add(1 * time.Hour),
 					CreatedAt: time.Now(),
 				}
-				tr.EXPECT().FindByToken(gomock.Any(), "orphan-token").Return(tok, nil)
+				tr.EXPECT().FindByToken(gomock.Any(), security.TokenDigest("orphan-token")).Return(tok, nil)
 				ur.EXPECT().FindByID(gomock.Any(), "deleted-user").Return(nil, models.ErrNotFound)
 			},
 			wantErr: true,
@@ -331,6 +338,41 @@ func (s *PasswordServiceSuite) TestResetPassword() {
 			},
 			wantErr: true,
 			errCode: types.ErrInvalidToken,
+		},
+		{
+			name: "token issued before digests is still redeemable",
+			req:  &dto.ResetPasswordRequest{Token: validToken.Token, NewPassword: "newpassword456"},
+			setup: func(ur *mocks.MockUserRepository, tr *mocks.MockTokenRepository, ev *mocks.MockEventBus) {
+				tr.EXPECT().FindByToken(gomock.Any(), security.TokenDigest(validToken.Token)).Return(nil, models.ErrNotFound)
+				tr.EXPECT().FindByToken(gomock.Any(), validToken.Token).Return(validToken, nil)
+				ur.EXPECT().FindByID(gomock.Any(), testUser.ID).Return(testUser, nil)
+				ur.EXPECT().Update(gomock.Any(), gomock.AssignableToTypeOf(&models.User{})).Return(nil)
+				tr.EXPECT().MarkAsUsed(gomock.Any(), validToken.ID).Return(nil)
+				ev.EXPECT().EmitAsync(gomock.Any(), types.EventAfterResetPassword, gomock.AssignableToTypeOf(&types.PasswordChangedData{})).Return(nil)
+			},
+		},
+		{
+			name: "a stored digest is not a reset token",
+			req:  &dto.ResetPasswordRequest{Token: security.TokenDigest(validToken.Token), NewPassword: "newpassword456"},
+			setup: func(_ *mocks.MockUserRepository, tr *mocks.MockTokenRepository, _ *mocks.MockEventBus) {
+				tr.EXPECT().FindByToken(gomock.Any(), security.TokenDigest(security.TokenDigest(validToken.Token))).Return(nil, models.ErrNotFound)
+			},
+			wantErr: true,
+			errCode: types.ErrInvalidToken,
+		},
+		{
+			name: "phone code stored as a digest",
+			req:  &dto.ResetPasswordRequest{Code: "123456", Phone: "+15550001001", NewPassword: "newpassword456"},
+			setup: func(ur *mocks.MockUserRepository, tr *mocks.MockTokenRepository, ev *mocks.MockEventBus) {
+				tok := testutil.TestVerificationToken(testUser.ID, models.TokenTypePasswordReset)
+				tok.PhoneNumber = "+15550001001"
+				tok.Code = security.CodeDigest(security.CodeKey(testutil.TestConfig().Security), tok.ID, "123456")
+				tr.EXPECT().FindByPhoneAndType(gomock.Any(), "+15550001001", models.TokenTypePasswordReset).Return(tok, nil)
+				ur.EXPECT().FindByID(gomock.Any(), testUser.ID).Return(testUser, nil)
+				ur.EXPECT().Update(gomock.Any(), gomock.AssignableToTypeOf(&models.User{})).Return(nil)
+				tr.EXPECT().MarkAsUsed(gomock.Any(), tok.ID).Return(nil)
+				ev.EXPECT().EmitAsync(gomock.Any(), types.EventAfterResetPassword, gomock.AssignableToTypeOf(&types.PasswordChangedData{})).Return(nil)
+			},
 		},
 	}
 
