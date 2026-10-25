@@ -65,7 +65,7 @@ Prefix paths with `BasePath`.
 | GET | `/2fa/status` | Access | Read enabled state and method |
 | POST | `/2fa/verify-login` | Pending credential + code | Resume authentication |
 
-TOTP reuse is tracked and backup codes are single-use. Store recovery codes when first shown. Repeating setup before verification replaces the pending secret and codes.
+Every TOTP code is accepted once: the time step of the last accepted code is stored (`two_factors.last_used_step`) and codes for that step or earlier are rejected even inside the ±30 s skew window, with concurrent submissions resolved atomically by the storage layer. Enabling 2FA records the current step, so the code used during setup cannot be replayed to sign in. Backup codes are single-use. Store recovery codes when first shown. Repeating setup before verification replaces the pending secret and codes.
 
 ## Enforcement and Current Limits
 

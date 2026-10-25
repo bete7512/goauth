@@ -1,0 +1,1 @@
+ALTER TABLE two_factors ADD COLUMN last_used_step BIGINT NOT NULL DEFAULT 0;

@@ -47,6 +47,28 @@ func (r *twoFactorRepository) Update(ctx context.Context, tf *models.TwoFactor) 
 	return nil
 }
 
+// ConsumeTOTPStep implements models.TOTPStepConsumer with one conditional
+// UPDATE, so concurrent submissions of the same code have exactly one winner.
+func (r *twoFactorRepository) ConsumeTOTPStep(ctx context.Context, userID string, step int64) error {
+	res := r.db.WithContext(ctx).Model(&models.TwoFactor{}).
+		Where("user_id = ? AND last_used_step < ?", userID, step).
+		Updates(map[string]interface{}{
+			"last_used_step":  step,
+			"failed_attempts": 0,
+			"locked_until":    nil,
+			"updated_at":      time.Now(),
+		})
+	if res.Error != nil {
+		return fmt.Errorf("twofactor_repository.ConsumeTOTPStep: %w", res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("twofactor_repository.ConsumeTOTPStep: %w", models.ErrConflict)
+	}
+	return nil
+}
+
+var _ models.ReplayGuardedTwoFactorRepository = (*twoFactorRepository)(nil)
+
 func (r *twoFactorRepository) Delete(ctx context.Context, userID string) error {
 	if err := r.db.WithContext(ctx).Where("user_id = ?", userID).Delete(&models.TwoFactor{}).Error; err != nil {
 		return fmt.Errorf("twofactor_repository.Delete: %w", err)
