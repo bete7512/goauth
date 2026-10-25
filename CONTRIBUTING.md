@@ -52,5 +52,15 @@ CI runs `make check` equivalents plus the Postgres and MySQL contract jobs on ev
 
 1. Make sure CI is green on `main`.
 2. Move the `Unreleased` entries under a heading for the new version and date.
-3. Tag from `main`, for example `git tag v0.3.0-beta.1 && git push origin v0.3.0-beta.1`. The release workflow reruns the tests and publishes the GitHub release; a tag with a hyphen is marked as a pre-release.
-4. Check that the version appears on [pkg.go.dev](https://pkg.go.dev/github.com/bete7512/goauth).
+3. Set the `github.com/bete7512/goauth` requirement in each `pkg/adapters/*/go.mod` to the new version (their `replace` keeps local builds on the checkout).
+4. Tag the root module and each adapter module on the same `main` commit, then push the tags:
+   ```
+   V=v0.3.0-beta.1
+   git tag $V
+   for m in chiadapter ginadapter fiberadapter; do git tag pkg/adapters/$m/$V; done
+   git push origin $V pkg/adapters/chiadapter/$V pkg/adapters/ginadapter/$V pkg/adapters/fiberadapter/$V
+   ```
+   The release workflow reruns the tests and publishes the GitHub release for the root tag; a tag with a hyphen is marked as a pre-release.
+5. Check that the versions appear on [pkg.go.dev](https://pkg.go.dev/github.com/bete7512/goauth).
+
+Never delete and re-push a published tag, and never reuse a version number: the Go module proxy and checksum database keep every published version permanently. Mark a bad version with a `retract` directive in `go.mod` instead.

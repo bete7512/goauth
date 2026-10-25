@@ -20,7 +20,7 @@ Run a GoAuth HTTP server with SQLite, password sign-in, and stateless JWT creden
 mkdir goauth-demo
 cd goauth-demo
 go mod init goauth-demo
-go get github.com/bete7512/goauth
+go get github.com/bete7512/goauth@v0.3.0-beta.1
 ```
 
 When testing an unreleased checkout, point the module at that checkout with `go mod edit -replace github.com/bete7512/goauth=/absolute/path/to/go-auth`. Published versions may not contain the APIs described here yet.
@@ -260,9 +260,9 @@ Import `pkg/modules/passkeys`. The RP origin identifies the frontend performing 
 The standard HTTP adapter is in the root module. Gin, Chi, and Fiber adapters are separate Go modules:
 
 ```bash
-go get github.com/bete7512/goauth/pkg/adapters/ginadapter
-go get github.com/bete7512/goauth/pkg/adapters/chiadapter
-go get github.com/bete7512/goauth/pkg/adapters/fiberadapter
+go get github.com/bete7512/goauth/pkg/adapters/ginadapter@v0.3.0-beta.1
+go get github.com/bete7512/goauth/pkg/adapters/chiadapter@v0.3.0-beta.1
+go get github.com/bete7512/goauth/pkg/adapters/fiberadapter@v0.3.0-beta.1
 ```
 
 After initialization, use `ginadapter.Register(router, a)`, `chiadapter.Register(router, a)`, or `fiberadapter.Register(app, a)`. See the [framework guide](frameworks/gin.md).

@@ -4,7 +4,9 @@ All notable changes to GoAuth are recorded here. The format follows [Keep a Chan
 
 ## [Unreleased]
 
-Planned as `v0.3.0-beta.1`, the first public beta. Moving from v0.2.x is a maintenance deployment and every user signs in again; follow [Upgrading from v0.2.x](docs/docs/upgrade.md#upgrading-from-v02x).
+## [0.3.0-beta.1] - 2026-10-26
+
+The first public beta and the start of a new release line. Every earlier version is retracted (see below). Moving from v0.2.x is a maintenance deployment and every user signs in again; follow [Upgrading from v0.2.x](docs/docs/upgrade.md#upgrading-from-v02x).
 
 ### Breaking changes
 
@@ -56,8 +58,9 @@ Planned as `v0.3.0-beta.1`, the first public beta. Moving from v0.2.x is a maint
 - ES256 JWKS coordinates dropped a leading zero byte for about one key in 128; key IDs are unchanged (#44).
 - `NewConfigurationError` ignored its message (#44).
 
-## Earlier releases
+## Retracted versions
 
-`v0.2.1` (2025-10-22), `v0.2.0` (2025-10-22), `v0.1.1`, `v0.1.0` (2025-10-22) and `v0.1.0-alpha.1` (2025-10-18) predate this changelog. Their notes are on the [GitHub releases page](https://github.com/bete7512/goauth/releases).
+`v0.1.0-alpha.1`, `v0.1.0`, `v0.1.1`, `v0.2.0` and `v0.2.1` were published before this changelog and have the security issues fixed in 0.3.0-beta.1. They are retracted in `go.mod`, so the Go tooling warns anyone who depends on them. Their tags and release notes have been removed from GitHub; the Go module proxy keeps the code, so those version numbers can never be reused.
 
-[Unreleased]: https://github.com/bete7512/goauth/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/bete7512/goauth/compare/v0.3.0-beta.1...HEAD
+[0.3.0-beta.1]: https://github.com/bete7512/goauth/releases/tag/v0.3.0-beta.1
