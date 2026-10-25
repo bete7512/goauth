@@ -127,7 +127,7 @@ func (s *invitationService) Send(ctx context.Context, req *dto.SendInvitationReq
 		inviteLink = s.callbackURL + "?token=" + token
 	}
 
-	s.deps.Events.EmitAsync(ctx, types.EventInvitationSent, &types.InvitationEventData{
+	_ = s.deps.Events.EmitAsync(ctx, types.EventInvitationSent, &types.InvitationEventData{
 		InvitationID: invitation.ID,
 		Email:        req.Email,
 		Purpose:      purpose,
@@ -231,7 +231,7 @@ func (s *invitationService) Accept(ctx context.Context, token, name, password st
 		return nil, types.NewInternalError("failed to update invitation status").Wrap(err)
 	}
 
-	s.deps.Events.EmitAsync(ctx, types.EventInvitationAccepted, &types.InvitationEventData{
+	_ = s.deps.Events.EmitAsync(ctx, types.EventInvitationAccepted, &types.InvitationEventData{
 		InvitationID: inv.ID,
 		Email:        inv.Email,
 		Purpose:      inv.Purpose,
@@ -260,7 +260,7 @@ func (s *invitationService) Decline(ctx context.Context, token string) *types.Go
 		return types.NewInternalError("failed to update invitation status").Wrap(err)
 	}
 
-	s.deps.Events.EmitAsync(ctx, types.EventInvitationDeclined, &types.InvitationEventData{
+	_ = s.deps.Events.EmitAsync(ctx, types.EventInvitationDeclined, &types.InvitationEventData{
 		InvitationID: inv.ID,
 		Email:        inv.Email,
 		Purpose:      inv.Purpose,

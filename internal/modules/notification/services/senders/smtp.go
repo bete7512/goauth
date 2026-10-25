@@ -59,41 +59,41 @@ func (s *SMTPEmailSender) SendEmail(ctx context.Context, message *models.EmailMe
 
 	// Build email message
 	var msg strings.Builder
-	msg.WriteString(fmt.Sprintf("From: %s <%s>\r\n", fromName, from))
-	msg.WriteString(fmt.Sprintf("To: %s\r\n", strings.Join(message.To, ",")))
+	fmt.Fprintf(&msg, "From: %s <%s>\r\n", fromName, from)
+	fmt.Fprintf(&msg, "To: %s\r\n", strings.Join(message.To, ","))
 
 	if len(message.CC) > 0 {
-		msg.WriteString(fmt.Sprintf("Cc: %s\r\n", strings.Join(message.CC, ",")))
+		fmt.Fprintf(&msg, "Cc: %s\r\n", strings.Join(message.CC, ","))
 	}
 
 	if message.ReplyTo != "" {
-		msg.WriteString(fmt.Sprintf("Reply-To: %s\r\n", message.ReplyTo))
+		fmt.Fprintf(&msg, "Reply-To: %s\r\n", message.ReplyTo)
 	}
 
-	msg.WriteString(fmt.Sprintf("Subject: %s\r\n", message.Subject))
+	fmt.Fprintf(&msg, "Subject: %s\r\n", message.Subject)
 	msg.WriteString("MIME-Version: 1.0\r\n")
 
 	// Add custom headers
 	for key, value := range message.Headers {
-		msg.WriteString(fmt.Sprintf("%s: %s\r\n", key, value))
+		fmt.Fprintf(&msg, "%s: %s\r\n", key, value)
 	}
 
 	// Simple multipart if both text and HTML
 	if message.TextBody != "" && message.HTMLBody != "" {
 		boundary := "boundary123456"
-		msg.WriteString(fmt.Sprintf("Content-Type: multipart/alternative; boundary=\"%s\"\r\n\r\n", boundary))
+		fmt.Fprintf(&msg, "Content-Type: multipart/alternative; boundary=\"%s\"\r\n\r\n", boundary)
 
-		msg.WriteString(fmt.Sprintf("--%s\r\n", boundary))
+		fmt.Fprintf(&msg, "--%s\r\n", boundary)
 		msg.WriteString("Content-Type: text/plain; charset=UTF-8\r\n\r\n")
 		msg.WriteString(message.TextBody)
 		msg.WriteString("\r\n\r\n")
 
-		msg.WriteString(fmt.Sprintf("--%s\r\n", boundary))
+		fmt.Fprintf(&msg, "--%s\r\n", boundary)
 		msg.WriteString("Content-Type: text/html; charset=UTF-8\r\n\r\n")
 		msg.WriteString(message.HTMLBody)
 		msg.WriteString("\r\n\r\n")
 
-		msg.WriteString(fmt.Sprintf("--%s--\r\n", boundary))
+		fmt.Fprintf(&msg, "--%s--\r\n", boundary)
 	} else if message.HTMLBody != "" {
 		msg.WriteString("Content-Type: text/html; charset=UTF-8\r\n\r\n")
 		msg.WriteString(message.HTMLBody)
@@ -125,13 +125,13 @@ func (s *SMTPEmailSender) SendEmail(ctx context.Context, message *models.EmailMe
 		if err != nil {
 			return fmt.Errorf("smtp: failed to connect with TLS: %w", err)
 		}
-		defer conn.Close()
+		defer func() { _ = conn.Close() }()
 
 		client, err := smtp.NewClient(conn, s.host)
 		if err != nil {
 			return fmt.Errorf("smtp: failed to create client: %w", err)
 		}
-		defer client.Quit()
+		defer func() { _ = client.Quit() }()
 
 		if auth != nil {
 			if err := client.Auth(auth); err != nil {

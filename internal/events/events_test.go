@@ -22,8 +22,7 @@ func TestEventBusSuite(t *testing.T) {
 
 func (s *EventBusSuite) TestSubscribeAndHasHandlers() {
 	eb := events.NewEventBus(nil)
-	defer eb.Close()
-
+	defer func() { _ = eb.Close() }()
 	s.False(eb.HasHandlers(types.EventAfterSignup))
 
 	eb.Subscribe(types.EventAfterSignup, func(_ context.Context, _ *types.Event) error {
@@ -36,8 +35,7 @@ func (s *EventBusSuite) TestSubscribeAndHasHandlers() {
 
 func (s *EventBusSuite) TestUnsubscribe() {
 	eb := events.NewEventBus(nil)
-	defer eb.Close()
-
+	defer func() { _ = eb.Close() }()
 	eb.Subscribe(types.EventAfterSignup, func(_ context.Context, _ *types.Event) error {
 		return nil
 	})
@@ -80,8 +78,7 @@ func (s *EventBusSuite) TestEmitSync() {
 	for _, tt := range tests {
 		s.Run(tt.name, func() {
 			eb := events.NewEventBus(nil)
-			defer eb.Close()
-
+			defer func() { _ = eb.Close() }()
 			var called bool
 			if tt.subscribe {
 				eb.Subscribe(tt.eventType, func(_ context.Context, event *types.Event) error {
@@ -106,8 +103,7 @@ func (s *EventBusSuite) TestEmitSync() {
 
 func (s *EventBusSuite) TestEmitSyncPriorityOrder() {
 	eb := events.NewEventBus(nil)
-	defer eb.Close()
-
+	defer func() { _ = eb.Close() }()
 	var order []int
 
 	eb.Subscribe(types.EventAfterSignup, func(_ context.Context, _ *types.Event) error {
@@ -134,8 +130,7 @@ func (s *EventBusSuite) TestEmitSyncPriorityOrder() {
 
 func (s *EventBusSuite) TestEmitAsync() {
 	eb := events.NewEventBus(nil)
-	defer eb.Close()
-
+	defer func() { _ = eb.Close() }()
 	var called int32
 	done := make(chan struct{})
 
@@ -163,16 +158,14 @@ func (s *EventBusSuite) TestEmitAsync() {
 
 func (s *EventBusSuite) TestEmitAsyncNoHandlers() {
 	eb := events.NewEventBus(nil)
-	defer eb.Close()
-
+	defer func() { _ = eb.Close() }()
 	err := eb.EmitAsync(context.Background(), types.EventAfterSignup, nil)
 	s.NoError(err)
 }
 
 func (s *EventBusSuite) TestEmitSyncEventFields() {
 	eb := events.NewEventBus(nil)
-	defer eb.Close()
-
+	defer func() { _ = eb.Close() }()
 	type testData struct{ Name string }
 	payload := &testData{Name: "test-user"}
 
@@ -197,8 +190,7 @@ func (s *EventBusSuite) TestClose() {
 
 func (s *EventBusSuite) TestDLQAccessor() {
 	eb := events.NewEventBus(nil)
-	defer eb.Close()
-
+	defer func() { _ = eb.Close() }()
 	// Default backend provides a DLQ
 	dlq := eb.DLQ()
 	s.NotNil(dlq)

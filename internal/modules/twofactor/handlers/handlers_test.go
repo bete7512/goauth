@@ -281,7 +281,7 @@ func (s *TwoFactorHandlerSuite) TestStatusHandler_Enabled() {
 	s.Equal(http.StatusOK, w.Code)
 
 	var response map[string]interface{}
-	json.Unmarshal(w.Body.Bytes(), &response)
+	s.Require().NoError(json.Unmarshal(w.Body.Bytes(), &response))
 	data := response["data"].(map[string]interface{})
 	s.True(data["enabled"].(bool))
 	s.Equal("totp", data["method"])
@@ -303,7 +303,7 @@ func (s *TwoFactorHandlerSuite) TestStatusHandler_Disabled() {
 	s.Equal(http.StatusOK, w.Code)
 
 	var response map[string]interface{}
-	json.Unmarshal(w.Body.Bytes(), &response)
+	s.Require().NoError(json.Unmarshal(w.Body.Bytes(), &response))
 	data := response["data"].(map[string]interface{})
 	s.False(data["enabled"].(bool))
 }
@@ -358,7 +358,7 @@ func (s *TwoFactorHandlerSuite) TestVerifyLoginHandler_Success_WithTempToken() {
 	s.Equal(http.StatusOK, w.Code)
 
 	var response map[string]interface{}
-	json.Unmarshal(w.Body.Bytes(), &response)
+	s.Require().NoError(json.Unmarshal(w.Body.Bytes(), &response))
 	data := response["data"].(map[string]interface{})
 	s.NotNil(data["access_token"])
 	s.NotNil(data["refresh_token"])

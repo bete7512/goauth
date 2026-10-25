@@ -100,7 +100,7 @@ func (p *DiscordProvider) Exchange(ctx context.Context, code string, opts Exchan
 	if err != nil {
 		return nil, fmt.Errorf("failed to exchange code: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -138,7 +138,7 @@ func (p *DiscordProvider) UserInfo(ctx context.Context, accessToken string) (*Us
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch userinfo: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -164,7 +164,7 @@ func (p *DiscordProvider) SupportsOIDC() bool {
 
 // ValidateIDToken is not supported by Discord (not an OIDC provider)
 func (p *DiscordProvider) ValidateIDToken(ctx context.Context, idToken string) (*UserInfo, error) {
-	return nil, fmt.Errorf("Discord does not support OIDC ID tokens")
+	return nil, fmt.Errorf("discord does not support OIDC ID tokens")
 }
 
 // parseUserInfo normalizes Discord user data to UserInfo

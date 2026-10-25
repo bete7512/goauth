@@ -37,6 +37,38 @@ jobs:
             npm run generate --prefix clients/ts
             npm run check --prefix clients/ts
           done
+      - name: Committed OpenAPI spec is current
+        # The loop above ends with the stateless strategy, which is the committed spec.
+        run: git diff --exit-code clients/ts/openapi.yml
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          check-latest: true
+          cache: true
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.13.2
+      - name: Vulnerabilities (govulncheck)
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@v1.8.0
+          govulncheck ./...
+      - name: Module files are tidy
+        run: |
+          go mod tidy -diff
+          for module in examples pkg/adapters/chiadapter pkg/adapters/ginadapter pkg/adapters/fiberadapter; do
+            (cd "$module" && go mod tidy -diff)
+          done
+      - name: Generated mocks are current
+        run: |
+          go install go.uber.org/mock/mockgen@v0.6.0
+          go generate ./...
+          git diff --exit-code
 
   database-contracts:
     runs-on: ubuntu-latest

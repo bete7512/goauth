@@ -220,7 +220,7 @@ func (s *GormStorage) Dialect() types.DialectType {
 	if s.dialect != "" {
 		return s.dialect
 	}
-	return types.DialectType(s.db.Dialector.Name())
+	return types.DialectType(s.db.Name())
 }
 
 // EnsureMigrationsTable creates the goauth_migrations tracking table if it does not exist.

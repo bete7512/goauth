@@ -10,7 +10,7 @@ import (
 // BeginRegistrationResponse contains the WebAuthn creation options returned to
 // the browser, plus an opaque ChallengeToken the client must echo back on finish.
 type BeginRegistrationResponse struct {
-	ChallengeToken string                              `json:"challenge_token"`
+	ChallengeToken string                                      `json:"challenge_token"`
 	PublicKey      protocol.PublicKeyCredentialCreationOptions `json:"public_key"`
 }
 
@@ -24,7 +24,7 @@ type FinishRegistrationRequest struct {
 
 // BeginLoginResponse returns assertion options for navigator.credentials.get().
 type BeginLoginResponse struct {
-	ChallengeToken string                                       `json:"challenge_token"`
+	ChallengeToken string                                     `json:"challenge_token"`
 	PublicKey      protocol.PublicKeyCredentialRequestOptions `json:"public_key"`
 }
 

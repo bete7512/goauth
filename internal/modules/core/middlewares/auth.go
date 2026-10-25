@@ -2,7 +2,6 @@ package middlewares
 
 import (
 	"context"
-	"errors"
 	"github.com/bete7512/goauth/internal/security"
 	"net/http"
 
@@ -40,25 +39,6 @@ func (m *AuthMiddleware) AuthMiddleware(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
-}
-
-// getClaimsFromRequest extracts the JWT token and returns validated claims
-func (m *AuthMiddleware) getClaimsFromRequest(r *http.Request, accessToken string) (map[string]interface{}, error) {
-	token := m.extractToken(r, accessToken)
-	if token == "" {
-		return nil, errors.New("no authentication token provided")
-	}
-
-	claims, err := security.ValidateCredential(m.SecurityManager, token, "access")
-	if err != nil {
-		return nil, err
-	}
-
-	return claims, nil
-}
-
-func (m *AuthMiddleware) extractToken(r *http.Request, accessToken string) string {
-	return http_utils.AccessCredential(r, m.Config.Security)
 }
 
 func (m *AuthMiddleware) AuthMiddlewareFunc(next http.HandlerFunc) http.HandlerFunc {

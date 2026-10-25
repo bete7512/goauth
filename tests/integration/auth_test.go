@@ -101,7 +101,7 @@ func TestAuth_InvalidToken(t *testing.T) {
 	_, handler := h.SetupStatelessAuth(t)
 	w := h.JSONGet(handler, "/auth/me", h.AuthHeader("invalid.jwt.token"))
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
-} 
+}
 
 func TestAuth_RefreshTokenRotation(t *testing.T) {
 	_, handler := h.SetupStatelessAuth(t)

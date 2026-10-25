@@ -92,14 +92,14 @@ func NewFakeOAuthServer(t *testing.T) *FakeOAuthServer {
 				}
 				response["id_token"] = signed
 			}
-			json.NewEncoder(w).Encode(response)
+			_ = json.NewEncoder(w).Encode(response)
 		case strings.HasSuffix(r.URL.Path, "/certs"):
-			json.NewEncoder(w).Encode(jose.JSONWebKeySet{Keys: []jose.JSONWebKey{{Key: &key.PublicKey, KeyID: "fixture", Algorithm: "RS256", Use: "sig"}}})
+			_ = json.NewEncoder(w).Encode(jose.JSONWebKeySet{Keys: []jose.JSONWebKey{{Key: &key.PublicKey, KeyID: "fixture", Algorithm: "RS256", Use: "sig"}}})
 		case strings.HasSuffix(r.URL.Path, "/emails"):
-			json.NewEncoder(w).Encode(fake.EmailsResponse)
+			_ = json.NewEncoder(w).Encode(fake.EmailsResponse)
 		default:
 			// All other requests get userinfo (covers /userinfo, /user, /v1/userinfo, etc.)
-			json.NewEncoder(w).Encode(fake.UserInfoResponse)
+			_ = json.NewEncoder(w).Encode(fake.UserInfoResponse)
 		}
 	}))
 

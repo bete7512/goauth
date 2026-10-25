@@ -48,7 +48,7 @@ func verify(dir, strategy string) ([]route, error) {
 	}
 	a, err := auth.New(&config.Config{
 		Storage: store, APIURL: "http://localhost:8080", BasePath: "/auth",
-		Core: &config.CoreConfig{},
+		Core:      &config.CoreConfig{},
 		Migration: config.MigrationConfig{Auto: true},
 		Security: types.SecurityConfig{
 			JwtSecretKey:  strings.Repeat("d", 32),

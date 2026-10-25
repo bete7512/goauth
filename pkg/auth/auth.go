@@ -58,7 +58,7 @@ func New(cfg *config.Config) (*Auth, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
-	var securityManager types.SecurityManager = cfg.SecurityManager
+	securityManager := cfg.SecurityManager
 	if securityManager == nil {
 		manager := security.NewSecurityManager(cfg.Security)
 		if err := manager.JWTKeyringError(); err != nil {
@@ -168,7 +168,7 @@ func New(cfg *config.Config) (*Auth, error) {
 func (a *Auth) Use(component config.Component) error {
 	a.lifecycleMu.Lock()
 	defer a.lifecycleMu.Unlock()
-	if component == nil || (reflect.ValueOf(component).Kind() == reflect.Ptr && reflect.ValueOf(component).IsNil()) {
+	if component == nil || (reflect.ValueOf(component).Kind() == reflect.Pointer && reflect.ValueOf(component).IsNil()) {
 		return fmt.Errorf("module is nil")
 	}
 	module := config.AdaptModule(component)

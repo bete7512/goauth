@@ -212,6 +212,6 @@ func ServeOpenAPIUI(specPath string) http.HandlerFunc {
 </html>`
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
-		w.Write([]byte(openapiHTML))
+		_, _ = w.Write([]byte(openapiHTML))
 	}
 }

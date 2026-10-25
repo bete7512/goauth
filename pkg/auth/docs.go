@@ -54,7 +54,7 @@ func (a *Auth) OpenAPI(cfg types.OpenAPIConfig) error {
 			Method: "GET",
 			Handler: func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/yaml")
-				w.Write(spec)
+				_, _ = w.Write(spec)
 			},
 		},
 		{

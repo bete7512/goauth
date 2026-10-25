@@ -17,8 +17,7 @@ func TestBackendSuite(t *testing.T) {
 
 func (s *BackendSuite) TestDefaultAsyncBackendName() {
 	backend := events.NewDefaultAsyncBackend(2, 10, nil)
-	defer backend.Close()
-
+	defer func() { _ = backend.Close() }()
 	s.Equal("worker-pool", backend.Name())
 }
 
@@ -30,8 +29,7 @@ func (s *BackendSuite) TestDefaultAsyncBackendClose() {
 
 func (s *BackendSuite) TestDefaultAsyncBackendDLQ() {
 	backend := events.NewDefaultAsyncBackend(2, 10, nil)
-	defer backend.Close()
-
+	defer func() { _ = backend.Close() }()
 	dlq := backend.DLQ()
 	s.NotNil(dlq)
 	s.Equal(0, dlq.Size())
@@ -39,8 +37,7 @@ func (s *BackendSuite) TestDefaultAsyncBackendDLQ() {
 
 func (s *BackendSuite) TestDefaultAsyncBackendQueueStats() {
 	backend := events.NewDefaultAsyncBackend(2, 50, nil)
-	defer backend.Close()
-
+	defer func() { _ = backend.Close() }()
 	length, capacity := backend.QueueStats()
 	s.Equal(0, length)
 	s.Equal(50, capacity)

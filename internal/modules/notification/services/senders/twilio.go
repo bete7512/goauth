@@ -70,7 +70,7 @@ func (t *TwilioSMSSender) SendSMS(ctx context.Context, message *models.SMSMessag
 	if err != nil {
 		return fmt.Errorf("twilio: failed to send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 400 {
 		return fmt.Errorf("twilio: server returned status %d", resp.StatusCode)

@@ -81,7 +81,7 @@ func (s *coreService) ForgotPassword(ctx context.Context, req *dto.ForgotPasswor
 	}
 
 	// Emit event for notification delivery
-	s.Deps.Events.EmitAsync(ctx, types.EventSendPasswordResetEmail, &types.PasswordResetRequestData{
+	_ = s.Deps.Events.EmitAsync(ctx, types.EventSendPasswordResetEmail, &types.PasswordResetRequestData{
 		UserID:      user.ID,
 		Email:       user.Email,
 		PhoneNumber: user.PhoneNumber,
@@ -197,7 +197,7 @@ func (s *coreService) ResetPassword(ctx context.Context, req *dto.ResetPasswordR
 	}
 
 	// Emit event
-	s.Deps.Events.EmitAsync(ctx, types.EventAfterResetPassword, &types.PasswordChangedData{
+	_ = s.Deps.Events.EmitAsync(ctx, types.EventAfterResetPassword, &types.PasswordChangedData{
 		UserID:    user.ID,
 		Email:     user.Email,
 		Name:      user.Name,
@@ -258,7 +258,7 @@ func (s *coreService) ChangePassword(ctx context.Context, userID string, req *dt
 		return nil, types.NewInternalError("failed to update password").Wrap(err)
 	}
 
-	s.Deps.Events.EmitAsync(ctx, types.EventAfterChangePassword, &types.PasswordChangedData{
+	_ = s.Deps.Events.EmitAsync(ctx, types.EventAfterChangePassword, &types.PasswordChangedData{
 		UserID:    user.ID,
 		Email:     user.Email,
 		Name:      user.Name,

@@ -104,7 +104,7 @@ func (r *ResendEmailSender) SendEmail(ctx context.Context, message *models.Email
 	if err != nil {
 		return fmt.Errorf("resend: failed to send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 400 {
 		bodyBytes, _ := io.ReadAll(resp.Body)
