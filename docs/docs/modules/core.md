@@ -69,6 +69,7 @@ if err != nil {
 | `RequireEmailVerification` | `bool` | `false` | Requests verification delivery after signup and requires a verified email for authentication |
 | `RequirePhoneVerification` | `bool` | `false` | Requests verification delivery after signup and requires a verified phone for authentication |
 | `RequireUserName` | `bool` | `false` | If true, username is required during signup |
+| `MaxCodeAttempts` | `int` | `5` | Wrong submissions tolerated for the SMS codes used by password reset and phone verification; the code is invalidated once the cap is reached |
 | `RequirePhoneNumber` | `bool` | `false` | If true, phone number is required during signup |
 | `UniquePhoneNumber` | `bool` | `false` | If true, enforces unique phone numbers |
 

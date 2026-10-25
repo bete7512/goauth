@@ -45,12 +45,12 @@ func (s *coreService) ForgotPassword(ctx context.Context, req *dto.ForgotPasswor
 		}, nil
 	}
 
-	// Generate token and OTP code
-	if req.Email != "" {
-		token, err = s.Deps.SecurityManager.GenerateRandomToken(32)
-		if err != nil {
-			return nil, types.NewInternalError("failed to generate token").Wrap(err)
-		}
+	// Every row gets an opaque token: the tokens.token column is unique, so
+	// phone-only requests must not share an empty value. The link is only
+	// delivered by email; phone users receive the short code.
+	token, err = s.Deps.SecurityManager.GenerateRandomToken(32)
+	if err != nil {
+		return nil, types.NewInternalError("failed to generate token").Wrap(err)
 	}
 
 	if req.Phone != "" {
@@ -124,12 +124,20 @@ func (s *coreService) ResetPassword(ctx context.Context, req *dto.ResetPasswordR
 			return nil, types.NewInternalError("failed to find reset token").Wrap(err)
 		}
 	} else if req.Code != "" {
-		verification, err = s.TokenRepository.FindByCode(ctx, req.Code, models.TokenTypePasswordReset)
+		if req.Phone == "" {
+			return nil, types.NewGoAuthError(types.ErrInvalidRequestBody, "phone is required when using reset code", 400)
+		}
+		// Resolve the token by the account it was issued to, never by the
+		// submitted code, so wrong guesses count against that token.
+		verification, err = s.TokenRepository.FindByPhoneAndType(ctx, req.Phone, models.TokenTypePasswordReset)
 		if err != nil {
 			if errors.Is(err, models.ErrNotFound) {
 				return nil, types.NewInvalidTokenError()
 			}
 			return nil, types.NewInternalError("failed to find reset code").Wrap(err)
+		}
+		if authErr := s.checkCode(ctx, verification, req.Code); authErr != nil {
+			return nil, authErr
 		}
 	} else {
 		return nil, types.NewGoAuthError(types.ErrInvalidRequestBody, "reset token or code is required", 400)
