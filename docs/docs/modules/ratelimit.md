@@ -54,13 +54,15 @@ cfg := &config.Config{
     TrustedProxies: []string{"10.0.0.0/8"}, // your load balancers
     RateLimit: &config.RateLimitModuleConfig{
         Allowlist: []string{"192.0.2.10"}, // health checker, never limited
-        ExtraRules: []config.RateLimitRuleConfig{{
-            Name:    "profile_ip",
-            ApplyTo: []types.RouteName{types.RouteMe, types.RouteUpdateProfile},
-            Key:     types.RateLimitKeyIP,
-            Limit:   120,
-            Window:  time.Minute,
-        }},
+        ExtraRules: []config.RateLimitRuleConfig{
+            {
+                Name:    "profile_ip",
+                ApplyTo: []types.RouteName{types.RouteMe, types.RouteUpdateProfile},
+                Key:     types.RateLimitKeyIP,
+                Limit:   120,
+                Window:  time.Minute,
+            },
+        },
     },
 }
 ```
