@@ -12,8 +12,11 @@ type TwoFactor struct {
 	Method         string     `json:"method" gorm:"default:'totp'"` // totp, sms, email
 	FailedAttempts int        `json:"failed_attempts" gorm:"default:0"`
 	LockedUntil    *time.Time `json:"locked_until,omitempty"`
-	CreatedAt      time.Time  `json:"created_at"`
-	UpdatedAt      time.Time  `json:"updated_at"`
+	// LastUsedStep is the TOTP time step of the last accepted code. Codes for
+	// this step or earlier are rejected, so a code is only ever accepted once.
+	LastUsedStep int64     `json:"-" gorm:"column:last_used_step;not null;default:0"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 func (TwoFactor) TableName() string {

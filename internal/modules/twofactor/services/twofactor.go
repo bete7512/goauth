@@ -5,6 +5,7 @@ package services
 import (
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"errors"
 	"fmt"
 	"github.com/bete7512/goauth/internal/authentication"
@@ -172,15 +173,23 @@ func (s *twoFactorService) VerifyCode(ctx context.Context, userID, code string) 
 		return types.NewAccountLockedError()
 	}
 
-	// Verify TOTP code with time window tolerance (±1 period = 60s total window)
-	valid, err := totp.ValidateCustom(code, tfConfig.Secret, time.Now().UTC(), totp.ValidateOpts{
-		Period:    30,
-		Skew:      1, // Allow ±1 time window (30s before and after)
-		Digits:    otp.DigitsSix,
-		Algorithm: otp.AlgorithmSHA1,
-	})
+	// Match the code to a time step within ±1 period, then record that step so
+	// the same code is never accepted twice, even inside the skew window.
+	step, matched := matchTOTPStep(tfConfig.Secret, code, time.Now(), totpSkew)
+	if matched {
+		switch err := s.consumeStep(ctx, tfConfig, step); {
+		case err == nil:
+			return nil
+		case errors.Is(err, models.ErrConflict):
+			s.deps.Logger.Warn("Replayed 2FA code rejected", "user_id", userID)
+			matched = false
+		default:
+			s.deps.Logger.Error("Failed to record accepted 2FA code", "error", err)
+			return types.NewInternalError("Failed to verify 2FA code").Wrap(err)
+		}
+	}
 
-	if err != nil || !valid {
+	if !matched {
 		// Increment failed attempts and potentially lock
 		tfConfig.FailedAttempts++
 		if tfConfig.FailedAttempts >= maxTwoFactorAttempts {
@@ -196,15 +205,61 @@ func (s *twoFactorService) VerifyCode(ctx context.Context, userID, code string) 
 		return types.NewTwoFactorInvalidError()
 	}
 
-	// On success: reset failed attempts and lockout
-	if tfConfig.FailedAttempts > 0 || tfConfig.LockedUntil != nil {
-		tfConfig.FailedAttempts = 0
-		tfConfig.LockedUntil = nil
-		if updateErr := s.SaveTwoFactorConfig(ctx, tfConfig); updateErr != nil {
-			s.deps.Logger.Error("Failed to reset 2FA failed attempts", "error", updateErr)
+	return nil
+}
+
+// totpPeriod and totpSkew define the accepted window: the current 30-second
+// step plus one step on either side.
+const (
+	totpPeriod = 30
+	totpSkew   = 1
+)
+
+func totpOpts() totp.ValidateOpts {
+	return totp.ValidateOpts{Period: totpPeriod, Skew: totpSkew, Digits: otp.DigitsSix, Algorithm: otp.AlgorithmSHA1}
+}
+
+// currentTOTPStep returns the time step for now.
+func currentTOTPStep(now time.Time) int64 {
+	return now.Unix() / totpPeriod
+}
+
+// matchTOTPStep returns the time step within ±skew periods of now whose code
+// equals the submitted code, comparing in constant time.
+func matchTOTPStep(secret, code string, now time.Time, skew int64) (int64, bool) {
+	current := currentTOTPStep(now)
+	for delta := -skew; delta <= skew; delta++ {
+		step := current + delta
+		expected, err := totp.GenerateCodeCustom(secret, time.Unix(step*totpPeriod, 0).UTC(), totpOpts())
+		if err != nil {
+			continue
+		}
+		if subtle.ConstantTimeCompare([]byte(expected), []byte(code)) == 1 {
+			return step, true
 		}
 	}
+	return 0, false
+}
 
+// consumeStep records that the code for step was accepted and clears the
+// failure counters. Repositories implementing models.TOTPStepConsumer do this
+// in one atomic update so concurrent replays have exactly one winner; other
+// repositories fall back to check-then-save, which still rejects sequential
+// replays. ErrConflict means the step was already consumed.
+func (s *twoFactorService) consumeStep(ctx context.Context, tfConfig *models.TwoFactor, step int64) error {
+	repo := s.deps.Storage.TwoFactorAuth().TwoFactor()
+	if consumer, ok := repo.(models.TOTPStepConsumer); ok {
+		return consumer.ConsumeTOTPStep(ctx, tfConfig.UserID, step)
+	}
+	if step <= tfConfig.LastUsedStep {
+		return models.ErrConflict
+	}
+	tfConfig.LastUsedStep = step
+	tfConfig.FailedAttempts = 0
+	tfConfig.LockedUntil = nil
+	if authErr := s.SaveTwoFactorConfig(ctx, tfConfig); authErr != nil {
+		return fmt.Errorf("save two-factor config: %s", authErr.Message)
+	}
 	return nil
 }
 
@@ -217,6 +272,11 @@ func (s *twoFactorService) EnableTwoFactor(ctx context.Context, userID string) *
 
 	tfConfig.Enabled = true
 	tfConfig.Verified = true
+	// The code that just verified the setup belongs to the current step; mark
+	// it consumed so it cannot be replayed to complete a login.
+	if current := currentTOTPStep(time.Now()); current > tfConfig.LastUsedStep {
+		tfConfig.LastUsedStep = current
+	}
 
 	if err := s.SaveTwoFactorConfig(ctx, tfConfig); err != nil {
 		s.deps.Logger.Error("Failed to enable 2FA", "error", err)
@@ -391,17 +451,9 @@ func (s *twoFactorService) generateRandomCode(length int) (string, error) {
 // VerifyCodeManual manually verifies TOTP code against secret (for setup flow)
 // This is used during setup before 2FA is enabled
 func (s *twoFactorService) VerifyCodeManual(ctx context.Context, secret, code string) *types.GoAuthError {
-	valid, err := totp.ValidateCustom(code, secret, time.Now().UTC(), totp.ValidateOpts{
-		Period:    30,
-		Skew:      1,
-		Digits:    otp.DigitsSix,
-		Algorithm: otp.AlgorithmSHA1,
-	})
-
-	if err != nil || !valid {
+	if _, ok := matchTOTPStep(secret, code, time.Now(), totpSkew); !ok {
 		return types.NewTwoFactorInvalidError()
 	}
-
 	return nil
 }
 

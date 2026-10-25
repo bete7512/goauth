@@ -5,6 +5,7 @@ package integration_test
 import (
 	"context"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -165,4 +166,47 @@ func TestTwoFactor_LoginWithChallenge(t *testing.T) {
 		challengeList := challenges.([]interface{})
 		assert.NotEmpty(t, challengeList, "should have 2FA challenge")
 	}
+}
+
+// TestTwoFactor_CodeCannotBeReplayed: an accepted TOTP code is never accepted
+// again, even inside the ±30 s skew window, and the code that enabled 2FA
+// cannot complete a login.
+func TestTwoFactor_CodeCannotBeReplayed(t *testing.T) {
+	// Stay clear of a 30-second step boundary so every code below has a known step.
+	if rem := time.Now().Unix() % 30; rem > 22 {
+		time.Sleep(time.Duration(31-rem) * time.Second)
+	}
+	_, handler := h.SetupStatelessWithTwoFactor(t)
+	token, _ := h.SignupAndLogin(t, handler, "replay@example.com", "Test1234", "Replay User")
+
+	w := h.JSONPost(handler, "/auth/2fa/setup", nil, h.AuthHeader(token))
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	secret := h.ParseJSON(t, w.Body)["data"].(map[string]interface{})["secret"].(string)
+	setupCode, err := totp.GenerateCode(secret, time.Now())
+	require.NoError(t, err)
+	w = h.JSONPost(handler, "/auth/2fa/verify", map[string]interface{}{"code": setupCode}, h.AuthHeader(token))
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+
+	challenge := func() string {
+		w := h.JSONPost(handler, "/auth/login", map[string]interface{}{"email": "replay@example.com", "password": "Test1234"})
+		require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+		challenges, ok := h.ParseJSON(t, w.Body)["data"].(map[string]interface{})["challenges"].([]interface{})
+		require.True(t, ok && len(challenges) > 0, "login must return a 2FA challenge")
+		return challenges[0].(map[string]interface{})["data"].(map[string]interface{})["temp_token"].(string)
+	}
+	verifyLogin := func(code string) *httptest.ResponseRecorder {
+		return h.JSONPost(handler, "/auth/2fa/verify-login", map[string]interface{}{"temp_token": challenge(), "code": code})
+	}
+
+	w = verifyLogin(setupCode)
+	require.NotEqual(t, http.StatusOK, w.Code, "the setup code must not complete a login: %s", w.Body.String())
+
+	next, err := totp.GenerateCode(secret, time.Now().Add(30*time.Second))
+	require.NoError(t, err)
+	w = verifyLogin(next)
+	require.Equal(t, http.StatusOK, w.Code, "next step's code: %s", w.Body.String())
+	require.NotEmpty(t, h.ParseJSON(t, w.Body)["data"].(map[string]interface{})["access_token"])
+
+	w = verifyLogin(next)
+	require.NotEqual(t, http.StatusOK, w.Code, "replayed code must be rejected: %s", w.Body.String())
 }
