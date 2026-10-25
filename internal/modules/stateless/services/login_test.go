@@ -136,6 +136,7 @@ func (s *StatelessLoginSuite) TestLogin_AccountLocked() {
 		Enabled:         true,
 		MaxAttempts:     5,
 		LockoutDuration: 15 * time.Minute,
+		RevealLocked:    true,
 	}
 
 	deps := config.ModuleDependencies{
@@ -160,6 +161,50 @@ func (s *StatelessLoginSuite) TestLogin_AccountLocked() {
 
 	s.NotNil(authErr)
 	s.Equal(types.ErrAccountLocked, authErr.Code)
+}
+
+func (s *StatelessLoginSuite) TestLogin_AccountLockedIsHiddenByDefault() {
+	// Need a service with lockout enabled in config
+	ctrl := gomock.NewController(s.T())
+	s.T().Cleanup(ctrl.Finish)
+
+	mockUserRepo := mocks.NewMockUserRepository(ctrl)
+	mockTokenRepo := mocks.NewMockRotatingTokenRepository(ctrl)
+	mockLogger := mocks.NewMockLogger(ctrl)
+	mockEvents := mocks.NewMockEventBus(ctrl)
+
+	secMgr := testutil.TestSecurityManager()
+	cfg := &config.StatelessModuleConfig{RefreshTokenRotation: true}
+
+	testCfg := testutil.TestConfig()
+	testCfg.Security.Lockout = types.LockoutConfig{
+		Enabled:         true,
+		MaxAttempts:     5,
+		LockoutDuration: 15 * time.Minute,
+	}
+
+	deps := config.ModuleDependencies{
+		Config:           testCfg,
+		Events:           mockEvents,
+		Logger:           mockLogger,
+		SecurityManager:  secMgr,
+		AuthInterceptors: interceptor.NewRegistry(),
+	}
+
+	svc := services.NewStatelessService(deps, mockUserRepo, mockTokenRepo, mockLogger, secMgr, cfg)
+
+	user := testutil.TestUser()
+	future := time.Now().Add(10 * time.Minute)
+	user.LockedUntil = &future
+	user.FailedLoginAttempts = 5
+
+	mockUserRepo.EXPECT().FindByEmail(gomock.Any(), user.Email).Return(user, nil)
+
+	req := &dto.LoginRequest{Email: user.Email, Password: "password123"}
+	_, authErr := svc.Login(context.Background(), req)
+
+	s.NotNil(authErr)
+	s.Equal(types.ErrInvalidCredentials, authErr.Code, "a locked account must look like a wrong password unless RevealLocked is set")
 }
 
 func (s *StatelessLoginSuite) TestLogin_JTISaveFails() {

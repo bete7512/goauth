@@ -38,7 +38,7 @@ func CheckLockout(user *models.User, cfg types.LockoutConfig) *types.GoAuthError
 		return nil
 	}
 	if time.Now().Before(*user.LockedUntil) {
-		return types.NewAccountLockedError()
+		return LockedError(cfg)
 	}
 	// Lock expired — clear it so the user can try again
 	user.LockedUntil = nil
@@ -69,10 +69,9 @@ func RecordSuccessfulLogin(user *models.User) {
 	user.LockedUntil = nil
 }
 
-// HandleFailedLogin is a convenience that records a failed attempt, persists
-// the user, optionally emits an event if the account was locked, and returns
-// the appropriate error (always ErrInvalidCredentials — we never leak lockout
-// status before it's actually locked).
+// HandleFailedLogin records a failed attempt, persists the user, emits an
+// event when the account becomes locked, and returns the error to send:
+// INVALID_CREDENTIALS, or LockedError when the attempt locked the account.
 func HandleFailedLogin(
 	ctx context.Context,
 	user *models.User,
@@ -109,7 +108,28 @@ func HandleFailedLogin(
 		})
 	}
 	if locked {
+		return LockedError(cfg)
+	}
+	return types.NewInvalidCredentialsError()
+}
+
+// LockedError is the answer for a locked account. By default it is the same
+// INVALID_CREDENTIALS response as a wrong password, so a caller cannot tell a
+// lock from a wrong guess, confirm that the account exists, or learn that a
+// deliberate lockout succeeded. RevealLocked opts into ACCOUNT_LOCKED (423).
+func LockedError(cfg types.LockoutConfig) *types.GoAuthError {
+	if cfg.RevealLocked {
 		return types.NewAccountLockedError()
 	}
 	return types.NewInvalidCredentialsError()
+}
+
+// EqualizeUnknownUser spends one password hash when a login names an account
+// that does not exist, so the answer takes as long as a wrong password for a
+// real account and response timing does not reveal registered identifiers.
+func EqualizeUnknownUser(manager types.SecurityManager, password string) {
+	if manager == nil {
+		return
+	}
+	_, _ = manager.HashPassword(password)
 }

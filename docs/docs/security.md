@@ -86,7 +86,7 @@ This encrypts fields explicitly passed through the manager, such as stored provi
 
 Password policy uses **bytes**, matching bcrypt's 72-byte input limit. Defaults are minimum 8 and maximum 72; configured maximums above 72 are capped. Inputs are not trimmed, normalized, or truncated by the policy. Optional uppercase, lowercase, number, and special-character requirements apply to password writes. Bcrypt cost uses `HashSaltLength` (default 10).
 
-Enable lockout explicitly with `Lockout.Enabled: true`. Defaults for its numeric fields are five attempts and a 15-minute duration; config validation does not turn a false `Enabled` value into true. Use the centralized password flow rather than bypassing it with direct repository writes.
+A locked account receives the same `INVALID_CREDENTIALS` answer as a wrong password, so lockout cannot be used to confirm that an account exists or to learn that a deliberate lockout worked; set `Lockout.RevealLocked: true` to answer `ACCOUNT_LOCKED` (423) instead. The password is still checked while an account is locked, and a login for an unknown identifier costs one password hash, so response timing does not reveal account or lock state. Enable lockout explicitly with `Lockout.Enabled: true`. Defaults for its numeric fields are five attempts and a 15-minute duration; config validation does not turn a false `Enabled` value into true. Use the centralized password flow rather than bypassing it with direct repository writes.
 
 ## Authentication Challenges
 

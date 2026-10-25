@@ -44,15 +44,23 @@ func TestRateLimit_RegisteredByDefault(t *testing.T) {
 }
 
 // TestRateLimit_IPRuleCoversManyAccounts: spraying different identifiers from
-// one address is stopped by the per-IP credential rule.
+// one address is stopped by the per-IP credential rule (30 per minute). The
+// bucket refills while the requests run, and each unknown-account login costs
+// a password hash, so the rejection is expected shortly after the 30th attempt
+// rather than at an exact count.
 func TestRateLimit_IPRuleCoversManyAccounts(t *testing.T) {
 	_, handler := testhelpers.SetupStatelessWithRateLimit(t, nil, nil)
-	for i := 0; i < 30; i++ {
+	allowed := 0
+	for i := 0; i < 45; i++ {
 		w := login(handler, fmt.Sprintf("user%d@example.com", i))
+		if w.Code == http.StatusTooManyRequests {
+			break
+		}
 		require.Equal(t, http.StatusUnauthorized, w.Code, "attempt %d", i+1)
+		allowed++
 	}
-	w := login(handler, "user-final@example.com")
-	require.Equal(t, http.StatusTooManyRequests, w.Code)
+	require.GreaterOrEqual(t, allowed, 30, "the burst must be served")
+	require.Less(t, allowed, 45, "the per-IP rule must reject the spray")
 }
 
 // TestRateLimit_DisabledByConfig: Disabled removes the module entirely.

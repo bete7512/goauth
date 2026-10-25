@@ -27,21 +27,24 @@ func (s *sessionService) Login(ctx context.Context, req *dto.LoginRequest, metad
 				if !errors.Is(err, models.ErrNotFound) {
 					return dto.AuthResponse{}, types.NewInternalError("failed to find user by username").Wrap(err)
 				}
+				security.EqualizeUnknownUser(s.securityManager, req.Password)
 				return dto.AuthResponse{}, types.NewInvalidCredentialsError()
 			}
 		} else {
+			security.EqualizeUnknownUser(s.securityManager, req.Password)
 			return dto.AuthResponse{}, types.NewInvalidCredentialsError()
 		}
 	}
 
-	// Check account lockout
+	// Check the password before acting on the lockout state, so a locked
+	// account answers in the same time as an unlocked one.
 	lockoutCfg := security.NormalizeLockoutConfig(s.deps.Config.Security.Lockout)
-	if authErr := security.CheckLockout(user, lockoutCfg); authErr != nil {
-		return dto.AuthResponse{}, authErr
+	lockedErr := security.CheckLockout(user, lockoutCfg)
+	passwordErr := s.securityManager.ValidatePassword(user.PasswordHash, req.Password)
+	if lockedErr != nil {
+		return dto.AuthResponse{}, lockedErr
 	}
-
-	// Verify password
-	if err := s.securityManager.ValidatePassword(user.PasswordHash, req.Password); err != nil {
+	if passwordErr != nil {
 		return dto.AuthResponse{}, security.HandleFailedLogin(ctx, user, lockoutCfg, s.userRepository, s.deps.Events, s.deps.Logger)
 	}
 

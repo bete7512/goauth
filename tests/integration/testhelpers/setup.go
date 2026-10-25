@@ -136,6 +136,32 @@ func SetupAuthWithLockout(t *testing.T) (*auth.Auth, http.Handler) {
 	return authInstance, initAuth(t, authInstance)
 }
 
+// SetupAuthWithLockoutRevealed is SetupAuthWithLockout with Lockout.RevealLocked, so
+// locked accounts answer 423 instead of the generic 401.
+func SetupAuthWithLockoutRevealed(t *testing.T) (*auth.Auth, http.Handler) {
+	t.Helper()
+	sec := defaultSecurityConfig("security-test-secret-key-32chars", "security-test-encryption-key-32!")
+	sec.PasswordPolicy.MinLength = 8
+	sec.PasswordPolicy.RequireUppercase = true
+	sec.Lockout = types.LockoutConfig{
+		Enabled:         true,
+		MaxAttempts:     3,
+		LockoutDuration: 1 * time.Minute,
+	}
+	sec.Lockout.RevealLocked = true
+
+	authInstance, err := auth.New(&config.Config{
+		Storage:   newStore(t),
+		BasePath:  "/auth",
+		Security:  sec,
+		Core:      &config.CoreConfig{RequireEmailVerification: false},
+		RateLimit: &config.RateLimitModuleConfig{Disabled: true},
+		Migration: config.MigrationConfig{Auto: true},
+	})
+	require.NoError(t, err)
+	return authInstance, initAuth(t, authInstance)
+}
+
 // SetupFullAuth creates a session auth instance with admin + audit + csrf modules.
 func SetupFullAuth(t *testing.T) (*auth.Auth, http.Handler) {
 	t.Helper()

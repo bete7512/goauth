@@ -27,21 +27,24 @@ func (s *StatelessService) Login(ctx context.Context, req *dto.LoginRequest) (dt
 				if !errors.Is(err, models.ErrNotFound) {
 					return dto.AuthResponse{}, types.NewInternalError("failed to find user by username").Wrap(err)
 				}
+				security.EqualizeUnknownUser(s.SecurityManager, req.Password)
 				return dto.AuthResponse{}, types.NewInvalidCredentialsError()
 			}
 		} else {
+			security.EqualizeUnknownUser(s.SecurityManager, req.Password)
 			return dto.AuthResponse{}, types.NewInvalidCredentialsError()
 		}
 	}
 
-	// Check account lockout
+	// Check the password before acting on the lockout state, so a locked
+	// account answers in the same time as an unlocked one.
 	lockoutCfg := security.NormalizeLockoutConfig(s.Deps.Config.Security.Lockout)
-	if authErr := security.CheckLockout(user, lockoutCfg); authErr != nil {
-		return dto.AuthResponse{}, authErr
+	lockedErr := security.CheckLockout(user, lockoutCfg)
+	passwordErr := s.SecurityManager.ValidatePassword(user.PasswordHash, req.Password)
+	if lockedErr != nil {
+		return dto.AuthResponse{}, lockedErr
 	}
-
-	// Verify password
-	if err := s.SecurityManager.ValidatePassword(user.PasswordHash, req.Password); err != nil {
+	if passwordErr != nil {
 		return dto.AuthResponse{}, security.HandleFailedLogin(ctx, user, lockoutCfg, s.UserRepository, s.Deps.Events, s.Deps.Logger)
 	}
 

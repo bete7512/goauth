@@ -28,7 +28,25 @@ func TestCheckLockout_ActivelyLocked(t *testing.T) {
 
 	authErr := CheckLockout(user, defaultCfg())
 	assert.NotNil(t, authErr)
+	assert.Equal(t, types.ErrInvalidCredentials, authErr.Code, "a lock is invisible by default")
+}
+
+func TestCheckLockout_RevealLockedOptsIntoExplicitAnswer(t *testing.T) {
+	future := time.Now().Add(10 * time.Minute)
+	user := &models.User{LockedUntil: &future, FailedLoginAttempts: 5}
+	cfg := defaultCfg()
+	cfg.RevealLocked = true
+
+	authErr := CheckLockout(user, cfg)
+	assert.NotNil(t, authErr)
 	assert.Equal(t, types.ErrAccountLocked, authErr.Code)
+}
+
+func TestLockedError_FollowsRevealLocked(t *testing.T) {
+	assert.Equal(t, types.ErrInvalidCredentials, LockedError(defaultCfg()).Code)
+	cfg := defaultCfg()
+	cfg.RevealLocked = true
+	assert.Equal(t, types.ErrAccountLocked, LockedError(cfg).Code)
 }
 
 func TestCheckLockout_LockExpired_ClearsState(t *testing.T) {

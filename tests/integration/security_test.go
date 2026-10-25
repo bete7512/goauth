@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/bete7512/goauth/internal/security"
-	h "github.com/bete7512/goauth/tests/integration/testhelpers"
 	"github.com/bete7512/goauth/pkg/types"
+	h "github.com/bete7512/goauth/tests/integration/testhelpers"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,22 +20,50 @@ func TestSecurity_BruteForceAccountLockout(t *testing.T) {
 
 	h.Signup(t, handler, "locktest@example.com", "ValidPass1", "Lock Test")
 
+	// The lock is invisible: every wrong attempt, including the one that
+	// locks, looks like a plain wrong password.
 	for i := 0; i < 3; i++ {
 		w := h.JSONPost(handler, "/auth/login", map[string]interface{}{
 			"email": "locktest@example.com", "password": "WrongPass",
 		})
-		if i < 2 {
-			assert.Equal(t, http.StatusUnauthorized, w.Code, "attempt %d", i+1)
-		} else {
-			assert.Equal(t, http.StatusLocked, w.Code, "attempt %d should lock", i+1)
-		}
+		assert.Equal(t, http.StatusUnauthorized, w.Code, "attempt %d", i+1)
 	}
 
-	// Correct password still fails while locked
+	// Correct password still fails while locked, with the same generic answer.
 	w := h.JSONPost(handler, "/auth/login", map[string]interface{}{
 		"email": "locktest@example.com", "password": "ValidPass1",
 	})
+	assert.Equal(t, http.StatusUnauthorized, w.Code, "locked account must not log in: %s", w.Body.String())
+}
+
+func TestSecurity_LockoutRevealedWhenConfigured(t *testing.T) {
+	_, handler := h.SetupAuthWithLockoutRevealed(t)
+	h.Signup(t, handler, "revealed@example.com", "ValidPass1", "Reveal Test")
+
+	for i := 0; i < 3; i++ {
+		w := h.JSONPost(handler, "/auth/login", map[string]interface{}{
+			"email": "revealed@example.com", "password": "WrongPass",
+		})
+		if i < 2 {
+			assert.Equal(t, http.StatusUnauthorized, w.Code, "attempt %d", i+1)
+		} else {
+			assert.Equal(t, http.StatusLocked, w.Code, "attempt %d should report the lock", i+1)
+		}
+	}
+	w := h.JSONPost(handler, "/auth/login", map[string]interface{}{
+		"email": "revealed@example.com", "password": "ValidPass1",
+	})
 	assert.Equal(t, http.StatusLocked, w.Code)
+}
+
+func TestSecurity_UnknownAccountLooksLikeWrongPassword(t *testing.T) {
+	_, handler := h.SetupAuthWithLockout(t)
+	h.Signup(t, handler, "known@example.com", "ValidPass1", "Known")
+
+	known := h.JSONPost(handler, "/auth/login", map[string]interface{}{"email": "known@example.com", "password": "WrongPass"})
+	unknown := h.JSONPost(handler, "/auth/login", map[string]interface{}{"email": "ghost@example.com", "password": "WrongPass"})
+	assert.Equal(t, known.Code, unknown.Code)
+	assert.Equal(t, h.ParseJSON(t, known.Body)["data"].(map[string]interface{})["code"], h.ParseJSON(t, unknown.Body)["data"].(map[string]interface{})["code"])
 }
 
 func TestSecurity_PasswordPolicyEnforcement(t *testing.T) {

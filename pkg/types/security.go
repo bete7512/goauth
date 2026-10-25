@@ -98,6 +98,10 @@ type LockoutConfig struct {
 	Enabled         bool          // Whether lockout is enabled (default: true)
 	MaxAttempts     int           // Failed attempts before locking (default: 5)
 	LockoutDuration time.Duration // How long the account stays locked (default: 15m)
+	// RevealLocked answers a locked account with ACCOUNT_LOCKED (423) instead
+	// of the generic INVALID_CREDENTIALS. Off by default: a visible lock
+	// confirms that the account exists and tells an attacker the lock worked.
+	RevealLocked bool
 }
 
 // AuthStrategy determines the authentication strategy
