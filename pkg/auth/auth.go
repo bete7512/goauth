@@ -16,6 +16,7 @@ import (
 	"github.com/bete7512/goauth/internal/middleware"
 	"github.com/bete7512/goauth/internal/modules/core"
 	"github.com/bete7512/goauth/internal/modules/core/middlewares"
+	"github.com/bete7512/goauth/internal/modules/ratelimit"
 	"github.com/bete7512/goauth/internal/modules/stateless"
 	"github.com/bete7512/goauth/internal/security"
 	"github.com/bete7512/goauth/internal/utils/logger"
@@ -239,6 +240,7 @@ func (a *Auth) Routes() []config.RouteInfo {
 				}()
 			}
 			r.Body = http.MaxBytesReader(w, r.Body, a.config.MaxRequestBodyBytes)
+			r = r.WithContext(context.WithValue(r.Context(), types.RouteNameKey, route.Name))
 			handler.ServeHTTP(w, r)
 		})
 
@@ -283,6 +285,13 @@ func (a *Auth) Initialize(ctx context.Context) (initErr error) {
 		})
 		a.registryMu.Lock()
 		a.modules[statelessModule.Name()] = statelessModule
+		a.registryMu.Unlock()
+	}
+	if _, hasRateLimit := a.modules[string(types.RateLimitModule)]; !hasRateLimit && (a.config.RateLimit == nil || !a.config.RateLimit.Disabled) {
+		a.logger.Info("No rate limit module registered, using default rate limiter")
+		rateLimitModule := ratelimit.New(a.config.RateLimit)
+		a.registryMu.Lock()
+		a.modules[rateLimitModule.Name()] = rateLimitModule
 		a.registryMu.Unlock()
 	}
 	a.configMu.Lock()

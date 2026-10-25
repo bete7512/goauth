@@ -253,6 +253,10 @@ func (m *AuditModule) subscribeSecurityEvents(events types.EventBus) {
 	events.Subscribe(types.EventSecurityTokenInvalidated, types.EventHandler(func(ctx context.Context, event *types.Event) error {
 		return m.createAuditLog(ctx, event, "security.token.invalidated", "info")
 	}))
+
+	events.Subscribe(types.EventRateLimitExceeded, types.EventHandler(func(ctx context.Context, event *types.Event) error {
+		return m.createAuditLog(ctx, event, "security.ratelimit.exceeded", "warning")
+	}))
 }
 
 // createAuditLog is a helper to create audit log entries from events

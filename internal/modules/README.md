@@ -274,3 +274,20 @@ make test-verbose   # Verbose output
 make mocks          # Regenerate mocks
 make build          # Build
 ```
+
+---
+
+## Rate Limit Module
+
+Registered automatically during `Initialize()` with `Config.RateLimit` (nil = default rules, in-memory store) unless `Config.RateLimit.Disabled` is set or the host registered it with `Use`. One global middleware (`ratelimit.limit`, priority 80) matches rules by the route name that `Auth.Routes()` stores in the request context under `types.RouteNameKey`.
+
+```go
+import "github.com/bete7512/goauth/pkg/modules/ratelimit"
+
+a.Use(ratelimit.New(&config.RateLimitModuleConfig{
+    Rules: ratelimit.DefaultRules(),
+    Store: redisStore, // types.RateLimitStore; nil = memory
+}))
+```
+
+Provides: no routes. Emits `types.EventRateLimitExceeded`; the audit module records `security.ratelimit.exceeded`. `Config.TrustedProxies` (root config) controls which peers' forwarded headers identify the client; the captcha middleware shares that helper.

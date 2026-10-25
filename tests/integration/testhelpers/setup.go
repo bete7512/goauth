@@ -84,6 +84,7 @@ func SetupStatelessAuth(t *testing.T) (*auth.Auth, http.Handler) {
 		BasePath:  "/auth",
 		Security:  defaultSecurityConfig("integration-test-secret-key-32ch", "integration-test-encryption-key!"),
 		Core:      &config.CoreConfig{RequireEmailVerification: false},
+		RateLimit: &config.RateLimitModuleConfig{Disabled: true},
 		Migration: config.MigrationConfig{Auto: true},
 	})
 	require.NoError(t, err)
@@ -98,6 +99,7 @@ func SetupSessionAuth(t *testing.T) (*auth.Auth, http.Handler) {
 		BasePath:  "/auth",
 		Security:  defaultSecurityConfig("e2e-session-test-secret-key-32ch", "e2e-session-test-encryption-key!"),
 		Core:      &config.CoreConfig{RequireEmailVerification: false},
+		RateLimit: &config.RateLimitModuleConfig{Disabled: true},
 		Migration: config.MigrationConfig{Auto: true},
 	})
 	require.NoError(t, err)
@@ -127,6 +129,7 @@ func SetupAuthWithLockout(t *testing.T) (*auth.Auth, http.Handler) {
 		BasePath:  "/auth",
 		Security:  sec,
 		Core:      &config.CoreConfig{RequireEmailVerification: false},
+		RateLimit: &config.RateLimitModuleConfig{Disabled: true},
 		Migration: config.MigrationConfig{Auto: true},
 	})
 	require.NoError(t, err)
@@ -141,6 +144,7 @@ func SetupFullAuth(t *testing.T) (*auth.Auth, http.Handler) {
 		BasePath:  "/auth",
 		Security:  defaultSecurityConfig("full-auth-test-secret-key-32char", "full-auth-test-encryption-key32!"),
 		Core:      &config.CoreConfig{RequireEmailVerification: false},
+		RateLimit: &config.RateLimitModuleConfig{Disabled: true},
 		Migration: config.MigrationConfig{Auto: true},
 	})
 	require.NoError(t, err)
@@ -161,6 +165,7 @@ func SetupStatelessWithAdmin(t *testing.T) (*auth.Auth, http.Handler) {
 		BasePath:  "/auth",
 		Security:  defaultSecurityConfig("admin-test-secret-key-32charlong", "admin-test-encryption-key-32ch!"),
 		Core:      &config.CoreConfig{RequireEmailVerification: false},
+		RateLimit: &config.RateLimitModuleConfig{Disabled: true},
 		Migration: config.MigrationConfig{Auto: true},
 	})
 	require.NoError(t, err)
@@ -179,6 +184,7 @@ func SetupStatelessWithOrg(t *testing.T) (*auth.Auth, http.Handler) {
 		BasePath:  "/auth",
 		Security:  defaultSecurityConfig("org-test-secret-key-32charlongxx", "org-test-encryption-key-32char!"),
 		Core:      &config.CoreConfig{RequireEmailVerification: false},
+		RateLimit: &config.RateLimitModuleConfig{Disabled: true},
 		Migration: config.MigrationConfig{Auto: true},
 	})
 	require.NoError(t, err)
@@ -196,6 +202,7 @@ func SetupStatelessWithInvitation(t *testing.T) (*auth.Auth, http.Handler) {
 		BasePath:  "/auth",
 		Security:  defaultSecurityConfig("inv-test-secret-key-32charslongx", "inv-test-encryption-key-32char!"),
 		Core:      &config.CoreConfig{RequireEmailVerification: false},
+		RateLimit: &config.RateLimitModuleConfig{Disabled: true},
 		Migration: config.MigrationConfig{Auto: true},
 	})
 	require.NoError(t, err)
@@ -214,6 +221,7 @@ func SetupStatelessWithTwoFactor(t *testing.T) (*auth.Auth, http.Handler) {
 		BasePath:  "/auth",
 		Security:  defaultSecurityConfig("2fa-test-secret-key-32charslongx", "2fa-test-encryption-key-32chars!"),
 		Core:      &config.CoreConfig{RequireEmailVerification: false},
+		RateLimit: &config.RateLimitModuleConfig{Disabled: true},
 		Migration: config.MigrationConfig{Auto: true},
 	})
 	require.NoError(t, err)
@@ -235,6 +243,7 @@ func SetupStatelessWithMagicLink(t *testing.T) (*auth.Auth, http.Handler, *Email
 		APIURL:    "http://localhost:8080",
 		Security:  defaultSecurityConfig("ml-test-secret-key-32charslongxx", "ml-test-encryption-key-32chars!!"),
 		Core:      &config.CoreConfig{RequireEmailVerification: false},
+		RateLimit: &config.RateLimitModuleConfig{Disabled: true},
 		Migration: config.MigrationConfig{Auto: true},
 	})
 	require.NoError(t, err)
@@ -315,6 +324,7 @@ func SetupStatelessWithOAuth(t *testing.T) (*auth.Auth, http.Handler) {
 		APIURL:    "http://localhost:8080",
 		Security:  defaultSecurityConfig("oa-test-secret-key-32charslongxx", "oa-test-encryption-key-32chars!!"),
 		Core:      &config.CoreConfig{RequireEmailVerification: false},
+		RateLimit: &config.RateLimitModuleConfig{Disabled: true},
 		Migration: config.MigrationConfig{Auto: true},
 	})
 	require.NoError(t, err)
@@ -325,5 +335,22 @@ func SetupStatelessWithOAuth(t *testing.T) (*auth.Auth, http.Handler) {
 		Providers:           providerConfigs,
 	})))
 
+	return authInstance, initAuth(t, authInstance)
+}
+
+// SetupStatelessWithRateLimit creates a stateless auth instance with the given
+// rate-limit configuration (nil enables the defaults) and trusted proxies.
+func SetupStatelessWithRateLimit(t *testing.T, rl *config.RateLimitModuleConfig, trustedProxies []string) (*auth.Auth, http.Handler) {
+	t.Helper()
+	authInstance, err := auth.New(&config.Config{
+		Storage:        newStore(t),
+		BasePath:       "/auth",
+		Security:       defaultSecurityConfig("ratelimit-test-secret-key-32chars", "ratelimit-test-encryption-key32!"),
+		Core:           &config.CoreConfig{RequireEmailVerification: false},
+		RateLimit:      rl,
+		TrustedProxies: trustedProxies,
+		Migration:      config.MigrationConfig{Auto: true},
+	})
+	require.NoError(t, err)
 	return authInstance, initAuth(t, authInstance)
 }

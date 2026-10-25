@@ -185,6 +185,7 @@ export function syncContent() {
         "admin",
         "audit",
         "captcha",
+        "ratelimit",
         "csrf",
         "magiclink",
         "invitation",

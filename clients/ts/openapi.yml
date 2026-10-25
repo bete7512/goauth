@@ -177,6 +177,32 @@ components:
             schema:
                 format: uuid
                 type: string
+    responses:
+        RatelimitRateLimitExceeded:
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/RatelimitRateLimitError'
+            description: |
+                The client exceeded a rate-limit rule. Any built-in route covered by the active rules can return this response. The default rules cover login, two-factor, passkey and magic-link verification, password reset, contact verification, verification and reset sends, signup, availability checks, token refresh, and OAuth or passkey ceremony starts. Wait for the number of seconds in Retry-After before retrying.
+            headers:
+                RateLimit-Limit:
+                    description: Burst capacity of the rule that rejected the request.
+                    schema:
+                        type: integer
+                RateLimit-Remaining:
+                    description: Requests remaining in the current budget (0 on rejection).
+                    schema:
+                        type: integer
+                RateLimit-Reset:
+                    description: Seconds until the budget is fully replenished.
+                    schema:
+                        type: integer
+                Retry-After:
+                    description: Seconds to wait before retrying.
+                    schema:
+                        minimum: 1
+                        type: integer
     schemas:
         AdminUser:
             properties:
@@ -1295,6 +1321,20 @@ components:
                     type: string
             required:
                 - name
+            type: object
+        RatelimitRateLimitError:
+            description: Error envelope returned with HTTP 429 when a rate-limit rule rejects a request.
+            properties:
+                data:
+                    properties:
+                        code:
+                            enum:
+                                - RATE_LIMIT_EXCEEDED
+                            type: string
+                        message:
+                            example: Too many requests. Please retry later.
+                            type: string
+                    type: object
             type: object
         StatelessAuthResponse:
             properties:

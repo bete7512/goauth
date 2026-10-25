@@ -8,4 +8,5 @@ const (
 	MiddlewareCSRF      MiddlewareName = "csrf.csrf"
 	MiddlewareCaptcha   MiddlewareName = "captcha.verify"
 	MiddlewareOrgAuth   MiddlewareName = "org.auth"
+	MiddlewareRateLimit MiddlewareName = "ratelimit.limit"
 )

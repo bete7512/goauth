@@ -43,7 +43,7 @@ func (s *CaptchaMiddlewareSuite) setup(provider services.CaptchaProvider, cfg *c
 		cfg = &config.CaptchaModuleConfig{}
 	}
 	svc := services.NewCaptchaService(provider)
-	return middlewares.NewCaptchaMiddleware(svc, cfg)
+	return middlewares.NewCaptchaMiddleware(svc, cfg, nil)
 }
 
 func (s *CaptchaMiddlewareSuite) TestTokenSources() {
