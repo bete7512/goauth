@@ -67,6 +67,7 @@ The service generates an S256 PKCE challenge/verifier for the flow and supplies 
 | `AllowSignup` | Permit a new user to be created from an external identity |
 | `AllowAccountLinking` | Explicit opt-in for matching-email linking; additional verification checks apply |
 | `TrustEmailVerification` | Trust a provider's verified-email result |
+| `AllowUnverifiedEmailSignup` | Create accounts for identities whose email the provider has not verified (off by default); pair with `Core.RequireEmailVerification` |
 | `StateTTL` | Stored state lifetime, default 10 minutes |
 | `StoreProviderTokens` | Encrypt provider access/refresh tokens before persistence |
 | `UseSessionAuth` | Legacy setting; the initialized runtime's selected Session/Stateless strategy controls final grants |
@@ -100,6 +101,8 @@ Continue the flow in the same browser cookie context. A callback copied into a s
 If more factors are required, the callback returns JSON `data.challenges`, even when a frontend redirect is configured. After complete authentication, cookie-only mode redirects without token fragments. Bearer/both mode may put credentials in the fragment. No redirect returns the normal JSON auth response. A requested `redirect_uri` must match the scheme and host of configured frontend/error/default destinations.
 
 ## Account Linking and Identity
+
+New accounts require a provider-verified email: an unverified address may belong to someone else, and an account created for it would let a third party pre-register that person's email and keep a login on it after the real owner resets the password. `AllowUnverifiedEmailSignup` accepts unverified addresses; use it only with `Core.RequireEmailVerification` so the account stays unusable until the address is confirmed. Provider signals: Google sends `email_verified`; GitHub's profile email is checked against `/user/emails`, so an address GitHub has not verified is refused; Discord reports `verified`. Microsoft ID tokens usually omit `email_verified`, so add the optional `xms_edov` claim (email domain owner verified) to the app registration's ID token, or new Microsoft sign-ups are refused unless `AllowUnverifiedEmailSignup` is set. Existing linked identities keep signing in either way.
 
 A matching email is insufficient on its own. Linking an existing account requires `AllowAccountLinking`, `TrustEmailVerification`, a verified provider email, and a locally verified email. Linking is disabled by default for a nil module config.
 

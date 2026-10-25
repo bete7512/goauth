@@ -165,12 +165,16 @@ func (p *GitHubProvider) UserInfo(ctx context.Context, accessToken string) (*Use
 
 	info := p.parseUserInfo(rawData)
 
-	// GitHub may not include email in profile - fetch from emails endpoint
-	if info.Email == "" {
-		email, verified, err := p.fetchPrimaryEmail(ctx, accessToken)
-		if err == nil && email != "" {
-			info.Email = email
-			info.EmailVerified = verified
+	// The profile email carries no verification status; /user/emails does.
+	// Always consult it: confirm a profile email against the list, or pick the
+	// primary verified address when the profile hides the email. Without the
+	// user:email scope the request fails and the email stays unverified.
+	emails, err := p.fetchEmails(ctx, accessToken)
+	if err == nil {
+		if info.Email != "" {
+			info.EmailVerified = emailVerified(emails, info.Email)
+		} else {
+			info.Email, info.EmailVerified = pickEmail(emails)
 		}
 	}
 
@@ -178,61 +182,72 @@ func (p *GitHubProvider) UserInfo(ctx context.Context, accessToken string) (*Use
 }
 
 // fetchPrimaryEmail fetches the user's primary verified email from GitHub
-func (p *GitHubProvider) fetchPrimaryEmail(ctx context.Context, accessToken string) (string, bool, error) {
+type githubEmail struct {
+	Email    string `json:"email"`
+	Primary  bool   `json:"primary"`
+	Verified bool   `json:"verified"`
+}
+
+// fetchEmails lists the addresses on the GitHub account with their
+// verification status (requires the user:email scope).
+func (p *GitHubProvider) fetchEmails(ctx context.Context, accessToken string) ([]githubEmail, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", githubEmailsURL, nil)
 	if err != nil {
-		return "", false, fmt.Errorf("failed to create emails request: %w", err)
+		return nil, fmt.Errorf("failed to create emails request: %w", err)
 	}
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/vnd.github+json")
 
 	resp, err := p.HTTPClient().Do(req)
 	if err != nil {
-		return "", false, fmt.Errorf("failed to fetch emails: %w", err)
+		return nil, fmt.Errorf("failed to fetch emails: %w", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", false, fmt.Errorf("failed to read emails response: %w", err)
+		return nil, fmt.Errorf("failed to read emails response: %w", err)
 	}
-
 	if resp.StatusCode != http.StatusOK {
-		return "", false, fmt.Errorf("emails request failed: %s", string(body))
+		return nil, fmt.Errorf("emails request failed: %s", string(body))
 	}
 
-	var emails []struct {
-		Email    string `json:"email"`
-		Primary  bool   `json:"primary"`
-		Verified bool   `json:"verified"`
-	}
-
+	var emails []githubEmail
 	if err := json.Unmarshal(body, &emails); err != nil {
-		return "", false, fmt.Errorf("failed to parse emails response: %w", err)
+		return nil, fmt.Errorf("failed to parse emails response: %w", err)
 	}
+	return emails, nil
+}
 
-	// Find primary verified email
+// emailVerified reports whether GitHub lists email as verified.
+func emailVerified(emails []githubEmail, email string) bool {
+	for _, e := range emails {
+		if strings.EqualFold(e.Email, email) && e.Verified {
+			return true
+		}
+	}
+	return false
+}
+
+// pickEmail chooses the primary verified address, then any verified address,
+// then the unverified primary address (reported as unverified).
+func pickEmail(emails []githubEmail) (string, bool) {
 	for _, e := range emails {
 		if e.Primary && e.Verified {
-			return e.Email, true, nil
+			return e.Email, true
 		}
 	}
-
-	// Fallback: find any verified email
 	for _, e := range emails {
 		if e.Verified {
-			return e.Email, true, nil
+			return e.Email, true
 		}
 	}
-
-	// Last resort: return primary even if unverified
 	for _, e := range emails {
 		if e.Primary {
-			return e.Email, false, nil
+			return e.Email, false
 		}
 	}
-
-	return "", false, nil
+	return "", false
 }
 
 // SupportsOIDC returns false - GitHub uses OAuth2, not OIDC

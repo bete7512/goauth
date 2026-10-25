@@ -299,6 +299,7 @@ components:
                 - OAUTH_SIGNUP_DISABLED
                 - OAUTH_NOT_LINKED
                 - OAUTH_EMAIL_REQUIRED
+                - OAUTH_EMAIL_UNVERIFIED
             message:
               type: string
               description: Human-readable error message

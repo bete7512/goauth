@@ -173,6 +173,7 @@ The HTTP status code is set on the response header, not in the JSON body.
 | `ErrOAuthNotLinked` | `OAUTH_NOT_LINKED` | 400 Bad Request | OAuth provider '&lt;provider&gt;' is not linked to this account |
 | `ErrOAuthAlreadyLinked` | `OAUTH_ALREADY_LINKED` | 409 Conflict | OAuth provider '&lt;provider&gt;' is already linked to this account |
 | `ErrOAuthEmailRequired` | `OAUTH_EMAIL_REQUIRED` | 400 Bad Request | Email address is required from OAuth provider |
+| `ErrOAuthEmailUnverified` | `OAUTH_EMAIL_UNVERIFIED` | 403 Forbidden | The provider has not verified the email; signup refused unless `AllowUnverifiedEmailSignup` is set |
 | `ErrOAuthAccountLinkingDisabled` | `OAUTH_ACCOUNT_LINKING_DISABLED` | 403 Forbidden | Account linking via OAuth is disabled |
 
 Some OAuth factory functions accept a `provider` or `message` parameter that is interpolated into the default message.
