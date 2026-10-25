@@ -50,7 +50,7 @@ func (m *CSRFModule) Name() string {
 func (m *CSRFModule) Init(_ context.Context, deps config.ModuleDependencies) error {
 	m.deps = deps
 	m.service = services.NewCSRFService(deps.Config.Security.JwtSecretKey, m.config)
-	m.handler = csrf_handlers.NewCSRFHandler(m.service, m.config)
+	m.handler = csrf_handlers.NewCSRFHandler(m.service, m.config, deps.Config != nil && deps.Config.Security.Session.AllowInsecureCookies)
 	return nil
 }
 

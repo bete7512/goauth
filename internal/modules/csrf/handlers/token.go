@@ -17,7 +17,7 @@ func (h *CSRFHandler) GetToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	secure := h.config.Secure
+	secure := h.config.Secure || !h.allowInsecureCookies
 	sameSite := h.config.SameSite
 	if sameSite == 0 {
 		sameSite = http.SameSiteLaxMode

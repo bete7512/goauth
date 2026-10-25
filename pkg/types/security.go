@@ -13,12 +13,18 @@ type SessionConfig struct {
 	SessionTTL      time.Duration
 	AccessTokenTTL  time.Duration
 	RefreshTokenTTL time.Duration
-	Secure          bool
-	HttpOnly        bool
-	SameSite        http.SameSite
-	Domain          string
-	Path            string
-	MaxAge          int
+	// AllowInsecureCookies issues cookies without the Secure attribute, for
+	// local development over plain HTTP only. Every cookie GoAuth sets is
+	// Secure unless this is true, and Initialize logs a warning when it is.
+	AllowInsecureCookies bool
+	// Secure is set by config validation to !AllowInsecureCookies; any value
+	// assigned by the host is overwritten. Use AllowInsecureCookies instead.
+	Secure   bool
+	HttpOnly bool
+	SameSite http.SameSite
+	Domain   string
+	Path     string
+	MaxAge   int
 }
 
 // AuthMode defines the authentication mode for the application

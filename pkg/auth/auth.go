@@ -98,6 +98,10 @@ func New(cfg *config.Config) (*Auth, error) {
 	// at the framework level (e.g., wrap the mux, use gin-contrib/cors, etc.).
 	// See examples/main.go for a reference implementation.
 
+	if cfg.Security.Session.AllowInsecureCookies {
+		authLogger.Warn("Credential cookies are issued without the Secure attribute (Security.Session.AllowInsecureCookies); use this only for local HTTP development")
+	}
+
 	// Add request ID middleware
 	middlewareManager.Register(middleware.MiddlewareConfig{
 		Name:       "auth.add-request-id",

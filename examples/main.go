@@ -57,10 +57,11 @@ func main() {
 			JwtSecretKey:  "your-secret-key-change-in-production",
 			EncryptionKey: "your-encryption-key-change-in-production",
 			Session: types.SessionConfig{
-				Name:            "session_token",
-				SessionTTL:      30 * 24 * time.Hour,
-				AccessTokenTTL:  15 * time.Minute,
-				RefreshTokenTTL: 7 * 24 * time.Hour,
+				Name:                 "session_token",
+				SessionTTL:           30 * 24 * time.Hour,
+				AccessTokenTTL:       15 * time.Minute,
+				RefreshTokenTTL:      7 * 24 * time.Hour,
+				AllowInsecureCookies: true, // this example serves plain HTTP on localhost; remove in production
 			},
 			PasswordPolicy: types.PasswordPolicy{
 				MinLength:        4,

@@ -18,6 +18,8 @@ import (
 
 type CSRFHandlerSuite struct {
 	suite.Suite
+	// allowInsecureCookies mirrors the root Security.Session setting for the handler under test.
+	allowInsecureCookies bool
 }
 
 func TestCSRFHandlerSuite(t *testing.T) {
@@ -34,7 +36,7 @@ func (s *CSRFHandlerSuite) setupHandler(cfg *config.CSRFModuleConfig) (*handlers
 		cfg = &config.CSRFModuleConfig{}
 	}
 
-	handler := handlers.NewCSRFHandler(mockService, cfg)
+	handler := handlers.NewCSRFHandler(mockService, cfg, s.allowInsecureCookies)
 	return handler, mockService
 }
 
@@ -140,4 +142,43 @@ func (s *CSRFHandlerSuite) TestGetTokenCookieConfig() {
 	s.Equal("example.com", csrfCookie.Domain)
 	s.True(csrfCookie.Secure)
 	s.Equal(1800, csrfCookie.MaxAge, "30 minutes in seconds")
+}
+
+func (s *CSRFHandlerSuite) TestGetTokenCookieSecureByDefault() {
+	cases := []struct {
+		name          string
+		allowInsecure bool
+		configSecure  bool
+		want          bool
+	}{
+		{"default is secure", false, false, true},
+		{"explicit Secure stays secure", false, true, true},
+		{"insecure only when the host allows it", true, false, false},
+		{"explicit Secure wins over the allowance", true, true, true},
+	}
+	for _, tc := range cases {
+		s.Run(tc.name, func() {
+			s.allowInsecureCookies = tc.allowInsecure
+			defer func() { s.allowInsecureCookies = false }()
+			handler, mockService := s.setupHandler(&config.CSRFModuleConfig{Secure: tc.configSecure})
+			mockService.EXPECT().GenerateToken().Return("tok", nil)
+			mockService.EXPECT().CookieName().Return("__goauth_csrf")
+			mockService.EXPECT().CookiePath().Return("/")
+			mockService.EXPECT().CookieDomain().Return("")
+			mockService.EXPECT().TokenExpiry().Return(time.Hour)
+
+			rr := httptest.NewRecorder()
+			handler.GetToken(rr, httptest.NewRequest(http.MethodGet, "/csrf-token", nil))
+			s.Equal(http.StatusOK, rr.Code)
+
+			var cookie *http.Cookie
+			for _, c := range rr.Result().Cookies() {
+				if c.Name == "__goauth_csrf" {
+					cookie = c
+				}
+			}
+			s.Require().NotNil(cookie)
+			s.Equal(tc.want, cookie.Secure)
+		})
+	}
 }

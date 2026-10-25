@@ -354,3 +354,22 @@ func SetupStatelessWithRateLimit(t *testing.T, rl *config.RateLimitModuleConfig,
 	require.NoError(t, err)
 	return authInstance, initAuth(t, authInstance)
 }
+
+// SetupSessionAuthInsecureCookies creates a session-based auth instance that
+// opts out of the Secure cookie attribute, as a local HTTP deployment would.
+func SetupSessionAuthInsecureCookies(t *testing.T) (*auth.Auth, http.Handler) {
+	t.Helper()
+	sec := defaultSecurityConfig("insecure-cookie-test-secret-32ch", "insecure-cookie-test-encryption!")
+	sec.Session.AllowInsecureCookies = true
+	authInstance, err := auth.New(&config.Config{
+		Storage:   newStore(t),
+		BasePath:  "/auth",
+		Security:  sec,
+		Core:      &config.CoreConfig{RequireEmailVerification: false},
+		RateLimit: &config.RateLimitModuleConfig{Disabled: true},
+		Migration: config.MigrationConfig{Auto: true},
+	})
+	require.NoError(t, err)
+	require.NoError(t, authInstance.Use(session.New(&config.SessionModuleConfig{EnableSessionManagement: true})))
+	return authInstance, initAuth(t, authInstance)
+}

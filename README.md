@@ -76,6 +76,8 @@ func main() {
         Security: types.SecurityConfig{
             JwtSecretKey:  "change-me-to-a-32-char-secret!!!",
             EncryptionKey: "change-me-to-a-32-char-key!!!!!!",
+            // Cookies are Secure by default; allow plain HTTP only on localhost.
+            Session: types.SessionConfig{AllowInsecureCookies: true},
         },
     })
     if err != nil {
@@ -305,7 +307,7 @@ GoAuth is **pre-release**. On `main` the build, unit, integration and race suite
 | 3 | TOTP replay prevention (store the last accepted time step) | #20 |
 | 4 | MySQL support: migrations table index length, currently failing CI | #21 |
 | 5 | `GET /me` returns a partial profile | #22 |
-| 6 | Secure cookies by default | #23 |
+| 6 | Secure cookies by default | #23 (implemented) |
 | 7 | Release workflow, CHANGELOG, SECURITY.md, CONTRIBUTING, version scheme | #28 |
 
 ### Hardening before beta

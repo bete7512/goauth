@@ -269,7 +269,7 @@ After initialization, use `ginadapter.Register(router, a)`, `chiadapter.Register
 
 ## Production Tips
 
-Use a persistent database, stable secrets, explicit issuer and audience, and `Security.Session.Secure: true` for HTTPS cookies. Cookie clients also need CSRF protection. Set CORS in your own HTTP/framework middleware; GoAuth has no CORS config field.
+Use a persistent database, stable secrets, explicit issuer and audience, and leave `Security.Session.AllowInsecureCookies` unset so cookies keep the Secure attribute. Cookie clients also need CSRF protection. Set CORS in your own HTTP/framework middleware; GoAuth has no CORS config field.
 
 Plan migrations with [Migration management](migrations.md). If the application owns an existing storage connection, set `BorrowStorage: true` and close it after GoAuth shuts down. Both JWT and session strategies require shared persistent state across replicas.
 
