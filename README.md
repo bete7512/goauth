@@ -37,7 +37,7 @@ That's the whole mental model.
 go get github.com/bete7512/goauth
 ```
 
-Requires Go 1.25+.
+Requires Go 1.26+.
 
 ## 🚀 Quick Start
 

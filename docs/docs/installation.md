@@ -7,7 +7,7 @@ sidebar_position: 2
 
 # Installation
 
-GoAuth requires Go 1.25 or later. The built-in GORM storage supports PostgreSQL, MySQL, and SQLite. SQLite uses CGO and needs a C compiler.
+GoAuth requires Go 1.26 or later. The built-in GORM storage supports PostgreSQL, MySQL, and SQLite. SQLite uses CGO and needs a C compiler.
 
 ## Install
 
