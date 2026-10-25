@@ -12,7 +12,7 @@ GoAuth requires Go 1.26 or later. The built-in GORM storage supports PostgreSQL,
 ## Install
 
 ```bash
-go get github.com/bete7512/goauth
+go get github.com/bete7512/goauth@v0.3.0-beta.1
 ```
 
 These docs follow the current repository API, including unreleased changes. For local development against a checkout:
@@ -85,9 +85,9 @@ Creating storage does not apply all module schemas. Register modules and choose 
 `pkg/adapters/stdhttp` ships in the root module. Install an optional adapter separately:
 
 ```bash
-go get github.com/bete7512/goauth/pkg/adapters/ginadapter
-go get github.com/bete7512/goauth/pkg/adapters/chiadapter
-go get github.com/bete7512/goauth/pkg/adapters/fiberadapter
+go get github.com/bete7512/goauth/pkg/adapters/ginadapter@v0.3.0-beta.1
+go get github.com/bete7512/goauth/pkg/adapters/chiadapter@v0.3.0-beta.1
+go get github.com/bete7512/goauth/pkg/adapters/fiberadapter@v0.3.0-beta.1
 ```
 
 For a local checkout, each optional adapter also needs its own replacement pointing to its `pkg/adapters/...` directory. See [Framework integration](frameworks/gin.md).

@@ -3,7 +3,7 @@ module github.com/bete7512/goauth/pkg/adapters/chiadapter
 go 1.26.0
 
 require (
-	github.com/bete7512/goauth v0.0.0
+	github.com/bete7512/goauth v0.3.0-beta.1
 	github.com/go-chi/chi/v5 v5.2.1
 )
 

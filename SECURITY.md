@@ -7,7 +7,7 @@ GoAuth is an authentication library, so we treat security reports as the highest
 | Version | Supported |
 | --- | --- |
 | 0.3.x (beta) | Yes, latest release only |
-| 0.2.x and earlier | No |
+| 0.2.x and earlier | No, retracted; upgrade |
 
 During the beta, fixes ship in the next beta release. Upgrading from v0.2.x is described in the [upgrade guide](docs/docs/upgrade.md#upgrading-from-v02x).
 

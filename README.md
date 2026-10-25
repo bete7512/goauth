@@ -34,10 +34,10 @@ That's the whole mental model.
 ## 📦 Install
 
 ```bash
-go get github.com/bete7512/goauth
+go get github.com/bete7512/goauth@v0.3.0-beta.1
 ```
 
-Requires Go 1.26+.
+Requires Go 1.26+. During the beta, ask for the version explicitly: a plain `go get` picks the newest *release*, and every release before 0.3.0 is retracted.
 
 ## 🚀 Quick Start
 

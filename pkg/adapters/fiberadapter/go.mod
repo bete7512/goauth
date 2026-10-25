@@ -3,7 +3,7 @@ module github.com/bete7512/goauth/pkg/adapters/fiberadapter
 go 1.26.0
 
 require (
-	github.com/bete7512/goauth v0.0.0
+	github.com/bete7512/goauth v0.3.0-beta.1
 	github.com/gofiber/fiber/v2 v2.52.6
 	github.com/valyala/fasthttp v1.58.0
 )
