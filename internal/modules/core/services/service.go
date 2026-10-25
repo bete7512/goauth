@@ -16,7 +16,6 @@ import (
 type CoreService interface {
 	Signup(ctx context.Context, req *dto.SignupRequest) (*dto.AuthResponse, *types.GoAuthError)
 	GetCurrentUser(ctx context.Context, userID string) (*dto.UserDTO, *types.GoAuthError)
-	GetProfile(ctx context.Context, userID string) (*dto.UserDTO, *types.GoAuthError)
 	UpdateProfile(ctx context.Context, userID string, req *dto.UpdateProfileRequest) (*dto.UserDTO, *types.GoAuthError)
 	ChangePassword(ctx context.Context, userID string, req *dto.ChangePasswordRequest) (*dto.MessageResponse, *types.GoAuthError)
 	ForgotPassword(ctx context.Context, req *dto.ForgotPasswordRequest) (*dto.MessageResponse, *types.GoAuthError)

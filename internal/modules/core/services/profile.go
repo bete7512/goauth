@@ -10,26 +10,6 @@ import (
 	"github.com/bete7512/goauth/pkg/types"
 )
 
-// GetProfile retrieves user profile
-func (s *coreService) GetProfile(ctx context.Context, userID string) (*dto.UserDTO, *types.GoAuthError) {
-	user, err := s.UserRepository.FindByID(ctx, userID)
-	if err != nil {
-		if errors.Is(err, models.ErrNotFound) {
-			return nil, types.NewUserNotFoundError()
-		}
-		return nil, types.NewInternalError("failed to find user").Wrap(err)
-	}
-
-	return &dto.UserDTO{
-		ID:        user.ID,
-		Email:     user.Email,
-		Name:      user.Name,
-		Avatar:    user.Avatar,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
-	}, nil
-}
-
 // UpdateProfile updates user profile
 func (s *coreService) UpdateProfile(ctx context.Context, userID string, req *dto.UpdateProfileRequest) (*dto.UserDTO, *types.GoAuthError) {
 	// Find user
