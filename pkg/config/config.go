@@ -3,7 +3,9 @@ package config
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/bete7512/goauth/pkg/types"
@@ -123,6 +125,17 @@ type Config struct {
 	// Core Config
 	Core *CoreConfig
 
+	// RateLimit configures the built-in request rate limiter. Initialize
+	// registers it with these settings (nil means the default rules and an
+	// in-memory store) unless Disabled is set or a ratelimit module was
+	// registered explicitly with Use.
+	RateLimit *RateLimitModuleConfig
+
+	// TrustedProxies lists reverse proxies, as IPs or CIDR blocks, whose
+	// X-Forwarded-For and X-Real-IP headers may be trusted to carry the client
+	// address. Leave empty when clients connect directly.
+	TrustedProxies []string
+
 	// app config
 	FrontendConfig *FrontendConfig
 
@@ -233,6 +246,67 @@ type CSRFModuleConfig struct {
 }
 
 // CaptchaModuleConfig holds configuration for CAPTCHA verification module
+// RateLimitRuleConfig is one rate-limit rule applied to matching routes.
+type RateLimitRuleConfig struct {
+	// Name identifies the rule in headers, events and logs. Required and unique.
+	Name string
+
+	// ApplyTo lists route names or patterns, e.g. types.RouteLogin or "core.*".
+	ApplyTo []types.RouteName
+
+	// ExcludeFrom lists route names or patterns exempt from this rule.
+	ExcludeFrom []types.RouteName
+
+	// Key selects what is counted: types.RateLimitKeyIP (default),
+	// types.RateLimitKeyIdentifier or types.RateLimitKeyIPIdentifier.
+	Key types.RateLimitKey
+
+	// Limit is the number of requests allowed per Window.
+	Limit int
+
+	// Window is the period over which Limit applies.
+	Window time.Duration
+
+	// Burst bounds back-to-back requests. Zero means Limit.
+	Burst int
+}
+
+// RateLimitModuleConfig configures the built-in rate limiter. The zero value
+// (or a nil pointer in Config) enables the default rules with a memory store.
+type RateLimitModuleConfig struct {
+	// Disabled turns rate limiting off entirely.
+	Disabled bool
+
+	// Store keeps the counters. Nil selects a process-local memory store;
+	// provide a shared implementation (for example Redis) when running
+	// several replicas so budgets are enforced across them.
+	Store types.RateLimitStore
+
+	// Rules replaces the default rule set when non-nil.
+	Rules []RateLimitRuleConfig
+
+	// ExtraRules are appended to the active rule set.
+	ExtraRules []RateLimitRuleConfig
+
+	// Allowlist lists IPs or CIDR blocks that are never limited, such as
+	// health checkers or an office egress address.
+	Allowlist []string
+
+	// FailClosed rejects requests with 503 when the store fails. By default a
+	// store failure lets requests through and is logged.
+	FailClosed bool
+
+	// IPv6PrefixBits buckets IPv6 clients by network prefix. Default: 64.
+	IPv6PrefixBits int
+
+	// DisableHeaders suppresses the RateLimit-Limit, RateLimit-Remaining and
+	// RateLimit-Reset response headers. Retry-After is always sent on 429.
+	DisableHeaders bool
+
+	// MaxTrackedKeys caps the memory store. Default: 100000.
+	MaxTrackedKeys int
+}
+
 type CaptchaModuleConfig struct {
 	// Provider is the captcha provider: types.CaptchaProviderGoogle or types.CaptchaProviderCloudflare
 	Provider types.CaptchaProvider
@@ -407,6 +481,18 @@ type TwoFactorConfig struct {
 
 // Validate validates the configuration
 func (c *Config) Validate() error {
+	for _, proxy := range c.TrustedProxies {
+		if !isIPOrCIDR(proxy) {
+			return ErrConfig(fmt.Sprintf("invalid trusted proxy %q: expected an IP address or CIDR block", proxy))
+		}
+	}
+	if c.RateLimit != nil {
+		for _, entry := range c.RateLimit.Allowlist {
+			if !isIPOrCIDR(entry) {
+				return ErrConfig(fmt.Sprintf("invalid rate limit allowlist entry %q: expected an IP address or CIDR block", entry))
+			}
+		}
+	}
 	if c.MaxConcurrentRequests == 0 {
 		c.MaxConcurrentRequests = 128
 	}
@@ -519,4 +605,16 @@ func (c *Config) Validate() error {
 
 func (c *Config) GetModuleConfig(name string) interface{} {
 	return c.ModuleConfigs[name]
+}
+
+// isIPOrCIDR reports whether value parses as an IP address or a CIDR block.
+func isIPOrCIDR(value string) bool {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return false
+	}
+	if _, _, err := net.ParseCIDR(value); err == nil {
+		return true
+	}
+	return net.ParseIP(value) != nil
 }

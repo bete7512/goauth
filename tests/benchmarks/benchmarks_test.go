@@ -1,8 +1,12 @@
 package benchmarks
 
 import (
+	"context"
+	"strconv"
 	"testing"
+	"time"
 
+	"github.com/bete7512/goauth/internal/modules/ratelimit/limiter"
 	"github.com/bete7512/goauth/internal/security"
 	"github.com/bete7512/goauth/internal/testutil"
 	"github.com/bete7512/goauth/pkg/types"
@@ -172,3 +176,28 @@ func (l *noopLogger) Warnf(string, ...interface{})                   {}
 func (l *noopLogger) Tracef(string, ...interface{})                  {}
 func (l *noopLogger) Fatalf(string, ...interface{})                  {}
 func (l *noopLogger) WithFields(map[string]interface{}) types.Logger { return l }
+
+// ---------------------------------------------------------------------------
+// BenchmarkRateLimitMemoryTake -- one GCRA decision on the in-memory store
+// ---------------------------------------------------------------------------
+
+func BenchmarkRateLimitMemoryTake(b *testing.B) {
+	store := limiter.NewMemoryStore(0)
+	rule := types.RateLimitRule{Limit: 1_000_000_000, Window: time.Second}
+	ctx := context.Background()
+	keys := make([]string, 256)
+	for i := range keys {
+		keys[i] = "rl:bench:ip:203.0.113." + strconv.Itoa(i)
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		i := 0
+		for pb.Next() {
+			i++
+			if _, err := store.Take(ctx, keys[i%len(keys)], rule, time.Now()); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+}

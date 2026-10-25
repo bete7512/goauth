@@ -26,5 +26,26 @@ func (c *Config) Clone() *Config {
 		v := *c.FrontendConfig
 		copy.FrontendConfig = &v
 	}
+	copy.TrustedProxies = append([]string(nil), c.TrustedProxies...)
+	if c.RateLimit != nil {
+		v := *c.RateLimit
+		v.Rules = cloneRateLimitRules(c.RateLimit.Rules)
+		v.ExtraRules = cloneRateLimitRules(c.RateLimit.ExtraRules)
+		v.Allowlist = append([]string(nil), c.RateLimit.Allowlist...)
+		copy.RateLimit = &v
+	}
 	return &copy
+}
+
+func cloneRateLimitRules(rules []RateLimitRuleConfig) []RateLimitRuleConfig {
+	if rules == nil {
+		return nil
+	}
+	out := make([]RateLimitRuleConfig, len(rules))
+	for i, rule := range rules {
+		out[i] = rule
+		out[i].ApplyTo = append([]types.RouteName(nil), rule.ApplyTo...)
+		out[i].ExcludeFrom = append([]types.RouteName(nil), rule.ExcludeFrom...)
+	}
+	return out
 }

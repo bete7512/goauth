@@ -1,8 +1,8 @@
 package middlewares
 
 import (
+	"net"
 	"net/http"
-	"strings"
 
 	"github.com/bete7512/goauth/internal/modules/captcha/services"
 	http_utils "github.com/bete7512/goauth/internal/utils/http"
@@ -17,7 +17,8 @@ const (
 
 // NewCaptchaMiddleware creates a middleware that verifies captcha tokens
 // using the configured provider before allowing the request through.
-func NewCaptchaMiddleware(service *services.CaptchaService, cfg *config.CaptchaModuleConfig) func(http.Handler) http.Handler {
+// trusted lists reverse proxies whose forwarded headers identify the client.
+func NewCaptchaMiddleware(service *services.CaptchaService, cfg *config.CaptchaModuleConfig, trusted []net.IPNet) func(http.Handler) http.Handler {
 	headerName := cfg.HeaderName
 	if headerName == "" {
 		headerName = defaultHeaderName
@@ -52,7 +53,7 @@ func NewCaptchaMiddleware(service *services.CaptchaService, cfg *config.CaptchaM
 				return
 			}
 
-			clientIP := getClientIP(r)
+			clientIP := http_utils.ClientIP(r, trusted)
 			valid, err := service.Verify(r.Context(), token, clientIP)
 			if err != nil || !valid {
 				http_utils.RespondError(w, http.StatusForbidden, string(types.ErrCaptchaFailed), "Captcha verification failed")
@@ -62,23 +63,4 @@ func NewCaptchaMiddleware(service *services.CaptchaService, cfg *config.CaptchaM
 			next.ServeHTTP(w, r)
 		})
 	}
-}
-
-// getClientIP extracts the client IP from the request,
-// checking proxy headers before falling back to RemoteAddr.
-func getClientIP(r *http.Request) string {
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		ips := strings.Split(xff, ",")
-		return strings.TrimSpace(ips[0])
-	}
-
-	if xri := r.Header.Get("X-Real-IP"); xri != "" {
-		return xri
-	}
-
-	ip := r.RemoteAddr
-	if idx := strings.LastIndex(ip, ":"); idx != -1 {
-		ip = ip[:idx]
-	}
-	return ip
 }

@@ -2,11 +2,14 @@ package captcha
 
 import (
 	"context"
+	"fmt"
+	"net"
 
 	_ "embed"
 
 	"github.com/bete7512/goauth/internal/modules/captcha/middlewares"
 	"github.com/bete7512/goauth/internal/modules/captcha/services"
+	http_utils "github.com/bete7512/goauth/internal/utils/http"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/types"
 )
@@ -20,6 +23,7 @@ type CaptchaModule struct {
 	deps    config.ModuleDependencies
 	service *services.CaptchaService
 	config  *config.CaptchaModuleConfig
+	trusted []net.IPNet
 }
 
 var _ config.Module = (*CaptchaModule)(nil)
@@ -47,6 +51,13 @@ func (m *CaptchaModule) Name() string {
 
 func (m *CaptchaModule) Init(_ context.Context, deps config.ModuleDependencies) error {
 	m.deps = deps
+	if deps.Config != nil {
+		trusted, err := http_utils.ParseCIDRs(deps.Config.TrustedProxies)
+		if err != nil {
+			return fmt.Errorf("captcha: trusted proxies: %w", err)
+		}
+		m.trusted = trusted
+	}
 
 	var provider services.CaptchaProvider
 
@@ -87,7 +98,7 @@ func (m *CaptchaModule) Middlewares() []config.MiddlewareConfig {
 	return []config.MiddlewareConfig{
 		{
 			Name:        (types.MiddlewareCaptcha),
-			Middleware:  middlewares.NewCaptchaMiddleware(m.service, m.config),
+			Middleware:  middlewares.NewCaptchaMiddleware(m.service, m.config, m.trusted),
 			Priority:    70,
 			ApplyTo:     m.config.ApplyToRoutes,
 			ExcludeFrom: m.config.ExcludeRoutes,

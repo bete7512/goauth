@@ -238,3 +238,9 @@ func RequestID() MiddlewareFunc {
 		})
 	}
 }
+
+// MatchPattern reports whether routeName matches a route pattern. Patterns are
+// exact names, "*" for everything, or a single wildcard such as "core.*".
+func MatchPattern(pattern types.RouteName, routeName string) bool {
+	return matchPattern(pattern, routeName)
+}

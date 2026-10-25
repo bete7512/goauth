@@ -235,3 +235,17 @@ func EventDataAs[T any](event *Event) (T, bool) {
 	}
 	return data, true
 }
+
+// RateLimitExceededData describes a request rejected by a rate-limit rule. It
+// never carries the raw identifier; KeyHash is a digest of it. The "ip" and
+// "details" keys feed the audit module's generic log mapping.
+type RateLimitExceededData struct {
+	Route             string       `json:"route"`
+	Rule              string       `json:"rule"`
+	Key               RateLimitKey `json:"key"`
+	KeyHash           string       `json:"key_hash,omitempty"`
+	IPAddress         string       `json:"ip,omitempty"`
+	RetryAfterSeconds int64        `json:"retry_after_seconds"`
+	Details           string       `json:"details"`
+	Timestamp         time.Time    `json:"timestamp"`
+}

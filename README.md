@@ -27,7 +27,7 @@ That's the whole mental model.
 - **Lego-style modules.** Start with signup and login. Add 2FA, OAuth, passkeys, or organizations later with one line each.
 - **Any framework.** Adapters for `net/http`, Gin, Chi, and Fiber. Everything else works through plain `http.Handler`.
 - **Your database.** PostgreSQL, MySQL, or SQLite through GORM, with embedded migrations per module.
-- **Secure by default.** bcrypt password hashing, account lockout, refresh-token rotation, hashed refresh tokens, TOTP replay protection, and AES-256-GCM encryption.
+- **Secure by default.** bcrypt password hashing, account lockout, request rate limiting, refresh-token rotation, hashed refresh tokens, 2FA attempt lockout, and AES-256-GCM encryption.
 - **Hookable.** Every important moment fires an event you can subscribe to.
 - **Typed client for free.** Each module ships an OpenAPI spec, and a TypeScript client is generated from them.
 
@@ -136,6 +136,7 @@ Pick what you need. Each one brings its own routes, tables, and OpenAPI docs.
 | **Audit** | A security event trail covering logins, password changes, and more. |
 | **Captcha** | reCAPTCHA v3 or Cloudflare Turnstile on the routes you choose. |
 | **CSRF** | Double-submit cookie protection for state-changing requests. |
+| **Rate Limit** | Per-IP and per-identifier budgets on login, verification, resets, sends, and signup. On by default, with a pluggable store for multiple replicas. |
 
 > **Session and Stateless are mutually exclusive.** Choose one, or register neither to get Stateless.
 
@@ -148,6 +149,7 @@ import (
     "github.com/bete7512/goauth/pkg/modules/notification"
     "github.com/bete7512/goauth/pkg/modules/notification/senders"
     "github.com/bete7512/goauth/pkg/modules/oauth"
+    "github.com/bete7512/goauth/pkg/modules/ratelimit"
     "github.com/bete7512/goauth/pkg/modules/session"
     "github.com/bete7512/goauth/pkg/modules/twofactor"
 )
@@ -178,6 +180,11 @@ a.Use(oauth.New(&config.OAuthModuleConfig{
 
 // Authenticator-app 2FA
 a.Use(twofactor.New(&config.TwoFactorConfig{Issuer: "YourApp"}))
+
+// The rate limiter is on by default; tune it or turn it off
+a.Use(ratelimit.New(&config.RateLimitModuleConfig{
+    Allowlist: []string{"10.0.0.0/8"}, // never limit internal callers
+}))
 ```
 
 `Use()` returns an error when a module is duplicated, conflicts with another, or is missing a dependency. Always check it.
@@ -284,6 +291,51 @@ examples/   a full server using most modules
 demo/       Next.js demo app
 docs/       documentation site
 ```
+
+## 🚧 Status and Road to the First Beta
+
+GoAuth is **pre-release**. On `main` the build, unit, integration and race suites pass, the TypeScript client generates for both strategies, and the quick start above works end to end. It is not yet tagged beta: an assessment on 2026-10-25 found the items below. They are tracked in the [First beta release](https://github.com/bete7512/goauth/milestone/1) milestone.
+
+### Release blockers
+
+| # | Item | Issue |
+|---|------|-------|
+| 1 | Rate limiting module, on by default, with a pluggable store | #18 (implemented) |
+| 2 | Attempt limits and account binding for phone reset and verification codes | #19 |
+| 3 | TOTP replay prevention (store the last accepted time step) | #20 |
+| 4 | MySQL support: migrations table index length, currently failing CI | #21 |
+| 5 | `GET /me` returns a partial profile | #22 |
+| 6 | Secure cookies by default | #23 |
+| 7 | Release workflow, CHANGELOG, SECURITY.md, CONTRIBUTING, version scheme | #28 |
+
+### Hardening before beta
+
+- Uniform lockout error and ordering: #24
+- Single-use tokens stored as digests: #25
+- OAuth signup requires a verified provider email: #26
+- Dependency and toolchain updates (pgx advisory, x/text, tidy): #31
+
+### CI, tests and docs
+
+- CI: lint, govulncheck, tidy and mocks drift checks, Go version matrix, protected `main`: #27
+- Tests: two-factor service suite and one regression test per blocker: #29
+- Docs: correct stale claims, document the exported API, production checklist: #30
+
+### Rate limiting plan (summary)
+
+- A `ratelimit` module that `Initialize` registers for you when none is registered, the same way the stateless module becomes the default auth module today. Opt out with `Disabled`.
+- Keys by client IP (trusted-proxy aware, IPv6 bucketed by /64) and by submitted identifier (hashed). Rules match route-name patterns. Defaults cover login, 2FA, passkeys, magic link, reset and verification, sends, signup, availability checks, refresh and OAuth.
+- GCRA engine with an in-memory store by default and a `types.RateLimitStore` contract for Redis. Store errors fail open unless `FailClosed` is set.
+- `429` with `Retry-After` and `RateLimit-*` headers, plus a `ratelimit.exceeded` event the audit module records.
+- Full design and open decisions: #18.
+
+### Release checklist
+
+1. Close every `release-blocker` issue in the milestone.
+2. CI green on `main`, including the MySQL and Postgres contract jobs, lint and govulncheck.
+3. `CHANGELOG.md`, `SECURITY.md` and `CONTRIBUTING.md` in place, with an upgrade note for v0.2.x users (re-authentication, maintenance deployment).
+4. Regenerate the TypeScript client (`make sdk`) and the docs site; make sure README claims match the code.
+5. Tag `v0.3.0-beta.1` (or `v1.0.0-beta.1`) from `main`; `release.yml` marks it a pre-release; verify the module on pkg.go.dev.
 
 ## 📄 License
 

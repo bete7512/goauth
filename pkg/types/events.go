@@ -254,3 +254,10 @@ const (
 	EventInvitationAccepted EventType = "invitation.accepted"
 	EventInvitationDeclined EventType = "invitation.declined"
 )
+
+// Rate limiting events
+const (
+	// EventRateLimitExceeded is emitted when a request is rejected by a
+	// rate-limit rule. Data is *RateLimitExceededData.
+	EventRateLimitExceeded EventType = "ratelimit.exceeded"
+)

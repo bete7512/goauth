@@ -3,6 +3,7 @@ package types
 import (
 	"fmt"
 	"net/http"
+	"time"
 )
 
 // ErrorCode represents a specific error type
@@ -82,6 +83,7 @@ const (
 
 	// System errors
 	ErrInternalError      ErrorCode = "INTERNAL_ERROR"
+	ErrRateLimitExceeded  ErrorCode = "RATE_LIMIT_EXCEEDED"
 	ErrDatabaseError      ErrorCode = "DATABASE_ERROR"
 	ErrEmailSendFailed    ErrorCode = "EMAIL_SEND_FAILED"
 	ErrSmsSendFailed      ErrorCode = "SMS_SEND_FAILED"
@@ -773,4 +775,22 @@ func NewInvitationExistsError() *GoAuthError {
 
 func NewInvitationEmailMismatchError() *GoAuthError {
 	return &GoAuthError{Code: ErrInvitationEmailMismatch, Message: "Your email does not match the invitation", StatusCode: http.StatusForbidden}
+}
+
+// NewRateLimitExceededError reports that the client exceeded a rate-limit
+// rule. retryAfter is rounded up to whole seconds in Details.
+func NewRateLimitExceededError(retryAfter time.Duration) *GoAuthError {
+	seconds := int64(retryAfter / time.Second)
+	if retryAfter%time.Second != 0 {
+		seconds++
+	}
+	if seconds < 1 {
+		seconds = 1
+	}
+	return &GoAuthError{
+		Code:       ErrRateLimitExceeded,
+		Message:    "Too many requests. Please retry later.",
+		StatusCode: http.StatusTooManyRequests,
+		Details:    map[string]any{"retry_after_seconds": seconds},
+	}
 }
