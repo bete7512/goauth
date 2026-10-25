@@ -286,7 +286,7 @@ func (s *oauthService) findOrCreateUser(ctx context.Context, providerName string
 
 			// Emit link event
 			if s.deps.Events != nil {
-				s.deps.Events.EmitAsync(ctx, types.EventOAuthLinkAdded, &types.OAuthLinkEventData{
+				_ = s.deps.Events.EmitAsync(ctx, types.EventOAuthLinkAdded, &types.OAuthLinkEventData{
 					UserID:         existingUser.ID,
 					Provider:       providerName,
 					ProviderUserID: info.ID,
@@ -340,11 +340,11 @@ func (s *oauthService) findOrCreateUser(ctx context.Context, providerName string
 
 	// Emit signup event
 	if s.deps.Events != nil {
-		s.deps.Events.EmitAsync(ctx, types.EventAfterSignup, &types.UserEventData{
+		_ = s.deps.Events.EmitAsync(ctx, types.EventAfterSignup, &types.UserEventData{
 			User: user,
 		})
 
-		s.deps.Events.EmitAsync(ctx, types.EventOAuthLinkAdded, &types.OAuthLinkEventData{
+		_ = s.deps.Events.EmitAsync(ctx, types.EventOAuthLinkAdded, &types.OAuthLinkEventData{
 			UserID:         user.ID,
 			Provider:       providerName,
 			ProviderUserID: info.ID,
@@ -498,7 +498,7 @@ func (s *oauthService) UnlinkProvider(ctx context.Context, userID, providerName 
 
 	// Emit event
 	if s.deps.Events != nil {
-		s.deps.Events.EmitAsync(ctx, types.EventOAuthLinkRemoved, &types.OAuthLinkEventData{
+		_ = s.deps.Events.EmitAsync(ctx, types.EventOAuthLinkRemoved, &types.OAuthLinkEventData{
 			UserID:         userID,
 			Provider:       providerName,
 			ProviderUserID: providerUserID,

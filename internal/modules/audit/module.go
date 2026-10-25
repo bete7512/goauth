@@ -280,7 +280,7 @@ func (m *AuditModule) createAuditLog(ctx context.Context, event *types.Event, ac
 		// Try JSON round-trip for typed structs
 		b, err := json.Marshal(v)
 		if err == nil {
-			json.Unmarshal(b, &data)
+			_ = json.Unmarshal(b, &data)
 		}
 		if data == nil {
 			data = map[string]interface{}{}

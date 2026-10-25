@@ -84,7 +84,7 @@ func splitSQLStatements(script string) ([]string, error) {
 					break
 				}
 				d := script[j]
-				if !((d >= 'a' && d <= 'z') || (d >= 'A' && d <= 'Z') || d == '_' || (j > i+1 && d >= '0' && d <= '9')) {
+				if !dollarTagByte(d, j == i+1) {
 					break
 				}
 			}
@@ -97,4 +97,10 @@ func splitSQLStatements(script string) ([]string, error) {
 		result = append(result, strings.TrimSpace(script[start:]))
 	}
 	return result, nil
+}
+
+// dollarTagByte reports whether d may appear in a PostgreSQL dollar-quote tag.
+// Digits are allowed anywhere except as the first character.
+func dollarTagByte(d byte, first bool) bool {
+	return (d >= 'a' && d <= 'z') || (d >= 'A' && d <= 'Z') || d == '_' || (!first && d >= '0' && d <= '9')
 }

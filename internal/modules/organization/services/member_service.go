@@ -105,7 +105,7 @@ func (s *memberService) UpdateRole(ctx context.Context, orgID, targetUserID stri
 		return types.NewInternalError("failed to update member role").Wrap(err)
 	}
 
-	s.deps.Events.EmitAsync(ctx, types.EventOrgMemberRoleChanged, &types.OrgMemberEventData{
+	_ = s.deps.Events.EmitAsync(ctx, types.EventOrgMemberRoleChanged, &types.OrgMemberEventData{
 		OrgID: orgID, OrgName: org.Name, UserID: targetUserID, Role: string(newRole), ActorID: actorID,
 	})
 
@@ -147,7 +147,7 @@ func (s *memberService) RemoveMember(ctx context.Context, orgID, targetUserID, a
 		return types.NewInternalError("failed to remove member").Wrap(err)
 	}
 
-	s.deps.Events.EmitAsync(ctx, types.EventOrgMemberRemoved, &types.OrgMemberEventData{
+	_ = s.deps.Events.EmitAsync(ctx, types.EventOrgMemberRemoved, &types.OrgMemberEventData{
 		OrgID: orgID, OrgName: org.Name, UserID: targetUserID, ActorID: actorID,
 	})
 

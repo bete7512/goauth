@@ -122,7 +122,9 @@ func (s *magicLinkService) sendMagicLinkForUser(ctx context.Context, user *model
 	// Delete existing magic link token for this email
 	existing, err := s.tokenRepository.FindByEmailAndType(ctx, user.Email, models.TokenTypeMagicLink)
 	if err == nil && existing != nil {
-		s.tokenRepository.DeleteByIDAndType(ctx, existing.ID, models.TokenTypeMagicLink)
+		if err := s.tokenRepository.DeleteByIDAndType(ctx, existing.ID, models.TokenTypeMagicLink); err != nil {
+			return nil, types.NewInternalError("failed to replace magic link token").Wrap(err)
+		}
 	}
 
 	// Generate token + OTP code
@@ -168,7 +170,7 @@ func (s *magicLinkService) sendMagicLinkForUser(ctx context.Context, user *model
 		eventData.Code = code
 	}
 
-	s.deps.Events.EmitAsync(ctx, types.EventSendMagicLink, eventData)
+	_ = s.deps.Events.EmitAsync(ctx, types.EventSendMagicLink, eventData)
 
 	return &coredto.MessageResponse{Message: "If an account exists, a magic link has been sent"}, nil
 }
@@ -217,7 +219,7 @@ func (s *magicLinkService) verifyToken(ctx context.Context, verification *models
 	}
 
 	// Emit verification event
-	s.deps.Events.EmitAsync(ctx, types.EventAfterMagicLinkVerified, &types.UserEventData{
+	_ = s.deps.Events.EmitAsync(ctx, types.EventAfterMagicLinkVerified, &types.UserEventData{
 		User: user,
 	})
 

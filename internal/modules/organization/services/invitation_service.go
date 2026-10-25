@@ -155,7 +155,7 @@ func (s *invitationService) Invite(ctx context.Context, orgID string, req *dto.I
 		inviteLink = s.callbackURL + "?token=" + token
 	}
 
-	s.deps.Events.EmitAsync(ctx, types.EventOrgInvitationSent, &types.OrgInvitationEventData{
+	_ = s.deps.Events.EmitAsync(ctx, types.EventOrgInvitationSent, &types.OrgInvitationEventData{
 		OrgID:       orgID,
 		OrgName:     org.Name,
 		Email:       req.Email,
@@ -284,10 +284,10 @@ func (s *invitationService) AcceptInvitation(ctx context.Context, token, name, p
 		orgName = org.Name
 	}
 
-	s.deps.Events.EmitAsync(ctx, types.EventOrgInvitationAccepted, &types.OrgMemberEventData{
+	_ = s.deps.Events.EmitAsync(ctx, types.EventOrgInvitationAccepted, &types.OrgMemberEventData{
 		OrgID: inv.OrgID, OrgName: orgName, UserID: user.ID, Email: inv.Email, Role: inv.Role,
 	})
-	s.deps.Events.EmitAsync(ctx, types.EventOrgMemberAdded, &types.OrgMemberEventData{
+	_ = s.deps.Events.EmitAsync(ctx, types.EventOrgMemberAdded, &types.OrgMemberEventData{
 		OrgID: inv.OrgID, OrgName: orgName, UserID: user.ID, Email: inv.Email, Role: inv.Role,
 	})
 
@@ -312,7 +312,7 @@ func (s *invitationService) DeclineInvitation(ctx context.Context, token string)
 		return types.NewInternalError("failed to update invitation status").Wrap(err)
 	}
 
-	s.deps.Events.EmitAsync(ctx, types.EventOrgInvitationDeclined, &types.OrgInvitationEventData{
+	_ = s.deps.Events.EmitAsync(ctx, types.EventOrgInvitationDeclined, &types.OrgInvitationEventData{
 		OrgID: inv.OrgID, Email: inv.Email,
 	})
 

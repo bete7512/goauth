@@ -43,7 +43,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to create storage: %v", err)
 	}
-	defer store.Close()
+	defer func() { _ = store.Close() }()
 
 	authInstance, err := auth.New(&config.Config{
 		Storage: store,
@@ -93,40 +93,40 @@ func main() {
 	}
 
 	// Session module (always enabled)
-	authInstance.Use(session.New(&config.SessionModuleConfig{
+	mustUse(authInstance.Use(session.New(&config.SessionModuleConfig{
 		EnableSessionManagement: true,
 		Strategy:                types.SessionStrategyCookieCache,
 		CookieEncoding:          types.CookieEncodingCompact,
 		CookieCacheTTL:          time.Hour,
 		SlidingExpiration:       true,
 		UpdateAge:               30 * time.Minute,
-	}))
+	})))
 
 	// Admin module
-	authInstance.Use(admin.New(&admin.Config{}))
+	mustUse(authInstance.Use(admin.New(&admin.Config{})))
 
 	// Audit module (default config: all events tracked)
-	authInstance.Use(audit.New(nil))
+	mustUse(authInstance.Use(audit.New(nil)))
 
 	// Organization module
-	authInstance.Use(organization.New(&organization.Config{}))
+	mustUse(authInstance.Use(organization.New(&organization.Config{})))
 
 	// Magic link module
-	authInstance.Use(magiclink.New(&config.MagicLinkModuleConfig{
+	mustUse(authInstance.Use(magiclink.New(&config.MagicLinkModuleConfig{
 		CallbackURL:  frontendURL,
 		TokenExpiry:  time.Hour,
 		AutoRegister: true,
-	}))
+	})))
 
 	// Two-factor authentication
-	authInstance.Use(twofactor.New(&config.TwoFactorConfig{
+	mustUse(authInstance.Use(twofactor.New(&config.TwoFactorConfig{
 		Issuer: "GoAuth Demo",
-	}))
+	})))
 
 	// Notification module (conditional on RESEND_API_KEY)
 	if resendKey := os.Getenv("RESEND_API_KEY"); resendKey != "" {
 		log.Println("Enabling notification module (Resend)")
-		authInstance.Use(notification.New(&notification.Config{
+		mustUse(authInstance.Use(notification.New(&notification.Config{
 			EnableWelcomeEmail:        true,
 			EnablePasswordChangeAlert: true,
 			EmailSender: senders.NewResendEmailSender(&senders.ResendConfig{
@@ -140,7 +140,7 @@ func main() {
 				TextColor:    "#000",
 				ContactEmail: envOr("EMAIL_FROM", "noreply@example.com"),
 			},
-		}))
+		})))
 	} else {
 		log.Println("Skipping notification module (RESEND_API_KEY not set)")
 	}
@@ -171,13 +171,13 @@ func main() {
 	}
 
 	if len(oauthProviders) > 0 {
-		authInstance.Use(oauth.New(&config.OAuthModuleConfig{
+		mustUse(authInstance.Use(oauth.New(&config.OAuthModuleConfig{
 			Providers:              oauthProviders,
 			AllowSignup:            true,
 			AllowAccountLinking:    true,
 			TrustEmailVerification: true,
 			StateTTL:               10 * time.Minute,
-		}))
+		})))
 	} else {
 		log.Println("Skipping OAuth module (no provider credentials set)")
 	}
@@ -276,4 +276,11 @@ func loggingMiddleware(next http.Handler) http.Handler {
 		log.Printf("method=%s status=%d path=%s duration=%s",
 			r.Method, sw.status, r.URL.RequestURI(), time.Since(start))
 	})
+}
+
+// mustUse stops the demo when a module cannot be registered.
+func mustUse(err error) {
+	if err != nil {
+		log.Fatalf("Failed to register module: %v", err)
+	}
 }

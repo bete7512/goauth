@@ -33,9 +33,28 @@ test-coverage-html: test-coverage
 build:
 	go build ./...
 
-# Lint (requires golangci-lint)
+# Lint (requires golangci-lint v2; config in .golangci.yml)
 lint:
 	golangci-lint run ./...
+
+# Known vulnerabilities in reachable code (requires govulncheck)
+.PHONY: vuln tidy-check generate-check check
+vuln:
+	govulncheck ./...
+
+# Fails when go.mod/go.sum of the root or nested modules need tidying
+tidy-check:
+	go mod tidy -diff
+	@for module in examples pkg/adapters/chiadapter pkg/adapters/ginadapter pkg/adapters/fiberadapter; do \
+		(cd $$module && go mod tidy -diff) || exit 1; \
+	done
+
+# Fails when regenerated mocks differ from the committed ones
+generate-check: mocks
+	git diff --exit-code
+
+# Everything CI checks except the database contract jobs
+check: build lint vuln tidy-check generate-check test test-integration
 
 # Run benchmarks
 .PHONY: test-bench

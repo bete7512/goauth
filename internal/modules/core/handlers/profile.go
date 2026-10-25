@@ -51,7 +51,7 @@ func (h *CoreHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Emit profile change event
-	h.deps.Events.EmitAsync(ctx, types.EventAfterChangeProfile, &types.ProfileChangedData{
+	_ = h.deps.Events.EmitAsync(ctx, types.EventAfterChangeProfile, &types.ProfileChangedData{
 		UserID: userID,
 		Fields: updatedFields,
 	})

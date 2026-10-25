@@ -1,10 +1,7 @@
 package resilience
 
-import "sync"
-
 type Bulkhead struct {
 	sem chan struct{}
-	wg  sync.WaitGroup
 }
 
 func NewBulkhead(maxConcurrent int) *Bulkhead {

@@ -461,7 +461,7 @@ func NewConfigurationError(message *string) *GoAuthError {
 	}
 	return &GoAuthError{
 		Code:       ErrConfigurationError,
-		Message:    "Configuration error",
+		Message:    *message,
 		StatusCode: http.StatusInternalServerError,
 	}
 }

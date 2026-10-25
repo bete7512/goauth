@@ -53,7 +53,7 @@ func (s *coreService) SendEmailVerification(ctx context.Context, email string) (
 		return nil, types.NewInternalError("failed to create verification token").Wrap(err)
 	}
 
-	s.Deps.Events.EmitAsync(ctx, types.EventSendEmailVerification, &types.EmailVerificationRequestData{
+	_ = s.Deps.Events.EmitAsync(ctx, types.EventSendEmailVerification, &types.EmailVerificationRequestData{
 		User:             user,
 		VerificationLink: verificationLink,
 	})
@@ -105,7 +105,7 @@ func (s *coreService) ResendEmailVerification(ctx context.Context, email string)
 		return nil, types.NewInternalError("failed to create verification token").Wrap(err)
 	}
 
-	s.Deps.Events.EmitAsync(ctx, types.EventSendEmailVerification, &types.EmailVerificationRequestData{
+	_ = s.Deps.Events.EmitAsync(ctx, types.EventSendEmailVerification, &types.EmailVerificationRequestData{
 		User:             user,
 		VerificationLink: verificationLink,
 	})
@@ -154,7 +154,7 @@ func (s *coreService) SendPhoneVerification(ctx context.Context, phone string) (
 		return nil, types.NewInternalError("failed to create verification token").Wrap(err)
 	}
 
-	s.Deps.Events.EmitAsync(ctx, types.EventSendPhoneVerification, &types.PhoneVerificationRequestData{
+	_ = s.Deps.Events.EmitAsync(ctx, types.EventSendPhoneVerification, &types.PhoneVerificationRequestData{
 		User:       user,
 		Code:       code,
 		ExpiryTime: "15 minutes",
@@ -212,7 +212,7 @@ func (s *coreService) ResendPhoneVerification(ctx context.Context, phone string)
 		return nil, types.NewInternalError("failed to create verification token").Wrap(err)
 	}
 
-	s.Deps.Events.EmitAsync(ctx, types.EventSendPhoneVerification, &types.PhoneVerificationRequestData{
+	_ = s.Deps.Events.EmitAsync(ctx, types.EventSendPhoneVerification, &types.PhoneVerificationRequestData{
 		User:       user,
 		Code:       code,
 		ExpiryTime: "15 minutes",
@@ -274,7 +274,7 @@ func (s *coreService) VerifyEmail(ctx context.Context, token string) (*dto.Messa
 	}
 
 	// Emit event so notification can send welcome email
-	s.Deps.Events.EmitAsync(ctx, types.EventAfterEmailVerified, &types.UserEventData{
+	_ = s.Deps.Events.EmitAsync(ctx, types.EventAfterEmailVerified, &types.UserEventData{
 		User: user,
 	})
 

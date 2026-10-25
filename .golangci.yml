@@ -1,0 +1,20 @@
+version: "2"
+
+run:
+  timeout: 5m
+  # Lint the integration suite too (tests/integration is behind this tag).
+  build-tags:
+    - integration
+
+linters:
+  # errcheck, govet, ineffassign, staticcheck, unused
+  default: standard
+
+formatters:
+  enable:
+    - gofmt
+
+issues:
+  # Report every finding; the defaults hide repeats beyond three per linter.
+  max-issues-per-linter: 0
+  max-same-issues: 0

@@ -76,11 +76,11 @@ func (s *orgService) Create(ctx context.Context, userID string, req *dto.CreateO
 	}
 
 	// Emit events
-	s.deps.Events.EmitAsync(ctx, types.EventOrgCreated, &types.OrgEventData{
+	_ = s.deps.Events.EmitAsync(ctx, types.EventOrgCreated, &types.OrgEventData{
 		Organization: org,
 		ActorID:      userID,
 	})
-	s.deps.Events.EmitAsync(ctx, types.EventOrgMemberAdded, &types.OrgMemberEventData{
+	_ = s.deps.Events.EmitAsync(ctx, types.EventOrgMemberAdded, &types.OrgMemberEventData{
 		OrgID: org.ID, OrgName: org.Name, UserID: userID, Role: string(types.OrgRoleOwner), ActorID: userID,
 	})
 
@@ -123,7 +123,7 @@ func (s *orgService) Update(ctx context.Context, orgID string, req *dto.UpdateOr
 		return nil, types.NewInternalError("failed to update organization").Wrap(err)
 	}
 
-	s.deps.Events.EmitAsync(ctx, types.EventOrgUpdated, &types.OrgEventData{Organization: org})
+	_ = s.deps.Events.EmitAsync(ctx, types.EventOrgUpdated, &types.OrgEventData{Organization: org})
 
 	return org, nil
 }
@@ -145,7 +145,7 @@ func (s *orgService) Delete(ctx context.Context, orgID string) *types.GoAuthErro
 		return types.NewInternalError("failed to delete organization").Wrap(err)
 	}
 
-	s.deps.Events.EmitAsync(ctx, types.EventOrgDeleted, &types.OrgEventData{Organization: org})
+	_ = s.deps.Events.EmitAsync(ctx, types.EventOrgDeleted, &types.OrgEventData{Organization: org})
 
 	return nil
 }
@@ -198,7 +198,7 @@ func (s *orgService) SwitchOrg(ctx context.Context, user *models.User, targetOrg
 		return "", "", types.NewUnauthorizedError()
 	}
 
-	s.deps.Events.EmitAsync(ctx, types.EventOrgSwitched, &types.OrgSwitchEventData{
+	_ = s.deps.Events.EmitAsync(ctx, types.EventOrgSwitched, &types.OrgSwitchEventData{
 		UserID:  user.ID,
 		ToOrgID: targetOrgID,
 	})

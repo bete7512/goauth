@@ -1,6 +1,7 @@
 package security
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rsa"
@@ -151,7 +152,8 @@ func (k *jwtKeyring) jwks() types.JWKS {
 		}}}
 	case types.JWTAlgorithmES256:
 		pub, _ := k.publicKey.(*ecdsa.PublicKey)
-		if pub == nil {
+		x, y, ok := ecCoordinates(pub)
+		if !ok {
 			return types.JWKS{Keys: []types.JWK{}}
 		}
 		return types.JWKS{Keys: []types.JWK{{
@@ -160,8 +162,8 @@ func (k *jwtKeyring) jwks() types.JWKS {
 			Alg: string(k.algorithm),
 			Kid: k.kid,
 			Crv: "P-256",
-			X:   base64urlBigInt(pub.X),
-			Y:   base64urlBigInt(pub.Y),
+			X:   base64.RawURLEncoding.EncodeToString(x),
+			Y:   base64.RawURLEncoding.EncodeToString(y),
 		}}}
 	default:
 		return types.JWKS{Keys: []types.JWK{}}
@@ -298,10 +300,30 @@ func rsaKID(pub *rsa.PublicKey) string {
 }
 
 func ecKID(pub *ecdsa.PublicKey) string {
+	x, y, ok := ecCoordinates(pub)
+	if !ok {
+		return ""
+	}
+	// Leading zero bytes are trimmed so derived IDs match those computed from
+	// big.Int coordinates by earlier releases; tokens they signed still verify.
 	h := sha256.New()
-	h.Write(pub.X.Bytes())
-	h.Write(pub.Y.Bytes())
+	h.Write(bytes.TrimLeft(x, "\x00"))
+	h.Write(bytes.TrimLeft(y, "\x00"))
 	return base64.RawURLEncoding.EncodeToString(h.Sum(nil)[:8])
+}
+
+// ecCoordinates returns the affine coordinates of pub at the full size of the
+// curve, as RFC 7518 section 6.2.1.2 requires for JWK "x" and "y".
+func ecCoordinates(pub *ecdsa.PublicKey) (x, y []byte, ok bool) {
+	if pub == nil {
+		return nil, nil, false
+	}
+	point, err := pub.Bytes() // uncompressed: 0x04 || X || Y
+	if err != nil || len(point) < 3 || len(point)%2 == 0 || point[0] != 4 {
+		return nil, nil, false
+	}
+	size := (len(point) - 1) / 2
+	return point[1 : 1+size], point[1+size:], true
 }
 
 func base64urlBigInt(i *big.Int) string {

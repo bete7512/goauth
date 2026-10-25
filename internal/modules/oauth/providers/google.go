@@ -105,7 +105,7 @@ func (p *GoogleProvider) Exchange(ctx context.Context, code string, opts Exchang
 	if err != nil {
 		return nil, fmt.Errorf("failed to exchange code: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -136,7 +136,7 @@ func (p *GoogleProvider) UserInfo(ctx context.Context, accessToken string) (*Use
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch userinfo: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {

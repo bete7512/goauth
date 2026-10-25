@@ -95,7 +95,7 @@ func (p *GoogleProvider) Verify(ctx context.Context, token, remoteIP string) (bo
 	if err != nil {
 		return false, fmt.Errorf("captcha: google verification request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var result recaptchaResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
@@ -160,7 +160,7 @@ func (p *CloudflareProvider) Verify(ctx context.Context, token, remoteIP string)
 	if err != nil {
 		return false, fmt.Errorf("captcha: cloudflare verification request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var result turnstileResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {

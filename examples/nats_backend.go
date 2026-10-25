@@ -280,4 +280,3 @@ func (b *NATSJetStreamBackend) Close() error {
 func (b *NATSJetStreamBackend) Name() string {
 	return "nats-jetstream"
 }
-

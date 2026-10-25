@@ -69,11 +69,11 @@ func (s *WorkerPoolSuite) TestQueueFullSendsToDLQ() {
 	})
 
 	// First event: blocks the worker
-	wp.Submit(context.Background(), &types.Event{ID: "block", Type: types.EventAfterSignup})
+	_ = wp.Submit(context.Background(), &types.Event{ID: "block", Type: types.EventAfterSignup})
 	time.Sleep(50 * time.Millisecond) // let worker pick it up
 
 	// Second event: fills the queue buffer
-	wp.Submit(context.Background(), &types.Event{ID: "fill", Type: types.EventAfterSignup})
+	_ = wp.Submit(context.Background(), &types.Event{ID: "fill", Type: types.EventAfterSignup})
 
 	// Third event: queue is full, should go to DLQ
 	err := wp.Submit(context.Background(), &types.Event{ID: "overflow", Type: types.EventAfterSignup})
@@ -102,7 +102,7 @@ func (s *WorkerPoolSuite) TestStopGraceful() {
 	})
 
 	for i := 0; i < 5; i++ {
-		wp.Submit(context.Background(), &types.Event{ID: "s", Type: types.EventAfterSignup})
+		_ = wp.Submit(context.Background(), &types.Event{ID: "s", Type: types.EventAfterSignup})
 	}
 
 	wp.Stop()

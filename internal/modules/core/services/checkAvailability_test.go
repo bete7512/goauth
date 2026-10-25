@@ -104,7 +104,9 @@ func (s *CheckAvailabilitySuite) TestCheckAvailability() {
 
 	for _, tt := range tests {
 		s.Run(tt.name, func() {
-			svc, mockUserRepo, _, _ := (&PasswordServiceSuite{Suite: s.Suite}).setupService()
+			passwordSuite := &PasswordServiceSuite{}
+			passwordSuite.SetT(s.T())
+			svc, mockUserRepo, _, _ := passwordSuite.setupService()
 			tt.setup(mockUserRepo)
 
 			resp, goauthErr := svc.CheckAvailability(context.Background(), tt.req)

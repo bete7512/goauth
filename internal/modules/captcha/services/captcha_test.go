@@ -103,7 +103,7 @@ func (s *CaptchaServiceSuite) TestGoogleProvider() {
 				s.Equal("1.2.3.4", r.PostFormValue("remoteip"))
 
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(tt.response)
+				_ = json.NewEncoder(w).Encode(tt.response)
 			})
 			defer srv.Close()
 
@@ -127,7 +127,7 @@ func (s *CaptchaServiceSuite) TestGoogleProviderDefaultThreshold() {
 func (s *CaptchaServiceSuite) TestGoogleProviderAPIError() {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("not json"))
+		_, _ = w.Write([]byte("not json"))
 	}))
 	defer srv.Close()
 
@@ -184,7 +184,7 @@ func (s *CaptchaServiceSuite) TestCloudflareProvider() {
 				s.Equal("test-token", r.PostFormValue("response"))
 
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(tt.response)
+				_ = json.NewEncoder(w).Encode(tt.response)
 			})
 			defer srv.Close()
 
@@ -202,7 +202,7 @@ func (s *CaptchaServiceSuite) TestCloudflareProvider() {
 func (s *CaptchaServiceSuite) TestCloudflareProviderAPIError() {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("bad response"))
+		_, _ = w.Write([]byte("bad response"))
 	}))
 	defer srv.Close()
 
