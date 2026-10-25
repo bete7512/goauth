@@ -22,6 +22,7 @@ jobs:
         with:
           generate_release_notes: true
           draft: false
-          prerelease: false
+          # Tags with a hyphen (v0.3.0-beta.1, v1.0.0-rc.1) are pre-releases.
+          prerelease: ${{ contains(github.ref_name, '-') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
