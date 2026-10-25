@@ -15,7 +15,6 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          check-latest: true
           cache: true
       - name: Unit tests
         run: go test -race -coverprofile=coverage.out ./...
@@ -48,9 +47,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # govulncheck reports standard-library advisories for the Go it runs
+      # with, so this job uses the newest patched release. The other jobs keep
+      # go.mod's exact minimum (1.26.0) to prove the declared version builds.
       - uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version: stable
           check-latest: true
           cache: true
       - name: golangci-lint
@@ -104,7 +106,6 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          check-latest: true
           cache: true
       - name: Verify database guarantees
         env:
