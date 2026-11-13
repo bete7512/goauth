@@ -183,6 +183,7 @@ export function syncContent() {
         "passkeys",
         "twofactor",
         "oauth",
+        "saml",
         "admin",
         "audit",
         "captcha",

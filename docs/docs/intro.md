@@ -43,6 +43,7 @@ The [Quick Start](quickstart.md) contains a complete program with error handling
 | [Two-Factor](modules/twofactor.md) | TOTP and backup codes | `twofactor.New(...)` |
 | [OAuth](modules/oauth.md) | Google, GitHub, Microsoft, Discord; named connections | `oauth.New(...)` |
 | [Magic Link](modules/magiclink.md) | Email links and verification codes | `magiclink.New(...)` |
+| [SAML](modules/saml.md) | SAML 2.0 service provider for Keycloak, Okta, Entra ID; requires OAuth | `saml.New(...)` |
 | [Notification](modules/notification.md) | Event-driven email and SMS | `notification.New(...)` |
 | [Organization](modules/organization.md) | Memberships, roles, organization invitations | `organization.New(...)` |
 | [Invitation](modules/invitation.md) | Platform invitations; requires Admin | `invitation.New(...)` |

@@ -892,6 +892,82 @@ Unlinks an OAuth provider from the user's account.
 
 ---
 
+
+## SAML Module
+
+:::info
+Requires `saml.New(...)` with at least one connection, `oauth.New(nil)` (owner of the shared `accounts` table) and `APIURL` set in config. `{provider}` is the connection name from `SAMLModuleConfig.Providers`.
+:::
+
+<details>
+<summary><code>GET</code> <code>/saml/providers</code> — List SAML connections</summary>
+
+**Response** `200`:
+```json
+{
+  "data": {
+    "providers": [
+      {
+        "name": "keycloak",
+        "login_url": "http://localhost:8080/auth/saml/keycloak/login",
+        "metadata_url": "http://localhost:8080/auth/saml/keycloak/metadata"
+      }
+    ]
+  }
+}
+```
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/saml/&#123;provider&#125;/login</code> — Start SP-initiated login</summary>
+
+Builds a SAML AuthnRequest (signed when `SignRequests` is on) and redirects the browser to the identity provider's single sign-on endpoint using the HTTP-Redirect binding. The request ID is sent as `RelayState` and stored in the `goauth_saml_{provider}` binding cookie. An optional `redirect_uri` query parameter must share its origin with `DefaultRedirectURL`, `ErrorRedirectURL` or `FrontendConfig.URL`.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/saml/&#123;provider&#125;/acs</code> — Assertion Consumer Service</summary>
+
+Form body (`application/x-www-form-urlencoded`): `SAMLResponse` (base64 XML) and `RelayState` (the request ID; absent for IdP-initiated logins, which are refused unless `AllowIDPInitiated` is set).
+
+The binding cookie must match `RelayState`, the stored request is consumed (one response per request), and the response's signature, issuer, audience, destination, validity window and `InResponseTo` are verified. The detailed cause of a rejection is logged, never returned. A 2FA challenge returns JSON `data.challenges`. A completed flow:
+
+- Redirects to `redirect_uri` or `DefaultRedirectURL`; cookie-only mode omits token fragments, while bearer/both modes include them.
+- Returns JSON when no redirect URL is configured:
+
+```json
+{
+  "data": {
+    "access_token": "eyJhbGciOi...",
+    "refresh_token": "eyJhbGciOi...",
+    "expires_in": 900,
+    "token_type": "Bearer",
+    "user": {
+      "id": "01961abc-...",
+      "email": "alice@example.com",
+      "name": "Alice Liddell",
+      "first_name": "Alice",
+      "last_name": "Liddell",
+      "email_verified": true,
+      "active": true,
+      "created_at": "2025-01-01T00:00:00Z"
+    },
+    "is_new_user": true,
+    "provider": "keycloak"
+  }
+}
+```
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/saml/&#123;provider&#125;/metadata</code> — Service provider metadata</summary>
+
+Returns the SP metadata document (`application/samlmetadata+xml`) with the entity ID, ACS location, requested NameID format and the SP certificate. Import it into the identity provider (Keycloak: Clients → Import client).
+
+</details>
+
 ## Admin Module
 
 :::info

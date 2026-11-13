@@ -27,6 +27,7 @@ import (
 	"github.com/bete7512/goauth/pkg/modules/oauth"
 	"github.com/bete7512/goauth/pkg/modules/organization"
 	"github.com/bete7512/goauth/pkg/modules/passkeys"
+	"github.com/bete7512/goauth/pkg/modules/saml"
 	"github.com/bete7512/goauth/pkg/modules/session"
 	"github.com/bete7512/goauth/pkg/modules/stateless"
 	"github.com/bete7512/goauth/pkg/modules/twofactor"
@@ -72,7 +73,7 @@ func verify(dir, strategy string) ([]route, error) {
 		invitation.New(nil), magiclink.New(nil), notification.New(nil), oauth.New(nil),
 		organization.New(nil), passkeys.New(&config.PasskeysModuleConfig{
 			RPID: "localhost", RPOrigins: []string{"http://localhost:3000"},
-		}), twofactor.New(nil),
+		}), saml.New(nil), twofactor.New(nil),
 	} {
 		if err := a.Use(module); err != nil {
 			return nil, err

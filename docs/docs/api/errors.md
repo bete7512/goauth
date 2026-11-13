@@ -178,6 +178,22 @@ The HTTP status code is set on the response header, not in the JSON body.
 
 Some OAuth factory functions accept a `provider` or `message` parameter that is interpolated into the default message.
 
+### SAML Errors
+
+| Constant | Code | HTTP Status | Default Message |
+|---|---|---|---|
+| `ErrSAMLProviderNotFound` | `SAML_PROVIDER_NOT_FOUND` | 400 Bad Request | SAML provider '&lt;provider&gt;' not found or not configured |
+| `ErrSAMLInvalidRequest` | `SAML_INVALID_REQUEST` | 400 Bad Request | Unknown or already used SAML authentication request |
+| `ErrSAMLRequestExpired` | `SAML_REQUEST_EXPIRED` | 400 Bad Request | SAML authentication request has expired. Please try again. |
+| `ErrSAMLInvalidResponse` | `SAML_INVALID_RESPONSE` | 400 Bad Request | SAML response could not be verified |
+| `ErrSAMLIDPInitiatedDisabled` | `SAML_IDP_INITIATED_DISABLED` | 400 Bad Request | IdP-initiated SAML login is disabled for this provider |
+| `ErrSAMLSignupDisabled` | `SAML_SIGNUP_DISABLED` | 403 Forbidden | Signup via SAML is disabled |
+| `ErrSAMLEmailRequired` | `SAML_EMAIL_REQUIRED` | 400 Bad Request | The identity provider did not release an email address |
+| `ErrSAMLAccountLinkingDisabled` | `SAML_ACCOUNT_LINKING_DISABLED` | 403 Forbidden | Account linking via SAML is disabled |
+| `ErrSAMLSubjectNotPersistent` | `SAML_SUBJECT_NOT_PERSISTENT` | 400 Bad Request | The identity provider returned a transient subject identifier |
+
+The reason a SAML response fails verification (signature, audience, time window) is written to the log only; the client always receives `SAML_INVALID_RESPONSE`.
+
 ### Organization Errors
 
 | Constant | Code | HTTP Status | Default Message |

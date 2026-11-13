@@ -28,6 +28,7 @@ GoAuth is a modular, framework-agnostic authentication library for Go. Compose t
 - [Notification](/docs/modules/notification) -- Email/SMS delivery
 - Two-Factor -- TOTP-based 2FA with backup codes
 - OAuth -- Social login (Google, GitHub, Microsoft, Discord)
+- SAML -- Enterprise single sign-on through Keycloak, Okta, Entra ID and other SAML 2.0 identity providers
 - Admin -- User CRUD with admin middleware
 - Invitation -- Platform invitations (beta access and referrals; signup gating is separate)
 - Organization -- Multi-org support with roles and org-scoped invitations

@@ -88,6 +88,8 @@ graph TD
     Core --> Session["Session OR Stateless"]
     Core --> TwoFactor["Two-Factor"]
     Core --> OAuth["OAuth"]
+    OAuth --> SAML["SAML: shares the accounts table"]
+    Core --> SAML
     Core --> Passkeys["Passkeys"]
     Core --> MagicLink["Magic Link"]
     Core --> Organization["Organizations"]

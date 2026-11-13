@@ -77,6 +77,8 @@ try {
     audit: "pkg/modules/audit",
     invitation: "pkg/modules/invitation",
     organization: "pkg/modules/organization",
+    ratelimit: "pkg/modules/ratelimit",
+    saml: "pkg/modules/saml",
   };
   const supplied = {
     ctx: "context.Context",
@@ -90,6 +92,7 @@ try {
     myCustomEmailSender: "notification.EmailSender",
     emailSender: "notification.EmailSender",
     myCustomSMSSender: "notification.SMSSender",
+    myRedisStore: "types.RateLimitStore",
   };
   const files = [];
   for (const [

@@ -38,7 +38,17 @@ internal/modules/<name>/
 - Config struct in `pkg/config/config.go` if needed
 - Test file verifying module satisfies `config.Module`
 
-### 5. Do NOT
+### 5. Documentation (mandatory — the module is not done without it)
+- `docs/docs/modules/<name>.md`: docs-site page modelled on `docs/docs/modules/oauth.md` (frontmatter with the next free `sidebar_position`; Registration, Configuration table, Endpoints table, Flow, Events and Errors, known limitations)
+- `docs/scripts/sync-content.mjs`: add the page to the `modules` navigation list and run `node docs/scripts/sync-content.mjs` (`docs/content/` is generated, never hand-edited)
+- `docs/docs/api/endpoints.md`, `docs/docs/api/errors.md`, `docs/docs/intro.md`, `docs/docs/index.md`, `docs/docs/architecture.md`: add the module's endpoints, error codes and list/graph entries; validate with `node docs/scripts/check-api.mjs`
+- `README.md`: add a row to the Modules table (description + Stable/Experimental)
+- `internal/modules/README.md`: add a section with a registration snippet and provided routes
+- `CHANGELOG.md`: entry under `## [Unreleased]` → `### Added`
+- `make sdk-spec` to regenerate `clients/ts/openapi.yml`
+- If the module depends on other modules or adds a dependency to `go.mod`, say so in the docs page and changelog
+
+### 6. Do NOT
 - Auto-register the module
 - Use `swagger.yml` naming (use `openapi.yml`)
 - Use `Models()` or `SwaggerSpec()` (outdated — use `Migrations()` and `OpenAPISpecs()`)
