@@ -14,6 +14,7 @@ type AccountType string
 const (
 	AccountTypeOAuth       AccountType = "oauth"
 	AccountTypeOIDC        AccountType = "oidc"
+	AccountTypeSAML        AccountType = "saml"
 	AccountTypeCredentials AccountType = "credentials"
 )
 

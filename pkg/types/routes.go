@@ -54,6 +54,12 @@ const (
 	RouteOAuthUserUpdateProfile RouteName = "oauth.user_update_profile"
 	RouteOAuthUserDeleteProfile RouteName = "oauth.user_delete_profile"
 
+	// SAML Routes
+	RouteSAMLLogin     RouteName = "saml.login"
+	RouteSAMLACS       RouteName = "saml.acs"
+	RouteSAMLMetadata  RouteName = "saml.metadata"
+	RouteSAMLProviders RouteName = "saml.providers"
+
 	// MagicLink Routes
 	RouteMagicLinkSend       RouteName = "magiclink.send"
 	RouteMagicLinkVerify     RouteName = "magiclink.verify"

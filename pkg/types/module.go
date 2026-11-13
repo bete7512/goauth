@@ -21,6 +21,7 @@ const (
 	InvitationModule   ModuleName = "invitation"
 	PasskeysModule     ModuleName = "passkeys"
 	RateLimitModule    ModuleName = "ratelimit"
+	SAMLModule         ModuleName = "saml"
 )
 
 // CaptchaProvider represents a supported captcha provider.

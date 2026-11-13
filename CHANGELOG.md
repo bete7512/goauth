@@ -4,6 +4,10 @@ All notable changes to GoAuth are recorded here. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+### Added
+
+- **SAML module** (`pkg/modules/saml`): SAML 2.0 service provider with SP-initiated login over the HTTP-Redirect binding, an HTTP-POST Assertion Consumer Service, optional IdP-initiated login, SP metadata, signed AuthnRequests, encrypted assertions and attribute mapping for Keycloak, Okta, Entra ID and Shibboleth naming schemes. Linked subjects live in the `accounts` table, so the module depends on the OAuth module. Signature verification is delegated to `github.com/crewjam/saml`.
+
 ## [0.3.0-beta.1] - 2026-10-26
 
 The first public beta and the start of a new release line. Every earlier version is retracted (see below). Moving from v0.2.x is a maintenance deployment and every user signs in again; follow [Upgrading from v0.2.x](docs/docs/upgrade.md#upgrading-from-v02x).

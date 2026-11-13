@@ -15,6 +15,7 @@ const (
 	TokenTypeTwoFactorCode     = "two_factor_code"
 	TokenTypeMagicLink         = "magic_link"
 	TokenTypeOAuthState        = "oauth_state"
+	TokenTypeSAMLRequest       = "saml_request"
 )
 
 // Token is a stored credential record with a type, an owner, an expiry and a

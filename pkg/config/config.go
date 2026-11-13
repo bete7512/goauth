@@ -499,6 +499,109 @@ type OAuthProviderConfig struct {
 	Enabled bool
 }
 
+// SAMLModuleConfig configures the SAML 2.0 service-provider module. GoAuth is
+// the service provider (SP); each entry in Providers is an identity provider
+// (IdP) connection such as a Keycloak realm.
+//
+// Linked SAML identities are stored in the accounts table owned by the OAuth
+// module, so the SAML module depends on the OAuth module being registered.
+type SAMLModuleConfig struct {
+	// CustomCoreStorage is optional. If nil, uses deps.Storage.Core() during Init.
+	CustomCoreStorage types.CoreStorage
+	// CustomAccountStorage is optional. If nil, uses deps.Storage.OAuth() during Init.
+	CustomAccountStorage types.OAuthStorage
+	// CustomSessionStorage is optional. For session-based auth; if nil uses deps.Storage.Session() during Init.
+	CustomSessionStorage types.SessionStorage
+
+	// SPCertificate is the PEM-encoded X.509 certificate GoAuth advertises in its
+	// SP metadata. It is required to sign AuthnRequests and to receive encrypted
+	// assertions, which Keycloak does by default ("Client signature required").
+	SPCertificate string
+	// SPPrivateKey is the PEM-encoded private key (PKCS#1, PKCS#8 or EC) matching SPCertificate.
+	SPPrivateKey string
+
+	// Providers maps a connection name (e.g. "keycloak", "okta") to its IdP configuration.
+	// The name appears in the login, ACS and metadata URLs.
+	Providers map[string]*SAMLProviderConfig
+
+	// DefaultRedirectURL is the frontend URL to redirect to after a successful login.
+	// Tokens are passed in the URL fragment, or only as cookies in cookie auth mode.
+	// If empty, the ACS endpoint returns a JSON AuthResponse instead.
+	DefaultRedirectURL string
+
+	// ErrorRedirectURL is the URL to redirect to when a SAML login fails.
+	// Error details are passed as query params: ErrorRedirectURL?error=xxx&error_description=xxx
+	// If empty, the ACS endpoint returns a JSON error response instead.
+	ErrorRedirectURL string
+
+	// AllowSignup creates a user for an unknown SAML subject (default: true).
+	AllowSignup bool
+
+	// AllowAccountLinking links a SAML subject to an existing user with the same
+	// email address (default: false). Requires TrustEmail.
+	AllowAccountLinking bool
+
+	// TrustEmail treats the email released by the IdP as verified (default: true).
+	// Enterprise IdPs vouch for the addresses they release; disable when the IdP
+	// lets users set an unverified address.
+	TrustEmail bool
+
+	// RequestTTL is how long an outstanding AuthnRequest may wait for its response (default: 10 minutes).
+	RequestTTL time.Duration
+
+	// UseSessionAuth creates a database session instead of stateless JWT tokens.
+	UseSessionAuth bool
+
+	// MetadataHTTPClient fetches IdP metadata from MetadataURL during Initialize.
+	// Defaults to a client with a 15 second timeout.
+	MetadataHTTPClient *http.Client
+}
+
+// SAMLProviderConfig describes one identity provider connection.
+type SAMLProviderConfig struct {
+	// MetadataURL is the IdP metadata document, fetched once during Initialize.
+	// Keycloak: {server}/realms/{realm}/protocol/saml/descriptor
+	MetadataURL string
+	// MetadataXML is the IdP metadata document inline. Either MetadataURL or MetadataXML is required.
+	MetadataXML string
+
+	// EntityID overrides the SP entity ID for this connection.
+	// Default: {APIURL}{BasePath}/saml/{provider}/metadata
+	EntityID string
+
+	// NameIDFormat requested from the IdP: "persistent" (default), "emailAddress",
+	// "unspecified" or "transient". A transient subject cannot be linked to a
+	// user, so it is accepted only for users that already exist by email.
+	NameIDFormat string
+
+	// SignRequests signs AuthnRequests with SPPrivateKey (RSA-SHA256). Required
+	// when the IdP has "Client signature required" enabled, which is Keycloak's default.
+	SignRequests bool
+
+	// AllowIDPInitiated accepts unsolicited responses that start at the IdP
+	// (e.g. a Keycloak application tile). Such logins have no browser binding,
+	// so leave it off unless the IdP needs it.
+	AllowIDPInitiated bool
+
+	// Attributes maps assertion attribute names onto user fields. Each entry
+	// is tried before the built-in fallbacks (plain names, LDAP OIDs and
+	// WS-Fed claim URIs).
+	Attributes SAMLAttributeMapping
+
+	// Disabled keeps the connection configured but not served.
+	Disabled bool
+}
+
+// SAMLAttributeMapping names the assertion attributes that carry user fields.
+type SAMLAttributeMapping struct {
+	Email     string
+	Name      string
+	FirstName string
+	LastName  string
+	Username  string
+	Groups    string
+}
+
 // TwoFactorConfig configures the two-factor (TOTP) module.
 type TwoFactorConfig struct {
 	Issuer           string // Name shown in authenticator app

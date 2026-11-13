@@ -244,6 +244,10 @@ const (
 	EventOAuthLinkRemoved EventType = "oauth.link.removed"
 	EventOAuthError       EventType = "oauth.error"
 
+	// SAML Events
+	EventAfterSAMLLogin EventType = "after.saml.login"
+	EventSAMLLinkAdded  EventType = "saml.link.added"
+
 	// Organization Events
 	EventOrgCreated            EventType = "org.created"
 	EventOrgUpdated            EventType = "org.updated"

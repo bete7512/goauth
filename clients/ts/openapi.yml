@@ -1337,6 +1337,123 @@ components:
                             type: string
                     type: object
             type: object
+        SamlAuthResponse:
+            properties:
+                data:
+                    properties:
+                        access_token:
+                            description: JWT access token
+                            type: string
+                        expires_in:
+                            description: Access token expiration time in seconds
+                            type: integer
+                        is_new_user:
+                            description: True if the user was created by this login
+                            type: boolean
+                        provider:
+                            description: Connection used for authentication
+                            type: string
+                        refresh_token:
+                            description: Refresh token for obtaining new access tokens
+                            type: string
+                        token_type:
+                            default: Bearer
+                            type: string
+                        user:
+                            $ref: '#/components/schemas/SamlUser'
+                    type: object
+            type: object
+        SamlChallengeResponse:
+            properties:
+                data:
+                    properties:
+                        challenges:
+                            items:
+                                properties:
+                                    data:
+                                        additionalProperties: true
+                                        type: object
+                                    type:
+                                        type: string
+                                type: object
+                            type: array
+                        message:
+                            type: string
+                    type: object
+            type: object
+        SamlErrorResponse:
+            properties:
+                error:
+                    properties:
+                        code:
+                            enum:
+                                - SAML_PROVIDER_NOT_FOUND
+                                - SAML_INVALID_REQUEST
+                                - SAML_REQUEST_EXPIRED
+                                - SAML_INVALID_RESPONSE
+                                - SAML_IDP_INITIATED_DISABLED
+                                - SAML_SIGNUP_DISABLED
+                                - SAML_EMAIL_REQUIRED
+                                - SAML_ACCOUNT_LINKING_DISABLED
+                                - SAML_SUBJECT_NOT_PERSISTENT
+                            type: string
+                        message:
+                            type: string
+                    type: object
+                success:
+                    example: false
+                    type: boolean
+            type: object
+        SamlProvidersResponse:
+            properties:
+                data:
+                    properties:
+                        providers:
+                            items:
+                                properties:
+                                    login_url:
+                                        format: uri
+                                        type: string
+                                    metadata_url:
+                                        format: uri
+                                        type: string
+                                    name:
+                                        description: Connection name
+                                        type: string
+                                type: object
+                            type: array
+                    type: object
+            type: object
+        SamlUser:
+            properties:
+                active:
+                    type: boolean
+                avatar:
+                    format: uri
+                    type: string
+                created_at:
+                    format: date-time
+                    type: string
+                email:
+                    format: email
+                    type: string
+                email_verified:
+                    type: boolean
+                first_name:
+                    type: string
+                id:
+                    format: uuid
+                    type: string
+                last_login_at:
+                    format: date-time
+                    type: string
+                last_name:
+                    type: string
+                name:
+                    type: string
+                username:
+                    type: string
+            type: object
         StatelessAuthResponse:
             properties:
                 data:
@@ -3652,6 +3769,139 @@ paths:
             summary: Reset password
             tags:
                 - Core Authentication Module Docs
+    /saml/{provider}/acs:
+        post:
+            description: |
+                Receives the SAMLResponse posted by the identity provider (HTTP-POST
+                binding), verifies its signature, audience, destination, validity window
+                and InResponseTo, then signs the user in. Depending on configuration the
+                response is a redirect with tokens in the URL fragment, a redirect with
+                cookies only, or a JSON AuthResponse.
+            operationId: saml.acs
+            parameters:
+                - in: path
+                  name: provider
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/x-www-form-urlencoded:
+                        schema:
+                            properties:
+                                RelayState:
+                                    description: Request ID echoed by the IdP; absent for IdP-initiated logins
+                                    type: string
+                                SAMLResponse:
+                                    description: Base64-encoded SAML Response
+                                    type: string
+                            required:
+                                - SAMLResponse
+                            type: object
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                oneOf:
+                                    - $ref: '#/components/schemas/SamlAuthResponse'
+                                    - $ref: '#/components/schemas/SamlChallengeResponse'
+                    description: Authenticated (no redirect URL configured) or a challenge is required
+                "302":
+                    description: Redirect to the frontend with tokens in the URL fragment, or to ErrorRedirectURL on failure
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/SamlErrorResponse'
+                    description: The response could not be verified, the request is unknown or expired, or IdP-initiated login is disabled
+                "403":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/SamlErrorResponse'
+                    description: Signup or account linking is disabled
+            summary: Assertion Consumer Service
+            tags:
+                - SAML
+    /saml/{provider}/login:
+        get:
+            description: |
+                Builds a SAML AuthnRequest and redirects the browser to the identity
+                provider's single sign-on endpoint (HTTP-Redirect binding). The request
+                ID is sent as RelayState and stored in a cookie so the response can be
+                bound to this browser.
+            operationId: saml.login
+            parameters:
+                - description: Connection name as configured in SAMLModuleConfig.Providers
+                  in: path
+                  name: provider
+                  required: true
+                  schema:
+                    type: string
+                - description: |
+                    Optional frontend URL to redirect to after a successful login. It must
+                    share its origin with DefaultRedirectURL, ErrorRedirectURL or
+                    FrontendConfig.URL. Tokens are passed in the URL fragment.
+                  in: query
+                  name: redirect_uri
+                  required: false
+                  schema:
+                    format: uri
+                    type: string
+            responses:
+                "302":
+                    description: Redirect to the identity provider
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/SamlErrorResponse'
+                    description: Unknown connection
+            summary: Start SP-initiated login
+            tags:
+                - SAML
+    /saml/{provider}/metadata:
+        get:
+            description: Returns the SP metadata document to import into the identity provider.
+            operationId: saml.metadata
+            parameters:
+                - in: path
+                  name: provider
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    content:
+                        application/samlmetadata+xml:
+                            schema:
+                                type: string
+                    description: SP metadata
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/SamlErrorResponse'
+                    description: Unknown connection
+            summary: Service provider metadata
+            tags:
+                - SAML
+    /saml/providers:
+        get:
+            description: Returns the configured identity-provider connections with their login and metadata URLs.
+            operationId: saml.providers
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/SamlProvidersResponse'
+                    description: List of connections
+            summary: List SAML connections
+            tags:
+                - SAML
     /send-verification-email:
         post:
             description: Send verification email to user's email address

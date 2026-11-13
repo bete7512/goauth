@@ -114,6 +114,17 @@ const (
 	ErrOAuthEmailUnverified        ErrorCode = "OAUTH_EMAIL_UNVERIFIED"
 	ErrOAuthAccountLinkingDisabled ErrorCode = "OAUTH_ACCOUNT_LINKING_DISABLED"
 
+	// SAML errors
+	ErrSAMLProviderNotFound       ErrorCode = "SAML_PROVIDER_NOT_FOUND"
+	ErrSAMLInvalidRequest         ErrorCode = "SAML_INVALID_REQUEST"
+	ErrSAMLRequestExpired         ErrorCode = "SAML_REQUEST_EXPIRED"
+	ErrSAMLInvalidResponse        ErrorCode = "SAML_INVALID_RESPONSE"
+	ErrSAMLIDPInitiatedDisabled   ErrorCode = "SAML_IDP_INITIATED_DISABLED"
+	ErrSAMLSignupDisabled         ErrorCode = "SAML_SIGNUP_DISABLED"
+	ErrSAMLEmailRequired          ErrorCode = "SAML_EMAIL_REQUIRED"
+	ErrSAMLAccountLinkingDisabled ErrorCode = "SAML_ACCOUNT_LINKING_DISABLED"
+	ErrSAMLSubjectNotPersistent   ErrorCode = "SAML_SUBJECT_NOT_PERSISTENT"
+
 	// Organization errors
 	ErrOrgNotFound             ErrorCode = "ORG_NOT_FOUND"
 	ErrOrgSlugTaken            ErrorCode = "ORG_SLUG_TAKEN"
@@ -891,5 +902,92 @@ func NewRateLimitExceededError(retryAfter time.Duration) *GoAuthError {
 		Message:    "Too many requests. Please retry later.",
 		StatusCode: http.StatusTooManyRequests,
 		Details:    map[string]any{"retry_after_seconds": seconds},
+	}
+}
+
+// SAML error factory functions
+
+// NewSAMLProviderNotFoundError returns the SAML_PROVIDER_NOT_FOUND error (HTTP 400) with a message that names provider.
+func NewSAMLProviderNotFoundError(provider string) *GoAuthError {
+	return &GoAuthError{
+		Code:       ErrSAMLProviderNotFound,
+		Message:    "SAML provider '" + provider + "' not found or not configured",
+		StatusCode: http.StatusBadRequest,
+	}
+}
+
+// NewSAMLInvalidRequestError returns the SAML_INVALID_REQUEST error (HTTP 400): the
+// authentication request referenced by the response is unknown, already used or
+// belongs to another connection.
+func NewSAMLInvalidRequestError() *GoAuthError {
+	return &GoAuthError{
+		Code:       ErrSAMLInvalidRequest,
+		Message:    "Unknown or already used SAML authentication request",
+		StatusCode: http.StatusBadRequest,
+	}
+}
+
+// NewSAMLRequestExpiredError returns the SAML_REQUEST_EXPIRED error (HTTP 400).
+func NewSAMLRequestExpiredError() *GoAuthError {
+	return &GoAuthError{
+		Code:       ErrSAMLRequestExpired,
+		Message:    "SAML authentication request has expired. Please try again.",
+		StatusCode: http.StatusBadRequest,
+	}
+}
+
+// NewSAMLInvalidResponseError returns the SAML_INVALID_RESPONSE error (HTTP 400).
+// The detailed cause is logged server side and never sent to the client.
+func NewSAMLInvalidResponseError() *GoAuthError {
+	return &GoAuthError{
+		Code:       ErrSAMLInvalidResponse,
+		Message:    "SAML response could not be verified",
+		StatusCode: http.StatusBadRequest,
+	}
+}
+
+// NewSAMLIDPInitiatedDisabledError returns the SAML_IDP_INITIATED_DISABLED error (HTTP 400).
+func NewSAMLIDPInitiatedDisabledError() *GoAuthError {
+	return &GoAuthError{
+		Code:       ErrSAMLIDPInitiatedDisabled,
+		Message:    "IdP-initiated SAML login is disabled for this provider",
+		StatusCode: http.StatusBadRequest,
+	}
+}
+
+// NewSAMLSignupDisabledError returns the SAML_SIGNUP_DISABLED error (HTTP 403).
+func NewSAMLSignupDisabledError() *GoAuthError {
+	return &GoAuthError{
+		Code:       ErrSAMLSignupDisabled,
+		Message:    "Signup via SAML is disabled",
+		StatusCode: http.StatusForbidden,
+	}
+}
+
+// NewSAMLEmailRequiredError returns the SAML_EMAIL_REQUIRED error (HTTP 400).
+func NewSAMLEmailRequiredError() *GoAuthError {
+	return &GoAuthError{
+		Code:       ErrSAMLEmailRequired,
+		Message:    "The identity provider did not release an email address",
+		StatusCode: http.StatusBadRequest,
+	}
+}
+
+// NewSAMLAccountLinkingDisabledError returns the SAML_ACCOUNT_LINKING_DISABLED error (HTTP 403).
+func NewSAMLAccountLinkingDisabledError() *GoAuthError {
+	return &GoAuthError{
+		Code:       ErrSAMLAccountLinkingDisabled,
+		Message:    "Account linking via SAML is disabled",
+		StatusCode: http.StatusForbidden,
+	}
+}
+
+// NewSAMLSubjectNotPersistentError returns the SAML_SUBJECT_NOT_PERSISTENT error (HTTP 400):
+// a transient NameID cannot identify the same user on a later login.
+func NewSAMLSubjectNotPersistentError() *GoAuthError {
+	return &GoAuthError{
+		Code:       ErrSAMLSubjectNotPersistent,
+		Message:    "The identity provider returned a transient subject identifier",
+		StatusCode: http.StatusBadRequest,
 	}
 }

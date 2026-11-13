@@ -46,6 +46,6 @@ func DefaultRules() []config.RateLimitRuleConfig {
 		{Name: "signup_ip", ApplyTo: []types.RouteName{types.RouteSignup}, Key: types.RateLimitKeyIP, Limit: 10, Window: time.Hour},
 		{Name: "availability_ip", ApplyTo: []types.RouteName{types.RouteCheckAvailability}, Key: types.RateLimitKeyIP, Limit: 30, Window: time.Minute},
 		{Name: "refresh_ip", ApplyTo: []types.RouteName{types.RouteRefreshToken}, Key: types.RateLimitKeyIP, Limit: 120, Window: time.Minute},
-		{Name: "federation_ip", ApplyTo: []types.RouteName{types.RouteOAuthLogin, types.RouteOAuthCallback, types.RoutePasskeysLoginBegin, types.RoutePasskeysRegisterBegin}, Key: types.RateLimitKeyIP, Limit: 60, Window: time.Minute},
+		{Name: "federation_ip", ApplyTo: []types.RouteName{types.RouteOAuthLogin, types.RouteOAuthCallback, types.RouteSAMLLogin, types.RouteSAMLACS, types.RoutePasskeysLoginBegin, types.RoutePasskeysRegisterBegin}, Key: types.RateLimitKeyIP, Limit: 60, Window: time.Minute},
 	}
 }

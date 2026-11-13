@@ -156,6 +156,32 @@ Social login with providers: Google, GitHub, Facebook, Microsoft, Apple, Discord
 
 ---
 
+## SAML Module
+
+SAML 2.0 service provider for enterprise IdPs (Keycloak, Okta, Entra ID, Shibboleth). Linked subjects are stored in the `accounts` table, so it depends on the OAuth module.
+
+```go
+import (
+    "github.com/bete7512/goauth/pkg/modules/oauth"
+    "github.com/bete7512/goauth/pkg/modules/saml"
+)
+
+a.Use(oauth.New(nil))
+a.Use(saml.New(&config.SAMLModuleConfig{
+    SPCertificate: spCertPEM,
+    SPPrivateKey:  spKeyPEM,
+    Providers: map[string]*config.SAMLProviderConfig{
+        "keycloak": {MetadataURL: "http://localhost:8180/realms/demo/protocol/saml/descriptor", SignRequests: true},
+    },
+    AllowSignup: true,
+    TrustEmail:  true,
+}))
+```
+
+Provides: login (`/saml/{provider}/login`), ACS (`/saml/{provider}/acs`), SP metadata (`/saml/{provider}/metadata`), provider list.
+
+---
+
 ## Magic Link Module
 
 Passwordless authentication via email.

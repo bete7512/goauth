@@ -1,0 +1,269 @@
+openapi: 3.0.3
+info:
+  title: GoAuth SAML Module
+  description: |
+    SAML 2.0 Web Browser SSO with GoAuth acting as the service provider (SP).
+    Each configured connection (for example a Keycloak realm) has its own
+    login, assertion consumer service (ACS) and metadata endpoints.
+  version: 1.0.0
+
+paths:
+  /saml/providers:
+    get:
+      operationId: saml.providers
+      summary: List SAML connections
+      description: Returns the configured identity-provider connections with their login and metadata URLs.
+      tags:
+        - SAML
+      responses:
+        "200":
+          description: List of connections
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProvidersResponse"
+
+  /saml/{provider}/login:
+    get:
+      operationId: saml.login
+      summary: Start SP-initiated login
+      description: |
+        Builds a SAML AuthnRequest and redirects the browser to the identity
+        provider's single sign-on endpoint (HTTP-Redirect binding). The request
+        ID is sent as RelayState and stored in a cookie so the response can be
+        bound to this browser.
+      tags:
+        - SAML
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          description: Connection name as configured in SAMLModuleConfig.Providers
+          schema:
+            type: string
+        - name: redirect_uri
+          in: query
+          required: false
+          description: |
+            Optional frontend URL to redirect to after a successful login. It must
+            share its origin with DefaultRedirectURL, ErrorRedirectURL or
+            FrontendConfig.URL. Tokens are passed in the URL fragment.
+          schema:
+            type: string
+            format: uri
+      responses:
+        "302":
+          description: Redirect to the identity provider
+        "400":
+          description: Unknown connection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /saml/{provider}/acs:
+    post:
+      operationId: saml.acs
+      summary: Assertion Consumer Service
+      description: |
+        Receives the SAMLResponse posted by the identity provider (HTTP-POST
+        binding), verifies its signature, audience, destination, validity window
+        and InResponseTo, then signs the user in. Depending on configuration the
+        response is a redirect with tokens in the URL fragment, a redirect with
+        cookies only, or a JSON AuthResponse.
+      tags:
+        - SAML
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [SAMLResponse]
+              properties:
+                SAMLResponse:
+                  type: string
+                  description: Base64-encoded SAML Response
+                RelayState:
+                  type: string
+                  description: Request ID echoed by the IdP; absent for IdP-initiated logins
+      responses:
+        "200":
+          description: Authenticated (no redirect URL configured) or a challenge is required
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/AuthResponse"
+                  - $ref: "#/components/schemas/ChallengeResponse"
+        "302":
+          description: Redirect to the frontend with tokens in the URL fragment, or to ErrorRedirectURL on failure
+        "400":
+          description: The response could not be verified, the request is unknown or expired, or IdP-initiated login is disabled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Signup or account linking is disabled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /saml/{provider}/metadata:
+    get:
+      operationId: saml.metadata
+      summary: Service provider metadata
+      description: Returns the SP metadata document to import into the identity provider.
+      tags:
+        - SAML
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: SP metadata
+          content:
+            application/samlmetadata+xml:
+              schema:
+                type: string
+        "400":
+          description: Unknown connection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    AuthResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            access_token:
+              type: string
+              description: JWT access token
+            refresh_token:
+              type: string
+              description: Refresh token for obtaining new access tokens
+            expires_in:
+              type: integer
+              description: Access token expiration time in seconds
+            token_type:
+              type: string
+              default: Bearer
+            is_new_user:
+              type: boolean
+              description: True if the user was created by this login
+            provider:
+              type: string
+              description: Connection used for authentication
+            user:
+              $ref: "#/components/schemas/User"
+
+    ChallengeResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            message:
+              type: string
+            challenges:
+              type: array
+              items:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  data:
+                    type: object
+                    additionalProperties: true
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        username:
+          type: string
+        name:
+          type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        avatar:
+          type: string
+          format: uri
+        email_verified:
+          type: boolean
+        active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        last_login_at:
+          type: string
+          format: date-time
+
+    ProvidersResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            providers:
+              type: array
+              items:
+                type: object
+                properties:
+                  name:
+                    type: string
+                    description: Connection name
+                  login_url:
+                    type: string
+                    format: uri
+                  metadata_url:
+                    type: string
+                    format: uri
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              enum:
+                - SAML_PROVIDER_NOT_FOUND
+                - SAML_INVALID_REQUEST
+                - SAML_REQUEST_EXPIRED
+                - SAML_INVALID_RESPONSE
+                - SAML_IDP_INITIATED_DISABLED
+                - SAML_SIGNUP_DISABLED
+                - SAML_EMAIL_REQUIRED
+                - SAML_ACCOUNT_LINKING_DISABLED
+                - SAML_SUBJECT_NOT_PERSISTENT
+            message:
+              type: string

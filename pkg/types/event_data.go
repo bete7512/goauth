@@ -249,3 +249,15 @@ type RateLimitExceededData struct {
 	Details           string       `json:"details"`
 	Timestamp         time.Time    `json:"timestamp"`
 }
+
+// SAMLLoginEventData is emitted after a successful SAML login.
+// Attributes holds the released assertion attributes keyed by attribute name.
+type SAMLLoginEventData struct {
+	User       *models.User        `json:"user"`
+	Provider   string              `json:"provider"`
+	NameID     string              `json:"name_id"`
+	Issuer     string              `json:"issuer"`
+	IsNewUser  bool                `json:"is_new_user"`
+	Attributes map[string][]string `json:"attributes,omitempty"`
+	Metadata   *RequestMetadata    `json:"metadata,omitempty"`
+}
