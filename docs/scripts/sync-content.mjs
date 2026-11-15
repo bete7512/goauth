@@ -184,6 +184,7 @@ export function syncContent() {
         "twofactor",
         "oauth",
         "saml",
+        "idp",
         "admin",
         "audit",
         "captcha",

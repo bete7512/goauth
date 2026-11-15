@@ -90,6 +90,8 @@ graph TD
     Core --> OAuth["OAuth"]
     OAuth --> SAML["SAML: shares the accounts table"]
     Core --> SAML
+    Core --> IDP["Identity Provider: OpenID Connect"]
+    Admin -.->|client administration| IDP
     Core --> Passkeys["Passkeys"]
     Core --> MagicLink["Magic Link"]
     Core --> Organization["Organizations"]

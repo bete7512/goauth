@@ -79,6 +79,7 @@ try {
     organization: "pkg/modules/organization",
     ratelimit: "pkg/modules/ratelimit",
     saml: "pkg/modules/saml",
+    idp: "pkg/modules/idp",
   };
   const supplied = {
     ctx: "context.Context",

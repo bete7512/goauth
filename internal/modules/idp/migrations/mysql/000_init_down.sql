@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS idp_grants;
+DROP TABLE IF EXISTS idp_clients;

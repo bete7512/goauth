@@ -1,6 +1,6 @@
 package types
 
-//go:generate mockgen -destination=../../internal/mocks/mock_storage.go -package=mocks github.com/bete7512/goauth/pkg/types Storage,CoreStorage,SessionStorage,StatelessStorage,AdminStorage,OAuthStorage,TwoFactorStorage,PasskeyStorage,InvitationStorage,OrganizationStorage
+//go:generate mockgen -destination=../../internal/mocks/mock_storage.go -package=mocks github.com/bete7512/goauth/pkg/types Storage,CoreStorage,SessionStorage,StatelessStorage,AdminStorage,OAuthStorage,TwoFactorStorage,PasskeyStorage,InvitationStorage,OrganizationStorage,IDPStorage
 
 import (
 	"context"
@@ -69,6 +69,10 @@ type Storage interface {
 	// Returns nil if organization storage is not needed/available
 	Organization() OrganizationStorage
 
+	// IDP returns storage for the identity provider (idp) module
+	// Returns nil if idp storage is not needed/available
+	IDP() IDPStorage
+
 	// Close closes all storage connections
 	Close() error
 
@@ -135,4 +139,14 @@ type OrganizationStorage interface {
 	Members() models.OrganizationMemberRepository
 	Invitations() models.OrgInvitationRepository
 	WithTransaction(ctx context.Context, fn func(tx OrganizationStorage) error) error
+}
+
+// IDPStorage defines storage interface for the identity provider (idp)
+// module: registered client applications and the grants users gave them.
+// Authorization codes, access tokens, refresh tokens and pending requests
+// live in the core token store.
+type IDPStorage interface {
+	Clients() models.IDPClientRepository
+	Grants() models.IDPGrantRepository
+	WithTransaction(ctx context.Context, fn func(tx IDPStorage) error) error
 }

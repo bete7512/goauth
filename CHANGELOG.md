@@ -6,7 +6,15 @@ All notable changes to GoAuth are recorded here. The format follows [Keep a Chan
 
 ### Added
 
+- **Identity provider module** (`pkg/modules/idp`, experimental): GoAuth as an OpenID Connect provider, so other applications can sign users in with your accounts. Authorization code flow with PKCE, confidential clients (client ID and secret) and public clients, ID tokens signed with RS256 by a key of the module's own, an opaque access token for the UserInfo endpoint, rotating refresh tokens with reuse detection, consent on the host's frontend remembered per user and application, `prompt=login`/`prompt=consent`/`max_age`, a discovery document and key set, a claims function for custom claims, connected-application listing and revocation for users, and client administration through configuration or an admin API. Client secrets, codes and tokens are stored as digests. New tables `idp_clients` and `idp_grants`; `types.Storage` gains `IDP()`, which custom storage implementations must add (return nil when unused). The admin API depends on the Admin module. Not implemented: sign-out protocols, `prompt=none`, implicit and hybrid flows, dynamic client registration.
+- Default rate-limit rules for the identity provider: `idp_authorize_ip` (60 per minute) and `idp_token_ip` (300 per minute).
+- Audit actions `auth.idp.signin`, `auth.idp.consent.denied`, `auth.idp.grant.revoked`, `admin.idp.client.*` and `security.idp.token.reuse`.
+- `internal/oauthproto` (redirect URI, PKCE and scope rules) and `security.TokenSigner` (asymmetric signing of tokens that are not first-party credentials), shared with the authorization server work.
 - **SAML module** (`pkg/modules/saml`): SAML 2.0 service provider with SP-initiated login over the HTTP-Redirect binding, an HTTP-POST Assertion Consumer Service, optional IdP-initiated login, SP metadata, signed AuthnRequests, encrypted assertions and attribute mapping for Keycloak, Okta, Entra ID and Shibboleth naming schemes. Linked subjects live in the `accounts` table, so the module depends on the OAuth module. Signature verification is delegated to `github.com/crewjam/saml`.
+
+### Fixed
+
+- The CSRF module no longer rejects the SAML Assertion Consumer Service. The identity provider posts to it across sites and cannot hold a CSRF token; the endpoint is protected by the signed response and its request binding instead.
 
 ## [0.3.0-beta.1] - 2026-10-26
 

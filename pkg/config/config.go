@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
 )
 
@@ -601,6 +602,136 @@ type SAMLAttributeMapping struct {
 	Username  string
 	Groups    string
 }
+
+// IDPModuleConfig configures the identity provider (idp) module, which makes
+// the host an OpenID Connect provider: other applications ("clients") sign
+// users in with the host's accounts and receive an ID token that says who
+// the user is.
+//
+// GoAuth has no login page of its own. The authorization endpoint hands the
+// browser to ConsentURL, a page of the host's frontend, which signs the user
+// in the usual way and reports the user's decision.
+type IDPModuleConfig struct {
+	// Issuer is the issuer identifier: the "iss" of every ID token and the
+	// address of the discovery document, which is served at
+	// Issuer + "/.well-known/openid-configuration".
+	// Default: APIURL + BasePath + "/oidc". When set, it must be that
+	// address as clients reach it, for example behind a reverse proxy. It
+	// must use https unless the host is loopback or
+	// Security.Session.AllowInsecureCookies is set.
+	Issuer string
+
+	// SigningKey signs ID tokens. Required. It must be a key of its own:
+	// Initialize fails when it is the key that signs GoAuth's access tokens.
+	SigningKey IDPSigningKey
+
+	// ConsentURL is the frontend page where the user signs in and approves
+	// the request. The browser is sent there with ?request_id=...; the page
+	// reads the request from GET /oidc/consent/{id} and posts the decision.
+	// Default: FrontendConfig.URL + "/oidc/consent". Required otherwise.
+	ConsentURL string
+
+	// ErrorURL is the frontend page shown when a request cannot be returned
+	// to the client (unknown client, redirect URI mismatch). It receives
+	// ?error=...&error_description=.... If empty the endpoint answers JSON.
+	ErrorURL string
+
+	// Clients are client applications created or updated at Initialize. A
+	// client declared here cannot be changed through the admin API, and is
+	// disabled when it is removed from this list.
+	Clients []IDPClientConfig
+
+	// AdminAPI serves the /admin/oidc/clients endpoints, where administrators
+	// register clients at runtime. It needs the admin module. Without it,
+	// Clients is the only way to register a client.
+	AdminAPI bool
+
+	// IDTokenTTL is the ID token lifetime. Default: 1 hour.
+	IDTokenTTL time.Duration
+	// AccessTokenTTL is the lifetime of the access token that reads the
+	// UserInfo endpoint. Default: 1 hour.
+	AccessTokenTTL time.Duration
+	// RefreshTokenTTL is how long an unused refresh token stays valid; each
+	// rotation starts a new period. Default: 30 days.
+	RefreshTokenTTL time.Duration
+	// RefreshTokenReuseLeeway is how long after a rotation the replaced
+	// refresh token is answered with a plain error instead of being treated
+	// as stolen, which absorbs retries and concurrent refreshes. Outside it
+	// a replay ends the grant. Default: 10 seconds; negative disables it.
+	RefreshTokenReuseLeeway time.Duration
+	// AuthorizationCodeTTL is the authorization code lifetime. Default: 60 seconds.
+	AuthorizationCodeTTL time.Duration
+	// AuthorizationRequestTTL is how long a request waits for the user's
+	// decision. Default: 10 minutes.
+	AuthorizationRequestTTL time.Duration
+	// CleanupInterval is how often expired requests, codes and tokens are
+	// deleted. They live in the token store every module shares, so the
+	// cleanup removes the expired records of the other modules too
+	// (verification links, password resets, pending sign-ins), none of
+	// which can be used any more. Default: 1 hour; negative disables it.
+	CleanupInterval time.Duration
+
+	// Claims adds claims of the host's own, such as roles or groups, to ID
+	// tokens and UserInfo responses. Optional.
+	Claims IDPClaimsFunc
+}
+
+// IDPSigningKey is the key that signs ID tokens. It must be an RSA key of at
+// least 2048 bits: RS256 is the one algorithm every OpenID Connect client
+// supports.
+type IDPSigningKey struct {
+	// PrivateKeyPEM is the PEM-encoded private key. Takes precedence over PrivateKeyFile.
+	PrivateKeyPEM []byte
+	// PrivateKeyFile is a path to the PEM-encoded private key.
+	PrivateKeyFile string
+	// KeyID is the "kid". Empty derives it from the public key.
+	KeyID string
+	// RetiredKeys are public keys of earlier signing keys, kept in the key
+	// set until NotAfter so ID tokens they signed still verify.
+	RetiredKeys []types.JWTVerificationKey
+}
+
+// IDPClientConfig declares a client application in configuration.
+type IDPClientConfig struct {
+	// ClientID is the public identifier the application sends.
+	ClientID string
+	// Secret is the client secret, at least 32 characters. Only its digest
+	// is stored. Leave it empty for a Public client.
+	Secret string
+	// Name is shown to the user on the consent page.
+	Name string
+	// RedirectURIs are the exact addresses the user may be sent back to.
+	RedirectURIs []string
+	// Scopes limits what the client may request.
+	// Default: openid, profile, email.
+	Scopes []string
+	// Public marks an application that cannot keep a secret, such as a
+	// single-page or mobile application. It must use PKCE.
+	Public bool
+	// AllowWithoutPKCE accepts authorization requests without a PKCE
+	// challenge, for older applications that cannot send one. It is ignored
+	// for a Public client.
+	AllowWithoutPKCE bool
+	// SkipConsent marks an application the host operates itself: the user
+	// is signed in without being asked to approve it.
+	SkipConsent bool
+	LogoURI     string
+	ClientURI   string
+	Disabled    bool
+}
+
+// IDPClaimsRequest describes the token an IDPClaimsFunc is asked about.
+type IDPClaimsRequest struct {
+	User     *models.User
+	ClientID string
+	// Scopes are the scopes the user approved for the client.
+	Scopes []string
+}
+
+// IDPClaimsFunc returns claims to add to an ID token and to the UserInfo
+// response. It cannot replace the claims the module sets itself. An error
+// fails the token request.
+type IDPClaimsFunc func(ctx context.Context, request IDPClaimsRequest) (map[string]interface{}, error)
 
 // TwoFactorConfig configures the two-factor (TOTP) module.
 type TwoFactorConfig struct {

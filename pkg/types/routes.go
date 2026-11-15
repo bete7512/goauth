@@ -60,6 +60,25 @@ const (
 	RouteSAMLMetadata  RouteName = "saml.metadata"
 	RouteSAMLProviders RouteName = "saml.providers"
 
+	// IdP (OpenID Connect provider) Routes
+	RouteIDPDiscovery          RouteName = "idp.discovery"
+	RouteIDPJWKS               RouteName = "idp.jwks"
+	RouteIDPAuthorize          RouteName = "idp.authorize"
+	RouteIDPToken              RouteName = "idp.token"
+	RouteIDPUserInfo           RouteName = "idp.userinfo"
+	RouteIDPUserInfoPost       RouteName = "idp.userinfo.post"
+	RouteIDPConsentGet         RouteName = "idp.consent.get"
+	RouteIDPConsentApprove     RouteName = "idp.consent.approve"
+	RouteIDPConsentDeny        RouteName = "idp.consent.deny"
+	RouteIDPGrantsList         RouteName = "idp.grants.list"
+	RouteIDPGrantsRevoke       RouteName = "idp.grants.revoke"
+	RouteIDPAdminClientsList   RouteName = "idp.admin.clients.list"
+	RouteIDPAdminClientsCreate RouteName = "idp.admin.clients.create"
+	RouteIDPAdminClientsGet    RouteName = "idp.admin.clients.get"
+	RouteIDPAdminClientsUpdate RouteName = "idp.admin.clients.update"
+	RouteIDPAdminClientsDelete RouteName = "idp.admin.clients.delete"
+	RouteIDPAdminClientsSecret RouteName = "idp.admin.clients.secret"
+
 	// MagicLink Routes
 	RouteMagicLinkSend       RouteName = "magiclink.send"
 	RouteMagicLinkVerify     RouteName = "magiclink.verify"

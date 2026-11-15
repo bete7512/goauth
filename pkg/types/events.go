@@ -248,6 +248,17 @@ const (
 	EventAfterSAMLLogin EventType = "after.saml.login"
 	EventSAMLLinkAdded  EventType = "saml.link.added"
 
+	// IdP (OpenID Connect provider) Events
+	EventIDPClientCreated       EventType = "idp.client.created"
+	EventIDPClientUpdated       EventType = "idp.client.updated"
+	EventIDPClientDeleted       EventType = "idp.client.deleted"
+	EventIDPClientSecretRotated EventType = "idp.client.secret_rotated"
+	EventIDPConsentGranted      EventType = "idp.consent.granted"
+	EventIDPConsentDenied       EventType = "idp.consent.denied"
+	EventIDPTokenIssued         EventType = "idp.token.issued"
+	EventIDPTokenReuseDetected  EventType = "idp.token.reuse_detected"
+	EventIDPGrantRevoked        EventType = "idp.grant.revoked"
+
 	// Organization Events
 	EventOrgCreated            EventType = "org.created"
 	EventOrgUpdated            EventType = "org.updated"

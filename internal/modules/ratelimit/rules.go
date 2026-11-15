@@ -46,6 +46,13 @@ func DefaultRules() []config.RateLimitRuleConfig {
 		{Name: "signup_ip", ApplyTo: []types.RouteName{types.RouteSignup}, Key: types.RateLimitKeyIP, Limit: 10, Window: time.Hour},
 		{Name: "availability_ip", ApplyTo: []types.RouteName{types.RouteCheckAvailability}, Key: types.RateLimitKeyIP, Limit: 30, Window: time.Minute},
 		{Name: "refresh_ip", ApplyTo: []types.RouteName{types.RouteRefreshToken}, Key: types.RateLimitKeyIP, Limit: 120, Window: time.Minute},
+		// Every authorization request stores a pending record, so the
+		// endpoint that starts a sign-in to another application is limited.
+		{Name: "idp_authorize_ip", ApplyTo: []types.RouteName{types.RouteIDPAuthorize}, Key: types.RateLimitKeyIP, Limit: 60, Window: time.Minute},
+		// The identity provider's token and UserInfo endpoints are called by
+		// applications' servers, many users behind one address, so the
+		// budget is larger.
+		{Name: "idp_token_ip", ApplyTo: []types.RouteName{types.RouteIDPToken, types.RouteIDPUserInfo, types.RouteIDPUserInfoPost}, Key: types.RateLimitKeyIP, Limit: 300, Window: time.Minute},
 		{Name: "federation_ip", ApplyTo: []types.RouteName{types.RouteOAuthLogin, types.RouteOAuthCallback, types.RouteSAMLLogin, types.RouteSAMLACS, types.RoutePasskeysLoginBegin, types.RoutePasskeysRegisterBegin}, Key: types.RateLimitKeyIP, Limit: 60, Window: time.Minute},
 	}
 }

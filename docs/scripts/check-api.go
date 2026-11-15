@@ -6,7 +6,11 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -21,6 +25,7 @@ import (
 	"github.com/bete7512/goauth/pkg/modules/audit"
 	"github.com/bete7512/goauth/pkg/modules/captcha"
 	"github.com/bete7512/goauth/pkg/modules/csrf"
+	"github.com/bete7512/goauth/pkg/modules/idp"
 	"github.com/bete7512/goauth/pkg/modules/invitation"
 	"github.com/bete7512/goauth/pkg/modules/magiclink"
 	"github.com/bete7512/goauth/pkg/modules/notification"
@@ -62,6 +67,11 @@ func verify(dir, strategy string) ([]route, error) {
 		return nil, err
 	}
 	defer a.Close()
+	// The identity provider signs ID tokens with a key of its own.
+	idpKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, err
+	}
 	var credentialModule config.Component = stateless.New(nil)
 	if strategy == "session" {
 		credentialModule = session.New(nil)
@@ -74,6 +84,11 @@ func verify(dir, strategy string) ([]route, error) {
 		organization.New(nil), passkeys.New(&config.PasskeysModuleConfig{
 			RPID: "localhost", RPOrigins: []string{"http://localhost:3000"},
 		}), saml.New(nil), twofactor.New(nil),
+		idp.New(&config.IDPModuleConfig{
+			SigningKey: config.IDPSigningKey{PrivateKeyPEM: pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(idpKey)})},
+			ConsentURL: "http://localhost:3000/oidc/consent",
+			AdminAPI:   true,
+		}),
 	} {
 		if err := a.Use(module); err != nil {
 			return nil, err

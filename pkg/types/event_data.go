@@ -261,3 +261,23 @@ type SAMLLoginEventData struct {
 	Attributes map[string][]string `json:"attributes,omitempty"`
 	Metadata   *RequestMetadata    `json:"metadata,omitempty"`
 }
+
+// IDPEventData is emitted by the identity provider (idp) module for client
+// administration, consent decisions, token issuance and revoked grants.
+// UserID is the user who signed in to the client application and ActorID the
+// user or administrator who caused the event.
+type IDPEventData struct {
+	UserID     string   `json:"user_id,omitempty"`
+	ActorID    string   `json:"actor_id,omitempty"`
+	ClientID   string   `json:"client_id,omitempty"`
+	ClientName string   `json:"client_name,omitempty"`
+	Scopes     []string `json:"scopes,omitempty"`
+	GrantID    string   `json:"grant_id,omitempty"`
+	GrantType  string   `json:"grant_type,omitempty"`
+	Reason     string   `json:"reason,omitempty"`
+	TargetID   string   `json:"target_id,omitempty"`
+	TargetType string   `json:"target_type,omitempty"`
+	Details    string   `json:"details,omitempty"`
+	IP         string   `json:"ip,omitempty"`
+	UserAgent  string   `json:"user_agent,omitempty"`
+}

@@ -177,6 +177,11 @@ func (t *SecurityManager) ValidateJWTToken(tokenString string) (map[string]inter
 		allowed = append(allowed, key.key.method.Alg())
 	}
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		// Typed tokens (for example "at+jwt" OAuth access tokens signed with
+		// the same key) are never first-party credentials.
+		if typ, ok := token.Header["typ"].(string); ok && !strings.EqualFold(typ, "JWT") {
+			return nil, fmt.Errorf("unexpected token type")
+		}
 		kid, _ := token.Header["kid"].(string)
 		key := t.keyring
 		if kid != key.kid {

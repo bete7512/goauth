@@ -1,0 +1,1234 @@
+openapi: 3.0.3
+info:
+  title: GoAuth Identity Provider Module
+  description: |
+    GoAuth as an OpenID Connect provider: other applications ("clients") sign
+    users in with the host's accounts through the authorization code flow and
+    receive an ID token that says who the user is.
+
+    The protocol endpoints (discovery, jwks, authorize, token, userinfo) speak
+    the wire formats of OpenID Connect Core 1.0 and RFC 6749: errors are
+    `{"error", "error_description"}` objects. The consent, grant and admin
+    endpoints use the GoAuth response envelope.
+
+    GoAuth has no login page. The authorization endpoint redirects the browser
+    to the host's consent page with a `request_id`; that page signs the user in
+    the usual way, reads the request from `GET /oidc/consent/{id}` and posts
+    the decision.
+  version: 1.0.0
+
+tags:
+  - name: OIDC Provider
+    description: OpenID Connect protocol endpoints, called by client applications
+  - name: OIDC Consent
+    description: Consent and connected applications, called by the host's frontend for the signed-in user
+  - name: OIDC Admin
+    description: Administration of client applications (requires IDPModuleConfig.AdminAPI and the admin module)
+
+paths:
+  /oidc/.well-known/openid-configuration:
+    get:
+      operationId: idp.discovery
+      summary: OpenID Provider metadata
+      description: |
+        The discovery document (OpenID Connect Discovery 1.0). Client libraries
+        are configured with the issuer and read everything else from here.
+      tags:
+        - OIDC Provider
+      responses:
+        "200":
+          description: Provider metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DiscoveryDocument"
+
+  /oidc/jwks:
+    get:
+      operationId: idp.jwks
+      summary: Signing keys
+      description: The public keys that verify ID tokens, as a JSON Web Key Set. Retired keys stay listed until they lapse.
+      tags:
+        - OIDC Provider
+      responses:
+        "200":
+          description: JSON Web Key Set
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JWKS"
+
+  /oidc/authorize:
+    get:
+      operationId: idp.authorize
+      summary: Authorization endpoint
+      description: |
+        Starts a sign-in (OpenID Connect Core section 3.1.2). The endpoint never
+        renders a page. A valid request is stored and the browser is redirected
+        to the host's consent page with `?request_id=...`.
+
+        A request whose `client_id` or `redirect_uri` cannot be verified is not
+        redirected to the client: the error is shown on `ErrorURL` when it is
+        configured and returned as JSON otherwise. Every other error is
+        returned to the client's redirect URI with `error`, `error_description`,
+        `state` and `iss`.
+
+        Scopes the client is not registered for are left out, not refused; the
+        token response states what was granted. `prompt=none` is answered with
+        `interaction_required`.
+      tags:
+        - OIDC Provider
+      parameters:
+        - name: client_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: redirect_uri
+          in: query
+          required: true
+          description: Must equal one of the client's registered redirect URIs.
+          schema:
+            type: string
+            format: uri
+        - name: response_type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [code]
+        - name: scope
+          in: query
+          required: true
+          description: Space-delimited; must contain `openid`.
+          schema:
+            type: string
+            example: openid profile email
+        - name: state
+          in: query
+          description: Opaque value returned to the client unchanged (at most 2048 characters).
+          schema:
+            type: string
+        - name: nonce
+          in: query
+          description: Copied into the ID token (at most 512 characters).
+          schema:
+            type: string
+        - name: code_challenge
+          in: query
+          description: PKCE challenge. Required unless the client is registered to go without.
+          schema:
+            type: string
+        - name: code_challenge_method
+          in: query
+          schema:
+            type: string
+            enum: [S256]
+        - name: prompt
+          in: query
+          description: |
+            Space-delimited. `login` requires a sign-in made after this
+            request, `consent` asks for approval even when it was given before,
+            `select_account` is accepted and ignored, `none` is not supported.
+          schema:
+            type: string
+        - name: max_age
+          in: query
+          description: How many seconds ago the user may have signed in at most.
+          schema:
+            type: integer
+            minimum: 0
+        - name: login_hint
+          in: query
+          description: The account the client expects; passed on to the consent page.
+          schema:
+            type: string
+        - name: response_mode
+          in: query
+          schema:
+            type: string
+            enum: [query]
+      responses:
+        "302":
+          description: Redirect to the consent page, to the client with an error, or to the error page
+        "400":
+          description: The client or redirect URI could not be verified and no error page is configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthError"
+
+  /oidc/token:
+    post:
+      operationId: idp.token
+      summary: Token endpoint
+      description: |
+        Redeems an authorization code or a refresh token (OpenID Connect Core
+        section 3.1.3, RFC 6749 section 6).
+
+        A confidential client authenticates with HTTP Basic
+        (`client_secret_basic`) or with `client_id` and `client_secret` in the
+        form (`client_secret_post`), never both. A public client sends its
+        `client_id` and the PKCE `code_verifier`.
+
+        A code is redeemed once; presenting it again disconnects the
+        application for that user. A refresh token rotates on every use; a
+        rotated token presented again after the reuse leeway disconnects the
+        application too.
+      tags:
+        - OIDC Provider
+      security:
+        - ClientBasic: []
+        - {}
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: "#/components/schemas/TokenRequest"
+      responses:
+        "200":
+          description: Tokens
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                example: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "400":
+          description: "`invalid_request`, `invalid_grant`, `invalid_scope` or `unsupported_grant_type`"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthError"
+        "401":
+          description: "`invalid_client`: client authentication failed"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthError"
+
+  /oidc/userinfo:
+    get:
+      operationId: idp.userinfo
+      summary: UserInfo endpoint
+      description: |
+        Returns the claims the access token's scopes release (OpenID Connect
+        Core section 5.3). The token is honored while the user's grant exists,
+        the client is enabled and the user may still sign in with the password
+        they had when they approved.
+      tags:
+        - OIDC Provider
+      security:
+        - AccessToken: []
+      responses:
+        "200":
+          description: Claims about the user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserInfo"
+        "401":
+          description: "`invalid_token`: the access token is missing, unknown, expired or revoked"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthError"
+        "403":
+          description: "`insufficient_scope`: the access token does not carry the `openid` scope"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthError"
+    post:
+      operationId: idp.userinfo.post
+      summary: UserInfo endpoint (POST)
+      description: |
+        The same as GET. The access token is taken from the Authorization
+        header, or from an `access_token` form field (RFC 6750 section 2.2).
+        A token in the URL is not accepted.
+      tags:
+        - OIDC Provider
+      security:
+        - AccessToken: []
+        - {}
+      requestBody:
+        required: false
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                access_token:
+                  type: string
+      responses:
+        "200":
+          description: Claims about the user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserInfo"
+        "401":
+          description: "`invalid_token`"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthError"
+        "403":
+          description: "`insufficient_scope`"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthError"
+
+  /oidc/consent/{id}:
+    get:
+      operationId: idp.consent.get
+      summary: Describe a pending sign-in request
+      description: |
+        What the consent page shows: the application, where the user will be
+        sent and the requested scopes. `consent_required` is false when there
+        is nothing to ask, in which case the page can approve without a
+        prompt. `login_required` is true when the application asked for a
+        fresh sign-in and the user's current one is too old.
+      tags:
+        - OIDC Consent
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/RequestID"
+      responses:
+        "200":
+          description: The pending request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/ConsentDetails"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: "`IDP_REQUEST_NOT_FOUND`: unknown, expired or already decided"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /oidc/consent/{id}/approve:
+    post:
+      operationId: idp.consent.approve
+      summary: Approve a sign-in request
+      description: |
+        Records the signed-in user's approval of every requested scope and
+        returns the redirect that carries the authorization code back to the
+        client. The decision is single use.
+
+        Fails with `IDP_LOGIN_REQUIRED` when the request asks for a fresh
+        sign-in (`prompt=login` or `max_age`); the request stays open, so the
+        page signs the user in again and repeats the call.
+      tags:
+        - OIDC Consent
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/RequestID"
+      responses:
+        "200":
+          description: Where to send the browser
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/ConsentRedirect"
+        "401":
+          description: Not signed in, or `IDP_LOGIN_REQUIRED`
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: "`IDP_REQUEST_NOT_FOUND`"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /oidc/consent/{id}/deny:
+    post:
+      operationId: idp.consent.deny
+      summary: Refuse a sign-in request
+      description: Records the refusal and returns the redirect that tells the client `access_denied`.
+      tags:
+        - OIDC Consent
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/RequestID"
+      responses:
+        "200":
+          description: Where to send the browser
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/ConsentRedirect"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: "`IDP_REQUEST_NOT_FOUND`"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /oidc/grants:
+    get:
+      operationId: idp.grants.list
+      summary: List connected applications
+      description: The applications the signed-in user approved, one entry per application.
+      tags:
+        - OIDC Consent
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/GrantSortField"
+        - $ref: "#/components/parameters/SortDir"
+        - name: client_id
+          in: query
+          description: Only the grant for this application
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Connected applications
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      list:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Grant"
+                      sort_field:
+                        type: string
+                        example: created_at
+                      sort_dir:
+                        type: string
+                        enum: [asc, desc]
+                        example: desc
+                      total:
+                        type: integer
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /oidc/grants/{id}:
+    delete:
+      operationId: idp.grants.revoke
+      summary: Disconnect an application
+      description: |
+        Ends the application's access and refresh tokens for the user at once.
+        The user is asked to approve the application again next time.
+      tags:
+        - OIDC Consent
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Grant ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Disconnected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: "`IDP_GRANT_NOT_FOUND`: no such grant, or it belongs to another user"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/oidc/clients:
+    get:
+      operationId: idp.admin.clients.list
+      summary: List client applications
+      tags:
+        - OIDC Admin
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/ClientSortField"
+        - $ref: "#/components/parameters/SortDir"
+        - name: q
+          in: query
+          description: Search name and client_id
+          schema:
+            type: string
+        - name: managed
+          in: query
+          description: Only clients declared in configuration (true) or registered through this API (false)
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Client applications
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      list:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Client"
+                      sort_field:
+                        type: string
+                        example: created_at
+                      sort_dir:
+                        type: string
+                        enum: [asc, desc]
+                        example: desc
+                      total:
+                        type: integer
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: idp.admin.clients.create
+      summary: Register a client application
+      description: |
+        Creates a client and returns its `client_secret`. This response is the
+        only place the secret is ever shown; only its digest is stored. A
+        public client gets no secret.
+      tags:
+        - OIDC Admin
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientRequest"
+      responses:
+        "201":
+          description: The client, with its secret
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Client"
+        "400":
+          description: "`IDP_INVALID_CLIENT`: the registration is not acceptable"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: "`IDP_CLIENT_EXISTS`: the client_id is taken"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/oidc/clients/{id}:
+    get:
+      operationId: idp.admin.clients.get
+      summary: Get a client application
+      tags:
+        - OIDC Admin
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ClientRowID"
+      responses:
+        "200":
+          description: The client, without its secret
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Client"
+        "404":
+          description: "`IDP_CLIENT_NOT_FOUND`"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      operationId: idp.admin.clients.update
+      summary: Replace a client application's registration
+      description: |
+        Replaces every field of the registration; `client_id` never changes
+        and is ignored. A client that stops being public gets a secret,
+        returned once in this response; one that becomes public loses its
+        secret.
+      tags:
+        - OIDC Admin
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ClientRowID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientRequest"
+      responses:
+        "200":
+          description: The updated client
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Client"
+        "400":
+          description: "`IDP_INVALID_CLIENT`"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: "`IDP_CLIENT_NOT_FOUND`"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: "`IDP_CLIENT_MANAGED`: the client is declared in configuration"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: idp.admin.clients.delete
+      summary: Delete a client application
+      description: Removes the client and disconnects every user from it.
+      tags:
+        - OIDC Admin
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ClientRowID"
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "404":
+          description: "`IDP_CLIENT_NOT_FOUND`"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: "`IDP_CLIENT_MANAGED`"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/oidc/clients/{id}/secret:
+    post:
+      operationId: idp.admin.clients.secret
+      summary: Rotate a client secret
+      description: |
+        Replaces the secret of a confidential client and returns the new one,
+        once. The old secret stops working at once.
+      tags:
+        - OIDC Admin
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ClientRowID"
+      responses:
+        "200":
+          description: The client, with its new secret
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Client"
+        "400":
+          description: "`IDP_INVALID_CLIENT`: a public client has no secret"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: "`IDP_CLIENT_NOT_FOUND`"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: "`IDP_CLIENT_MANAGED`"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  parameters:
+    RequestID:
+      name: id
+      in: path
+      required: true
+      description: The `request_id` the consent page was opened with
+      schema:
+        type: string
+
+    ClientRowID:
+      name: id
+      in: path
+      required: true
+      description: The client's internal ID (`id`, not `client_id`)
+      schema:
+        type: string
+        format: uuid
+
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        default: 20
+        maximum: 100
+      description: Maximum number of items to return
+
+    Offset:
+      name: offset
+      in: query
+      schema:
+        type: integer
+        default: 0
+        minimum: 0
+      description: Number of items to skip
+
+    ClientSortField:
+      name: sort_field
+      in: query
+      schema:
+        type: string
+        default: created_at
+        enum: [created_at, name, last_used_at]
+      description: Field to sort by
+
+    GrantSortField:
+      name: sort_field
+      in: query
+      schema:
+        type: string
+        default: created_at
+        enum: [created_at, last_used_at]
+      description: Field to sort by
+
+    SortDir:
+      name: sort_dir
+      in: query
+      schema:
+        type: string
+        default: desc
+        enum: [asc, desc]
+      description: Sort direction
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    ClientBasic:
+      type: http
+      scheme: basic
+      description: The client's `client_id` and `client_secret`, form-encoded before Base64 (RFC 6749 section 2.3.1)
+    AccessToken:
+      type: http
+      scheme: bearer
+      description: An access token issued by the token endpoint. It is opaque and only valid at the UserInfo endpoint.
+
+  schemas:
+    DiscoveryDocument:
+      type: object
+      required: [issuer, authorization_endpoint, token_endpoint, jwks_uri, response_types_supported, subject_types_supported, id_token_signing_alg_values_supported]
+      properties:
+        issuer:
+          type: string
+          format: uri
+        authorization_endpoint:
+          type: string
+          format: uri
+        token_endpoint:
+          type: string
+          format: uri
+        userinfo_endpoint:
+          type: string
+          format: uri
+        jwks_uri:
+          type: string
+          format: uri
+        scopes_supported:
+          type: array
+          items:
+            type: string
+          example: [openid, profile, email, phone, offline_access]
+        response_types_supported:
+          type: array
+          items:
+            type: string
+          example: [code]
+        response_modes_supported:
+          type: array
+          items:
+            type: string
+          example: [query]
+        grant_types_supported:
+          type: array
+          items:
+            type: string
+          example: [authorization_code, refresh_token]
+        subject_types_supported:
+          type: array
+          items:
+            type: string
+          example: [public]
+        id_token_signing_alg_values_supported:
+          type: array
+          items:
+            type: string
+          example: [RS256]
+        token_endpoint_auth_methods_supported:
+          type: array
+          items:
+            type: string
+          example: [client_secret_basic, client_secret_post, none]
+        claims_supported:
+          type: array
+          items:
+            type: string
+        code_challenge_methods_supported:
+          type: array
+          items:
+            type: string
+          example: [S256]
+        claims_parameter_supported:
+          type: boolean
+          example: false
+        request_parameter_supported:
+          type: boolean
+          example: false
+        request_uri_parameter_supported:
+          type: boolean
+          example: false
+        authorization_response_iss_parameter_supported:
+          type: boolean
+          example: true
+
+    JWKS:
+      type: object
+      properties:
+        keys:
+          type: array
+          items:
+            type: object
+            properties:
+              kty:
+                type: string
+                example: RSA
+              use:
+                type: string
+                example: sig
+              alg:
+                type: string
+                example: RS256
+              kid:
+                type: string
+              n:
+                type: string
+              e:
+                type: string
+
+    TokenRequest:
+      type: object
+      required: [grant_type]
+      properties:
+        grant_type:
+          type: string
+          enum: [authorization_code, refresh_token]
+        code:
+          type: string
+          description: The authorization code (authorization_code grant)
+        redirect_uri:
+          type: string
+          format: uri
+          description: The redirect URI of the authorization request. Required when the request used no PKCE challenge.
+        code_verifier:
+          type: string
+          description: The PKCE verifier (authorization_code grant)
+        refresh_token:
+          type: string
+          description: The refresh token (refresh_token grant)
+        scope:
+          type: string
+          description: Narrows the scopes of the new access token (refresh_token grant). It cannot add scopes.
+        client_id:
+          type: string
+          description: Required for a public client and for client_secret_post
+        client_secret:
+          type: string
+          description: client_secret_post only; do not send it together with HTTP Basic
+
+    TokenResponse:
+      type: object
+      required: [access_token, token_type, expires_in]
+      properties:
+        access_token:
+          type: string
+          description: Opaque token for the UserInfo endpoint
+        token_type:
+          type: string
+          example: Bearer
+        expires_in:
+          type: integer
+          description: Access token lifetime in seconds
+        id_token:
+          type: string
+          description: The ID token, a JWT signed with RS256
+        refresh_token:
+          type: string
+          description: Present only when the user approved `offline_access`
+        scope:
+          type: string
+          description: The granted scopes, space-delimited
+          example: openid profile email
+
+    UserInfo:
+      type: object
+      required: [sub]
+      description: Claims released by the granted scopes, plus any the host's claims function adds.
+      additionalProperties: true
+      properties:
+        sub:
+          type: string
+          format: uuid
+          description: The user's ID
+        name:
+          type: string
+        given_name:
+          type: string
+        family_name:
+          type: string
+        preferred_username:
+          type: string
+        picture:
+          type: string
+          format: uri
+        updated_at:
+          type: integer
+          description: Unix time
+        email:
+          type: string
+          format: email
+        email_verified:
+          type: boolean
+        phone_number:
+          type: string
+        phone_number_verified:
+          type: boolean
+
+    OAuthError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          enum:
+            - invalid_request
+            - invalid_client
+            - invalid_grant
+            - unauthorized_client
+            - unsupported_grant_type
+            - unsupported_response_type
+            - invalid_scope
+            - access_denied
+            - server_error
+            - invalid_token
+            - insufficient_scope
+            - interaction_required
+            - request_not_supported
+            - request_uri_not_supported
+        error_description:
+          type: string
+
+    ConsentDetails:
+      type: object
+      properties:
+        request_id:
+          type: string
+        client:
+          type: object
+          properties:
+            client_id:
+              type: string
+            name:
+              type: string
+            logo_uri:
+              type: string
+              format: uri
+            client_uri:
+              type: string
+              format: uri
+        redirect_host:
+          type: string
+          description: Where the user is sent after the decision
+          example: dashboard.example.com
+        scopes:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+                example: email
+              description:
+                type: string
+                example: See your email address
+              previously_granted:
+                type: boolean
+        consent_required:
+          type: boolean
+          description: False when there is nothing to ask and the page can approve without a prompt
+        login_required:
+          type: boolean
+          description: True when the user has to sign in again before approving
+        login_hint:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+
+    ConsentRedirect:
+      type: object
+      properties:
+        redirect_to:
+          type: string
+          format: uri
+          description: The client's redirect URI with `code`, `state` and `iss`, or with `error=access_denied`
+
+    Grant:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        client_id:
+          type: string
+        client_name:
+          type: string
+        logo_uri:
+          type: string
+          format: uri
+        client_uri:
+          type: string
+          format: uri
+        scopes:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+        last_used_at:
+          type: string
+          format: date-time
+
+    ClientRequest:
+      type: object
+      required: [name, redirect_uris]
+      properties:
+        client_id:
+          type: string
+          description: Public identifier, 3 to 128 characters of letters, digits, `.`, `_`, `~` or `-`. Read only when creating; empty generates one.
+        name:
+          type: string
+          maxLength: 120
+          description: Shown to the user on the consent page
+        redirect_uris:
+          type: array
+          minItems: 1
+          maxItems: 20
+          description: Exact addresses the user may be sent back to. https, http on a loopback host, or a private-use scheme of a native application.
+          items:
+            type: string
+            format: uri
+        scopes:
+          type: array
+          description: What the client may request. Must include `openid`. Default openid, profile, email.
+          items:
+            type: string
+            enum: [openid, profile, email, phone, offline_access]
+        public:
+          type: boolean
+          description: An application that cannot keep a secret. It gets none and must use PKCE.
+        require_pkce:
+          type: boolean
+          default: true
+          description: Refuse authorization requests without a PKCE challenge. Always true for a public client.
+        skip_consent:
+          type: boolean
+          description: An application the host operates itself; users are not asked to approve it.
+        logo_uri:
+          type: string
+          format: uri
+        client_uri:
+          type: string
+          format: uri
+        disabled:
+          type: boolean
+
+    Client:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Internal ID, used in the admin endpoints
+        client_id:
+          type: string
+          description: Public identifier the application sends
+        client_secret:
+          type: string
+          description: Present only in the response that creates the client, rotates its secret, or turns a public client into a confidential one
+        name:
+          type: string
+        public:
+          type: boolean
+        redirect_uris:
+          type: array
+          items:
+            type: string
+            format: uri
+        scopes:
+          type: array
+          items:
+            type: string
+        require_pkce:
+          type: boolean
+        skip_consent:
+          type: boolean
+        logo_uri:
+          type: string
+          format: uri
+        client_uri:
+          type: string
+          format: uri
+        managed:
+          type: boolean
+          description: Declared in configuration; read-only through this API
+        disabled:
+          type: boolean
+        last_used_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    MessageResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            message:
+              type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            code:
+              type: string
+              example: IDP_REQUEST_NOT_FOUND
+            message:
+              type: string

@@ -257,6 +257,38 @@ func (m *AuditModule) subscribeSecurityEvents(events types.EventBus) {
 	events.Subscribe(types.EventRateLimitExceeded, types.EventHandler(func(ctx context.Context, event *types.Event) error {
 		return m.createAuditLog(ctx, event, "security.ratelimit.exceeded", "warning")
 	}))
+
+	// Identity provider: who signed in to which client application, when an
+	// application was disconnected, and how client applications were
+	// administered. Token issuance is not recorded; it happens on every
+	// refresh.
+	events.Subscribe(types.EventIDPConsentGranted, types.EventHandler(func(ctx context.Context, event *types.Event) error {
+		return m.createAuditLog(ctx, event, "auth.idp.signin", "info")
+	}))
+	events.Subscribe(types.EventIDPConsentDenied, types.EventHandler(func(ctx context.Context, event *types.Event) error {
+		return m.createAuditLog(ctx, event, "auth.idp.consent.denied", "info")
+	}))
+	events.Subscribe(types.EventIDPGrantRevoked, types.EventHandler(func(ctx context.Context, event *types.Event) error {
+		return m.createAuditLog(ctx, event, "auth.idp.grant.revoked", "info")
+	}))
+	events.Subscribe(types.EventIDPClientCreated, types.EventHandler(func(ctx context.Context, event *types.Event) error {
+		return m.createAuditLog(ctx, event, "admin.idp.client.created", "info")
+	}))
+	events.Subscribe(types.EventIDPClientUpdated, types.EventHandler(func(ctx context.Context, event *types.Event) error {
+		return m.createAuditLog(ctx, event, "admin.idp.client.updated", "info")
+	}))
+	events.Subscribe(types.EventIDPClientDeleted, types.EventHandler(func(ctx context.Context, event *types.Event) error {
+		return m.createAuditLog(ctx, event, "admin.idp.client.deleted", "warning")
+	}))
+	events.Subscribe(types.EventIDPClientSecretRotated, types.EventHandler(func(ctx context.Context, event *types.Event) error {
+		return m.createAuditLog(ctx, event, "admin.idp.client.secret_rotated", "warning")
+	}))
+
+	// A rotated identity provider refresh token presented again points at a
+	// stolen token.
+	events.Subscribe(types.EventIDPTokenReuseDetected, types.EventHandler(func(ctx context.Context, event *types.Event) error {
+		return m.createAuditLog(ctx, event, "security.idp.token.reuse", "critical")
+	}))
 }
 
 // createAuditLog is a helper to create audit log entries from events

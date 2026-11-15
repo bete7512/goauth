@@ -194,6 +194,20 @@ Some OAuth factory functions accept a `provider` or `message` parameter that is 
 
 The reason a SAML response fails verification (signature, audience, time window) is written to the log only; the client always receives `SAML_INVALID_RESPONSE`.
 
+### Identity Provider Errors
+
+| Constant | Code | HTTP Status | Default Message |
+|---|---|---|---|
+| `ErrIDPClientNotFound` | `IDP_CLIENT_NOT_FOUND` | 404 Not Found | Client application not found |
+| `ErrIDPClientExists` | `IDP_CLIENT_EXISTS` | 409 Conflict | A client application with this client_id already exists |
+| `ErrIDPInvalidClient` | `IDP_INVALID_CLIENT` | 400 Bad Request | Says which rule the registration broke |
+| `ErrIDPClientManaged` | `IDP_CLIENT_MANAGED` | 409 Conflict | This client application is declared in configuration and cannot be changed through the API |
+| `ErrIDPRequestNotFound` | `IDP_REQUEST_NOT_FOUND` | 404 Not Found | The sign-in request was not found, has expired or was already decided |
+| `ErrIDPLoginRequired` | `IDP_LOGIN_REQUIRED` | 401 Unauthorized | The application requires you to sign in again before continuing |
+| `ErrIDPGrantNotFound` | `IDP_GRANT_NOT_FOUND` | 404 Not Found | Connected application not found |
+
+These are the codes of the consent, grant and admin endpoints. The OpenID Connect protocol endpoints (`/oidc/authorize`, `/oidc/token`, `/oidc/userinfo`) answer with OAuth error objects instead, `{"error": "invalid_grant", "error_description": "..."}`, using the codes `invalid_request`, `invalid_client`, `invalid_grant`, `invalid_scope`, `unsupported_grant_type`, `unsupported_response_type`, `access_denied`, `interaction_required`, `request_not_supported`, `request_uri_not_supported`, `invalid_token`, `insufficient_scope` and `server_error`. Why a client or a grant was refused is not said: an unknown client and a wrong secret are both `invalid_client`, and an expired, used or revoked code or token is always `invalid_grant`.
+
 ### Organization Errors
 
 | Constant | Code | HTTP Status | Default Message |

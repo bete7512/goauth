@@ -968,6 +968,326 @@ Returns the SP metadata document (`application/samlmetadata+xml`) with the entit
 
 </details>
 
+## Identity Provider Module
+
+:::info
+Requires `idp.New(...)` with a signing key, a consent page (`ConsentURL` or `FrontendConfig.URL`) and `APIURL` set in config. The protocol endpoints (discovery, keys, authorize, token, userinfo) speak the OpenID Connect wire format: errors are `{"error", "error_description"}` objects, not the GoAuth envelope. The admin endpoints exist only with `AdminAPI: true` and the Admin module.
+:::
+
+<details>
+<summary><code>GET</code> <code>/oidc/.well-known/openid-configuration</code> — Discovery document</summary>
+
+Public. A client library is configured with the issuer (`{APIURL}{BasePath}/oidc`) and reads the rest from here.
+
+**Response** `200`:
+```json
+{
+  "issuer": "https://api.example.com/auth/oidc",
+  "authorization_endpoint": "https://api.example.com/auth/oidc/authorize",
+  "token_endpoint": "https://api.example.com/auth/oidc/token",
+  "userinfo_endpoint": "https://api.example.com/auth/oidc/userinfo",
+  "jwks_uri": "https://api.example.com/auth/oidc/jwks",
+  "scopes_supported": ["openid", "profile", "email", "phone", "offline_access"],
+  "response_types_supported": ["code"],
+  "response_modes_supported": ["query"],
+  "grant_types_supported": ["authorization_code", "refresh_token"],
+  "subject_types_supported": ["public"],
+  "id_token_signing_alg_values_supported": ["RS256"],
+  "token_endpoint_auth_methods_supported": ["client_secret_basic", "client_secret_post", "none"],
+  "code_challenge_methods_supported": ["S256"],
+  "claims_parameter_supported": false,
+  "request_parameter_supported": false,
+  "request_uri_parameter_supported": false,
+  "authorization_response_iss_parameter_supported": true
+}
+```
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/oidc/jwks</code> — Signing keys</summary>
+
+Public. The keys that verify ID tokens, as a JSON Web Key Set. Retired keys stay listed until they lapse.
+
+**Response** `200`:
+```json
+{
+  "keys": [
+    { "kty": "RSA", "use": "sig", "alg": "RS256", "kid": "kXrp...", "n": "u1SU1L...", "e": "AQAB" }
+  ]
+}
+```
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/oidc/authorize</code> — Start a sign-in</summary>
+
+Query parameters: `client_id`, `redirect_uri` (exactly as registered), `response_type=code`, `scope` (must contain `openid`), and optionally `state`, `nonce`, `code_challenge` with `code_challenge_method=S256`, `prompt` (`login`, `consent`, `select_account`), `max_age`, `login_hint`. PKCE is required unless the client is registered to go without.
+
+**Response** `302` to the consent page:
+
+```
+Location: https://app.example.com/oidc/consent?request_id=3q2-7w...
+```
+
+A request whose client or redirect URI cannot be verified is never redirected to the client: it goes to `ErrorURL` when configured, and is answered `400` otherwise:
+
+```json
+{ "error": "invalid_request", "error_description": "redirect_uri is not registered for this client" }
+```
+
+Every other error goes back to the client's redirect URI as `?error=...&error_description=...&state=...&iss=...`: `invalid_scope`, `unsupported_response_type`, `invalid_request`, `request_not_supported`, `request_uri_not_supported`, and `interaction_required` for `prompt=none`.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/oidc/token</code> — Redeem a code or refresh token</summary>
+
+Form body (`application/x-www-form-urlencoded`). The client authenticates with HTTP Basic or with `client_id` and `client_secret` in the form, never both; a public client sends its `client_id` only.
+
+| Grant | Fields |
+| --- | --- |
+| `grant_type=authorization_code` | `code`, `code_verifier`, `redirect_uri` (required when the request used no PKCE) |
+| `grant_type=refresh_token` | `refresh_token`, optional `scope` to narrow the access token |
+
+**Response** `200` (`Cache-Control: no-store`):
+```json
+{
+  "access_token": "kq9Xw...",
+  "token_type": "Bearer",
+  "expires_in": 3600,
+  "id_token": "eyJhbGciOiJSUzI1NiIsImtpZCI6...",
+  "refresh_token": "v8Hd2...",
+  "scope": "openid profile email offline_access"
+}
+```
+
+`refresh_token` is present only when the user approved `offline_access`. A refresh rotates the refresh token.
+
+**Errors**: `400` `invalid_request`, `invalid_grant`, `invalid_scope`, `unsupported_grant_type`; `401` `invalid_client` with `WWW-Authenticate: Basic`.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/oidc/userinfo</code> — Claims about the user</summary>
+
+`Authorization: Bearer <access_token>` with an access token from the token endpoint (not a GoAuth access token).
+
+**Response** `200`:
+```json
+{
+  "sub": "0198f0d2-7d3a-7c4e-9c1a-1f2e3d4c5b6a",
+  "name": "Ada Lovelace",
+  "preferred_username": "ada",
+  "email": "ada@example.com",
+  "email_verified": true
+}
+```
+
+Which claims appear depends on the granted scopes. **Errors**: `401` `invalid_token`, `403` `insufficient_scope`, both also named in `WWW-Authenticate`.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/oidc/userinfo</code> — Claims about the user (POST)</summary>
+
+The same as `GET`. The access token is taken from the `Authorization` header, or from an `access_token` field of a form body. A token in the URL is not accepted.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/oidc/consent/&#123;id&#125;</code> — Describe a pending sign-in request</summary>
+
+Requires authentication. `{id}` is the `request_id` the consent page was opened with.
+
+**Response** `200`:
+```json
+{
+  "data": {
+    "request_id": "3q2-7w...",
+    "client": { "client_id": "grafana", "name": "Grafana", "logo_uri": "https://grafana.example.com/logo.png" },
+    "redirect_host": "grafana.example.com",
+    "scopes": [
+      { "name": "openid", "description": "Confirm who you are", "previously_granted": false },
+      { "name": "email", "description": "See your email address", "previously_granted": false }
+    ],
+    "consent_required": true,
+    "login_required": false,
+    "expires_at": "2026-11-15T10:10:00Z"
+  }
+}
+```
+
+`consent_required` is false when there is nothing to ask (already approved, or a `SkipConsent` client). `login_required` is true when the request asks for a newer sign-in than the user has.
+
+**Errors**: `404` `IDP_REQUEST_NOT_FOUND` (unknown, expired or already decided).
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/oidc/consent/&#123;id&#125;/approve</code> — Approve a sign-in request</summary>
+
+Requires authentication. No body. The decision is single use.
+
+**Response** `200`:
+```json
+{
+  "data": {
+    "redirect_to": "https://grafana.example.com/login/generic_oauth?code=Zp1x...&iss=https%3A%2F%2Fapi.example.com%2Fauth%2Foidc&state=af0ifjsldkj"
+  }
+}
+```
+
+**Errors**: `401` `IDP_LOGIN_REQUIRED` (sign in again and repeat the call; the request stays open), `404` `IDP_REQUEST_NOT_FOUND`.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/oidc/consent/&#123;id&#125;/deny</code> — Refuse a sign-in request</summary>
+
+Requires authentication. No body.
+
+**Response** `200`:
+```json
+{
+  "data": {
+    "redirect_to": "https://grafana.example.com/login/generic_oauth?error=access_denied&error_description=The+user+denied+the+request&iss=https%3A%2F%2Fapi.example.com%2Fauth%2Foidc&state=af0ifjsldkj"
+  }
+}
+```
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/oidc/grants</code> — List connected applications</summary>
+
+Requires authentication. Query: `limit`, `offset`, `sort_field` (`created_at`, `last_used_at`), `sort_dir`, `client_id`.
+
+**Response** `200`:
+```json
+{
+  "data": {
+    "list": [
+      {
+        "id": "0198f0d5-2b1c-7a40-8f21-6d3e9c0b7a12",
+        "client_id": "grafana",
+        "client_name": "Grafana",
+        "scopes": ["openid", "email"],
+        "created_at": "2026-11-15T10:00:00Z",
+        "last_used_at": "2026-11-15T10:00:02Z"
+      }
+    ],
+    "sort_field": "created_at",
+    "sort_dir": "desc",
+    "total": 1
+  }
+}
+```
+
+</details>
+
+<details>
+<summary><code>DELETE</code> <code>/oidc/grants/&#123;id&#125;</code> — Disconnect an application</summary>
+
+Requires authentication. Ends the application's tokens for the user at once and removes the consent.
+
+**Response** `200`:
+```json
+{ "data": { "message": "application disconnected" } }
+```
+
+**Errors**: `404` `IDP_GRANT_NOT_FOUND` (also for another user's grant).
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/admin/oidc/clients</code> — List client applications</summary>
+
+Requires an administrator. Query: `limit`, `offset`, `sort_field` (`created_at`, `name`, `last_used_at`), `sort_dir`, `q` (search name and client_id), `managed` (`true` for clients declared in configuration).
+
+**Response** `200`: a `list` of clients as below (without `client_secret`), with `sort_field`, `sort_dir` and `total`.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/admin/oidc/clients</code> — Register a client application</summary>
+
+Requires an administrator.
+
+**Request**:
+```json
+{
+  "name": "Dashboard",
+  "redirect_uris": ["https://dashboard.example.com/callback"],
+  "scopes": ["openid", "profile", "email"],
+  "public": false,
+  "require_pkce": true,
+  "skip_consent": false
+}
+```
+
+`client_id` is optional; one is generated when it is left out. `scopes` defaults to `openid`, `profile`, `email`.
+
+**Response** `201`:
+```json
+{
+  "data": {
+    "id": "0198f0d2-91aa-7f0e-b6f3-0c1d2e3f4a5b",
+    "client_id": "0198f0d2-91aa-7b83-a4c5-6d7e8f9a0b1c",
+    "client_secret": "m3Yq0...43 characters, shown only here",
+    "name": "Dashboard",
+    "public": false,
+    "redirect_uris": ["https://dashboard.example.com/callback"],
+    "scopes": ["openid", "profile", "email"],
+    "require_pkce": true,
+    "skip_consent": false,
+    "managed": false,
+    "disabled": false,
+    "created_at": "2026-11-15T10:00:00Z",
+    "updated_at": "2026-11-15T10:00:00Z"
+  }
+}
+```
+
+**Errors**: `400` `IDP_INVALID_CLIENT`, `409` `IDP_CLIENT_EXISTS`.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/admin/oidc/clients/&#123;id&#125;</code> — Get a client application</summary>
+
+Requires an administrator. `{id}` is the client's `id`, not its `client_id`. The secret is never returned. **Errors**: `404` `IDP_CLIENT_NOT_FOUND`.
+
+</details>
+
+<details>
+<summary><code>PUT</code> <code>/admin/oidc/clients/&#123;id&#125;</code> — Replace a client application's registration</summary>
+
+Requires an administrator. The body is the same as for registration and replaces every field; `client_id` never changes. A client that stops being public gets a secret, returned once in this response.
+
+**Errors**: `400` `IDP_INVALID_CLIENT`, `404` `IDP_CLIENT_NOT_FOUND`, `409` `IDP_CLIENT_MANAGED` (declared in configuration).
+
+</details>
+
+<details>
+<summary><code>DELETE</code> <code>/admin/oidc/clients/&#123;id&#125;</code> — Delete a client application</summary>
+
+Requires an administrator. Removes the client and disconnects every user from it.
+
+**Errors**: `404` `IDP_CLIENT_NOT_FOUND`, `409` `IDP_CLIENT_MANAGED`.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/admin/oidc/clients/&#123;id&#125;/secret</code> — Rotate a client secret</summary>
+
+Requires an administrator. Returns the client with a new `client_secret`, shown only in this response. The old secret stops working at once.
+
+**Errors**: `400` `IDP_INVALID_CLIENT` (a public client has no secret), `404` `IDP_CLIENT_NOT_FOUND`, `409` `IDP_CLIENT_MANAGED`.
+
+</details>
+
 ## Admin Module
 
 :::info

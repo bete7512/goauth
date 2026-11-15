@@ -65,6 +65,17 @@ func (m *CSRFModule) Middlewares() []config.MiddlewareConfig {
 			Middleware: middlewares.NewCSRFMiddleware(m.service, m.config),
 			Priority:   85,
 			Global:     true,
+			// These endpoints are called by other servers, not by a page
+			// in the user's browser, and carry their own proof in the
+			// request (client credentials, a signed assertion, a one-time
+			// code, a bearer token). They never act on the browser's
+			// cookies, so there is nothing for a cross-site request to
+			// forge, and their callers cannot hold a CSRF token.
+			ExcludeFrom: []types.RouteName{
+				types.RouteSAMLACS,
+				types.RouteIDPToken,
+				types.RouteIDPUserInfoPost,
+			},
 		},
 	}
 }

@@ -125,6 +125,15 @@ const (
 	ErrSAMLAccountLinkingDisabled ErrorCode = "SAML_ACCOUNT_LINKING_DISABLED"
 	ErrSAMLSubjectNotPersistent   ErrorCode = "SAML_SUBJECT_NOT_PERSISTENT"
 
+	// IdP (OpenID Connect provider) errors
+	ErrIDPClientNotFound  ErrorCode = "IDP_CLIENT_NOT_FOUND"
+	ErrIDPClientExists    ErrorCode = "IDP_CLIENT_EXISTS"
+	ErrIDPInvalidClient   ErrorCode = "IDP_INVALID_CLIENT"
+	ErrIDPClientManaged   ErrorCode = "IDP_CLIENT_MANAGED"
+	ErrIDPRequestNotFound ErrorCode = "IDP_REQUEST_NOT_FOUND"
+	ErrIDPLoginRequired   ErrorCode = "IDP_LOGIN_REQUIRED"
+	ErrIDPGrantNotFound   ErrorCode = "IDP_GRANT_NOT_FOUND"
+
 	// Organization errors
 	ErrOrgNotFound             ErrorCode = "ORG_NOT_FOUND"
 	ErrOrgSlugTaken            ErrorCode = "ORG_SLUG_TAKEN"
@@ -989,5 +998,75 @@ func NewSAMLSubjectNotPersistentError() *GoAuthError {
 		Code:       ErrSAMLSubjectNotPersistent,
 		Message:    "The identity provider returned a transient subject identifier",
 		StatusCode: http.StatusBadRequest,
+	}
+}
+
+// IdP (OpenID Connect provider) error factory functions
+
+// NewIDPClientNotFoundError returns the IDP_CLIENT_NOT_FOUND error (HTTP 404).
+func NewIDPClientNotFoundError() *GoAuthError {
+	return &GoAuthError{
+		Code:       ErrIDPClientNotFound,
+		Message:    "Client application not found",
+		StatusCode: http.StatusNotFound,
+	}
+}
+
+// NewIDPClientExistsError returns the IDP_CLIENT_EXISTS error (HTTP 409): the
+// requested client_id is already registered.
+func NewIDPClientExistsError() *GoAuthError {
+	return &GoAuthError{
+		Code:       ErrIDPClientExists,
+		Message:    "A client application with this client_id already exists",
+		StatusCode: http.StatusConflict,
+	}
+}
+
+// NewIDPInvalidClientError returns the IDP_INVALID_CLIENT error (HTTP 400):
+// the submitted client registration is not acceptable. message says why.
+func NewIDPInvalidClientError(message string) *GoAuthError {
+	return &GoAuthError{
+		Code:       ErrIDPInvalidClient,
+		Message:    message,
+		StatusCode: http.StatusBadRequest,
+	}
+}
+
+// NewIDPClientManagedError returns the IDP_CLIENT_MANAGED error (HTTP 409):
+// the client is declared in configuration and cannot be changed through the API.
+func NewIDPClientManagedError() *GoAuthError {
+	return &GoAuthError{
+		Code:       ErrIDPClientManaged,
+		Message:    "This client application is declared in configuration and cannot be changed through the API",
+		StatusCode: http.StatusConflict,
+	}
+}
+
+// NewIDPRequestNotFoundError returns the IDP_REQUEST_NOT_FOUND error (HTTP 404):
+// the sign-in request is unknown, expired or already decided.
+func NewIDPRequestNotFoundError() *GoAuthError {
+	return &GoAuthError{
+		Code:       ErrIDPRequestNotFound,
+		Message:    "The sign-in request was not found, has expired or was already decided",
+		StatusCode: http.StatusNotFound,
+	}
+}
+
+// NewIDPLoginRequiredError returns the IDP_LOGIN_REQUIRED error (HTTP 401): the
+// application asked for a fresh sign-in, and the user's current one is too old.
+func NewIDPLoginRequiredError() *GoAuthError {
+	return &GoAuthError{
+		Code:       ErrIDPLoginRequired,
+		Message:    "The application requires you to sign in again before continuing",
+		StatusCode: http.StatusUnauthorized,
+	}
+}
+
+// NewIDPGrantNotFoundError returns the IDP_GRANT_NOT_FOUND error (HTTP 404).
+func NewIDPGrantNotFoundError() *GoAuthError {
+	return &GoAuthError{
+		Code:       ErrIDPGrantNotFound,
+		Message:    "Connected application not found",
+		StatusCode: http.StatusNotFound,
 	}
 }

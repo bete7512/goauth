@@ -8,6 +8,7 @@ import (
 	"github.com/bete7512/goauth/pkg/types"
 	"github.com/bete7512/goauth/storage/gorm/auditlog"
 	"github.com/bete7512/goauth/storage/gorm/core"
+	"github.com/bete7512/goauth/storage/gorm/idp"
 	"github.com/bete7512/goauth/storage/gorm/invitation"
 	"github.com/bete7512/goauth/storage/gorm/oauth"
 	"github.com/bete7512/goauth/storage/gorm/organization"
@@ -61,6 +62,7 @@ type GormStorage struct {
 	passkeyStorage      *passkeys.PasskeyStorage
 	invitationStorage   *invitation.GormInvitationStorage
 	organizationStorage *organization.GormOrganizationStorage
+	idpStorage          *idp.GormIDPStorage
 }
 
 // NewStorage creates a new GORM storage from configuration
@@ -137,6 +139,7 @@ func NewStorageFromDB(db *gorm.DB) *GormStorage {
 		passkeyStorage:      passkeys.NewPasskeyStorage(db),
 		invitationStorage:   invitation.NewInvitationStorage(db),
 		organizationStorage: organization.NewOrganizationStorage(db),
+		idpStorage:          idp.NewIDPStorage(db),
 	}
 }
 
@@ -193,6 +196,11 @@ func (s *GormStorage) Invitation() types.InvitationStorage {
 // Organization returns storage for the organization module
 func (s *GormStorage) Organization() types.OrganizationStorage {
 	return s.organizationStorage
+}
+
+// IDP returns storage for the identity provider (idp) module
+func (s *GormStorage) IDP() types.IDPStorage {
+	return s.idpStorage
 }
 
 // Close closes the database connection

@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 16px/1.5 system-ui, sans-serif; margin: 0; padding: 16px; display: grid; place-items: center; min-height: 100vh; box-sizing: border-box; }
+  main { width: 100%; max-width: 380px; border: 1px solid #8884; border-radius: 12px; padding: 24px; }
+  h1 { font-size: 1.25rem; margin: 0 0 8px; }
+  p { margin: 8px 0; }
+  .muted { opacity: .7; font-size: .9rem; }
+  label { display: block; margin: 12px 0 4px; font-size: .9rem; }
+  input { width: 100%; box-sizing: border-box; padding: 10px; font: inherit; border: 1px solid #8886; border-radius: 8px; background: transparent; color: inherit; }
+  ul { padding-left: 20px; margin: 12px 0; }
+  .actions { display: flex; gap: 8px; margin-top: 20px; }
+  button { flex: 1; padding: 10px; font: inherit; border-radius: 8px; border: 1px solid #8886; background: transparent; color: inherit; cursor: pointer; }
+  button.primary { background: #2563eb; border-color: #2563eb; color: #fff; }
+  button.link { border: 0; flex: none; padding: 0; text-decoration: underline; font-size: .9rem; }
+  #error { color: #dc2626; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <section id="loading"><p>Loading…</p></section>
+
+  <section id="signin" hidden>
+    <h1 id="signin-title">Sign in</h1>
+    <p class="muted" id="signin-note">Sign in to continue to the application.</p>
+    <form id="signin-form">
+      <div id="name-field" hidden>
+        <label for="name">Name</label>
+        <input id="name" autocomplete="name">
+      </div>
+      <label for="email">Email</label>
+      <input id="email" type="email" autocomplete="username" required>
+      <label for="password">Password</label>
+      <input id="password" type="password" autocomplete="current-password" required>
+      <div class="actions"><button class="primary" id="signin-submit">Sign in</button></div>
+    </form>
+    <p><button class="link" id="toggle-signup" type="button">Create an account instead</button></p>
+  </section>
+
+  <section id="consent" hidden>
+    <h1><span id="client-name"></span> wants to sign you in</h1>
+    <p class="muted">You will be sent back to <strong id="redirect-host"></strong>.</p>
+    <p>It will be able to:</p>
+    <ul id="scopes"></ul>
+    <div class="actions">
+      <button id="deny" type="button">Cancel</button>
+      <button id="approve" type="button" class="primary">Continue</button>
+    </div>
+  </section>
+
+  <section id="done" hidden><p id="done-message"></p></section>
+  <p id="error" role="alert" hidden></p>
+</main>
+<script src="/oidc/consent.js"></script>
+</body>
+</html>
