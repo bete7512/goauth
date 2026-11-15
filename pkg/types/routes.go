@@ -144,4 +144,26 @@ const (
 	RouteInvitationAccept  RouteName = "invitation.accept"
 	RouteInvitationDecline RouteName = "invitation.decline"
 	RouteInvitationMy      RouteName = "invitation.my"
+
+	// RBAC Routes (application-wide roles)
+	RouteRBACPermissions     RouteName = "rbac.permissions.list"
+	RouteRBACMyPermissions   RouteName = "rbac.me.permissions"
+	RouteRBACListRoles       RouteName = "rbac.roles.list"
+	RouteRBACCreateRole      RouteName = "rbac.roles.create"
+	RouteRBACGetRole         RouteName = "rbac.roles.get"
+	RouteRBACUpdateRole      RouteName = "rbac.roles.update"
+	RouteRBACDeleteRole      RouteName = "rbac.roles.delete"
+	RouteRBACGetUserRoles    RouteName = "rbac.users.roles.get"
+	RouteRBACSetUserRoles    RouteName = "rbac.users.roles.set"
+	RouteRBACListAssignments RouteName = "rbac.assignments.list"
+
+	// RBAC Routes (organization roles)
+	RouteRBACOrgListRoles       RouteName = "rbac.org.roles.list"
+	RouteRBACOrgCreateRole      RouteName = "rbac.org.roles.create"
+	RouteRBACOrgGetRole         RouteName = "rbac.org.roles.get"
+	RouteRBACOrgUpdateRole      RouteName = "rbac.org.roles.update"
+	RouteRBACOrgDeleteRole      RouteName = "rbac.org.roles.delete"
+	RouteRBACOrgGetMemberRoles  RouteName = "rbac.org.members.roles.get"
+	RouteRBACOrgSetMemberRoles  RouteName = "rbac.org.members.roles.set"
+	RouteRBACOrgListAssignments RouteName = "rbac.org.assignments.list"
 )

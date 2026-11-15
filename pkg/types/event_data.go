@@ -196,6 +196,24 @@ type OrgSwitchEventData struct {
 	ToOrgID   string `json:"to_org_id"`
 }
 
+// RBACRoleEventData is used for role lifecycle events (created, updated,
+// deleted). ActorID is empty when the change was made from code.
+type RBACRoleEventData struct {
+	Role    *models.Role `json:"role"`
+	ActorID string       `json:"actor_id"`
+}
+
+// RBACAssignmentEventData is used for role assignment events. ScopeID is the
+// organization ID for the "org" scope and empty for the "global" scope.
+// ActorID is empty when the change was made from code.
+type RBACAssignmentEventData struct {
+	UserID    string `json:"user_id"`
+	RoleKey   string `json:"role"`
+	ScopeType string `json:"scope_type"`
+	ScopeID   string `json:"scope_id"`
+	ActorID   string `json:"actor_id"`
+}
+
 // EventDataAs extracts typed event data from an Event.
 // Returns the typed data and true if the assertion succeeds.
 //

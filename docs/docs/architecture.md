@@ -95,6 +95,8 @@ graph TD
     Core --> Passkeys["Passkeys"]
     Core --> MagicLink["Magic Link"]
     Core --> Organization["Organizations"]
+    Core --> RBAC["RBAC: roles and permission checks"]
+    Organization -.->|organization roles, when enabled| RBAC
     Core --> Admin["Admin"]
     Admin --> Invitation["Invitations"]
     Core --> Invitation
@@ -161,6 +163,7 @@ graph TD
     S --> TwoFactor["TwoFactorAuth: TOTP and backup codes"]
     S --> Passkeys["Passkeys: WebAuthn credentials"]
     S --> Organization["Organization: orgs, members, invitations"]
+    S --> RBAC["RBAC: custom roles and role assignments"]
     S --> Invitation["Invitation: platform invitations"]
     S --> Audit["AuditLog: audit records"]
     S --> Tx["TransactionalStorage: one transaction across stores"]

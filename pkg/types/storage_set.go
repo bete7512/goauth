@@ -16,6 +16,7 @@ type StorageSet struct {
 	InvitationStore   InvitationStorage
 	OrganizationStore OrganizationStorage
 	IDPStore          IDPStorage
+	RBACStore         RBACStorage
 	CloseFunc         func() error
 }
 
@@ -51,6 +52,9 @@ func (s *StorageSet) Organization() OrganizationStorage { return s.OrganizationS
 
 // IDP returns IDPStore.
 func (s *StorageSet) IDP() IDPStorage { return s.IDPStore }
+
+// RBAC returns RBACStore.
+func (s *StorageSet) RBAC() RBACStorage { return s.RBACStore }
 
 // DB returns nil: a StorageSet has no single underlying database handle.
 func (s *StorageSet) DB() interface{} { return nil }

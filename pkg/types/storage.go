@@ -1,6 +1,6 @@
 package types
 
-//go:generate mockgen -destination=../../internal/mocks/mock_storage.go -package=mocks github.com/bete7512/goauth/pkg/types Storage,CoreStorage,SessionStorage,StatelessStorage,AdminStorage,OAuthStorage,TwoFactorStorage,PasskeyStorage,InvitationStorage,OrganizationStorage,IDPStorage
+//go:generate mockgen -destination=../../internal/mocks/mock_storage.go -package=mocks github.com/bete7512/goauth/pkg/types Storage,CoreStorage,SessionStorage,StatelessStorage,AdminStorage,OAuthStorage,TwoFactorStorage,PasskeyStorage,InvitationStorage,OrganizationStorage,IDPStorage,RBACStorage
 
 import (
 	"context"
@@ -72,6 +72,10 @@ type Storage interface {
 	// IDP returns storage for the identity provider (idp) module
 	// Returns nil if idp storage is not needed/available
 	IDP() IDPStorage
+
+	// RBAC returns storage for the role-based access control (rbac) module
+	// Returns nil if rbac storage is not needed/available
+	RBAC() RBACStorage
 
 	// Close closes all storage connections
 	Close() error
@@ -149,4 +153,12 @@ type IDPStorage interface {
 	Clients() models.IDPClientRepository
 	Grants() models.IDPGrantRepository
 	WithTransaction(ctx context.Context, fn func(tx IDPStorage) error) error
+}
+
+// RBACStorage defines storage interface for the role-based access control
+// (rbac) module: roles created at runtime and who holds which role where.
+type RBACStorage interface {
+	Roles() models.RoleRepository
+	Assignments() models.RoleAssignmentRepository
+	WithTransaction(ctx context.Context, fn func(tx RBACStorage) error) error
 }

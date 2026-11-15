@@ -80,6 +80,7 @@ try {
     ratelimit: "pkg/modules/ratelimit",
     saml: "pkg/modules/saml",
     idp: "pkg/modules/idp",
+    rbac: "pkg/modules/rbac",
   };
   const supplied = {
     ctx: "context.Context",

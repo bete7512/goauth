@@ -23,6 +23,7 @@ const (
 	RateLimitModule    ModuleName = "ratelimit"
 	SAMLModule         ModuleName = "saml"
 	IDPModule          ModuleName = "idp"
+	RBACModule         ModuleName = "rbac"
 )
 
 // CaptchaProvider represents a supported captcha provider.

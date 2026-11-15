@@ -1,0 +1,912 @@
+openapi: 3.0.0
+info:
+  title: GoAuth RBAC Module API
+  version: 1.0.0
+  description: |
+    Role-based access control: roles, who holds them, and what they allow.
+
+    A permission has the form `resource:action`, for example `invoice:approve`.
+    A role is a set of grants. A grant is a permission or a pattern: `invoice:*`
+    (every action on a resource), `*:read` (one action on every resource),
+    `billing.*:read` (every resource under a prefix) or `*` (everything). A bare
+    `*` never reaches GoAuth's own permissions, which live under `goauth.`.
+
+    Managing roles needs these permissions in the scope being managed:
+    `goauth.roles:read`, `goauth.roles:write`, `goauth.assignments:read` and
+    `goauth.assignments:write`. Nobody can create, change, give or take away a
+    role that grants more than they hold themselves.
+
+    The `/org/{orgId}/...` routes exist only when the module is configured with
+    `Organizations: true`.
+
+servers:
+  - url: /
+
+tags:
+  - name: RBAC
+    description: The caller's own permissions and the permission catalog
+  - name: RBAC Roles
+    description: Application-wide roles and their assignments
+  - name: RBAC Organization Roles
+    description: Roles and assignments inside one organization
+
+paths:
+  /me/permissions:
+    get:
+      tags:
+        - RBAC
+      operationId: rbac.me.permissions
+      summary: Get my roles and permissions
+      description: |
+        Returns the roles the caller holds and the grants they add up to, so that
+        a client can hide what the caller cannot do. The scope is the organization
+        in `org_id`, else the organization the caller is signed in to, else the
+        whole application. A caller who is not a member of the organization holds
+        only their application-wide roles there. Rules the application attaches to
+        single routes (AllowIf, OnlyIf, Decide) are not reflected here; the server
+        stays the authority.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ScopeOrgId'
+      responses:
+        '200':
+          description: The caller's roles and permissions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/UserRoles'
+                  message:
+                    type: string
+                    nullable: true
+        '400':
+          description: Organization roles are not enabled (RBAC_SCOPE_UNAVAILABLE)
+        '401':
+          description: Authentication required
+
+  /rbac/permissions:
+    get:
+      tags:
+        - RBAC
+      operationId: rbac.permissions.list
+      summary: List the permission catalog
+      description: |
+        Lists the permissions the application has declared, for a role editor.
+        The catalog fills itself as routes are wired, so a permission that is only
+        checked from code appears once it was declared or first used. Requires
+        `goauth.roles:read` in the scope chosen as for `/me/permissions`.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ScopeOrgId'
+      responses:
+        '200':
+          description: The declared permissions, sorted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Permission'
+                  message:
+                    type: string
+                    nullable: true
+        '401':
+          description: Authentication required
+        '403':
+          description: Missing permission (RBAC_PERMISSION_DENIED)
+
+  /rbac/roles:
+    get:
+      tags:
+        - RBAC Roles
+      operationId: rbac.roles.list
+      summary: List application-wide roles
+      description: Lists the roles defined in code and the custom ones. Requires `goauth.roles:read`.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+        - $ref: '#/components/parameters/RoleSortField'
+        - $ref: '#/components/parameters/SortDir'
+        - $ref: '#/components/parameters/RoleQuery'
+      responses:
+        '200':
+          $ref: '#/components/responses/RoleList'
+        '401':
+          description: Authentication required
+        '403':
+          description: Missing permission (RBAC_PERMISSION_DENIED)
+    post:
+      tags:
+        - RBAC Roles
+      operationId: rbac.roles.create
+      summary: Create an application-wide role
+      description: Requires `goauth.roles:write`, and every grant of the new role must be within what the caller holds.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRoleRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/Role'
+        '400':
+          description: Malformed key, name or grant (RBAC_INVALID_ROLE)
+        '401':
+          description: Authentication required
+        '403':
+          description: Missing permission (RBAC_PERMISSION_DENIED) or a grant the caller does not hold (RBAC_GRANT_NOT_HELD)
+        '409':
+          description: A role with this key exists (RBAC_ROLE_EXISTS) or the key is reserved (RBAC_ROLE_SYSTEM)
+        '422':
+          description: Too many roles or grants (RBAC_LIMIT_EXCEEDED)
+
+  /rbac/roles/{roleKey}:
+    get:
+      tags:
+        - RBAC Roles
+      operationId: rbac.roles.get
+      summary: Get an application-wide role
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RoleKey'
+      responses:
+        '200':
+          $ref: '#/components/responses/Role'
+        '401':
+          description: Authentication required
+        '403':
+          description: Missing permission (RBAC_PERMISSION_DENIED)
+        '404':
+          description: Role not found (RBAC_ROLE_NOT_FOUND)
+    put:
+      tags:
+        - RBAC Roles
+      operationId: rbac.roles.update
+      summary: Update an application-wide role
+      description: |
+        Changes the name, description or grants of a custom role; fields left out
+        are kept. The change applies to everyone who holds the role on their next
+        request. Both the old and the new grants must be within what the caller holds.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RoleKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRoleRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/Role'
+        '400':
+          description: Malformed name or grant (RBAC_INVALID_ROLE)
+        '401':
+          description: Authentication required
+        '403':
+          description: Missing permission (RBAC_PERMISSION_DENIED) or a grant the caller does not hold (RBAC_GRANT_NOT_HELD)
+        '404':
+          description: Role not found (RBAC_ROLE_NOT_FOUND)
+        '409':
+          description: The role is defined in code (RBAC_ROLE_SYSTEM)
+        '422':
+          description: Too many grants (RBAC_LIMIT_EXCEEDED)
+    delete:
+      tags:
+        - RBAC Roles
+      operationId: rbac.roles.delete
+      summary: Delete an application-wide role
+      description: Deletes a custom role and takes it away from everyone who holds it.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RoleKey'
+      responses:
+        '200':
+          description: Role deleted
+        '401':
+          description: Authentication required
+        '403':
+          description: Missing permission (RBAC_PERMISSION_DENIED) or a grant the caller does not hold (RBAC_GRANT_NOT_HELD)
+        '404':
+          description: Role not found (RBAC_ROLE_NOT_FOUND)
+        '409':
+          description: The role is defined in code (RBAC_ROLE_SYSTEM)
+
+  /rbac/users/{userId}/roles:
+    get:
+      tags:
+        - RBAC Roles
+      operationId: rbac.users.roles.get
+      summary: Get a user's application-wide roles
+      description: Users may read their own roles. Reading someone else's requires `goauth.assignments:read`.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          $ref: '#/components/responses/UserRoles'
+        '401':
+          description: Authentication required
+        '403':
+          description: Missing permission (RBAC_PERMISSION_DENIED)
+        '404':
+          description: User not found (USER_NOT_FOUND)
+    put:
+      tags:
+        - RBAC Roles
+      operationId: rbac.users.roles.set
+      summary: Set a user's application-wide roles
+      description: |
+        Makes `roles` the complete list of roles assigned to the user
+        application-wide. Roles that are implied (the super admin flag) are not
+        part of the list. Requires `goauth.assignments:write`, and every role
+        given or taken away must be within what the caller holds.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetRolesRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/UserRoles'
+        '400':
+          description: The roles list is missing
+        '401':
+          description: Authentication required
+        '403':
+          description: |
+            Missing permission (RBAC_PERMISSION_DENIED), a role that grants more
+            than the caller holds (RBAC_GRANT_NOT_HELD), or the application refused
+            the change (RBAC_ASSIGNMENT_REFUSED)
+        '404':
+          description: User not found (USER_NOT_FOUND) or role not found (RBAC_ROLE_NOT_FOUND)
+        '409':
+          description: The role is implied and cannot be assigned (RBAC_ROLE_SYSTEM)
+        '422':
+          description: Too many roles for one user (RBAC_LIMIT_EXCEEDED)
+
+  /rbac/assignments:
+    get:
+      tags:
+        - RBAC Roles
+      operationId: rbac.assignments.list
+      summary: List application-wide role assignments
+      description: Requires `goauth.assignments:read`.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+        - $ref: '#/components/parameters/AssignmentSortField'
+        - $ref: '#/components/parameters/SortDir'
+        - $ref: '#/components/parameters/AssignmentUserId'
+        - $ref: '#/components/parameters/AssignmentRole'
+      responses:
+        '200':
+          $ref: '#/components/responses/AssignmentList'
+        '401':
+          description: Authentication required
+        '403':
+          description: Missing permission (RBAC_PERMISSION_DENIED)
+
+  /org/{orgId}/roles:
+    get:
+      tags:
+        - RBAC Organization Roles
+      operationId: rbac.org.roles.list
+      summary: List an organization's roles
+      description: |
+        Lists the membership roles (`owner`, `admin`, `member`), the roles defined
+        in code and the organization's custom roles. Requires `goauth.roles:read`
+        in the organization.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrgId'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+        - $ref: '#/components/parameters/RoleSortField'
+        - $ref: '#/components/parameters/SortDir'
+        - $ref: '#/components/parameters/RoleQuery'
+      responses:
+        '200':
+          $ref: '#/components/responses/RoleList'
+        '401':
+          description: Authentication required
+        '403':
+          description: Missing permission (RBAC_PERMISSION_DENIED)
+        '404':
+          description: Organization not found (ORG_NOT_FOUND)
+    post:
+      tags:
+        - RBAC Organization Roles
+      operationId: rbac.org.roles.create
+      summary: Create a role in an organization
+      description: |
+        Requires `goauth.roles:write` in the organization, and every grant of the
+        new role must be within what the caller holds there. The role exists in
+        this organization only.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrgId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRoleRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/Role'
+        '400':
+          description: Malformed key, name or grant (RBAC_INVALID_ROLE)
+        '401':
+          description: Authentication required
+        '403':
+          description: Missing permission (RBAC_PERMISSION_DENIED) or a grant the caller does not hold (RBAC_GRANT_NOT_HELD)
+        '404':
+          description: Organization not found (ORG_NOT_FOUND)
+        '409':
+          description: A role with this key exists (RBAC_ROLE_EXISTS) or the key is reserved (RBAC_ROLE_SYSTEM)
+        '422':
+          description: Too many roles or grants (RBAC_LIMIT_EXCEEDED)
+
+  /org/{orgId}/roles/{roleKey}:
+    get:
+      tags:
+        - RBAC Organization Roles
+      operationId: rbac.org.roles.get
+      summary: Get a role of an organization
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrgId'
+        - $ref: '#/components/parameters/RoleKey'
+      responses:
+        '200':
+          $ref: '#/components/responses/Role'
+        '401':
+          description: Authentication required
+        '403':
+          description: Missing permission (RBAC_PERMISSION_DENIED)
+        '404':
+          description: Organization or role not found (ORG_NOT_FOUND, RBAC_ROLE_NOT_FOUND)
+    put:
+      tags:
+        - RBAC Organization Roles
+      operationId: rbac.org.roles.update
+      summary: Update a role of an organization
+      description: |
+        Changes the name, description or grants of a custom role; fields left out
+        are kept. Both the old and the new grants must be within what the caller holds.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrgId'
+        - $ref: '#/components/parameters/RoleKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRoleRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/Role'
+        '400':
+          description: Malformed name or grant (RBAC_INVALID_ROLE)
+        '401':
+          description: Authentication required
+        '403':
+          description: Missing permission (RBAC_PERMISSION_DENIED) or a grant the caller does not hold (RBAC_GRANT_NOT_HELD)
+        '404':
+          description: Organization or role not found (ORG_NOT_FOUND, RBAC_ROLE_NOT_FOUND)
+        '409':
+          description: The role is built in or defined in code (RBAC_ROLE_SYSTEM)
+        '422':
+          description: Too many grants (RBAC_LIMIT_EXCEEDED)
+    delete:
+      tags:
+        - RBAC Organization Roles
+      operationId: rbac.org.roles.delete
+      summary: Delete a role of an organization
+      description: Deletes a custom role and takes it away from every member who holds it.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrgId'
+        - $ref: '#/components/parameters/RoleKey'
+      responses:
+        '200':
+          description: Role deleted
+        '401':
+          description: Authentication required
+        '403':
+          description: Missing permission (RBAC_PERMISSION_DENIED) or a grant the caller does not hold (RBAC_GRANT_NOT_HELD)
+        '404':
+          description: Organization or role not found (ORG_NOT_FOUND, RBAC_ROLE_NOT_FOUND)
+        '409':
+          description: The role is built in or defined in code (RBAC_ROLE_SYSTEM)
+
+  /org/{orgId}/members/{userId}/roles:
+    get:
+      tags:
+        - RBAC Organization Roles
+      operationId: rbac.org.members.roles.get
+      summary: Get a member's roles in an organization
+      description: |
+        Returns the member's membership role, the roles assigned in the
+        organization and any application-wide roles, which apply inside every
+        organization. Members may read their own; reading someone else's requires
+        `goauth.assignments:read` in the organization.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrgId'
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          $ref: '#/components/responses/UserRoles'
+        '401':
+          description: Authentication required
+        '403':
+          description: Missing permission (RBAC_PERMISSION_DENIED)
+        '404':
+          description: Organization not found (ORG_NOT_FOUND) or the user is not a member (ORG_MEMBER_NOT_FOUND)
+    put:
+      tags:
+        - RBAC Organization Roles
+      operationId: rbac.org.members.roles.set
+      summary: Set a member's roles in an organization
+      description: |
+        Makes `roles` the complete list of roles assigned to the member in the
+        organization. The membership role (`owner`, `admin`, `member`) is not part
+        of the list; change it through the organization module. Requires
+        `goauth.assignments:write` in the organization, and every role given or
+        taken away must be within what the caller holds there. The roles end when
+        the membership does.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrgId'
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetRolesRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/UserRoles'
+        '400':
+          description: The roles list is missing
+        '401':
+          description: Authentication required
+        '403':
+          description: |
+            Missing permission (RBAC_PERMISSION_DENIED), a role that grants more
+            than the caller holds (RBAC_GRANT_NOT_HELD), or the application refused
+            the change (RBAC_ASSIGNMENT_REFUSED)
+        '404':
+          description: |
+            Organization not found (ORG_NOT_FOUND), the user is not a member
+            (ORG_MEMBER_NOT_FOUND) or role not found (RBAC_ROLE_NOT_FOUND)
+        '409':
+          description: The role comes from membership and cannot be assigned (RBAC_ROLE_SYSTEM)
+        '422':
+          description: Too many roles for one member (RBAC_LIMIT_EXCEEDED)
+
+  /org/{orgId}/role-assignments:
+    get:
+      tags:
+        - RBAC Organization Roles
+      operationId: rbac.org.assignments.list
+      summary: List role assignments in an organization
+      description: Requires `goauth.assignments:read` in the organization. Membership roles are not assignments and are not listed.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrgId'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+        - $ref: '#/components/parameters/AssignmentSortField'
+        - $ref: '#/components/parameters/SortDir'
+        - $ref: '#/components/parameters/AssignmentUserId'
+        - $ref: '#/components/parameters/AssignmentRole'
+      responses:
+        '200':
+          $ref: '#/components/responses/AssignmentList'
+        '401':
+          description: Authentication required
+        '403':
+          description: Missing permission (RBAC_PERMISSION_DENIED)
+        '404':
+          description: Organization not found (ORG_NOT_FOUND)
+
+components:
+  parameters:
+    OrgId:
+      name: orgId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Organization ID
+
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: User ID
+
+    RoleKey:
+      name: roleKey
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^[a-z0-9][a-z0-9_-]{0,63}$'
+      description: Role key
+
+    ScopeOrgId:
+      name: org_id
+      in: query
+      schema:
+        type: string
+        format: uuid
+      description: Organization to answer for. Defaults to the organization the caller is signed in to.
+
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        default: 20
+        maximum: 100
+      description: Maximum number of items to return
+
+    Offset:
+      name: offset
+      in: query
+      schema:
+        type: integer
+        default: 0
+        minimum: 0
+      description: Number of items to skip
+
+    RoleSortField:
+      name: sort_field
+      in: query
+      schema:
+        type: string
+        default: created_at
+        enum: [created_at, key, name]
+      description: Field to sort roles by. Roles defined in code have no creation time and sort before custom ones.
+
+    AssignmentSortField:
+      name: sort_field
+      in: query
+      schema:
+        type: string
+        default: created_at
+        enum: [created_at, role_key, user_id]
+      description: Field to sort assignments by
+
+    SortDir:
+      name: sort_dir
+      in: query
+      schema:
+        type: string
+        default: desc
+        enum: [asc, desc]
+      description: Sort direction
+
+    RoleQuery:
+      name: query
+      in: query
+      schema:
+        type: string
+      description: Keep only roles whose key or name contains this text
+
+    AssignmentUserId:
+      name: user_id
+      in: query
+      schema:
+        type: string
+        format: uuid
+      description: Keep only assignments of this user
+
+    AssignmentRole:
+      name: role
+      in: query
+      schema:
+        type: string
+      description: Keep only assignments of this role key
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    Role:
+      description: The role
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/Role'
+              message:
+                type: string
+                nullable: true
+
+    RoleList:
+      description: A page of roles
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/RoleListResponse'
+              message:
+                type: string
+                nullable: true
+
+    UserRoles:
+      description: What the user holds in the scope
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/UserRoles'
+              message:
+                type: string
+                nullable: true
+
+    AssignmentList:
+      description: A page of role assignments
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/AssignmentListResponse'
+              message:
+                type: string
+                nullable: true
+
+  schemas:
+    Permission:
+      type: object
+      properties:
+        permission:
+          type: string
+          example: invoice:approve
+        description:
+          type: string
+          example: Approve invoices
+
+    Role:
+      type: object
+      properties:
+        key:
+          type: string
+          example: billing
+        name:
+          type: string
+          example: Billing
+        description:
+          type: string
+        grants:
+          type: array
+          items:
+            type: string
+          example: ["invoice:*", "report:read"]
+        scope:
+          type: string
+          enum: [global, org]
+        org_id:
+          type: string
+          format: uuid
+          description: Set for roles of an organization
+        system:
+          type: boolean
+          description: True for roles defined in code, which cannot be changed through the API
+        implied:
+          type: boolean
+          description: True for roles that come from the super admin flag or from organization membership and cannot be assigned
+        created_by:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+          description: Absent for roles defined in code
+        updated_at:
+          type: string
+          format: date-time
+
+    RoleListResponse:
+      type: object
+      properties:
+        list:
+          type: array
+          items:
+            $ref: '#/components/schemas/Role'
+        sort_field:
+          type: string
+          example: created_at
+        sort_dir:
+          type: string
+          enum: [asc, desc]
+          example: desc
+        total:
+          type: integer
+
+    CreateRoleRequest:
+      type: object
+      required:
+        - key
+        - name
+      properties:
+        key:
+          type: string
+          pattern: '^[a-z0-9][a-z0-9_-]{0,63}$'
+          description: Identifies the role in its scope. It cannot be changed later.
+          example: billing
+        name:
+          type: string
+          maxLength: 255
+          example: Billing
+        description:
+          type: string
+          maxLength: 1000
+        grants:
+          type: array
+          items:
+            type: string
+          description: Permissions or patterns. Each must be within what the caller holds.
+          example: ["invoice:*", "report:read"]
+
+    UpdateRoleRequest:
+      type: object
+      description: At least one field is required. Fields left out are not changed.
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 1000
+        grants:
+          type: array
+          items:
+            type: string
+          description: Replaces the role's grants
+
+    SetRolesRequest:
+      type: object
+      required:
+        - roles
+      properties:
+        roles:
+          type: array
+          items:
+            type: string
+          description: Keys of the roles the user should be assigned. An empty list removes every assigned role.
+          example: ["billing", "auditor"]
+
+    HeldRole:
+      type: object
+      properties:
+        key:
+          type: string
+          example: billing
+        name:
+          type: string
+        scope:
+          type: string
+          enum: [global, org]
+          description: Where the role is held. A global role also applies inside every organization.
+        system:
+          type: boolean
+        implied:
+          type: boolean
+          description: True when the role comes from the super admin flag or from organization membership rather than an assignment
+
+    UserRoles:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        scope:
+          type: string
+          enum: [global, org]
+        org_id:
+          type: string
+          format: uuid
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/HeldRole'
+        permissions:
+          type: array
+          items:
+            type: string
+          description: The grants the roles add up to, as sorted patterns. A client matches a permission against them the way the server does.
+          example: ["invoice:*", "report:read"]
+
+    Assignment:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        role:
+          type: string
+          example: billing
+        scope:
+          type: string
+          enum: [global, org]
+        org_id:
+          type: string
+          format: uuid
+        granted_by:
+          type: string
+          format: uuid
+          description: Empty when the role was assigned from the application's own code
+        created_at:
+          type: string
+          format: date-time
+
+    AssignmentListResponse:
+      type: object
+      properties:
+        list:
+          type: array
+          items:
+            $ref: '#/components/schemas/Assignment'
+        sort_field:
+          type: string
+          example: created_at
+        sort_dir:
+          type: string
+          enum: [asc, desc]
+          example: desc
+        total:
+          type: integer

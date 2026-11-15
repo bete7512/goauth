@@ -13,6 +13,7 @@ import (
 	"github.com/bete7512/goauth/storage/gorm/oauth"
 	"github.com/bete7512/goauth/storage/gorm/organization"
 	"github.com/bete7512/goauth/storage/gorm/passkeys"
+	"github.com/bete7512/goauth/storage/gorm/rbac"
 	"github.com/bete7512/goauth/storage/gorm/session"
 	"github.com/bete7512/goauth/storage/gorm/twofactor"
 	"gorm.io/driver/mysql"
@@ -63,6 +64,7 @@ type GormStorage struct {
 	invitationStorage   *invitation.GormInvitationStorage
 	organizationStorage *organization.GormOrganizationStorage
 	idpStorage          *idp.GormIDPStorage
+	rbacStorage         *rbac.GormRBACStorage
 }
 
 // NewStorage creates a new GORM storage from configuration
@@ -140,6 +142,7 @@ func NewStorageFromDB(db *gorm.DB) *GormStorage {
 		invitationStorage:   invitation.NewInvitationStorage(db),
 		organizationStorage: organization.NewOrganizationStorage(db),
 		idpStorage:          idp.NewIDPStorage(db),
+		rbacStorage:         rbac.NewRBACStorage(db),
 	}
 }
 
@@ -201,6 +204,11 @@ func (s *GormStorage) Organization() types.OrganizationStorage {
 // IDP returns storage for the identity provider (idp) module
 func (s *GormStorage) IDP() types.IDPStorage {
 	return s.idpStorage
+}
+
+// RBAC returns storage for the role-based access control (rbac) module
+func (s *GormStorage) RBAC() types.RBACStorage {
+	return s.rbacStorage
 }
 
 // Close closes the database connection

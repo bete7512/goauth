@@ -275,6 +275,17 @@ const (
 	EventInvitationSent     EventType = "invitation.sent"
 	EventInvitationAccepted EventType = "invitation.accepted"
 	EventInvitationDeclined EventType = "invitation.declined"
+
+	// RBAC Events
+	// EventBeforeRBACRoleAssign is emitted synchronously before a role is
+	// given to a user. A subscriber that returns an error refuses the change.
+	// Data is *RBACAssignmentEventData.
+	EventBeforeRBACRoleAssign EventType = "before.rbac.role.assign"
+	EventRBACRoleAssigned     EventType = "rbac.role.assigned"
+	EventRBACRoleRevoked      EventType = "rbac.role.revoked"
+	EventRBACRoleCreated      EventType = "rbac.role.created"
+	EventRBACRoleUpdated      EventType = "rbac.role.updated"
+	EventRBACRoleDeleted      EventType = "rbac.role.deleted"
 )
 
 // Rate limiting events

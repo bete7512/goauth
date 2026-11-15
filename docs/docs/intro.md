@@ -47,6 +47,7 @@ The [Quick Start](quickstart.md) contains a complete program with error handling
 | [Identity Provider](modules/idp.md) | OpenID Connect provider: other applications sign users in with your accounts | `idp.New(...)` |
 | [Notification](modules/notification.md) | Event-driven email and SMS | `notification.New(...)` |
 | [Organization](modules/organization.md) | Memberships, roles, organization invitations | `organization.New(...)` |
+| [RBAC](modules/rbac.md) | Roles and permission checks for your own routes and services; organization roles need Organization | `rbac.New(...)` |
 | [Invitation](modules/invitation.md) | Platform invitations; requires Admin | `invitation.New(...)` |
 | [Admin](modules/admin.md) | Super-admin user management | `admin.New(...)` |
 | [Audit](modules/audit.md) | Event logging and retention; admin routes need Admin | `audit.New(...)` |

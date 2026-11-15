@@ -33,6 +33,7 @@ GoAuth is a modular, framework-agnostic authentication library for Go. Compose t
 - Admin -- User CRUD with admin middleware
 - Invitation -- Platform invitations (beta access and referrals; signup gating is separate)
 - Organization -- Multi-org support with roles and org-scoped invitations
+- [RBAC](/docs/modules/rbac) -- Roles and permission checks for your own routes and services
 - Audit -- Security event logging with retention policies
 - Captcha -- reCAPTCHA v3, Cloudflare Turnstile
 - CSRF -- Token-based CSRF protection
@@ -72,9 +73,9 @@ GoAuth is a modular, framework-agnostic authentication library for Go. Compose t
 |  +-------------+ +--------------+   |
 |  |   Audit     | | Magic Link   |   |
 |  +-------------+ +--------------+   |
-|  +-------------+                    |
-|  |Organization |                    |
-|  +-------------+                    |
+|  +-------------+ +--------------+   |
+|  |Organization | |     RBAC     |   |
+|  +-------------+ +--------------+   |
 +--------------------------------------+
                 |
                 v

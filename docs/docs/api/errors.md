@@ -225,6 +225,20 @@ These are the codes of the consent, grant and admin endpoints. The OpenID Connec
 | `ErrInvitationExists` | `INVITATION_ALREADY_EXISTS` | 409 Conflict | A pending invitation already exists for this email |
 | `ErrInvitationEmailMismatch` | `INVITATION_EMAIL_MISMATCH` | 403 Forbidden | Your email does not match the invitation |
 
+### RBAC Errors
+
+| Constant | Code | HTTP Status | Default Message |
+|---|---|---|---|
+| `ErrRBACPermissionDenied` | `RBAC_PERMISSION_DENIED` | 403 Forbidden | Missing permission: *permission*, or the reason a callback gave |
+| `ErrRBACRoleNotFound` | `RBAC_ROLE_NOT_FOUND` | 404 Not Found | Role not found |
+| `ErrRBACRoleExists` | `RBAC_ROLE_EXISTS` | 409 Conflict | A role with this key already exists |
+| `ErrRBACRoleSystem` | `RBAC_ROLE_SYSTEM` | 409 Conflict | Says why the role cannot be changed, deleted or assigned: built in, defined in code, or implied by membership |
+| `ErrRBACInvalidRole` | `RBAC_INVALID_ROLE` | 400 Bad Request | Says which of the key, name or grants is malformed |
+| `ErrRBACGrantNotHeld` | `RBAC_GRANT_NOT_HELD` | 403 Forbidden | You cannot manage a role that grants more than you hold: *grant* |
+| `ErrRBACLimitExceeded` | `RBAC_LIMIT_EXCEEDED` | 422 Unprocessable Entity | Says which limit on roles, grants or assignments was reached |
+| `ErrRBACScopeUnavailable` | `RBAC_SCOPE_UNAVAILABLE` | 400 Bad Request | Says why the scope cannot be used, such as "Organization roles are not enabled" |
+| `ErrRBACAssignmentRefused` | `RBAC_ASSIGNMENT_REFUSED` | 403 Forbidden | The reason given by the subscriber that refused the assignment |
+
 ### Verification Errors
 
 | Constant | Code | HTTP Status | Default Message |

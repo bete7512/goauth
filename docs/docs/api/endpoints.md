@@ -2200,6 +2200,575 @@ Returns all invitations for the organization.
 
 ---
 
+## RBAC Module
+
+:::info
+Requires `rbac.New(...)`. The `/org/{orgId}/...` routes exist only with `Organizations: true`, which also requires `organization.New(...)`. See [RBAC](../modules/rbac.md) for permissions, grants and the rule that nobody manages a role that grants more than they hold.
+:::
+
+### Own permissions and the catalog
+
+<details>
+<summary><code>GET</code> <code>/me/permissions</code> — Get my roles and permissions <span className="badge badge--primary">Auth</span></summary>
+
+**Headers:** `Authorization: Bearer <access_token>`
+
+**Query parameters:** `org_id` (optional) answers for that organization. Without it the scope is the organization the caller is signed in to, or the whole application when there is none. A caller who is not a member of the organization holds only their application-wide roles there.
+
+`permissions` holds grant patterns; `invoice:*` allows every action on `invoice`. Rules the application attaches to single routes are not reflected.
+
+**Response** `200`:
+```json
+{
+  "data": {
+    "user_id": "01961abc-...",
+    "scope": "org",
+    "org_id": "01961def-...",
+    "roles": [
+      { "key": "member", "name": "Member", "scope": "org", "system": true, "implied": true },
+      { "key": "billing", "name": "Billing", "scope": "org", "system": false, "implied": false }
+    ],
+    "permissions": ["invoice:*"]
+  }
+}
+```
+
+**Errors:** `400` `RBAC_SCOPE_UNAVAILABLE` (organization roles are off).
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/rbac/permissions</code> — List the permission catalog <span className="badge badge--primary">Auth</span></summary>
+
+**Headers:** `Authorization: Bearer <access_token>`
+
+Requires `goauth.roles:read` in the scope chosen as for `/me/permissions` (`org_id` query parameter, else the caller's organization, else the application). The catalog lists the permissions the application has declared so far.
+
+**Response** `200`:
+```json
+{
+  "data": [
+    { "permission": "goauth.roles:read", "description": "See roles and the permission catalog" },
+    { "permission": "invoice:approve" },
+    { "permission": "invoice:read" }
+  ]
+}
+```
+
+**Errors:** `403` `RBAC_PERMISSION_DENIED`.
+
+</details>
+
+### Application-wide roles
+
+<details>
+<summary><code>GET</code> <code>/rbac/roles</code> — List application-wide roles <span className="badge badge--primary">Auth</span></summary>
+
+**Headers:** `Authorization: Bearer <access_token>`
+
+Requires `goauth.roles:read`.
+
+**Query parameters:** `offset`, `limit` (max 100), `sort_field` (`created_at`, `key`, `name`), `sort_dir`, `query` (matches key or name).
+
+Roles defined in code have `system: true` and no `created_at`. Sorted by creation time they come after custom roles in the default descending order.
+
+**Response** `200`:
+```json
+{
+  "data": {
+    "list": [
+      {
+        "key": "analyst",
+        "name": "Analyst",
+        "description": "Reads and exports reports",
+        "grants": ["report:*"],
+        "scope": "global",
+        "system": false,
+        "implied": false,
+        "created_by": "01961abc-...",
+        "created_at": "2025-01-01T00:00:00Z",
+        "updated_at": "2025-01-01T00:00:00Z"
+      },
+      {
+        "key": "super_admin",
+        "name": "Super admin",
+        "description": "Every user with the super admin flag. Holds every permission everywhere.",
+        "grants": ["*", "goauth.*:*"],
+        "scope": "global",
+        "system": true,
+        "implied": true
+      }
+    ],
+    "sort_field": "created_at",
+    "sort_dir": "desc",
+    "total": 2
+  }
+}
+```
+
+**Errors:** `403` `RBAC_PERMISSION_DENIED`.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/rbac/roles</code> — Create an application-wide role <span className="badge badge--primary">Auth</span></summary>
+
+**Headers:** `Authorization: Bearer <access_token>`
+
+Requires `goauth.roles:write`. Every grant must be within what the caller holds.
+
+**Request:**
+```json
+{
+  "key": "analyst",
+  "name": "Analyst",
+  "description": "Reads and exports reports",
+  "grants": ["report:*"]
+}
+```
+
+`key` is 1 to 64 lowercase letters, digits, `_` or `-` and cannot be changed later. `description` and `grants` are optional.
+
+**Response** `201`:
+```json
+{
+  "data": {
+    "key": "analyst",
+    "name": "Analyst",
+    "description": "Reads and exports reports",
+    "grants": ["report:*"],
+    "scope": "global",
+    "system": false,
+    "implied": false,
+    "created_by": "01961abc-...",
+    "created_at": "2025-01-01T00:00:00Z",
+    "updated_at": "2025-01-01T00:00:00Z"
+  }
+}
+```
+
+**Errors:** `400` `RBAC_INVALID_ROLE`, `403` `RBAC_PERMISSION_DENIED` or `RBAC_GRANT_NOT_HELD`, `409` `RBAC_ROLE_EXISTS` or `RBAC_ROLE_SYSTEM` (reserved key), `422` `RBAC_LIMIT_EXCEEDED`.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/rbac/roles/&#123;roleKey&#125;</code> — Get an application-wide role <span className="badge badge--primary">Auth</span></summary>
+
+**Headers:** `Authorization: Bearer <access_token>`
+
+Requires `goauth.roles:read`.
+
+**Response** `200`:
+```json
+{
+  "data": {
+    "key": "analyst",
+    "name": "Analyst",
+    "description": "Reads and exports reports",
+    "grants": ["report:*"],
+    "scope": "global",
+    "system": false,
+    "implied": false,
+    "created_by": "01961abc-...",
+    "created_at": "2025-01-01T00:00:00Z",
+    "updated_at": "2025-01-01T00:00:00Z"
+  }
+}
+```
+
+**Errors:** `403` `RBAC_PERMISSION_DENIED`, `404` `RBAC_ROLE_NOT_FOUND`.
+
+</details>
+
+<details>
+<summary><code>PUT</code> <code>/rbac/roles/&#123;roleKey&#125;</code> — Update an application-wide role <span className="badge badge--primary">Auth</span></summary>
+
+**Headers:** `Authorization: Bearer <access_token>`
+
+Requires `goauth.roles:write`. At least one field must be provided; fields left out are kept. Both the role's current grants and the new ones must be within what the caller holds. The change applies to everyone who holds the role on their next request.
+
+**Request:**
+```json
+{
+  "name": "Report analyst",
+  "grants": ["report:read", "report:export"]
+}
+```
+
+**Response** `200`: the updated role, as for `GET`.
+
+**Errors:** `400` `RBAC_INVALID_ROLE`, `403` `RBAC_PERMISSION_DENIED` or `RBAC_GRANT_NOT_HELD`, `404` `RBAC_ROLE_NOT_FOUND`, `409` `RBAC_ROLE_SYSTEM` (defined in code), `422` `RBAC_LIMIT_EXCEEDED`.
+
+</details>
+
+<details>
+<summary><code>DELETE</code> <code>/rbac/roles/&#123;roleKey&#125;</code> — Delete an application-wide role <span className="badge badge--primary">Auth</span></summary>
+
+**Headers:** `Authorization: Bearer <access_token>`
+
+Requires `goauth.roles:write`. Deletes a custom role and takes it away from everyone who holds it.
+
+**Response** `200`:
+```json
+{
+  "data": null
+}
+```
+
+**Errors:** `403` `RBAC_PERMISSION_DENIED` or `RBAC_GRANT_NOT_HELD`, `404` `RBAC_ROLE_NOT_FOUND`, `409` `RBAC_ROLE_SYSTEM`.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/rbac/users/&#123;userId&#125;/roles</code> — Get a user's application-wide roles <span className="badge badge--primary">Auth</span></summary>
+
+**Headers:** `Authorization: Bearer <access_token>`
+
+Users may read their own roles. Reading someone else's requires `goauth.assignments:read`.
+
+**Response** `200`:
+```json
+{
+  "data": {
+    "user_id": "01961abc-...",
+    "scope": "global",
+    "roles": [
+      { "key": "analyst", "name": "Analyst", "scope": "global", "system": false, "implied": false }
+    ],
+    "permissions": ["report:*"]
+  }
+}
+```
+
+**Errors:** `403` `RBAC_PERMISSION_DENIED`, `404` `USER_NOT_FOUND`.
+
+</details>
+
+<details>
+<summary><code>PUT</code> <code>/rbac/users/&#123;userId&#125;/roles</code> — Set a user's application-wide roles <span className="badge badge--primary">Auth</span></summary>
+
+**Headers:** `Authorization: Bearer <access_token>`
+
+Requires `goauth.assignments:write`. `roles` becomes the complete list of roles assigned to the user application-wide; an empty list removes them all. Every role given or taken away must be within what the caller holds.
+
+**Request:**
+```json
+{
+  "roles": ["analyst"]
+}
+```
+
+**Response** `200`:
+```json
+{
+  "data": {
+    "user_id": "01961abc-...",
+    "scope": "global",
+    "roles": [
+      { "key": "analyst", "name": "Analyst", "scope": "global", "system": false, "implied": false }
+    ],
+    "permissions": ["report:*"]
+  }
+}
+```
+
+**Errors:** `400` (missing `roles`), `403` `RBAC_PERMISSION_DENIED`, `RBAC_GRANT_NOT_HELD` or `RBAC_ASSIGNMENT_REFUSED`, `404` `USER_NOT_FOUND` or `RBAC_ROLE_NOT_FOUND`, `409` `RBAC_ROLE_SYSTEM` (implied role), `422` `RBAC_LIMIT_EXCEEDED`.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/rbac/assignments</code> — List application-wide role assignments <span className="badge badge--primary">Auth</span></summary>
+
+**Headers:** `Authorization: Bearer <access_token>`
+
+Requires `goauth.assignments:read`.
+
+**Query parameters:** `offset`, `limit` (max 100), `sort_field` (`created_at`, `role_key`, `user_id`), `sort_dir`, `user_id`, `role`.
+
+**Response** `200`:
+```json
+{
+  "data": {
+    "list": [
+      {
+        "user_id": "01961abc-...",
+        "role": "analyst",
+        "scope": "global",
+        "granted_by": "01961xyz-...",
+        "created_at": "2025-01-01T00:00:00Z"
+      }
+    ],
+    "sort_field": "created_at",
+    "sort_dir": "desc",
+    "total": 1
+  }
+}
+```
+
+**Errors:** `403` `RBAC_PERMISSION_DENIED`.
+
+</details>
+
+### Organization roles
+
+The permission must be held in the organization named in the path. A user with an application-wide role that carries it, such as a super admin, is allowed in every organization.
+
+<details>
+<summary><code>GET</code> <code>/org/&#123;orgId&#125;/roles</code> — List an organization's roles <span className="badge badge--primary">Auth</span> <span className="badge badge--info">Org</span></summary>
+
+**Headers:** `Authorization: Bearer <access_token>`
+
+Requires `goauth.roles:read`. Lists the membership roles (`owner`, `admin`, `member`), the roles defined in code and the organization's custom roles.
+
+**Query parameters:** `offset`, `limit` (max 100), `sort_field` (`created_at`, `key`, `name`), `sort_dir`, `query`.
+
+**Response** `200`:
+```json
+{
+  "data": {
+    "list": [
+      {
+        "key": "admin",
+        "name": "Admin",
+        "description": "Organization members with the admin role.",
+        "grants": ["*", "goauth.assignments:read", "goauth.roles:read"],
+        "scope": "org",
+        "org_id": "01961def-...",
+        "system": true,
+        "implied": true
+      },
+      {
+        "key": "billing",
+        "name": "Billing",
+        "description": "Handles invoices",
+        "grants": ["invoice:*"],
+        "scope": "org",
+        "org_id": "01961def-...",
+        "system": false,
+        "implied": false,
+        "created_by": "01961abc-...",
+        "created_at": "2025-01-01T00:00:00Z",
+        "updated_at": "2025-01-01T00:00:00Z"
+      }
+    ],
+    "sort_field": "key",
+    "sort_dir": "asc",
+    "total": 4
+  }
+}
+```
+
+The example shows two of the four roles, as returned for `sort_field=key&sort_dir=asc`.
+
+**Errors:** `403` `RBAC_PERMISSION_DENIED`, `404` `ORG_NOT_FOUND`.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/org/&#123;orgId&#125;/roles</code> — Create a role in an organization <span className="badge badge--primary">Auth</span> <span className="badge badge--info">Org</span></summary>
+
+**Headers:** `Authorization: Bearer <access_token>`
+
+Requires `goauth.roles:write`. Every grant must be within what the caller holds in the organization. The role exists in this organization only.
+
+**Request:**
+```json
+{
+  "key": "billing",
+  "name": "Billing",
+  "description": "Handles invoices",
+  "grants": ["invoice:*"]
+}
+```
+
+**Response** `201`:
+```json
+{
+  "data": {
+    "key": "billing",
+    "name": "Billing",
+    "description": "Handles invoices",
+    "grants": ["invoice:*"],
+    "scope": "org",
+    "org_id": "01961def-...",
+    "system": false,
+    "implied": false,
+    "created_by": "01961abc-...",
+    "created_at": "2025-01-01T00:00:00Z",
+    "updated_at": "2025-01-01T00:00:00Z"
+  }
+}
+```
+
+**Errors:** `400` `RBAC_INVALID_ROLE`, `403` `RBAC_PERMISSION_DENIED` or `RBAC_GRANT_NOT_HELD`, `404` `ORG_NOT_FOUND`, `409` `RBAC_ROLE_EXISTS` or `RBAC_ROLE_SYSTEM` (`owner`, `admin`, `member` and `super_admin` are reserved), `422` `RBAC_LIMIT_EXCEEDED`.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/org/&#123;orgId&#125;/roles/&#123;roleKey&#125;</code> — Get a role of an organization <span className="badge badge--primary">Auth</span> <span className="badge badge--info">Org</span></summary>
+
+**Headers:** `Authorization: Bearer <access_token>`
+
+Requires `goauth.roles:read`.
+
+**Response** `200`:
+```json
+{
+  "data": {
+    "key": "billing",
+    "name": "Billing",
+    "description": "Handles invoices",
+    "grants": ["invoice:*"],
+    "scope": "org",
+    "org_id": "01961def-...",
+    "system": false,
+    "implied": false,
+    "created_by": "01961abc-...",
+    "created_at": "2025-01-01T00:00:00Z",
+    "updated_at": "2025-01-01T00:00:00Z"
+  }
+}
+```
+
+**Errors:** `403` `RBAC_PERMISSION_DENIED`, `404` `ORG_NOT_FOUND` or `RBAC_ROLE_NOT_FOUND`.
+
+</details>
+
+<details>
+<summary><code>PUT</code> <code>/org/&#123;orgId&#125;/roles/&#123;roleKey&#125;</code> — Update a role of an organization <span className="badge badge--primary">Auth</span> <span className="badge badge--info">Org</span></summary>
+
+**Headers:** `Authorization: Bearer <access_token>`
+
+Requires `goauth.roles:write`. At least one field must be provided; fields left out are kept. Both the role's current grants and the new ones must be within what the caller holds.
+
+**Request:**
+```json
+{
+  "grants": ["invoice:read", "invoice:approve"]
+}
+```
+
+**Response** `200`: the updated role, as for `GET`.
+
+**Errors:** `400` `RBAC_INVALID_ROLE`, `403` `RBAC_PERMISSION_DENIED` or `RBAC_GRANT_NOT_HELD`, `404` `ORG_NOT_FOUND` or `RBAC_ROLE_NOT_FOUND`, `409` `RBAC_ROLE_SYSTEM`, `422` `RBAC_LIMIT_EXCEEDED`.
+
+</details>
+
+<details>
+<summary><code>DELETE</code> <code>/org/&#123;orgId&#125;/roles/&#123;roleKey&#125;</code> — Delete a role of an organization <span className="badge badge--primary">Auth</span> <span className="badge badge--info">Org</span></summary>
+
+**Headers:** `Authorization: Bearer <access_token>`
+
+Requires `goauth.roles:write`. Deletes a custom role and takes it away from every member who holds it.
+
+**Response** `200`:
+```json
+{
+  "data": null
+}
+```
+
+**Errors:** `403` `RBAC_PERMISSION_DENIED` or `RBAC_GRANT_NOT_HELD`, `404` `ORG_NOT_FOUND` or `RBAC_ROLE_NOT_FOUND`, `409` `RBAC_ROLE_SYSTEM`.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/org/&#123;orgId&#125;/members/&#123;userId&#125;/roles</code> — Get a member's roles in an organization <span className="badge badge--primary">Auth</span> <span className="badge badge--info">Org</span></summary>
+
+**Headers:** `Authorization: Bearer <access_token>`
+
+Members may read their own roles. Reading someone else's requires `goauth.assignments:read`. The list holds the membership role, the roles assigned in the organization and any application-wide roles, which apply inside every organization.
+
+**Response** `200`:
+```json
+{
+  "data": {
+    "user_id": "01961abc-...",
+    "scope": "org",
+    "org_id": "01961def-...",
+    "roles": [
+      { "key": "member", "name": "Member", "scope": "org", "system": true, "implied": true },
+      { "key": "billing", "name": "Billing", "scope": "org", "system": false, "implied": false }
+    ],
+    "permissions": ["invoice:*"]
+  }
+}
+```
+
+**Errors:** `403` `RBAC_PERMISSION_DENIED`, `404` `ORG_NOT_FOUND` or `ORG_MEMBER_NOT_FOUND`.
+
+</details>
+
+<details>
+<summary><code>PUT</code> <code>/org/&#123;orgId&#125;/members/&#123;userId&#125;/roles</code> — Set a member's roles in an organization <span className="badge badge--primary">Auth</span> <span className="badge badge--info">Org</span></summary>
+
+**Headers:** `Authorization: Bearer <access_token>`
+
+Requires `goauth.assignments:write`. `roles` becomes the complete list of roles assigned to the member in the organization; an empty list removes them all. The membership role is not part of the list: change it with `PUT /org/&#123;orgId&#125;/members/&#123;userId&#125;`. The roles end when the membership does.
+
+**Request:**
+```json
+{
+  "roles": ["billing"]
+}
+```
+
+**Response** `200`:
+```json
+{
+  "data": {
+    "user_id": "01961abc-...",
+    "scope": "org",
+    "org_id": "01961def-...",
+    "roles": [
+      { "key": "member", "name": "Member", "scope": "org", "system": true, "implied": true },
+      { "key": "billing", "name": "Billing", "scope": "org", "system": false, "implied": false }
+    ],
+    "permissions": ["invoice:*"]
+  }
+}
+```
+
+**Errors:** `400` (missing `roles`), `403` `RBAC_PERMISSION_DENIED`, `RBAC_GRANT_NOT_HELD` or `RBAC_ASSIGNMENT_REFUSED`, `404` `ORG_NOT_FOUND`, `ORG_MEMBER_NOT_FOUND` or `RBAC_ROLE_NOT_FOUND`, `409` `RBAC_ROLE_SYSTEM` (membership role), `422` `RBAC_LIMIT_EXCEEDED`.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/org/&#123;orgId&#125;/role-assignments</code> — List role assignments in an organization <span className="badge badge--primary">Auth</span> <span className="badge badge--info">Org</span></summary>
+
+**Headers:** `Authorization: Bearer <access_token>`
+
+Requires `goauth.assignments:read`. Membership roles are not assignments and are not listed.
+
+**Query parameters:** `offset`, `limit` (max 100), `sort_field` (`created_at`, `role_key`, `user_id`), `sort_dir`, `user_id`, `role`.
+
+**Response** `200`:
+```json
+{
+  "data": {
+    "list": [
+      {
+        "user_id": "01961abc-...",
+        "role": "billing",
+        "scope": "org",
+        "org_id": "01961def-...",
+        "granted_by": "01961xyz-...",
+        "created_at": "2025-01-01T00:00:00Z"
+      }
+    ],
+    "sort_field": "created_at",
+    "sort_dir": "desc",
+    "total": 1
+  }
+}
+```
+
+**Errors:** `403` `RBAC_PERMISSION_DENIED`, `404` `ORG_NOT_FOUND`.
+
+</details>
+
+---
+
 ## Public Signing Keys
 
 <details>

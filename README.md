@@ -135,6 +135,7 @@ Pick what you need. Each one brings its own routes, tables, and OpenAPI docs.
 | **Identity Provider** | OpenID Connect provider: other applications sign users in with your accounts ("Sign in with your app"). | Experimental |
 | **Passkeys** | WebAuthn login with Touch ID, Face ID, Windows Hello, or security keys. | Experimental |
 | **Organization** | Multi-tenant orgs with members, roles, invitations, and org switching. | Experimental |
+| **RBAC** | Roles and permission checks for your own routes and services, application-wide or per organization. | Experimental |
 | **Invitation** | Invite-only signups for apps without organizations. | Experimental |
 | **Admin** | User management endpoints behind admin middleware. | Experimental |
 | **Audit** | A security event trail covering logins, password changes, and more. | Stable |

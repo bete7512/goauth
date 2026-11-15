@@ -212,6 +212,39 @@ Notes for contributors:
 
 ---
 
+## RBAC Module
+
+Role-based access control for the host application's own routes and services: roles, who holds them, and the checks made against them. Depends on Core, and on the Organization module when `Organizations` is on.
+
+```go
+import "github.com/bete7512/goauth/pkg/modules/rbac"
+
+authz := rbac.New(&rbac.Config{
+    Organizations: true, // roles inside organizations; needs organization.New(...)
+    Roles: []rbac.Role{
+        {Key: "viewer", Grants: []string{"*:read"}},
+    },
+})
+a.Use(authz)
+
+mux.Handle("/invoices/", a.RequireAuth(authz.Resource("invoice")(invoices)))
+mux.Handle("POST /invoices/{id}/approve", a.RequireAuth(authz.Require("invoice:approve")(approve)))
+```
+
+Provides: own permissions (`/me/permissions`), the permission catalog (`/rbac/permissions`), application-wide roles (`/rbac/roles`, `/rbac/roles/{roleKey}`), user roles (`/rbac/users/{userId}/roles`), assignments (`/rbac/assignments`), and with `Organizations` the same per organization (`/org/{orgId}/roles`, `/org/{orgId}/roles/{roleKey}`, `/org/{orgId}/members/{userId}/roles`, `/org/{orgId}/role-assignments`).
+
+Notes for contributors:
+- The permission grammar, grant matching and the "covers" check live in `access/`, which has no dependencies. `services/` resolves what a user holds; the module root holds the public API (`Require`, `Resource`, `Can`, `Check`, `For`) and its options.
+- GoAuth's own permissions are in the reserved `goauth.` namespace, which a bare `*` never matches. Host permissions cannot use it.
+- Roles defined in code are kept in memory; assignments name a role by key, so `rbac_role_assignments` has no foreign key to `rbac_roles`.
+- `owner`, `admin`, `member` (organization scope) and `super_admin` are implied by membership and by `User.IsSuperAdmin`. They are never read from an assignment row. `organization_members.role` is only read.
+- An organization assignment stores the membership row it was made for (`membership_id`) and counts only while that row exists, so rejoining an organization does not revive old roles. Event-driven cleanup is housekeeping only.
+- Services take an `*Actor`. A nil actor is the host's own code and is trusted; with an actor, the permission is checked and every grant touched must be covered by the actor's own grants.
+- Nothing is cached across requests. `services.WithMemo` remembers a holding for one request and every write resets it.
+- A service or callback error is never turned into a denial: lookups that fail answer 500, and callbacks that panic refuse.
+
+---
+
 ## Magic Link Module
 
 Passwordless authentication via email.

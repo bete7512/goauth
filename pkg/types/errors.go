@@ -148,6 +148,17 @@ const (
 	ErrInvitationExists        ErrorCode = "INVITATION_ALREADY_EXISTS"
 	ErrInvitationEmailMismatch ErrorCode = "INVITATION_EMAIL_MISMATCH"
 
+	// RBAC errors
+	ErrRBACPermissionDenied  ErrorCode = "RBAC_PERMISSION_DENIED"
+	ErrRBACRoleNotFound      ErrorCode = "RBAC_ROLE_NOT_FOUND"
+	ErrRBACRoleExists        ErrorCode = "RBAC_ROLE_EXISTS"
+	ErrRBACRoleSystem        ErrorCode = "RBAC_ROLE_SYSTEM"
+	ErrRBACInvalidRole       ErrorCode = "RBAC_INVALID_ROLE"
+	ErrRBACGrantNotHeld      ErrorCode = "RBAC_GRANT_NOT_HELD"
+	ErrRBACLimitExceeded     ErrorCode = "RBAC_LIMIT_EXCEEDED"
+	ErrRBACScopeUnavailable  ErrorCode = "RBAC_SCOPE_UNAVAILABLE"
+	ErrRBACAssignmentRefused ErrorCode = "RBAC_ASSIGNMENT_REFUSED"
+
 	// unknown error
 	ErrUnknown ErrorCode = "UNKNOWN_ERROR"
 
@@ -1068,5 +1079,109 @@ func NewIDPGrantNotFoundError() *GoAuthError {
 		Code:       ErrIDPGrantNotFound,
 		Message:    "Connected application not found",
 		StatusCode: http.StatusNotFound,
+	}
+}
+
+// RBAC error factory functions
+
+// NewRBACPermissionDeniedError returns the RBAC_PERMISSION_DENIED error
+// (HTTP 403). message says which permission is missing, or why a callback
+// refused the request.
+func NewRBACPermissionDeniedError(message string) *GoAuthError {
+	if message == "" {
+		message = "You do not have permission to do this"
+	}
+	return &GoAuthError{
+		Code:       ErrRBACPermissionDenied,
+		Message:    message,
+		StatusCode: http.StatusForbidden,
+	}
+}
+
+// NewRBACRoleNotFoundError returns the RBAC_ROLE_NOT_FOUND error (HTTP 404):
+// no role with that key exists in the scope.
+func NewRBACRoleNotFoundError() *GoAuthError {
+	return &GoAuthError{
+		Code:       ErrRBACRoleNotFound,
+		Message:    "Role not found",
+		StatusCode: http.StatusNotFound,
+	}
+}
+
+// NewRBACRoleExistsError returns the RBAC_ROLE_EXISTS error (HTTP 409): the
+// scope already has a role with that key.
+func NewRBACRoleExistsError() *GoAuthError {
+	return &GoAuthError{
+		Code:       ErrRBACRoleExists,
+		Message:    "A role with this key already exists",
+		StatusCode: http.StatusConflict,
+	}
+}
+
+// NewRBACRoleSystemError returns the RBAC_ROLE_SYSTEM error (HTTP 409): the
+// role is defined in code or implied by membership, so it cannot be changed,
+// deleted or assigned through the API. message says which.
+func NewRBACRoleSystemError(message string) *GoAuthError {
+	return &GoAuthError{
+		Code:       ErrRBACRoleSystem,
+		Message:    message,
+		StatusCode: http.StatusConflict,
+	}
+}
+
+// NewRBACInvalidRoleError returns the RBAC_INVALID_ROLE error (HTTP 400): the
+// submitted role key, name or grants are not acceptable. message says why.
+func NewRBACInvalidRoleError(message string) *GoAuthError {
+	return &GoAuthError{
+		Code:       ErrRBACInvalidRole,
+		Message:    message,
+		StatusCode: http.StatusBadRequest,
+	}
+}
+
+// NewRBACGrantNotHeldError returns the RBAC_GRANT_NOT_HELD error (HTTP 403):
+// the caller tried to create, change or hand out a role that allows more
+// than the caller holds. grant is the first grant the caller lacks.
+func NewRBACGrantNotHeldError(grant string) *GoAuthError {
+	return &GoAuthError{
+		Code:       ErrRBACGrantNotHeld,
+		Message:    "You cannot manage a role that grants more than you hold: " + grant,
+		StatusCode: http.StatusForbidden,
+	}
+}
+
+// NewRBACLimitExceededError returns the RBAC_LIMIT_EXCEEDED error (HTTP 422):
+// a configured limit on roles, grants or assignments was reached. message
+// says which.
+func NewRBACLimitExceededError(message string) *GoAuthError {
+	return &GoAuthError{
+		Code:       ErrRBACLimitExceeded,
+		Message:    message,
+		StatusCode: http.StatusUnprocessableEntity,
+	}
+}
+
+// NewRBACScopeUnavailableError returns the RBAC_SCOPE_UNAVAILABLE error
+// (HTTP 400): the check or assignment named a scope the module is not
+// configured for, such as an organization when Organizations is off.
+func NewRBACScopeUnavailableError(message string) *GoAuthError {
+	return &GoAuthError{
+		Code:       ErrRBACScopeUnavailable,
+		Message:    message,
+		StatusCode: http.StatusBadRequest,
+	}
+}
+
+// NewRBACAssignmentRefusedError returns the RBAC_ASSIGNMENT_REFUSED error
+// (HTTP 403): a subscriber to the before-assign event refused the change.
+// message is the subscriber's reason.
+func NewRBACAssignmentRefusedError(message string) *GoAuthError {
+	if message == "" {
+		message = "The role assignment was refused"
+	}
+	return &GoAuthError{
+		Code:       ErrRBACAssignmentRefused,
+		Message:    message,
+		StatusCode: http.StatusForbidden,
 	}
 }
