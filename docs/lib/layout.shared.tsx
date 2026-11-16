@@ -5,10 +5,13 @@ export function baseOptions(): BaseLayoutProps {
   return {
     nav: {
       title: (
-        <>
+        <span className="brand-wordmark inline-flex items-center gap-2 text-[17px]">
           <img src="/logo.svg" alt="" width={26} height={26} />
-          {appName}
-        </>
+          <span>
+            {appName}
+            <span className="brand-wordmark-dot">.</span>
+          </span>
+        </span>
       ),
     },
     githubUrl: repositoryUrl,

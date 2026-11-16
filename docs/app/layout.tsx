@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { RootProvider } from "fumadocs-ui/provider/next";
 import { siteTitle, siteDescription, siteUrl } from "@/lib/shared";
+import "@fontsource-variable/manrope";
+import "@fontsource/ibm-plex-mono/latin-400.css";
 import "./global.css";
 
 export const metadata: Metadata = {

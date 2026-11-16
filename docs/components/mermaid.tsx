@@ -6,9 +6,9 @@ export function Mermaid({ chart }: { chart: string }) {
   const id = `diagram-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
   // A light canvas preserves the explicit pastel fills in the original diagrams.
   let svg = renderMermaidSVG(chart, {
-    font: "system-ui",
-    bg: "#fafaf9",
-    fg: "#27272a",
+    font: "Manrope Variable, system-ui, sans-serif",
+    bg: "#fffefa",
+    fg: "#232923",
   });
   // Inline SVG styles and marker IDs must be scoped to this diagram.
   svg = svg

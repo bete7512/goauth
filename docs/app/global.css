@@ -2,6 +2,97 @@
 @import "fumadocs-ui/css/neutral.css";
 @import "fumadocs-ui/css/preset.css";
 
+/* Brand theme: the docs use the landing page's palette and fonts
+   (app/(landing)/landing.css). Keep the two in step. */
+:root {
+  --brand-paper: #f8f7f3;
+  --brand-panel: #fffefa;
+  --brand-ink: #232923;
+  --brand-muted: #62665e;
+  --brand-line: #dedfd6;
+  --brand-accent: #bd4325;
+  --brand-accent-soft: #f4e7de;
+  --font-brand: "Manrope Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-brand-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  --color-fd-background: var(--brand-paper);
+  --color-fd-foreground: var(--brand-ink);
+  --color-fd-muted: #efeee8;
+  --color-fd-muted-foreground: var(--brand-muted);
+  --color-fd-popover: var(--brand-panel);
+  --color-fd-popover-foreground: var(--brand-ink);
+  --color-fd-card: var(--brand-panel);
+  --color-fd-card-foreground: var(--brand-ink);
+  --color-fd-border: var(--brand-line);
+  --color-fd-primary: var(--brand-accent);
+  --color-fd-primary-foreground: var(--brand-paper);
+  --color-fd-secondary: #efeee8;
+  --color-fd-secondary-foreground: var(--brand-ink);
+  --color-fd-accent: var(--brand-accent-soft);
+  --color-fd-accent-foreground: var(--brand-ink);
+  --color-fd-ring: var(--brand-accent);
+}
+.dark {
+  --brand-paper: #191d19;
+  --brand-panel: #222820;
+  --brand-ink: #f0f0e8;
+  --brand-muted: #adb3a7;
+  --brand-line: #363d33;
+  --brand-accent: #f29370;
+  --brand-accent-soft: #392b23;
+
+  --color-fd-background: var(--brand-paper);
+  --color-fd-foreground: var(--brand-ink);
+  --color-fd-muted: #20251f;
+  --color-fd-muted-foreground: var(--brand-muted);
+  --color-fd-popover: var(--brand-panel);
+  --color-fd-popover-foreground: var(--brand-ink);
+  --color-fd-card: var(--brand-panel);
+  --color-fd-card-foreground: var(--brand-ink);
+  --color-fd-border: var(--brand-line);
+  --color-fd-primary: var(--brand-accent);
+  --color-fd-primary-foreground: #211d18;
+  --color-fd-secondary: #262c25;
+  --color-fd-secondary-foreground: var(--brand-ink);
+  --color-fd-accent: var(--brand-accent-soft);
+  --color-fd-accent-foreground: var(--brand-ink);
+  --color-fd-ring: var(--brand-accent);
+}
+.dark #nd-sidebar {
+  --color-fd-muted: #20251f;
+  --color-fd-secondary: #262c25;
+  --color-fd-muted-foreground: var(--brand-muted);
+}
+
+body {
+  font-family: var(--font-brand);
+}
+code,
+kbd,
+pre,
+samp {
+  font-family: var(--font-brand-mono);
+}
+/* Headings follow the landing page: heavy weight, tight tracking. */
+:where(h1) {
+  font-weight: 800;
+  letter-spacing: -0.035em;
+}
+:where(h2, h3, h4) {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.brand-wordmark {
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+.brand-wordmark-dot {
+  color: var(--brand-accent);
+}
+.mermaid-canvas {
+  background: #fffefa; /* diagrams keep a light canvas in both themes */
+}
+
 html {
   scrollbar-gutter: stable;
 }
@@ -15,7 +106,6 @@ html {
 }
 .mermaid-canvas {
   overflow-x: auto;
-  background: #fafaf9;
 }
 .mermaid-canvas svg {
   display: block;
