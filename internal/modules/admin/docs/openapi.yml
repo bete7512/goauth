@@ -227,6 +227,17 @@ components:
           type: boolean
         is_super_admin:
           type: boolean
+        banned_at:
+          type: string
+          format: date-time
+          description: When an administrator banned the user; absent when not banned
+        banned_until:
+          type: string
+          format: date-time
+          description: When the ban ends by itself; absent for a ban that lasts until lifted
+        ban_reason:
+          type: string
+          description: The administrators' note on why; not shown to the user
         created_at:
           type: string
           format: date-time

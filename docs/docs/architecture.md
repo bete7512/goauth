@@ -97,6 +97,8 @@ graph TD
     Core --> Organization["Organizations"]
     Core --> RBAC["RBAC: roles and permission checks"]
     Organization -.->|organization roles, when enabled| RBAC
+    Organization --> Team["Team: nested teams"]
+    Team -.->|team roles, when enabled| RBAC
     Core --> UI["UI: server-rendered console"]
     Audit -.->|audit log page| UI
     RBAC -.->|roles page| UI
@@ -167,6 +169,7 @@ graph TD
     S --> Passkeys["Passkeys: WebAuthn credentials"]
     S --> Organization["Organization: orgs, members, invitations"]
     S --> RBAC["RBAC: custom roles and role assignments"]
+    S --> Team["Team: teams and team members"]
     S --> Invitation["Invitation: platform invitations"]
     S --> Audit["AuditLog: audit records"]
     S --> Tx["TransactionalStorage: one transaction across stores"]

@@ -231,7 +231,7 @@ mux.Handle("/invoices/", a.RequireAuth(authz.Resource("invoice")(invoices)))
 mux.Handle("POST /invoices/{id}/approve", a.RequireAuth(authz.Require("invoice:approve")(approve)))
 ```
 
-Provides: own permissions (`/me/permissions`), the permission catalog (`/rbac/permissions`), application-wide roles (`/rbac/roles`, `/rbac/roles/{roleKey}`), user roles (`/rbac/users/{userId}/roles`), assignments (`/rbac/assignments`), and with `Organizations` the same per organization (`/org/{orgId}/roles`, `/org/{orgId}/roles/{roleKey}`, `/org/{orgId}/members/{userId}/roles`, `/org/{orgId}/role-assignments`).
+Provides: own permissions (`/me/permissions`), the permission catalog (`/rbac/permissions`), application-wide roles (`/rbac/roles`, `/rbac/roles/{roleKey}`), user roles (`/rbac/users/{userId}/roles`), assignments (`/rbac/assignments`), with `Organizations` the same per organization (`/org/{orgId}/roles`, `/org/{orgId}/roles/{roleKey}`, `/org/{orgId}/members/{userId}/roles`, `/org/{orgId}/role-assignments`), and with `Teams` per team (`/org/{orgId}/teams/{teamId}/roles`, `/org/{orgId}/teams/{teamId}/members/{userId}/roles`, `/org/{orgId}/teams/{teamId}/role-assignments`).
 
 Notes for contributors:
 - The permission grammar, grant matching and the "covers" check live in `access/`, which has no dependencies. `services/` resolves what a user holds; the module root holds the public API (`Require`, `Resource`, `Can`, `Check`, `For`) and its options.
@@ -240,8 +240,32 @@ Notes for contributors:
 - `owner`, `admin`, `member` (organization scope) and `super_admin` are implied by membership and by `User.IsSuperAdmin`. They are never read from an assignment row. `organization_members.role` is only read.
 - An organization assignment stores the membership row it was made for (`membership_id`) and counts only while that row exists, so rejoining an organization does not revive old roles. Event-driven cleanup is housekeeping only.
 - Services take an `*Actor`. A nil actor is the host's own code and is trusted; with an actor, the permission is checked and every grant touched must be covered by the actor's own grants.
+- The team scope (`access.ScopeTeam`) counts roles on the team and every team above it (the stored path), the organization's roles and application-wide roles. A team assignment stores the organization membership it was made for. `Scope.Org` is filled in by the services from the team; callers leave it empty, and a path organization that is not the team's makes the team not found.
 - Nothing is cached across requests. `services.WithMemo` remembers a holding for one request and every write resets it.
 - A service or callback error is never turned into a denial: lookups that fail answer 500, and callbacks that panic refuse.
+
+---
+
+## Team Module
+
+Nested teams inside organizations (experimental). Depends on Core and Organization.
+
+```go
+import "github.com/bete7512/goauth/pkg/modules/team"
+
+a.Use(organization.New(nil))
+a.Use(team.New(&team.Config{MaxTeams: 500}))
+// Roles inside teams:
+a.Use(rbac.New(&rbac.Config{Organizations: true, Teams: true}))
+```
+
+Provides: `/org/{orgId}/teams` (GET list or `?tree=true`, POST create), `/org/{orgId}/teams/{teamId}` (GET, PUT, DELETE), `/org/{orgId}/teams/{teamId}/move` (POST), `/org/{orgId}/teams/{teamId}/members` (GET, POST), `/org/{orgId}/teams/{teamId}/members/{userId}` (PUT, DELETE).
+
+Notes for contributors:
+- Layout: `services/` (rules and storage use), `handlers/` (JSON API), module root (hooks, `ServiceOf` for the ui module). Storage: `types.TeamStorage` (`storage/gorm/team`), tables `teams` and `team_members`.
+- A team stores its path (`/<id>/<id>/`), so a sub-tree is a prefix match; `TeamRepository.Move` rewrites the paths beneath in one transaction and refuses a stale move. Depth is capped at `models.MaxTeamDepth` (5).
+- Who manages what is by rank (organization owner/admin, team lead of the team or one above), not rbac permissions. `TeamService.CanManage` is the one rule.
+- A team membership stores the organization membership it was made for (`membership_id`) and counts only while that row exists. Hooks on `org.member.removed`, `org.deleted` and `admin.user.deleted` clean up, as housekeeping.
 
 ---
 
@@ -255,9 +279,9 @@ import "github.com/bete7512/goauth/pkg/modules/ui"
 a.Use(ui.New(&ui.Config{Path: "/admin", UserPages: true, Title: "Acme"}))
 ```
 
-Areas: users (with Profile, Security, Access and Activity tabs), organizations, invitations, roles, permissions, OIDC clients, audit log, settings. Areas whose module is missing stay in the sidebar, disabled, with a hint naming the module.
+Areas: overview with 30-day charts, users (Profile, Security, Access and Activity tabs; bans; bulk actions; CSV export), organizations (members, invitations with send and CSV import, teams, roles), teams, platform invitations (with CSV import), roles, permissions, OIDC clients, audit log (with CSV export), settings, and your own account page. Areas whose module is missing stay in the sidebar, disabled, with a hint naming the module.
 
-Provides, relative to the console root (`BasePath + "/ui"`, or `Path` as absolute routes): the overview at the root, `/login`, `/login/2fa`, `/logout`, `/account` (with `UserPages`), `/users/...`, `/orgs/...`, `/invitations/...`, `/roles/...`, `/permissions`, `/clients/...`, `/audit[/cleanup]`, `/settings`, `/assets/{file}` (67 routes; see `module.go`).
+Provides, relative to the console root (`BasePath + "/ui"`, or `Path` as absolute routes): the overview at the root, `/login`, `/login/2fa`, `/login/done`, `/login/code[/verify]`, `/login/passkey/begin|finish`, `/logout`, `/account/...` (always for admins, for everyone with `UserPages`), `/users/...`, `/orgs/...` (including `/orgs/{orgId}/teams/...`), `/teams`, `/invitations/...`, `/roles/...`, `/permissions`, `/clients/...`, `/audit[/cleanup|/export.csv]`, `/settings`, `/assets/{file}` (see `module.go`).
 
 Notes for contributors:
 - Operations live in the owning module, never in the console: the admin service (users and their sign-in methods), the organization module's `AdminService`, the invitation service's `AdminList`/`AdminCancel`, the IdP service's `Admin*` methods, rbac's services. Each checks for a super admin itself. The console reaches them through internal-only accessors (`organization.AdminServiceOf`, `invitation.ServiceOf`, `idp.ServiceOf`, `core.ServiceOf`, `audit.Service`, `rbac.ServicesOf`).

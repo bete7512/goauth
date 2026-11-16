@@ -92,6 +92,8 @@ All paths are relative to `BasePath`.
 5. Account lookup, link or create runs with transaction-bound Core and account stores.
 6. The common completer checks eligibility and additional-factor policy, then issues the selected grant. A pending challenge returns JSON `data.challenges`; otherwise the response is a redirect with tokens in the fragment, a cookie-only redirect in cookie auth mode, or JSON when no redirect URL is set.
 
+**A local path is a first-party page.** When `redirect_uri` is a path on this server, such as `/admin/login/done?next=%2Fadmin` (the [admin console](./ui) uses this), the callback sets the credential cookies and redirects there with no tokens in the URL, whatever the auth mode. The path must start with a single `/` and contain no `//`, backslash, dot segments or fragment. If the sign-in still needs another factor, no credentials are set and the page receives `error=challenge_required`; when the auth mode does not allow cookies, it receives `error=cookies_disabled`. Absolute URLs behave as before.
+
 A response without `RelayState` is IdP-initiated. It is rejected unless the connection sets `AllowIDPInitiated`; such logins have no browser binding and rely solely on the assertion's validity window, so keep it off unless the IdP needs it.
 
 ## Identity Resolution

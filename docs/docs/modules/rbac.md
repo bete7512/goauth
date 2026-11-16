@@ -159,6 +159,45 @@ When the resolver returns a `*types.GoAuthError` that carries an HTTP status it 
 
 Organization roles end with the membership. Each assignment records the membership it was made for, so a user who leaves an organization and joins it again starts without the roles held before.
 
+## Teams
+
+With `Teams: true` (which needs `Organizations` and the [team module](./team)), roles can be held inside teams:
+
+```go
+authz := rbac.New(&rbac.Config{Organizations: true, Teams: true, Roles: []rbac.Role{
+    {Key: "editor", Grants: []string{"project:*"}},
+}})
+```
+
+- **Roles flow down.** A role held on a team applies to that team and every team beneath it, never above or beside.
+- **The organization's roles apply in its teams**, and so do application-wide roles.
+- **Implied team roles.** A lead of the team, or of any team above it, holds the built-in `lead` role there, which grants every permission of the application's own (`*`), like an organization admin. A plain member of the team holds `member`, which grants nothing. A role defined in code with key `lead` or `member` and `Scope: rbac.ScopeTeam` replaces what it grants.
+- **Teams use the organization's roles.** Custom roles are created per organization and assigned in its teams; roles defined in code with no scope apply to teams too, and `Scope: rbac.ScopeTeam` limits a role to teams. Creating or changing roles in a team scope is refused.
+- **Team roles end with the organization membership**, like organization roles.
+
+| Option | The check runs |
+| --- | --- |
+| `rbac.InTeam(teamID)` | In that team |
+| `rbac.TeamParam("teamId")` | In the team named by a path parameter (routes only) |
+| `rbac.TeamFrom(fn)` | In the team `fn` returns, usually the one that owns the resource (routes only); errors as for `OrgFrom` |
+
+```go
+mux.Handle("DELETE /teams/{teamId}/projects/{id}",
+    a.RequireAuth(authz.Require("project:delete", rbac.TeamParam("teamId"))(deleteProject)))
+```
+
+A team that does not exist grants nothing beyond application-wide roles.
+
+For routes that list team resources, `TeamsWhere` says where the caller may act:
+
+```go
+ids, all, err := authz.TeamsWhere(ctx, orgID, "project:read")
+// all: the permission holds in the whole organization; otherwise only in ids.
+ids, all, err = authz.For(userID).TeamsWhere(ctx, orgID, "project:read")
+```
+
+Each team in `ids` is checked as `InTeam` would, so `AllowIf`-style rules attached to a route are not part of it, but `Decide` is.
+
 ## Callbacks
 
 ```go
@@ -184,7 +223,8 @@ Rules attached this way are code. They do not appear in `/me/permissions` or in 
 | Field | Effective behavior |
 | --- | --- |
 | `Organizations` | Turn on roles inside organizations. Requires the `organization` module. Default off |
-| `Roles` | Roles defined in code. A role keyed `owner`, `admin` or `member` that applies to organizations replaces that membership role's grants |
+| `Teams` | Turn on roles inside teams. Requires `Organizations` and the `team` module. Default off |
+| `Roles` | Roles defined in code. A role keyed `owner`, `admin` or `member` that applies to organizations replaces that membership role's grants; a role keyed `lead` or `member` with `ScopeTeam` replaces that team role's grants |
 | `Permissions`, `Strict` | A fixed catalog. With `Strict`, a permission that is not listed panics when a route is wired and is refused when checked from code |
 | `Decide` | Callback that sees every decision and may keep, allow or deny it |
 | `OnDeny` | Callback that writes the response for a refused request |
@@ -197,7 +237,7 @@ Without `Strict`, any well-formed permission is accepted, so a typo such as `inv
 
 ## Endpoints
 
-All paths are relative to `BasePath` and require authentication. The `/org/{orgId}/...` routes exist only with `Organizations: true`.
+All paths are relative to `BasePath` and require authentication. The `/org/{orgId}/...` routes exist only with `Organizations: true`, and the `/org/{orgId}/teams/{teamId}/...` routes only with `Teams: true`.
 
 | Method | Path | Needs | Description |
 | --- | --- | --- | --- |
@@ -219,8 +259,12 @@ All paths are relative to `BasePath` and require authentication. The `/org/{orgI
 | GET | `/org/{orgId}/members/{userId}/roles` | Self, or `goauth.assignments:read` | A member's roles |
 | PUT | `/org/{orgId}/members/{userId}/roles` | `goauth.assignments:write` | Set a member's roles |
 | GET | `/org/{orgId}/role-assignments` | `goauth.assignments:read` | List an organization's assignments |
+| GET | `/org/{orgId}/teams/{teamId}/roles` | `goauth.roles:read` | Roles assignable in a team |
+| GET | `/org/{orgId}/teams/{teamId}/members/{userId}/roles` | Self, or `goauth.assignments:read` | A user's roles in a team |
+| PUT | `/org/{orgId}/teams/{teamId}/members/{userId}/roles` | `goauth.assignments:write` | Set a user's roles in a team |
+| GET | `/org/{orgId}/teams/{teamId}/role-assignments` | `goauth.assignments:read` | List a team's assignments |
 
-The permission must be held in the scope being managed: in the organization for the `/org/...` routes, application-wide for the others. Role and assignment lists accept `offset`, `limit`, `sort_field` and `sort_dir`. Roles sort by `created_at`, `key` or `name`; assignments by `created_at`, `role_key` or `user_id`.
+The permission must be held in the scope being managed: in the team for the team routes, in the organization for the other `/org/...` routes, application-wide for the rest. A team named under another organization's path is not found. Role and assignment lists accept `offset`, `limit`, `sort_field` and `sort_dir`. Roles sort by `created_at`, `key` or `name`; assignments by `created_at`, `role_key` or `user_id`.
 
 **Nobody manages more than they hold.** Creating, changing or deleting a role, and giving or taking one away, requires that every grant of that role is within the caller's own grants. A delegate who holds `goauth.roles:write` and `invoice:read` can create a role with `invoice:read` but not one with `invoice:*`.
 
@@ -258,7 +302,7 @@ The module removes assignments when an administrator deletes a user, when a memb
 | `RBAC_INVALID_ROLE` | 400 | Malformed key, name or grant |
 | `RBAC_GRANT_NOT_HELD` | 403 | The role grants more than the caller holds |
 | `RBAC_LIMIT_EXCEEDED` | 422 | A limit on roles, grants or assignments was reached |
-| `RBAC_SCOPE_UNAVAILABLE` | 400 | The scope is not available, such as an organization when `Organizations` is off |
+| `RBAC_SCOPE_UNAVAILABLE` | 400 | The scope is not available, such as an organization when `Organizations` is off, a team when `Teams` is off, or creating a role in a team |
 | `RBAC_ASSIGNMENT_REFUSED` | 403 | A subscriber refused the assignment |
 
 ## Storage
@@ -267,7 +311,8 @@ Custom roles are rows in `rbac_roles`; assignments are rows in `rbac_role_assign
 
 ## Known Limitations
 
-- **No teams.** A role applies application-wide or in one organization.
+- **Teams have no roles of their own.** They use the organization's custom roles and roles defined in code.
+- **`TeamsWhere` scans at most 1,000 teams** of an organization.
 - **Allow only.** There are no deny rules.
 - **Callbacks are invisible to clients.** `/me/permissions` reports roles and grants, not `AllowIf`, `OnlyIf` or `Decide`.
 - **`Resource` looks only at the HTTP method.**

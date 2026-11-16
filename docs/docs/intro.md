@@ -49,6 +49,7 @@ The [Quick Start](quickstart.md) contains a complete program with error handling
 | [Organization](modules/organization.md) | Memberships, roles, organization invitations | `organization.New(...)` |
 | [RBAC](modules/rbac.md) | Roles and permission checks for your own routes and services; organization roles need Organization | `rbac.New(...)` |
 | [Invitation](modules/invitation.md) | Platform invitations; requires Admin | `invitation.New(...)` |
+| [Team](modules/team.md) | Nested teams inside organizations; leads manage their sub-tree; team roles through RBAC | `team.New(...)` |
 | [UI](modules/ui.md) | Server-rendered admin console, optional sign-in and account pages | `ui.New(...)` |
 | [Admin](modules/admin.md) | Super-admin user management | `admin.New(...)` |
 | [Audit](modules/audit.md) | Event logging and retention; admin routes need Admin | `audit.New(...)` |

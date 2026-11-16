@@ -329,6 +329,14 @@ components:
                     - asc
                     - desc
                 type: string
+        RbacTeamId:
+            description: Team ID
+            in: path
+            name: teamId
+            required: true
+            schema:
+                format: uuid
+                type: string
         RbacUserId:
             description: User ID
             in: path
@@ -336,6 +344,44 @@ components:
             required: true
             schema:
                 format: uuid
+                type: string
+        TeamLimit:
+            description: Maximum number of items to return
+            in: query
+            name: limit
+            schema:
+                default: 20
+                maximum: 100
+                type: integer
+        TeamOffset:
+            description: Number of items to skip
+            in: query
+            name: offset
+            schema:
+                default: 0
+                minimum: 0
+                type: integer
+        TeamOrgID:
+            in: path
+            name: orgId
+            required: true
+            schema:
+                type: string
+        TeamSortDir:
+            description: Sort direction
+            in: query
+            name: sort_dir
+            schema:
+                default: desc
+                enum:
+                    - asc
+                    - desc
+                type: string
+        TeamTeamID:
+            in: path
+            name: teamId
+            required: true
+            schema:
                 type: string
     responses:
         RatelimitRateLimitExceeded:
@@ -417,6 +463,17 @@ components:
                 active:
                     type: boolean
                 avatar:
+                    type: string
+                ban_reason:
+                    description: The administrators' note on why; not shown to the user
+                    type: string
+                banned_at:
+                    description: When an administrator banned the user; absent when not banned
+                    format: date-time
+                    type: string
+                banned_until:
+                    description: When the ban ends by itself; absent for a ban that lasts until lifted
+                    format: date-time
                     type: string
                 created_at:
                     format: date-time
@@ -2374,6 +2431,102 @@ components:
                     type: string
                 username:
                     type: string
+            type: object
+        TeamTeam:
+            properties:
+                ancestors:
+                    description: The IDs of the teams above, top first
+                    items:
+                        type: string
+                    type: array
+                created_at:
+                    format: date-time
+                    type: string
+                depth:
+                    description: 0 for a top-level team
+                    type: integer
+                description:
+                    type: string
+                id:
+                    type: string
+                name:
+                    type: string
+                org_id:
+                    type: string
+                parent_id:
+                    description: Absent for a top-level team
+                    type: string
+                slug:
+                    type: string
+                updated_at:
+                    format: date-time
+                    type: string
+            type: object
+        TeamTeamListResponse:
+            properties:
+                list:
+                    items:
+                        $ref: '#/components/schemas/TeamTeam'
+                    type: array
+                sort_dir:
+                    enum:
+                        - asc
+                        - desc
+                    type: string
+                sort_field:
+                    type: string
+                total:
+                    type: integer
+            type: object
+        TeamTeamMember:
+            properties:
+                created_at:
+                    format: date-time
+                    type: string
+                role:
+                    enum:
+                        - lead
+                        - member
+                    type: string
+                team_id:
+                    type: string
+                user_id:
+                    type: string
+            type: object
+        TeamTeamMemberListResponse:
+            properties:
+                list:
+                    items:
+                        $ref: '#/components/schemas/TeamTeamMember'
+                    type: array
+                sort_dir:
+                    enum:
+                        - asc
+                        - desc
+                    type: string
+                sort_field:
+                    type: string
+                total:
+                    type: integer
+            type: object
+        TeamTeamRequest:
+            properties:
+                description:
+                    maxLength: 1000
+                    type: string
+                name:
+                    maxLength: 255
+                    type: string
+                parent_id:
+                    description: Only when creating; empty for a top-level team
+                    type: string
+                slug:
+                    description: Made from the name when empty
+                    maxLength: 100
+                    pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+                    type: string
+            required:
+                - name
             type: object
         TwofactorErrorResponse:
             properties:
@@ -5158,6 +5311,440 @@ paths:
             summary: Update a role of an organization
             tags:
                 - RBAC Organization Roles
+    /org/{orgId}/teams:
+        get:
+            description: |
+                Lists the organization's teams. With `tree=true` every team is returned
+                at once, each after its parent; otherwise the list is paginated and can
+                be narrowed to one team's children (`parent_id`) or the top level (`top=true`).
+            parameters:
+                - in: query
+                  name: tree
+                  schema:
+                    type: boolean
+                - in: query
+                  name: parent_id
+                  schema:
+                    type: string
+                - in: query
+                  name: top
+                  schema:
+                    type: boolean
+                - description: Search name or slug
+                  in: query
+                  name: q
+                  schema:
+                    type: string
+                - $ref: '#/components/parameters/TeamLimit'
+                - $ref: '#/components/parameters/TeamOffset'
+                - in: query
+                  name: sort_field
+                  schema:
+                    default: created_at
+                    enum:
+                        - created_at
+                        - name
+                        - slug
+                        - path
+                    type: string
+                - $ref: '#/components/parameters/TeamSortDir'
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    data:
+                                        $ref: '#/components/schemas/TeamTeamListResponse'
+                                type: object
+                    description: Teams
+                "401":
+                    description: Authentication required
+                "404":
+                    description: Organization not found
+                    or the caller is not a member: null
+            security:
+                - BearerAuth: []
+            summary: List teams
+            tags:
+                - Teams
+        parameters:
+            - $ref: '#/components/parameters/TeamOrgID'
+        post:
+            description: A top-level team needs the organization's owner or an admin; a team beneath another needs the right to manage that team.
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/TeamTeamRequest'
+                required: true
+            responses:
+                "201":
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    data:
+                                        $ref: '#/components/schemas/TeamTeam'
+                                type: object
+                    description: Team created
+                "400":
+                    description: Invalid name or slug
+                    or too deep (TEAM_TOO_DEEP): null
+                    unknown parent (TEAM_INVALID_PARENT): null
+                "403":
+                    description: The caller cannot manage there (TEAM_FORBIDDEN)
+                "409":
+                    description: The slug is taken in this organization (TEAM_SLUG_TAKEN)
+            security:
+                - BearerAuth: []
+            summary: Create a team
+            tags:
+                - Teams
+    /org/{orgId}/teams/{teamId}:
+        delete:
+            description: Deletes a team and its memberships. A team with teams beneath it is refused (TEAM_HAS_SUBTEAMS).
+            responses:
+                "200":
+                    description: Team deleted
+                "403":
+                    description: The caller cannot manage where the team sits
+                "409":
+                    description: The team has teams beneath it
+            security:
+                - BearerAuth: []
+            summary: Delete a team
+            tags:
+                - Teams
+        get:
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    data:
+                                        $ref: '#/components/schemas/TeamTeam'
+                                type: object
+                    description: The team
+                "404":
+                    description: Team not found (TEAM_NOT_FOUND)
+            security:
+                - BearerAuth: []
+            summary: Get a team
+            tags:
+                - Teams
+        parameters:
+            - $ref: '#/components/parameters/TeamOrgID'
+            - $ref: '#/components/parameters/TeamTeamID'
+        put:
+            description: Changes the name, slug or description. Use the move endpoint to change the parent.
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/TeamTeamRequest'
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    data:
+                                        $ref: '#/components/schemas/TeamTeam'
+                                type: object
+                    description: The updated team
+                "403":
+                    description: The caller cannot manage this team
+                "409":
+                    description: The slug is taken
+            security:
+                - BearerAuth: []
+            summary: Update a team
+            tags:
+                - Teams
+    /org/{orgId}/teams/{teamId}/members:
+        get:
+            parameters:
+                - in: query
+                  name: role
+                  schema:
+                    enum:
+                        - lead
+                        - member
+                    type: string
+                - $ref: '#/components/parameters/TeamLimit'
+                - $ref: '#/components/parameters/TeamOffset'
+                - in: query
+                  name: sort_field
+                  schema:
+                    default: created_at
+                    enum:
+                        - created_at
+                        - role
+                    type: string
+                - $ref: '#/components/parameters/TeamSortDir'
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    data:
+                                        $ref: '#/components/schemas/TeamTeamMemberListResponse'
+                                type: object
+                    description: Members
+            security:
+                - BearerAuth: []
+            summary: List a team's members
+            tags:
+                - Team members
+        parameters:
+            - $ref: '#/components/parameters/TeamOrgID'
+            - $ref: '#/components/parameters/TeamTeamID'
+        post:
+            description: Adds a member of the organization to the team, as a lead or a member.
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                role:
+                                    default: member
+                                    enum:
+                                        - lead
+                                        - member
+                                    type: string
+                                user_id:
+                                    type: string
+                            required:
+                                - user_id
+                            type: object
+                required: true
+            responses:
+                "201":
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    data:
+                                        $ref: '#/components/schemas/TeamTeamMember'
+                                type: object
+                    description: Member added
+                "403":
+                    description: The caller cannot manage this team
+                "404":
+                    description: The user is not a member of the organization (ORG_MEMBER_NOT_FOUND)
+                "409":
+                    description: The user is already in the team (TEAM_MEMBER_EXISTS)
+            security:
+                - BearerAuth: []
+            summary: Add a member
+            tags:
+                - Team members
+    /org/{orgId}/teams/{teamId}/members/{userId}:
+        delete:
+            description: Leads remove members; any member may remove themselves.
+            responses:
+                "200":
+                    description: Member removed
+                "404":
+                    description: Not a member of the team
+            security:
+                - BearerAuth: []
+            summary: Remove a member
+            tags:
+                - Team members
+        parameters:
+            - $ref: '#/components/parameters/TeamOrgID'
+            - $ref: '#/components/parameters/TeamTeamID'
+            - in: path
+              name: userId
+              required: true
+              schema:
+                type: string
+        put:
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                role:
+                                    enum:
+                                        - lead
+                                        - member
+                                    type: string
+                            required:
+                                - role
+                            type: object
+                required: true
+            responses:
+                "200":
+                    description: Role changed
+                "404":
+                    description: Not a member of the team (TEAM_MEMBER_NOT_FOUND)
+            security:
+                - BearerAuth: []
+            summary: Change a member's role
+            tags:
+                - Team members
+    /org/{orgId}/teams/{teamId}/members/{userId}/roles:
+        get:
+            description: |
+                Returns what the user holds in the team: roles assigned on it or on a team
+                above it, the implied team role, organization roles and application-wide
+                roles. Users may read their own; reading someone else's requires
+                `goauth.assignments:read` in the team.
+            operationId: rbac.team.members.roles.get
+            parameters:
+                - $ref: '#/components/parameters/RbacOrgId'
+                - $ref: '#/components/parameters/RbacTeamId'
+                - $ref: '#/components/parameters/RbacUserId'
+            responses:
+                "200":
+                    $ref: '#/components/responses/RbacUserRoles'
+                "401":
+                    description: Authentication required
+                "403":
+                    description: Missing permission (RBAC_PERMISSION_DENIED)
+                "404":
+                    description: Team not found (TEAM_NOT_FOUND) or the user is not a member of the organization (ORG_MEMBER_NOT_FOUND)
+            security:
+                - BearerAuth: []
+            summary: Get a user's roles in a team
+            tags:
+                - RBAC Team Roles
+        put:
+            description: |
+                Makes `roles` the complete list of roles assigned to the user on this team.
+                The implied `lead` and `member` roles come from team membership and are not
+                part of the list. Requires `goauth.assignments:write` in the team, and every
+                role given or taken away must be within what the caller holds there. The
+                user must be a member of the organization; the roles end when that
+                membership does.
+            operationId: rbac.team.members.roles.set
+            parameters:
+                - $ref: '#/components/parameters/RbacOrgId'
+                - $ref: '#/components/parameters/RbacTeamId'
+                - $ref: '#/components/parameters/RbacUserId'
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/RbacSetRolesRequest'
+                required: true
+            responses:
+                "200":
+                    $ref: '#/components/responses/RbacUserRoles'
+                "401":
+                    description: Authentication required
+                "403":
+                    description: Missing permission (RBAC_PERMISSION_DENIED) or a role that grants more than the caller holds (RBAC_GRANT_NOT_HELD)
+                "404":
+                    description: Team not found (TEAM_NOT_FOUND), the user is not a member of the organization (ORG_MEMBER_NOT_FOUND) or role not found (RBAC_ROLE_NOT_FOUND)
+                "409":
+                    description: The role comes from membership and cannot be assigned (RBAC_ROLE_SYSTEM)
+                "422":
+                    description: Too many roles for one user (RBAC_LIMIT_EXCEEDED)
+            security:
+                - BearerAuth: []
+            summary: Set a user's roles in a team
+            tags:
+                - RBAC Team Roles
+    /org/{orgId}/teams/{teamId}/move:
+        parameters:
+            - $ref: '#/components/parameters/TeamOrgID'
+            - $ref: '#/components/parameters/TeamTeamID'
+        post:
+            description: Puts the team, with everything beneath it, under another team of the organization, or at the top with an empty parent_id.
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                parent_id:
+                                    description: The new parent; empty for the top level
+                                    type: string
+                            type: object
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    data:
+                                        $ref: '#/components/schemas/TeamTeam'
+                                type: object
+                    description: The moved team
+                "400":
+                    description: The new parent is the team itself or beneath it
+                    or the move would nest too deep: null
+                "403":
+                    description: The caller cannot manage the old or the new place
+            security:
+                - BearerAuth: []
+            summary: Move a team
+            tags:
+                - Teams
+    /org/{orgId}/teams/{teamId}/role-assignments:
+        get:
+            description: Requires `goauth.assignments:read` in the team. Lists the assignments made on this team only, not those on teams above it.
+            operationId: rbac.team.assignments.list
+            parameters:
+                - $ref: '#/components/parameters/RbacOrgId'
+                - $ref: '#/components/parameters/RbacTeamId'
+                - $ref: '#/components/parameters/RbacLimit'
+                - $ref: '#/components/parameters/RbacOffset'
+                - $ref: '#/components/parameters/RbacAssignmentSortField'
+                - $ref: '#/components/parameters/RbacSortDir'
+                - $ref: '#/components/parameters/RbacAssignmentUserId'
+                - $ref: '#/components/parameters/RbacAssignmentRole'
+            responses:
+                "200":
+                    $ref: '#/components/responses/RbacAssignmentList'
+                "401":
+                    description: Authentication required
+                "403":
+                    description: Missing permission (RBAC_PERMISSION_DENIED)
+                "404":
+                    description: Team not found (TEAM_NOT_FOUND)
+            security:
+                - BearerAuth: []
+            summary: List role assignments in a team
+            tags:
+                - RBAC Team Roles
+    /org/{orgId}/teams/{teamId}/roles:
+        get:
+            description: |
+                The built-in team roles (`lead`, `member`), the roles defined in code that
+                apply to teams and the organization's custom roles. Requires
+                `goauth.roles:read` in the team. Roles are created per organization;
+                creating or changing one in a team is refused.
+            operationId: rbac.team.roles.list
+            parameters:
+                - $ref: '#/components/parameters/RbacOrgId'
+                - $ref: '#/components/parameters/RbacTeamId'
+                - $ref: '#/components/parameters/RbacLimit'
+                - $ref: '#/components/parameters/RbacOffset'
+                - $ref: '#/components/parameters/RbacRoleSortField'
+                - $ref: '#/components/parameters/RbacSortDir'
+                - $ref: '#/components/parameters/RbacRoleQuery'
+            responses:
+                "200":
+                    $ref: '#/components/responses/RbacRoleList'
+                "401":
+                    description: Authentication required
+                "403":
+                    description: Missing permission (RBAC_PERMISSION_DENIED)
+                "404":
+                    description: Team not found in this organization (TEAM_NOT_FOUND)
+            security:
+                - BearerAuth: []
+            summary: List the roles assignable in a team
+            tags:
+                - RBAC Team Roles
     /org/invitations/accept:
         post:
             description: |
@@ -6173,6 +6760,12 @@ tags:
       name: RBAC Organization Roles
     - description: Application-wide roles and their assignments
       name: RBAC Roles
+    - description: Roles held inside one team (Config.Teams); they apply to the team and every team beneath it
+      name: RBAC Team Roles
+    - description: Who is in a team
+      name: Team members
+    - description: Teams of an organization
+      name: Teams
     - description: Two-factor authentication (2FA) endpoints for enhanced account security
       name: Two-Factor Authentication Module
     - description: User management endpoints

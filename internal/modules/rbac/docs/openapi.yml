@@ -29,6 +29,8 @@ tags:
     description: Application-wide roles and their assignments
   - name: RBAC Organization Roles
     description: Roles and assignments inside one organization
+  - name: RBAC Team Roles
+    description: Roles held inside one team (Config.Teams); they apply to the team and every team beneath it
 
 paths:
   /me/permissions:
@@ -546,6 +548,129 @@ paths:
         '404':
           description: Organization not found (ORG_NOT_FOUND)
 
+  /org/{orgId}/teams/{teamId}/roles:
+    get:
+      tags:
+        - RBAC Team Roles
+      operationId: rbac.team.roles.list
+      summary: List the roles assignable in a team
+      description: |
+        The built-in team roles (`lead`, `member`), the roles defined in code that
+        apply to teams and the organization's custom roles. Requires
+        `goauth.roles:read` in the team. Roles are created per organization;
+        creating or changing one in a team is refused.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrgId'
+        - $ref: '#/components/parameters/TeamId'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+        - $ref: '#/components/parameters/RoleSortField'
+        - $ref: '#/components/parameters/SortDir'
+        - $ref: '#/components/parameters/RoleQuery'
+      responses:
+        '200':
+          $ref: '#/components/responses/RoleList'
+        '401':
+          description: Authentication required
+        '403':
+          description: Missing permission (RBAC_PERMISSION_DENIED)
+        '404':
+          description: Team not found in this organization (TEAM_NOT_FOUND)
+
+  /org/{orgId}/teams/{teamId}/members/{userId}/roles:
+    get:
+      tags:
+        - RBAC Team Roles
+      operationId: rbac.team.members.roles.get
+      summary: Get a user's roles in a team
+      description: |
+        Returns what the user holds in the team: roles assigned on it or on a team
+        above it, the implied team role, organization roles and application-wide
+        roles. Users may read their own; reading someone else's requires
+        `goauth.assignments:read` in the team.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrgId'
+        - $ref: '#/components/parameters/TeamId'
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          $ref: '#/components/responses/UserRoles'
+        '401':
+          description: Authentication required
+        '403':
+          description: Missing permission (RBAC_PERMISSION_DENIED)
+        '404':
+          description: Team not found (TEAM_NOT_FOUND) or the user is not a member of the organization (ORG_MEMBER_NOT_FOUND)
+    put:
+      tags:
+        - RBAC Team Roles
+      operationId: rbac.team.members.roles.set
+      summary: Set a user's roles in a team
+      description: |
+        Makes `roles` the complete list of roles assigned to the user on this team.
+        The implied `lead` and `member` roles come from team membership and are not
+        part of the list. Requires `goauth.assignments:write` in the team, and every
+        role given or taken away must be within what the caller holds there. The
+        user must be a member of the organization; the roles end when that
+        membership does.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrgId'
+        - $ref: '#/components/parameters/TeamId'
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetRolesRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/UserRoles'
+        '401':
+          description: Authentication required
+        '403':
+          description: Missing permission (RBAC_PERMISSION_DENIED) or a role that grants more than the caller holds (RBAC_GRANT_NOT_HELD)
+        '404':
+          description: Team not found (TEAM_NOT_FOUND), the user is not a member of the organization (ORG_MEMBER_NOT_FOUND) or role not found (RBAC_ROLE_NOT_FOUND)
+        '409':
+          description: The role comes from membership and cannot be assigned (RBAC_ROLE_SYSTEM)
+        '422':
+          description: Too many roles for one user (RBAC_LIMIT_EXCEEDED)
+
+  /org/{orgId}/teams/{teamId}/role-assignments:
+    get:
+      tags:
+        - RBAC Team Roles
+      operationId: rbac.team.assignments.list
+      summary: List role assignments in a team
+      description: Requires `goauth.assignments:read` in the team. Lists the assignments made on this team only, not those on teams above it.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrgId'
+        - $ref: '#/components/parameters/TeamId'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+        - $ref: '#/components/parameters/AssignmentSortField'
+        - $ref: '#/components/parameters/SortDir'
+        - $ref: '#/components/parameters/AssignmentUserId'
+        - $ref: '#/components/parameters/AssignmentRole'
+      responses:
+        '200':
+          $ref: '#/components/responses/AssignmentList'
+        '401':
+          description: Authentication required
+        '403':
+          description: Missing permission (RBAC_PERMISSION_DENIED)
+        '404':
+          description: Team not found (TEAM_NOT_FOUND)
+
 components:
   parameters:
     OrgId:
@@ -556,6 +681,15 @@ components:
         type: string
         format: uuid
       description: Organization ID
+
+    TeamId:
+      name: teamId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Team ID
 
     UserId:
       name: userId
