@@ -5,6 +5,7 @@ A small project tracker, built the way a real Go service would be, that shows ev
 ```sh
 cd examples
 go run ./rbac               # http://localhost:8080, admin console at /admin
+CONSOLE_PATH=/ui go run ./rbac   # the console at /ui instead
 ./rbac/walkthrough.sh       # in another terminal; needs curl and jq
 go test ./rbac/...          # the same scenarios as a Go test
 ```

@@ -27,6 +27,8 @@ type Settings struct {
 	EncryptionKey string
 	// DSN of a SQLite database; the default keeps everything in memory.
 	DSN string
+	// ConsolePath is where the admin console is served, such as "/admin".
+	ConsolePath string
 }
 
 // Platform is GoAuth, set up.
@@ -34,10 +36,15 @@ type Platform struct {
 	Auth  *auth.Auth
 	Authz *rbac.Module
 	Store types.Storage
+	// ConsolePath is where the admin console is served.
+	ConsolePath string
 }
 
 // New registers the modules and initializes GoAuth.
 func New(ctx context.Context, s Settings) (*Platform, error) {
+	if s.ConsolePath == "" {
+		s.ConsolePath = "/ui"
+	}
 	if s.DSN == "" {
 		s.DSN = "file:goauth-rbac-example?mode=memory&cache=shared"
 	}
@@ -83,8 +90,8 @@ func New(ctx context.Context, s Settings) (*Platform, error) {
 		// Audit records who did what; its admin routes need the admin module.
 		admin.New(nil),
 		audit.New(nil),
-		// The admin console, for super admins, at /admin.
-		ui.New(&ui.Config{Path: "/admin", Title: "Acme Tracker"}),
+		// The admin console, for super admins, at Settings.ConsolePath.
+		ui.New(&ui.Config{Path: s.ConsolePath, Title: "Acme Tracker"}),
 	} {
 		if err := a.Use(module); err != nil {
 			return nil, fmt.Errorf("register module: %w", err)
@@ -97,10 +104,10 @@ func New(ctx context.Context, s Settings) (*Platform, error) {
 	authz.Define(PermReportExport, "Export platform-wide reports")
 	authz.Define(PermInvoiceApprove, "Approve an invoice for payment")
 	authz.Define(PermProjectArchive, "Archive a project")
-	return &Platform{Auth: a, Authz: authz, Store: store}, nil
+	return &Platform{Auth: a, Authz: authz, Store: store, ConsolePath: s.ConsolePath}, nil
 }
 
-// Mount serves GoAuth's own routes (/auth/..., /admin/...) on mux and
+// Mount serves GoAuth's own routes (/auth/... and the console) on mux and
 // returns the handler to serve.
 func (p *Platform) Mount(mux *http.ServeMux) http.Handler {
 	return stdhttp.Register(mux, p.Auth)

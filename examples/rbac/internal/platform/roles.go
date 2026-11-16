@@ -12,7 +12,7 @@ const (
 )
 
 // Roles are defined in code, so they are versioned with the application.
-// Administrators can still create more in the console (/admin/roles), per
+// Administrators can still create more in the admin console (Roles), per
 // organization or application-wide.
 //
 // Besides these, some roles exist without any configuration:

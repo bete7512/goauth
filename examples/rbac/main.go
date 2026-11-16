@@ -8,8 +8,9 @@
 //	go run ./rbac
 //
 // then follow README.md, or run ./rbac/walkthrough.sh in another terminal.
-// The admin console is at http://localhost:8080/admin (sign in as
-// sam@tracker.test). Everything is kept in memory.
+// The admin console is at http://localhost:8080/admin, or wherever
+// CONSOLE_PATH says (sign in as sam@tracker.test). Everything is kept in
+// memory.
 //
 // Layout:
 //
@@ -48,6 +49,7 @@ func main() {
 		JWTSecret:     envOr("JWT_SECRET", "rbac-example-jwt-secret-change-me-32"),
 		EncryptionKey: envOr("ENCRYPTION_KEY", "rbac-example-encryption-key-32chr"),
 		DSN:           os.Getenv("DATABASE_DSN"),
+		ConsolePath:   envOr("CONSOLE_PATH", "/admin"),
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -79,7 +81,8 @@ func main() {
 		defer cancel()
 		_ = server.Shutdown(shutdown)
 	}()
-	log.Printf("Acme Tracker on http://localhost:%s (admin console: /admin)", port)
+	log.Printf("Acme Tracker on http://localhost:%s", port)
+	log.Printf("Admin console: http://localhost:%s%s/login (sam@tracker.test / %s)", port, p.ConsolePath, seed.Password)
 	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatal(err)
 	}

@@ -65,7 +65,7 @@ type Cast struct {
 func Run(ctx context.Context, p *platform.Platform, handler http.Handler, store *tracker.Store) (*Cast, error) {
 	c := &Cast{People: map[string]*Person{}, Teams: map[string]string{}}
 	for _, person := range []Person{
-		{Name: "Sam Rivera", Shows: "super admin: everything, everywhere; opens /admin"},
+		{Name: "Sam Rivera", Shows: "super admin: everything, everywhere; signs in to the admin console"},
 		{Name: "Sue Park", Shows: `"support", application-wide: reads every organization, exports reports`},
 		{Name: "Alice Chen", Shows: "owns Acme Corp: everything inside Acme"},
 		{Name: "Bob Diaz", Shows: "Acme admin: everything inside Acme, but cannot approve his own invoice"},
