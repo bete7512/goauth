@@ -309,10 +309,10 @@ must(a.Use(notification.New(&notification.Config{
 	EnableWelcomeEmail: true,
 })))
 
-// "Sign in with Google"
+// "Sign in with Google" (also set APIURL in the config; it builds the callback URL)
 must(a.Use(oauth.New(&config.OAuthModuleConfig{
 	Providers: map[string]*config.OAuthProviderConfig{
-		"google": {ClientID: "...", ClientSecret: "..."},
+		"google": {ClientID: "...", ClientSecret: "...", Enabled: true},
 	},
 	DefaultRedirectURL: "https://app.yourapp.com/auth/callback",
 	AllowSignup:        true,

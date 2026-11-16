@@ -3,43 +3,38 @@ id: quickstart
 title: Quick Start
 sidebar_label: Quick Start
 sidebar_position: 3
+description: Build a Go server with sign-up, login and a protected route in about five minutes, using GoAuth and SQLite.
 ---
 
 # Quick Start
 
-Run a GoAuth HTTP server with SQLite, password sign-in, and stateless JWT credentials. This guide targets the current repository API; see [Upgrading](upgrade.md) when moving from older constructor signatures.
+In about five minutes you will have a Go server where people can sign up, log in, and call a route only signed-in users can reach. It uses SQLite, so there is no database to install.
 
-## Prerequisites
+## Before you start
 
-- Go 1.25 or later and a C compiler for the SQLite driver.
-- A Go module and two application secrets, loaded from the environment.
+- Go 1.26 or later.
+- A C compiler, because the SQLite driver uses cgo.
+- `openssl` to generate two secrets (any random strings of the right length work).
 
-## 1. Project Setup
+## 1. Create the project
 
 ```bash
-mkdir goauth-demo
-cd goauth-demo
-go mod init goauth-demo
+mkdir hello-auth && cd hello-auth
+go mod init hello-auth
 go get github.com/bete7512/goauth@v0.3.0-beta.1
 ```
 
-When testing an unreleased checkout, point the module at that checkout with `go mod edit -replace github.com/bete7512/goauth=/absolute/path/to/go-auth`. Published versions may not contain the APIs described here yet.
-
-## 2. Create main.go
+## 2. Write main.go
 
 ```go
 package main
 
 import (
     "context"
-    "errors"
     "fmt"
     "log"
     "net/http"
     "os"
-    "os/signal"
-    "syscall"
-    "time"
 
     "github.com/bete7512/goauth/pkg/adapters/stdhttp"
     "github.com/bete7512/goauth/pkg/auth"
@@ -55,6 +50,7 @@ func main() {
 }
 
 func run() error {
+    // 1. Give GoAuth a database. SQLite keeps this guide free of setup.
     store, err := storage.NewGormStorage(storage.GormConfig{
         Dialect: types.DialectTypeSqlite,
         DSN:     "auth.db",
@@ -63,75 +59,48 @@ func run() error {
         return err
     }
 
+    // 2. Configure it.
     a, err := auth.New(&config.Config{
         Storage:   store,
-        Migration: config.MigrationConfig{Auto: true},
-        BasePath:  "/api/v1",
+        BasePath:  "/auth",
+        Migration: config.MigrationConfig{Auto: true}, // create the tables at startup
+        Core:      &config.CoreConfig{},               // required, even when empty
         Security: types.SecurityConfig{
-            JwtSecretKey:  os.Getenv("JWT_SECRET_KEY"),
-            EncryptionKey: os.Getenv("ENCRYPTION_KEY"),
-            JWTIssuer:    "goauth-demo",
-            JWTAudience:  "goauth-demo-api",
-            AuthMode:     types.AuthModeBearer,
-            Lockout: types.LockoutConfig{Enabled: true},
-            Session: types.SessionConfig{
-                AccessTokenTTL:  15 * time.Minute,
-                RefreshTokenTTL: 7 * 24 * time.Hour,
-            },
-        },
-        Core: &config.CoreConfig{
-            RequireEmailVerification: false, // Local demo has no mail sender.
+            JwtSecretKey:  os.Getenv("JWT_SECRET_KEY"), // at least 32 bytes
+            EncryptionKey: os.Getenv("ENCRYPTION_KEY"), // at least 16 bytes
+            // Cookies are Secure by default. Allow plain HTTP on localhost only.
+            Session: types.SessionConfig{AllowInsecureCookies: true},
         },
     })
     if err != nil {
-        _ = store.Close()
+        _ = store.Close() // New failed, so the store is still yours to close.
         return err
     }
-    defer a.Close() // Auth owns storage unless BorrowStorage is true.
+    defer a.Close() // closes the store too
 
-    // Register optional modules here and check each a.Use(...) error.
-    // With no explicit strategy, Initialize selects stateless JWT.
+    // 3. Start it. Optional modules go in a.Use(...) calls before this line.
     if err := a.Initialize(context.Background()); err != nil {
         return err
     }
 
+    // 4. Mount GoAuth's routes next to your own.
     mux := http.NewServeMux()
-    stdhttp.Register(mux, a)
-    mux.Handle("GET /private", a.RequireAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-        principal, ok := types.PrincipalFromContext(r.Context())
-        if !ok {
-            http.Error(w, "unauthorized", http.StatusUnauthorized)
-            return
-        }
-        fmt.Fprintf(w, "Hello %s", principal.UserID)
-    })))
+    mux.Handle("GET /private", a.RequireAuth(http.HandlerFunc(private)))
 
-    server := &http.Server{Addr: ":8080", Handler: mux, ReadHeaderTimeout: 5 * time.Second}
-    stopped, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-    defer cancel()
-    serverErrors := make(chan error, 1)
-    go func() { serverErrors <- server.ListenAndServe() }()
-    log.Println("GoAuth API: http://localhost:8080/api/v1")
+    log.Println("listening on http://localhost:8080")
+    return http.ListenAndServe(":8080", stdhttp.Register(mux, a))
+}
 
-    select {
-    case err := <-serverErrors:
-        if !errors.Is(err, http.ErrServerClosed) {
-            return err
-        }
-    case <-stopped.Done():
-        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-        defer cancel()
-        if err := server.Shutdown(ctx); err != nil {
-            return err
-        }
-    }
-    return nil
+// private only runs for signed-in users.
+func private(w http.ResponseWriter, r *http.Request) {
+    user, _ := types.PrincipalFromContext(r.Context())
+    fmt.Fprintf(w, "hello, %s\n", user.UserID)
 }
 ```
 
-## 3. Run
+The four numbered comments are the whole integration.
 
-Generate separate secrets for local development and retain them across restarts. The following commands require OpenSSL:
+## 3. Run it
 
 ```bash
 export JWT_SECRET_KEY="$(openssl rand -hex 32)"
@@ -140,141 +109,148 @@ go mod tidy
 go run .
 ```
 
-`JwtSecretKey` must be at least 32 bytes and `EncryptionKey` at least 16 bytes. Do not regenerate production secrets on every start; see [Signing and rotation](security.md).
+Keep the two secrets the same between restarts. A new `JWT_SECRET_KEY` signs everyone out. If you forget to set them, the program stops with `jwt secret key must be at least 32 characters`.
 
-## 4. Test the API
+## 4. Try it
 
-### Register
+Open a second terminal.
+
+**Create an account**
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/signup \
+curl -X POST http://localhost:8080/auth/signup \
   -H "Content-Type: application/json" \
-  -d '{"email":"user@example.com","password":"SecurePassword123!","first_name":"John","last_name":"Doe"}'
+  -d '{"email":"ada@example.com","password":"S3cure-pass!","first_name":"Ada","last_name":"Lovelace"}'
 ```
 
-### Login
+The answer is `201 Created`. Responses on this page are shortened to the interesting fields:
+
+```json
+{"data":{"user":{"id":"01a1e4aa-39f2-7013-a65a-74cd710bee94","first_name":"Ada","last_name":"Lovelace","email":"ada@example.com","username":"ada-01a1e4aa","active":true,"email_verified":false},"message":"Signup successful. Please login to continue."}}
+```
+
+**Log in**
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/login \
+curl -X POST http://localhost:8080/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"user@example.com","password":"SecurePassword123!"}'
+  -d '{"email":"ada@example.com","password":"S3cure-pass!"}'
 ```
 
-Read `data.access_token` and `data.refresh_token` from the JSON response. If you later enable two-factor authentication, handle `data.challenges` before treating a response as authenticated.
-
-### Get Profile (Protected)
-
-```bash
-curl http://localhost:8080/api/v1/me \
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```json
+{"data":{"access_token":"eyJhbGciOi...","refresh_token":"eyJhbGciOi...","expires_in":900,"user":{"id":"01a1e4aa-39f2-7013-a65a-74cd710bee94","email":"ada@example.com"},"message":"Login successful"}}
 ```
 
-### Refresh
+Copy `data.access_token` and `data.refresh_token`. The access token lasts 15 minutes.
+
+**Call your protected route**
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/refresh \
+curl http://localhost:8080/private -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+```text
+hello, 01a1e4aa-39f2-7013-a65a-74cd710bee94
+```
+
+Without the token, the same request is refused:
+
+```json
+{"data":{"code":"UNAUTHORIZED","message":"invalid access credential"}}
+```
+
+**Read the profile**
+
+```bash
+curl http://localhost:8080/auth/me -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+**Get a new token pair**
+
+```bash
+curl -X POST http://localhost:8080/auth/refresh \
   -H "Content-Type: application/json" \
   -d '{"refresh_token":"YOUR_REFRESH_TOKEN"}'
 ```
 
-Replace both saved credentials with the returned pair. A consumed refresh credential cannot be reused.
+Replace both saved tokens with the pair you get back. A refresh token works once: sending the old one again returns `INVALID_REFRESH_TOKEN`.
 
-## Three-Phase Pattern
+## What you have now
 
-Create the instance, register modules, and initialize exactly once. `Use` returns errors for duplicate modules, invalid modules, conflicting strategies, and registration after initialization. Do not discard those errors.
+You registered no modules, so GoAuth used its defaults: [Core](modules/core.md) for accounts, [Stateless](modules/stateless.md) for JWT access and refresh tokens, and the [rate limiter](modules/ratelimit.md). Together they serve these endpoints under `/auth`:
 
-```go
-if err := a.Use(twofactor.New()); err != nil {
-    return err
-}
-if err := a.Initialize(ctx); err != nil {
-    return err
-}
-```
+| Endpoint | What it does |
+| --- | --- |
+| `POST /signup` | Create an account |
+| `POST /login` · `POST /logout` · `POST /refresh` | Sign in, sign out, trade a refresh token for a new pair |
+| `GET /me` · `PUT /profile` | Read and update the signed-in user |
+| `PUT /change-password` | Change the password |
+| `POST /forgot-password` · `POST /reset-password` | Recover a forgotten password |
+| `POST /send-verification-email` · `GET /verify-email` | Verify an email address |
+| `POST /send-verification-phone` · `POST /verify-phone` | Verify a phone number |
+| `POST /is-available` | Check whether an email, username or phone is taken |
 
-This is a fragment inside your setup function; add the `pkg/modules/twofactor` import.
+Password-reset and verification messages are not sent yet. Add the [Notification module](modules/notification.md) to send them. The [API reference](api/endpoints.md) documents every request and response.
 
-## Adding Modules
+## Add your first module
 
-Register these before `Initialize`.
+A module is one `a.Use(...)` call, placed before `a.Initialize`. `Use` returns an error when a module is registered twice, conflicts with another, or is added too late, so always check it.
 
-### Session-based Auth
-
-```go
-if err := a.Use(session.New(&config.SessionModuleConfig{
-    EnableSessionManagement: true,
-})); err != nil {
-    return err
-}
-```
-
-Import `pkg/modules/session`. Sessions and Stateless cannot be registered together. Session records are checked during protected requests; changing the strategy does not select cookie versus bearer transport.
-
-### Notifications
-
-```go
-if err := a.Use(notification.New(&notification.Config{
-    EmailSender: senders.NewSMTPEmailSender(&senders.SMTPConfig{
-        Host:     os.Getenv("SMTP_HOST"),
-        Port:     587,
-        Username: os.Getenv("SMTP_USERNAME"),
-        Password: os.Getenv("SMTP_PASSWORD"),
-    }),
-    EnableWelcomeEmail: true,
-})); err != nil {
-    return err
-}
-```
-
-Import `pkg/modules/notification` and `pkg/modules/notification/senders`. Configure sender addresses and frontend callback paths as described in the [notification guide](modules/notification.md) before enabling required verification.
-
-### Two-Factor Auth
+For example, authenticator-app two-factor, from `pkg/modules/twofactor`:
 
 ```go
 if err := a.Use(twofactor.New(&config.TwoFactorConfig{
     Issuer: "MyApp",
-    BackupCodesCount: 10,
 })); err != nil {
     return err
 }
 ```
 
-`twofactor.New()` also accepts no arguments. The [2FA guide](modules/twofactor.md) documents the continuation response and verification request.
+Once it is on, a correct password may answer with a `challenges` list instead of tokens, and your client has to finish the challenge first. The [Introduction](intro.md#one-sign-in-path) shows the response.
 
-### Passkeys
+The [Examples](showcase.md) page has setups for sessions, email, social login, passkeys, organizations and the admin console.
+
+## Use your own router
+
+`stdhttp.Register` is for `net/http`. Gin, Chi and Fiber have adapters that replace that one line; see [Installation](installation.md#framework-adapters).
+
+## Before real users sign in
+
+The program above is fine for a laptop. For production, change four things:
+
+1. **Use PostgreSQL or MySQL.** Only the storage block changes; see [Installation](installation.md#connect-a-database).
+2. **Remove `AllowInsecureCookies`** and serve over HTTPS.
+3. **Keep the secrets in a secret store**, and keep them stable across deploys.
+4. **Stop cleanly.** Stop the HTTP server first, then GoAuth. Replace the last two lines of `run` with:
 
 ```go
-if err := a.Use(passkeys.New(&config.PasskeysModuleConfig{
-    RPDisplayName: "MyApp",
-    RPID: "localhost",
-    RPOrigins: []string{"http://localhost:3000"},
-})); err != nil {
-    return err
+server := &http.Server{
+    Addr:              ":8080",
+    Handler:           stdhttp.Register(mux, a),
+    ReadHeaderTimeout: 5 * time.Second,
 }
+stop, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+defer cancel()
+
+serverErr := make(chan error, 1)
+go func() { serverErr <- server.ListenAndServe() }()
+
+select {
+case err := <-serverErr:
+    return err
+case <-stop.Done():
+}
+
+ctx, cancelShutdown := context.WithTimeout(context.Background(), 10*time.Second)
+defer cancelShutdown()
+return server.Shutdown(ctx) // the deferred a.Close() then stops GoAuth
 ```
 
-Import `pkg/modules/passkeys`. The RP origin identifies the frontend performing the WebAuthn ceremony. See [Passkeys](modules/passkeys.md) for begin/finish payloads and storage requirements.
+It needs the `os/signal`, `syscall` and `time` imports. The [Production checklist](production.md) has the full list.
 
-## Framework Integration
+## Next
 
-The standard HTTP adapter is in the root module. Gin, Chi, and Fiber adapters are separate Go modules:
-
-```bash
-go get github.com/bete7512/goauth/pkg/adapters/ginadapter@v0.3.0-beta.1
-go get github.com/bete7512/goauth/pkg/adapters/chiadapter@v0.3.0-beta.1
-go get github.com/bete7512/goauth/pkg/adapters/fiberadapter@v0.3.0-beta.1
-```
-
-After initialization, use `ginadapter.Register(router, a)`, `chiadapter.Register(router, a)`, or `fiberadapter.Register(app, a)`. See the [framework guide](frameworks/gin.md).
-
-## Production Tips
-
-Use a persistent database, stable secrets, explicit issuer and audience, and leave `Security.Session.AllowInsecureCookies` unset so cookies keep the Secure attribute. Cookie clients also need CSRF protection. Set CORS in your own HTTP/framework middleware; GoAuth has no CORS config field.
-
-Plan migrations with [Migration management](migrations.md). If the application owns an existing storage connection, set `BorrowStorage: true` and close it after GoAuth shuts down. Both JWT and session strategies require shared persistent state across replicas.
-
-## Next Steps
-
-- [Authentication lifecycle and in-process API](api/auth.md)
-- [Security and credentials](security.md)
-- [API Endpoints](api/endpoints.md)
+- [Introduction](intro.md): how the pieces fit together.
+- [Examples](showcase.md): working setups for common features.
+- [Security](security.md): cookies, tokens and keys.
+- [API reference](api/endpoints.md): every endpoint.

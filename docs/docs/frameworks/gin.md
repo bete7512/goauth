@@ -2,17 +2,24 @@
 id: gin
 title: Gin Framework
 sidebar_label: Gin
+description: Mount GoAuth's routes on a Gin router with the Gin adapter.
 ---
 
 # Gin Framework
 
-The Gin adapter is a separate Go module. Install it alongside the core library:
+GoAuth's routes are ordinary `net/http` handlers. The Gin adapter mounts them on a Gin router and translates path parameters, so `/sessions/{id}` becomes `/sessions/:id`.
+
+## Install
+
+The adapter is its own Go module:
 
 ```bash
-go get github.com/bete7512/goauth/pkg/adapters/ginadapter
+go get github.com/bete7512/goauth/pkg/adapters/ginadapter@v0.3.0-beta.1
 ```
 
-After successfully creating and initializing `a`, register its routes:
+## Register the routes
+
+Create and initialize `a` as in the [Quick Start](../quickstart.md), then:
 
 ```go
 router := gin.Default()
@@ -22,6 +29,16 @@ if err := router.Run(":8080"); err != nil {
 }
 ```
 
-Import `github.com/gin-gonic/gin` and `github.com/bete7512/goauth/pkg/adapters/ginadapter`. This fragment belongs in a function returning `error`. For graceful shutdown, serve `router` through an `http.Server`, stop the server, then shut down GoAuth as shown in [Quick Start](../quickstart.md).
+Import `github.com/gin-gonic/gin` and `github.com/bete7512/goauth/pkg/adapters/ginadapter`. This fragment belongs in a function that returns `error`.
 
-When developing against this repository, add local `replace` directives for both the root module and the adapter module. Published adapter versions may target an older API. See [Installation](../installation.md).
+## Stopping cleanly
+
+For a clean shutdown, serve `router` through an `http.Server`, stop that server first, and then shut down GoAuth. The Quick Start shows the pattern under [Before real users sign in](../quickstart.md#before-real-users-sign-in).
+
+## Developing against a checkout
+
+With a local copy of this repository, add a `replace` line for the root module and another for the adapter module. See [Installation](../installation.md).
+
+## Chi and Fiber
+
+They work the same way: install `pkg/adapters/chiadapter` or `pkg/adapters/fiberadapter`, then call `chiadapter.Register(router, a)` or `fiberadapter.Register(app, a)`.

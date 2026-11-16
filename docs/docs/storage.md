@@ -1,17 +1,22 @@
 ---
 id: storage
 title: Storage and Repository Contracts
+description: What a custom GoAuth storage has to provide. Feature stores, transactions across stores, the operations that must be atomic, and who closes the connection.
 ---
 
 # Storage and Repository Contracts
 
-The built-in GORM adapter implements the current repository, transaction, migration, and outbox capabilities for PostgreSQL, MySQL, and SQLite. Custom storage must provide both the feature interfaces and the atomic behavior required by the flows you enable.
+**Using PostgreSQL, MySQL or SQLite through the bundled GORM storage? You can skip this page.** It already does everything described here; [Installation](installation.md#connect-a-database) shows how to connect it.
 
-## Feature Stores
+Read on if you are writing your own storage or combining stores. Custom storage has to provide the interfaces each feature asks for, and the **atomic behavior** the sign-in flows rely on. That second part is what keeps a refresh token from being used twice.
 
-`types.Storage` exposes Core, Session, Stateless, Admin, OAuth, TwoFactorAuth, Passkeys, AuditLog, Invitation, and Organization stores, plus `DB` and `Close`. Modules request their own interfaces; unsupported optional stores can return nil. Core user and token storage are required.
+## Feature stores
 
-`types.StorageSet` adapts separate implementations to that aggregate interface:
+`types.Storage` hands each module its own typed store: Core, Session, Stateless, Admin, OAuth, TwoFactorAuth, Passkeys, AuditLog, Invitation, Organization, IDP, RBAC and Team, plus `DB` and `Close`.
+
+Core (users and tokens) is required. A store for a module you do not use can return nil.
+
+`types.StorageSet` assembles separate stores into one `Storage`:
 
 ```go
 store := &types.StorageSet{
@@ -21,9 +26,9 @@ store := &types.StorageSet{
 }
 ```
 
-The stores are borrowed unless `CloseFunc` is provided. `StorageSet` alone does **not** implement an aggregate transaction or migration coordinator. It can compose capabilities, but is not sufficient for every built-in security operation.
+`StorageSet` does not close the stores unless you set `CloseFunc`. It also does **not** provide a transaction across them or coordinate migrations, so by itself it is not enough for every built-in operation.
 
-## Aggregate Transactions
+## One transaction across stores
 
 ```go
 type TransactionalStorage interface {
@@ -31,11 +36,18 @@ type TransactionalStorage interface {
 }
 ```
 
-The callback must expose all participating feature stores bound to the **same transaction**. Invitation acceptance, OAuth identity mutation, and final authentication resumption use transaction-bound operations. Core signup, password reset/change, and contact verification enter the aggregate transaction wrapper when `DurableEvents` is enabled. A transaction on Core plus an independent transaction on Organizations cannot make a cross-feature mutation atomic.
+Some operations change several features at once and must fully happen or not at all. Inside the callback, every store must be bound to the **same** transaction; a transaction on Core plus a separate one on Organizations is not enough.
 
-Use only the callback's stores during a transaction. External email or network calls belong after commit. The built-in operation wrapper defers async events until commit, or appends them to the transactional outbox when `DurableEvents` is enabled.
+These flows need it:
 
-## Atomic Repository Capabilities
+- accepting an invitation;
+- changing an OAuth identity;
+- the final step of resuming a sign-in;
+- with `DurableEvents` on: Core sign-up, password reset and change, and contact verification.
+
+Inside a transaction, use only the callback's stores, and make network calls after the commit. GoAuth's own operations hold their events until the commit, or write them to the outbox when `DurableEvents` is on.
+
+## Operations that must be atomic
 
 | Interface / method | Required semantics |
 | --- | --- |
@@ -48,26 +60,37 @@ Use only the callback's stores during a transaction. External email or network c
 | `models.UserProfileMutator` | Restrict profile updates and atomically revoke grants on recovery-phone changes |
 | `PasskeyRepository.UpdateSignCount` | Advance a nonzero counter conditionally; allow zero-to-zero for counterless credentials |
 
-The rotating repository interfaces are optional Go capabilities but required by their refresh/resume flows. Missing capabilities produce errors; do not substitute a non-atomic read/delete/create sequence. Targeted user mutation interfaces prevent stale whole-user writes from undoing concurrent password, suspension, or revocation changes.
+- **The rotating interfaces are optional in Go, but the refresh and resume flows require them** and return an error without them. Do not substitute "read, then delete, then create": two requests arriving together would both succeed.
+- **The targeted user updates prevent lost updates.** Writing back a whole user row could undo a password change, a suspension or a revocation made in the meantime.
+- **Return `models.ErrNotFound` for a missing record and `models.ErrConflict` for a conditional write that lost.**
+- **A query for a live token must always apply** the expected purpose, owner, expiry and use state.
 
-Use `models.ErrNotFound` for an absent record and `models.ErrConflict` for failed conditional writes. Query methods that select a live token must consistently apply the expected purpose, ownership, expiry, and use-state rules. The [Models reference](api/models.md) contains the current method signatures.
+The [Models reference](api/models.md) has the current method signatures.
 
-## Shared Credential Stores
+## Replacing one feature's store
 
-`CoreConfig.CustomStorage`, `StatelessModuleConfig.CustomStorage`, and `SessionModuleConfig.CustomStorage` participate in shared store resolution. Conflicting owners are rejected before module initialization so token issuance and access validation cannot silently use different stores.
+`CoreConfig.CustomStorage`, `StatelessModuleConfig.CustomStorage` and `SessionModuleConfig.CustomStorage` replace the store for one feature. GoAuth resolves them into one shared credential store before any module starts and rejects conflicting owners, so issuing a token and validating it never use different stores by accident.
 
-Independent custom credential overrides do not preserve aggregate transaction/outbox capabilities automatically. For transactional flows, expose the complete store through `Config.Storage` instead. OAuth currently rejects all three of its custom per-feature storage overrides and requires this aggregate approach.
+- A separate custom store does not carry the transaction and outbox abilities of the main storage. For transactional flows, provide the complete store through `Config.Storage`.
+- OAuth rejects its per-feature overrides for this reason.
+- Magic Link and Passkeys still have `CustomStorage` fields. Keep their records and the shared sign-in path on consistent stores; an override does not make two stores atomic.
 
-Magic Link and Passkeys still expose feature-specific `CustomStorage` fields. Ensure their proof records and the shared completer use consistent stores; a constructor accepting an override does not imply cross-store atomicity.
+## Who closes the storage
 
-## Storage Ownership
+- By default, `Auth.Shutdown` closes `Config.Storage`.
+- Set `BorrowStorage: true` when your application owns the connection.
+- If `auth.New` returns an error, ownership was not transferred. Close the store yourself in that path.
 
-By default, `Auth.Shutdown` closes `Config.Storage`. Set `BorrowStorage: true` if the host application owns the connection and closes it separately. If `auth.New` fails, ownership was not transferred; close the newly created store in that error path.
+## Durable events
 
-## Durable Events
-
-`DurableEvents: true` requires aggregate `types.TransactionalStorage` and `types.OutboxStore`, including outbox capability inside the transaction callback. An outbox row must commit with its associated mutation. Claiming and acknowledging rows must use conditional leases. See [Events and deployment](enterprise.md).
+`DurableEvents: true` needs `types.TransactionalStorage` and `types.OutboxStore`, with the outbox available inside the transaction callback. An outbox row must commit with the change it describes, and rows are claimed and acknowledged with conditional leases. See [Events and deployment](enterprise.md).
 
 ## Migrations
 
-Automatic migrations require `CoordinatedMigrationApplier` and a connection-bound `AtomicMigrationApplier`. Rollback requires `AtomicMigrationReverter`. Implementing only the original `MigrationApplier` interface is sufficient for SQL generation/status, not automatic application. See [Migration management](migrations.md).
+| To do this | Storage must implement |
+| --- | --- |
+| Generate SQL, read status | `MigrationApplier` |
+| Apply migrations automatically | `CoordinatedMigrationApplier`, and a connection-bound `AtomicMigrationApplier` |
+| Roll back | The coordinated applier above, and `AtomicMigrationReverter` |
+
+See [Migrations](migrations.md).

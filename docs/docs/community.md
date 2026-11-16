@@ -2,40 +2,39 @@
 id: community
 title: Community
 sidebar_label: Community
-description: Contribute to GoAuth and get help
+description: Get help with GoAuth, report a bug or a vulnerability, and contribute code or documentation.
 ---
 
 # Community
 
+GoAuth is in beta and maintained by one developer. A report that something was confusing is as useful as a bug report.
+
 ## Get Help
 
-- [GitHub Issues](https://github.com/bete7512/go-auth/issues) — Report bugs and request features
-- [GitHub Discussions](https://github.com/bete7512/go-auth/discussions) — Ask questions and share ideas
+- **A question, a bug or a feature request:** open a [GitHub issue](https://github.com/bete7512/goauth/issues). For a bug, include the GoAuth version, your database, the modules you registered and the smallest code that shows it.
+- **A security problem:** report it privately, as described in [SECURITY.md](https://github.com/bete7512/goauth/blob/main/SECURITY.md). Do not open a public issue.
 
 ## Contributing
 
-Contributions are welcome. Here's how:
+Contributions are welcome. For anything larger than a small fix, open an issue first.
 
-1. Fork the repository
-2. Create a branch (`git checkout -b feature/my-feature`)
-3. Make your changes
-4. Run `make build` and `make test` to verify
-5. Commit and push
-6. Open a pull request
+1. Fork the repository and create a branch.
+2. Make your changes and run `make check`, which runs everything CI runs except the database contract tests.
+3. Open a pull request.
+
+[CONTRIBUTING.md](https://github.com/bete7512/goauth/blob/main/CONTRIBUTING.md) has the tools, the checks and the conventions.
 
 ### Code Patterns
 
-Follow the existing patterns:
-
-- Exported interface / unexported struct for services
-- `types.GoAuthError` for service/HTTP errors; ordinary `error` for lifecycle and storage contracts
-- Dot-notation route names (e.g., `core.signup`)
-- Embedded OpenAPI specs per module
-- `config.Component` (`Name` and `Init`) plus optional capabilities; the existing eight-method `config.Module` interface remains supported
+- Services are an exported interface with an unexported struct behind it.
+- Services and handlers return `types.GoAuthError`. Lifecycle and storage contracts return an ordinary `error`.
+- Route names use dot notation, such as `core.signup`.
+- Each module embeds its OpenAPI spec.
+- A module implements `config.Component` (`Name` and `Init`) plus the optional capabilities it needs. The eight-method `config.Module` interface still works.
 
 ### Adding a Module
 
-Use the scaffolding scripts:
+The scaffolding scripts create the files:
 
 ```bash
 cd internal/modules
@@ -43,16 +42,14 @@ cd internal/modules
 ./new_module_with_no_route.sh mymodule   # Middleware-only module
 ```
 
+A new module also needs its docs page, its OpenAPI spec and a CHANGELOG entry.
+
 ### Documentation
 
-Help improve documentation by:
-
-- Fixing errors or unclear explanations
-- Adding examples
-- Keeping code samples up to date
+Fixing something wrong or unclear, adding an example, or updating a code sample that no longer compiles all help. The pages live in `docs/docs/`.
 
 ## Resources
 
-- [GitHub Repository](https://github.com/bete7512/go-auth)
-- [Documentation](/docs/)
-- [Quick Start](/docs/quickstart)
+- [GitHub repository](https://github.com/bete7512/goauth)
+- [Changelog](https://github.com/bete7512/goauth/blob/main/CHANGELOG.md)
+- [Quick Start](quickstart.md)

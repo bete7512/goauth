@@ -3,21 +3,33 @@ id: intro
 title: Introduction
 sidebar_label: Introduction
 slug: intro
+description: How GoAuth works. What it owns and what you own, the three calls that set it up, the choices you make early, and every module.
 ---
 
-# GoAuth
+# Introduction
 
-GoAuth is a modular authentication library for Go. Start with signup and JWT credentials, or select server-side sessions. Add passkeys, OAuth, magic links, TOTP, organizations, and delivery modules to the same authentication pipeline.
+This page explains how GoAuth works, so the rest of the docs make sense. To start with running code, go to the [Quick Start](quickstart.md) and come back.
 
-These docs describe the current source checkout, including changes that may not yet be in a published release. See the [Upgrade guide](upgrade.md) when updating an existing integration.
+## What GoAuth owns and what you own
 
-## How It Works
+GoAuth is a library that you compile into your own server.
+
+| GoAuth owns | You own |
+| --- | --- |
+| The account endpoints under one path prefix (`BasePath`, for example `/auth`) | The HTTP server, the router and everything else it serves |
+| Its tables and their migrations | The database and its connection |
+| Checking who the caller is on each request | Deciding what that user may do in your app |
+| Password hashing, tokens, sessions, lockout, rate limits | Your frontend: forms, pages and redirects |
+
+A sign-up form on your site posts to `POST /auth/signup`. A page that needs a signed-in user calls your own route, which you wrapped in `a.RequireAuth(...)`.
+
+## Three calls set it up
 
 ```mermaid
 graph LR
-    A["auth.New(config)"] -->|1. Create| B["auth.Use(module)"]
-    B -->|2. Register| B
-    B -->|3. Initialize| C["auth.Initialize(ctx)"]
+    A["auth.New(config)"] -->|1. Create| B["a.Use(module)"]
+    B -->|2. Add modules| B
+    B -->|3. Start| C["a.Initialize(ctx)"]
     C --> D["Ready to serve"]
     style A fill:#e1f5fe
     style B fill:#fff3e0
@@ -25,51 +37,99 @@ graph LR
     style D fill:#f3e5f5
 ```
 
-1. `auth.New` validates and snapshots configuration and registers Core.
-2. `a.Use` registers optional components. Check the returned error.
-3. `a.Initialize` resolves dependencies, runs configured migrations, initializes modules, validates routes, and starts event delivery.
-4. Register HTTP routes with an adapter. Shut down HTTP serving before `a.Shutdown(ctx)` or `a.Close()`.
+1. **`auth.New(config)`** checks your configuration and creates the instance. The Core module is added for you.
+2. **`a.Use(module)`** adds an optional module. Check the error it returns.
+3. **`a.Initialize(ctx)`** orders the modules by what they depend on, runs migrations if you asked for them, and starts everything. After it, `a.Use` returns an error.
 
-The [Quick Start](quickstart.md) contains a complete program with error handling, environment-based secrets, migrations, and graceful shutdown.
+Then an adapter such as `stdhttp.Register(mux, a)` hands the routes to your router. When your server stops, call `a.Shutdown(ctx)` or `a.Close()`.
+
+## Two choices you make early
+
+### How users stay signed in
+
+Pick one. They cannot be registered together, and registering neither gives you Stateless.
+
+| | [Stateless](modules/stateless.md) (the default) | [Session](modules/session.md) |
+| --- | --- | --- |
+| What the client holds | A JWT access token and a JWT refresh token | A JWT access token tied to a session, and an opaque refresh credential |
+| What the server stores | A record for each refresh token | One row per session, so one per device |
+| Good for | APIs, mobile apps, services | Apps where users see their devices and sign one out |
+| Signing out | Ends all of the user's tokens | Ends that session; users can list and end the others |
+
+"Stateless" does not mean "no database". Both strategies check the user's current state on every request, so a ban or a password change takes effect on the next request.
+
+### How credentials travel
+
+`Security.AuthMode` decides whether GoAuth reads credentials from cookies, from the `Authorization: Bearer` header, or from both (the default). This is separate from the choice above. See [Security](security.md#credential-transport).
 
 ## Available Modules {#available-modules}
 
-| Module | Purpose | Registration |
-|---|---|---|
-| [Core](modules/core.md) | Signup, profile, password and verification flows | Automatic |
-| [Session](modules/session.md) | Server-side sessions and device management | `session.New(...)` |
-| [Stateless](modules/stateless.md) | JWT credentials with stored refresh nonces | Default if no strategy is selected |
-| [Passkeys](modules/passkeys.md) | WebAuthn registration and discoverable login | `passkeys.New(...)` |
-| [Two-Factor](modules/twofactor.md) | TOTP and backup codes | `twofactor.New(...)` |
-| [OAuth](modules/oauth.md) | Google, GitHub, Microsoft, Discord; named connections | `oauth.New(...)` |
-| [Magic Link](modules/magiclink.md) | Email links and verification codes | `magiclink.New(...)` |
-| [SAML](modules/saml.md) | SAML 2.0 service provider for Keycloak, Okta, Entra ID; requires OAuth | `saml.New(...)` |
-| [Identity Provider](modules/idp.md) | OpenID Connect provider: other applications sign users in with your accounts | `idp.New(...)` |
-| [Notification](modules/notification.md) | Event-driven email and SMS | `notification.New(...)` |
-| [Organization](modules/organization.md) | Memberships, roles, organization invitations | `organization.New(...)` |
-| [RBAC](modules/rbac.md) | Roles and permission checks for your own routes and services; organization roles need Organization | `rbac.New(...)` |
-| [Invitation](modules/invitation.md) | Platform invitations; requires Admin | `invitation.New(...)` |
-| [Team](modules/team.md) | Nested teams inside organizations; leads manage their sub-tree; team roles through RBAC | `team.New(...)` |
-| [UI](modules/ui.md) | Server-rendered admin console, optional sign-in and account pages | `ui.New(...)` |
-| [Admin](modules/admin.md) | Super-admin user management | `admin.New(...)` |
-| [Audit](modules/audit.md) | Event logging and retention; admin routes need Admin | `audit.New(...)` |
-| [Captcha](modules/captcha.md) | reCAPTCHA v3 and Turnstile | `captcha.New(...)` |
-| [CSRF](modules/csrf.md) | CSRF cookie/header validation | `csrf.New(...)` |
+Each module brings its own routes, tables, migrations and OpenAPI spec. You register one with `<name>.New(...)`, for example `twofactor.New(...)`.
 
-Session and Stateless are mutually exclusive. Registration/initialization errors must be handled; invalid combinations do not intentionally panic. Both built-in strategies check current user state when validating access credentials. Stateless does not mean database-free.
+| Module | What it adds | Needs |
+| --- | --- | --- |
+| [Core](modules/core.md) | Sign-up, profile, password reset and change, email and phone verification. Always on | |
+| [Stateless](modules/stateless.md) | JWT access tokens and rotating refresh tokens. The default strategy | |
+| [Session](modules/session.md) | Server-side sessions, device list and revoke | |
+| [OAuth](modules/oauth.md) | Google, GitHub, Microsoft and Discord sign-in | |
+| [Magic Link](modules/magiclink.md) | Sign-in by emailed link or 6-digit code | |
+| [Passkeys](modules/passkeys.md) | WebAuthn sign-in with Touch ID, Face ID or security keys | |
+| [SAML](modules/saml.md) \* | SAML 2.0 single sign-on with Keycloak, Okta, Entra ID | OAuth |
+| [Two-Factor](modules/twofactor.md) | Authenticator-app codes and backup codes | |
+| [Rate Limit](modules/ratelimit.md) | Request budgets per IP and per account. On by default | |
+| [Captcha](modules/captcha.md) | reCAPTCHA v3 or Cloudflare Turnstile | |
+| [CSRF](modules/csrf.md) | Protection for cookie-authenticated writes | |
+| [Audit](modules/audit.md) | A security event trail with retention | Admin, for its admin routes |
+| [Organization](modules/organization.md) | Organizations with members, roles and invitations | |
+| [Team](modules/team.md) \* | Nested teams inside organizations | Organization |
+| [RBAC](modules/rbac.md) \* | Roles and permission checks for your own routes | Organization, for organization roles |
+| [Invitation](modules/invitation.md) | Platform invitations, such as beta access | Admin |
+| [Admin](modules/admin.md) | User management for super admins | |
+| [UI](modules/ui.md) \* | The admin console, plus optional sign-in and account pages | |
+| [Notification](modules/notification.md) | Email and SMS delivery | |
+| [Identity Provider](modules/idp.md) \* | Other applications sign users in with your accounts (OpenID Connect) | Admin, for its admin API |
 
-## One completion flow
+\* On `main`, not yet in the `v0.3.0-beta.1` release.
 
-Password, OAuth, magic-link, passkey, and invitation authentication run through common eligibility and challenge checks. A successful proof may return `challenges` rather than final tokens. Complete the challenge before treating the user as signed in. Organization context and verified authentication methods survive refresh.
+## One sign-in path
 
-HTTP middleware creates a verified `types.Principal`. Applications outside HTTP can use `a.SignIn` and `a.Authenticate`. See the [Auth reference](api/auth.md) and [Security guide](security.md).
+Password, OAuth, magic link, passkey and invitation sign-ins all end in the same place. That one path checks that the account may sign in and whether a second factor is required, and only then issues credentials.
 
-## Frameworks and storage
+So a correct password does not always mean the user is signed in. When more is needed, the response has no tokens and carries a `challenges` list:
 
-Use `stdhttp.Register(mux, a)` for the standard library. Gin, Chi, and Fiber adapters are separate Go modules; install the adapter you use as described in [Installation](installation.md).
+```json
+{
+  "data": {
+    "challenges": [
+      {"type":"2fa","data":{"requires_2fa":true,"temp_token":"PENDING_CREDENTIAL"}}
+    ]
+  }
+}
+```
 
-The bundled GORM store supports PostgreSQL, MySQL, and SQLite. Custom stores implement repositories plus the required atomic and transactional capabilities. [Storage](storage.md) explains ownership, transaction boundaries, and refresh-token rotation.
+Finish the challenge (here, send the code to `/2fa/verify-login`) before treating the user as signed in. Check for `challenges` after every sign-in method, and after a refresh.
 
-## Events and deployment
+## Knowing who the caller is
 
-Before hooks can reject an operation synchronously. After hooks normally run asynchronously in a worker pool. Durable operations use an outbox when enabled; handlers must tolerate repeated delivery. See [Enterprise deployment](enterprise.md), [Migrations](migrations.md), and [Performance](performance.md).
+Inside a handler wrapped in `a.RequireAuth`:
+
+```go
+principal, ok := types.PrincipalFromContext(r.Context())
+if !ok {
+    http.Error(w, "unauthorized", http.StatusUnauthorized)
+    return
+}
+fmt.Fprintln(w, principal.UserID)
+```
+
+The `Principal` also carries the session, the selected organization, and how and when the user signed in. Code outside HTTP can use `a.SignIn` and `a.Authenticate`; see the [Auth reference](api/auth.md).
+
+## Reacting to events
+
+Subscribe with `a.On(event, handler)`. A **before** hook such as `before.signup` runs inline and can reject the operation. An **after** hook such as `after.signup` runs in the background and may run more than once, so make it safe to repeat. See [Events and deployment](enterprise.md).
+
+## Next
+
+- [Quick Start](quickstart.md): a running server and your first protected route.
+- [Examples](showcase.md): working setups for common features.
+- [Architecture](architecture.md): how it works inside.

@@ -1,11 +1,20 @@
 ---
 id: migrations
 title: Migration Management
+description: How GoAuth creates and updates its tables. Automatic migrations, generating SQL for review, checking status, rollback, and what happens when a migration fails.
 ---
 
 # Migration Management
 
-GoAuth embeds versioned SQL with each module. The current migration runner validates dependencies, coordinates concurrent runners, tracks checksums, and stops on dirty records.
+Every module that owns tables ships versioned SQL for PostgreSQL, MySQL and SQLite. You decide how it reaches your database:
+
+| Approach | Good for | How |
+| --- | --- | --- |
+| **Automatic** | The simplest setup | `Migration.Auto: true` |
+| **Generate, review, then apply** | Teams that review schema changes before they run | `GenerateMigrationFiles`, then apply |
+| **Your own migration tool** | Databases managed by another migration tool | Generate the SQL and run it yourself |
+
+Whichever you choose, finish migrating before the instance accepts requests.
 
 ## Automatic Application
 
@@ -13,11 +22,13 @@ GoAuth embeds versioned SQL with each module. The current migration runner valid
 cfg.Migration = config.MigrationConfig{Auto: true}
 ```
 
-During `Initialize`, modules are ordered by dependency and migrations by numeric version. Modules with no schema return no migrations. A schema-owning module must have migrations for the active dialect; duplicate versions and empty up scripts are rejected.
+During `Initialize`, GoAuth orders modules by dependency and migrations by version, then applies what is pending. You can also call `ApplyMigrations(ctx)` yourself.
 
-`ApplyMigrations(ctx)` requires storage implementing `types.CoordinatedMigrationApplier`; the connection-bound callback must also implement `types.AtomicMigrationApplier`. The built-in GORM adapter supports these contracts. Run migration management before accepting requests.
+A module with tables must have migrations for the database you use; duplicate versions and empty "up" scripts are rejected. Custom storage needs `types.CoordinatedMigrationApplier`, and its connection-bound callback needs `types.AtomicMigrationApplier`. The bundled GORM storage has both.
 
 ## Coordination and Recording
+
+Starting several instances at once is safe. A lock makes sure two of them never migrate at the same time.
 
 | Dialect | Coordination | SQL and tracking behavior |
 | --- | --- | --- |
@@ -25,13 +36,20 @@ During `Initialize`, modules are ordered by dependency and migrations by numeric
 | MySQL | Named connection lock | Dirty record first, DDL, then mark clean |
 | SQLite | Transactional write lock | Transactional migration plan and tracking |
 
-The tracking table is `goauth_migrations`. Records include module, version, name, dialect, application time, checksum, and dirty status. Existing nonempty checksums are compared to the embedded up SQL. Legacy records with an empty checksum are not retroactively verified by that comparison.
+Applied migrations are recorded in `goauth_migrations`: module, version, name, dialect, time, a checksum of the SQL and a "dirty" flag.
 
-A dirty record or checksum mismatch blocks automatic startup. Investigate the actual schema and failed operation before repair. MySQL DDL can commit independently; the runner deliberately does not claim that it can roll back every DDL failure.
+### When a migration fails
+
+Automatic startup stops when it finds either of these:
+
+- **A dirty record.** A migration started and did not finish.
+- **A checksum mismatch.** The SQL recorded as applied differs from the SQL in this version of GoAuth.
+
+Look at the real schema and at what failed before repairing anything, and do not clear the tracking table to get past the error. MySQL DDL commits on its own, so GoAuth cannot promise to undo a failed migration there; that is why it marks the record dirty first. Older records with an empty checksum are not checked.
 
 ## Generate SQL for Review
 
-After creating an instance and registering the desired modules, before serving traffic:
+Create the instance and register your modules, but do not serve traffic yet:
 
 ```go
 files, err := a.GenerateMigrationFiles(ctx, "./migrations/generated")
@@ -43,11 +61,11 @@ for _, path := range files {
 }
 ```
 
-This reads the tracking table and writes pending migrations into a combined `goauth_{timestamp}_up.sql` and `_down.sql` pair. The up file follows dependency/version order; the down file reverses it. No pending changes returns no files.
+This writes the pending migrations into `goauth_{timestamp}_up.sql` and `goauth_{timestamp}_down.sql`. The up file follows dependency and version order; the down file reverses it. With nothing pending, no files are written.
 
-Generation requires `MigrationApplier` and may create the tracking table. It is not a database-free export. The output contains schema SQL and comments, not statements that maintain GoAuth's migration records; an external runner must keep tracking consistent before automatic migration is enabled later.
-
-`Migration.OutputDir` requests the same export during initialization. If combined with `Auto: true`, automatic application runs first, so usually no pending SQL remains to export. Generate before application when review is the goal.
+- **It needs a database.** Generation reads the tracking table, and may create it.
+- **The files contain schema SQL only.** They do not update `goauth_migrations`. If another tool runs them, keep the tracking table consistent before you turn on `Auto`.
+- **`Migration.OutputDir` does the same export during `Initialize`.** With `Auto: true` the migrations are applied first, so usually nothing is left to export. For review, generate before you apply.
 
 ## Status
 
@@ -61,14 +79,25 @@ for _, record := range records {
 }
 ```
 
-This returns tracking records; it does not automatically repair them or create a missing tracking table.
+This only reads the tracking records. It repairs nothing and does not create a missing tracking table.
 
 ## Rollback
 
-`RollbackModule(ctx, moduleName)` rolls back the latest recorded version for one registered module. Use a separate instance that has **not** been initialized or closed, with all relevant modules registered. The runner rejects rollback on a serving instance, dirty state, checksum mismatch, missing down SQL, and applied dependent modules visible to its plan.
+`RollbackModule(ctx, moduleName)` undoes the latest recorded version of one module.
 
-It requires coordinated storage and `AtomicMigrationReverter`. Register the complete relevant module set and assess data loss before using down migrations. Rollback is an operational action; the docs build never runs it against an application database.
+- Use a **separate instance** that has not been initialized or closed, with every relevant module registered.
+- It refuses to run on a serving instance, with a dirty record, a checksum mismatch, no "down" SQL, or a dependent module still applied.
+- Storage must support coordinated migrations and `AtomicMigrationReverter`.
+
+Down migrations can delete data, so work out what will be lost first. The docs build never runs a rollback against an application database.
 
 ## Current Schema Additions
 
-The current source adds Core token attempt counts, typed continuation data, and outbox storage; session grant/assurance data; OAuth external-identity realm/issuer fields; and passkey credential tables. Apply the migrations for the modules you use before upgrading code that reads these fields. See [Upgrading](upgrade.md).
+The current source adds:
+
+- Core: token attempt counts, typed continuation data, and outbox storage;
+- Session: grant and assurance data;
+- OAuth: realm and issuer fields on external identities;
+- Passkeys: credential tables.
+
+Apply the migrations for the modules you use before you deploy code that reads these fields. See [Upgrading](upgrade.md).

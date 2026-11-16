@@ -3,13 +3,26 @@ id: architecture
 title: Architecture Guide
 sidebar_label: Architecture
 sidebar_position: 3
+description: How GoAuth works inside. The lifecycle, the module contract, the single sign-in path, events, storage and migrations.
 ---
 
 # Architecture
 
-GoAuth is a library embedded in your Go process. Modules share configuration, storage, events, middleware, and an authentication completion service. The public entry points live in `pkg/`; application integrations do not import `internal/`.
+This page is for people who want to know how GoAuth works inside: to write a module, to write storage, or to judge the design. To use GoAuth, the [Introduction](intro.md) is enough.
 
-## Repository Structure
+## The big picture
+
+GoAuth runs inside your Go process. It is a set of modules around a small core, and every module shares five things:
+
+- **Configuration**, checked once and then frozen.
+- **Storage**, one typed interface over your database.
+- **Events**, so modules react to each other without importing each other.
+- **Middleware**, such as the check that a request is signed in.
+- **Completion**, the single path every sign-in goes through before credentials are issued.
+
+Applications import only from `pkg/` and `storage/`. Everything under `internal/` is private.
+
+## Where the code lives
 
 ```text
 pkg/auth/           Lifecycle, routes, in-process sign-in, migrations, OpenAPI
@@ -26,7 +39,7 @@ storage/gorm/       SQL repositories, transactions, migration locks and outbox
 docs/               Next.js + Fumadocs website; authored guides in docs/docs/
 ```
 
-## Three-Phase Lifecycle
+## Lifecycle
 
 ```mermaid
 graph LR
@@ -41,23 +54,27 @@ graph LR
     style D fill:#f3e5f5
 ```
 
-### Phase 1: `auth.New(config)`
+**1. `auth.New(config)`** validates the configuration, snapshots it, creates the shared services and registers Core. Later changes to your config struct have no effect, and `Config()` returns a copy.
 
-Validates and snapshots configuration, creates shared services, and registers Core. `Config()` returns a copy. New instances cannot serve protected routes until initialization completes.
+**2. `auth.Use(module)`** registers one component. It returns an error, never a panic, for an invalid or duplicate name, for both Session and Stateless, and for registering after initialization.
 
-### Phase 2: `auth.Use(module)`
+**3. `auth.Initialize(ctx)`** does the rest, in this order:
 
-Registers a `config.Component` and returns an error for invalid/duplicate names, conflicting Session/Stateless strategies, or registration after initialization. These are errors, not panics.
+1. Adds Stateless if no strategy was chosen.
+2. Checks that the set of modules is complete and consistent.
+3. Decides which store holds credentials and sets up the shared sign-in path.
+4. Applies or exports migrations, if configured.
+5. Initializes modules in dependency order.
+6. Checks every route and its middleware.
+7. Starts event delivery and marks the instance ready.
 
-### Phase 3: `auth.Initialize(ctx)`
+If a step fails, everything already started is cleaned up, and you create a new instance to try again. `Shutdown` stops modules in reverse order, then closes the event backend and the storage. See the [Auth reference](api/auth.md).
 
-Selects default Stateless when needed, validates the complete composition graph, resolves credential stores, sets up shared completion, applies/exports migrations, and initializes modules in dependency order. It validates the completed route/middleware table before starting event consumption and marking the instance ready.
+## Modules
 
-Failed initialization cleans up started resources. Shutdown reverses module order and then closes backend/storage resources. See [Lifecycle](api/auth.md) for the API and storage ownership.
+### The contract
 
-## Module Contract
-
-The minimum extension contract has two methods:
+The smallest thing `Use` accepts has two methods:
 
 ```go
 type Component interface {
@@ -66,7 +83,9 @@ type Component interface {
 }
 ```
 
-This is the shape of `config.Component`; `Auth.Use` accepts it directly. The original eight-method `config.Module` contract remains supported. For a minimal component, routes, middleware, hooks, dependencies, OpenAPI, migrations, shutdown, and constraints are optional capabilities detected by the adapter.
+That is `config.Component`. Everything else is optional and detected when present: routes, middleware, hooks, dependencies, an OpenAPI spec, migrations, `Shutdown(context.Context) error`, and constraints. The eight-method `config.Module` interface still works.
+
+### Saying what a module needs
 
 ```go
 type ModuleConstraints struct {
@@ -76,11 +95,15 @@ type ModuleConstraints struct {
 }
 ```
 
-`Constraints()` advertises capabilities, required capabilities, and conflicting **module names**. Required providers initialize before consumers. Missing providers/dependencies, duplicate providers, cycles, and conflicts cause initialization errors. Optional `Shutdown(context.Context) error` participates in reverse-order cleanup.
+`Constraints()` lists the capabilities a module provides, the ones it requires, and the **names of modules** it cannot run beside. Providers start before the modules that need them. A missing provider, a duplicate provider, a cycle or a conflict stops initialization.
 
-Dependencies supplied to a module include `Storage`, `Config`, `Logger`, `Events`, `MiddlewareManager`, `SecurityManager`, `AuthInterceptors`, and `Completion`. Submit verified evidence to `Completion`; never populate trusted authentication evidence directly from an unverified request body.
+### What a module receives
 
-## Module Dependency Graph
+`Init` gets `Storage`, `Config`, `Logger`, `Events`, `MiddlewareManager`, `SecurityManager`, `AuthInterceptors` and `Completion`.
+
+One rule matters most: a module that signs users in hands **verified** evidence to `Completion`. It never fills in trusted sign-in data straight from a request body.
+
+### How the bundled modules depend on each other {#module-dependency-graph}
 
 ```mermaid
 graph TD
@@ -114,9 +137,9 @@ graph TD
     style Session fill:#FF9800,color:#fff
 ```
 
-Module names alone do not cover every requirement. Storage capabilities and referenced middleware must also exist. Invitation declares Admin as a dependency. Audit declares Core, but its admin routes also require Admin’s middleware. Notification exposes no HTTP endpoints.
+A solid arrow is a declared dependency. A dotted arrow is needed only for the feature named on it. The stores a module uses and the middleware its routes name must exist too: Audit declares only Core, but its admin routes need Admin's middleware. Notification has no HTTP endpoints.
 
-## Request Flow
+## What happens on a request
 
 ```mermaid
 sequenceDiagram
@@ -136,55 +159,35 @@ sequenceDiagram
     Service-->>Client: Response envelope and configured cookies
 ```
 
-Protected access goes through online validation: cryptographic checks, credential purpose, user/version/eligibility, session validity when applicable, and selected-organization membership. The `Principal` placed in context represents that verified result. Signature-only parsing is not the built-in authorization boundary.
+A protected route does more than check a signature. GoAuth verifies the token, checks that it is an access credential, then reads storage to confirm the user is still eligible and the token version is current. With sessions it also confirms the session is alive, and with a selected organization, the membership.
 
-### Middleware Priority
+The `Principal` in the request context is the result of all of that. Parsing a JWT yourself and trusting its payload is not equivalent.
 
-Higher priorities run first. Core authentication uses priority 50; organization and session-cache middleware use 45; the Two-Factor route middleware uses 40. Its current body is a pass-through: factor enforcement is in the completion interceptor, not per-route step-up middleware. Route requirements are validated at initialization so missing protection is an error.
+### Middleware order
 
-## Event System
+Higher priority runs first: Core authentication is 50, organization and session-cache middleware 45, the Two-Factor route middleware 40. That last one currently passes requests through, because the second factor is enforced at sign-in, not per route. A route whose middleware is missing fails initialization, so it is never served unprotected by accident.
+
+## One sign-in path
 
 ```mermaid
 graph LR
-    Mutation["Transaction-bound operation"] --> Outbox["Outbox when DurableEvents is enabled"]
-    Mutation --> Deferred["Otherwise publish after commit"]
-    Outbox --> Dispatcher["Acknowledged dispatcher"]
-    Deferred --> Backend["AsyncBackend"]
-    Backend --> Dispatcher
-    Dispatcher --> Notification["Notification handlers"]
-    Dispatcher --> Audit["Audit handlers"]
-    Dispatcher --> Custom["Application handlers"]
+    Evidence["Verified evidence"] --> Eligibility["Current user eligibility"]
+    Eligibility --> TwoFactor["2FA policy: priority 100"]
+    TwoFactor --> Org["Selected organization: priority 50"]
+    Org --> Decision{Challenges?}
+    Decision -->|Yes| Pending["Persist purpose-bound continuation"]
+    Decision -->|No| Grant["Issue selected credential grant"]
+    Pending --> Resume["Verify factor and resume atomically"]
+    Resume --> Eligibility
 ```
 
-The default backend uses ten workers and a bounded queue of 1000. A custom `types.AsyncBackend` can supply transport; `types.AcknowledgingBackend` adds retry-aware dispatch acknowledgement. Durable operation events and `authentication.completed` use the colocated outbox. Delivery is at least once; stable event IDs help consumers deduplicate. See [Events and deployment](enterprise.md) for the exact scope.
+Every sign-in method proves identity in its own way, then submits that proof to the same completer. It checks that the account may sign in, runs the **auth interceptors** in priority order, and either issues credentials or stores a pending continuation and returns a challenge.
 
-## Storage Architecture
+- Interceptors can add claims and response data, but the identity and assurance claims are reserved.
+- Challenges are honored at login, at refresh and when resuming.
+- The organization interceptor adds the **selected** organization after checking the membership. It does not put every membership in the token, and it does not pick an organization for the user.
 
-```mermaid
-graph TD
-    S["types.Storage"] --> Core["Core: users and tokens"]
-    S --> Sessions["Session: sessions and grant context"]
-    S --> OAuth["OAuth: external identities"]
-    S --> TwoFactor["TwoFactorAuth: TOTP and backup codes"]
-    S --> Passkeys["Passkeys: WebAuthn credentials"]
-    S --> Organization["Organization: orgs, members, invitations"]
-    S --> RBAC["RBAC: custom roles and role assignments"]
-    S --> Team["Team: teams and team members"]
-    S --> Invitation["Invitation: platform invitations"]
-    S --> Audit["AuditLog: audit records"]
-    S --> Tx["TransactionalStorage: one transaction across stores"]
-    Tx --> Outbox["OutboxStore when durable events are enabled"]
-```
-
-`StorageSet` composes feature stores; it does not provide aggregate atomicity by itself. Refresh and continuation flows require conditional repository capabilities, and cross-feature security operations require transaction-bound stores. See [Storage contracts](storage.md) and [Models](api/models.md).
-
-## Migration System
-
-Each schema-owning module embeds versioned SQL per dialect. The runner applies dependency order followed by version order, coordinates concurrent runners, and records checksums. Dirty records and changed recorded SQL block automatic startup. PostgreSQL/SQLite support transactional recording; MySQL marks records dirty around DDL.
-
-See [Migration management](migrations.md) for SQL generation, external-runner bookkeeping, and inactive-instance rollback.
-
-## Invitation Flow (Complete)
+### Example: accepting an invitation
 
 ```mermaid
 sequenceDiagram
@@ -207,24 +210,58 @@ sequenceDiagram
     end
 ```
 
-Acceptance is public because the invitation token is the proof. Existing users omit new-account fields. Acceptance mutation and subsequent HTTP authentication completion are distinct steps: do not describe every failure after acceptance as an unconsumed invitation. A 2FA challenge can follow a successful acceptance.
+Accepting is a public route, because the invitation token is the proof. An existing user leaves out the new-account fields. Accepting and signing in are two separate steps: the invitation can be accepted and the sign-in can still answer with a 2FA challenge, so a failure after acceptance does not mean the invitation is unused.
 
-## Auth Interceptors
+## Events
 
 ```mermaid
 graph LR
-    Evidence["Verified evidence"] --> Eligibility["Current user eligibility"]
-    Eligibility --> TwoFactor["2FA policy: priority 100"]
-    TwoFactor --> Org["Selected organization: priority 50"]
-    Org --> Decision{Challenges?}
-    Decision -->|Yes| Pending["Persist purpose-bound continuation"]
-    Decision -->|No| Grant["Issue selected credential grant"]
-    Pending --> Resume["Verify factor and resume atomically"]
-    Resume --> Eligibility
+    Mutation["Transaction-bound operation"] --> Outbox["Outbox when DurableEvents is enabled"]
+    Mutation --> Deferred["Otherwise publish after commit"]
+    Outbox --> Dispatcher["Acknowledged dispatcher"]
+    Deferred --> Backend["AsyncBackend"]
+    Backend --> Dispatcher
+    Dispatcher --> Notification["Notification handlers"]
+    Dispatcher --> Audit["Audit handlers"]
+    Dispatcher --> Custom["Application handlers"]
 ```
 
-Interceptors run in deterministic priority order and can add non-reserved claims or response data. Challenges are honored during login, refresh, and resume. Identity/assurance claims are reserved. The organization interceptor enriches the **selected** organization after checking current membership; it does not put every membership in a token or select an organization automatically.
+By default, events are delivered by an in-memory pool of ten workers with a queue of 1000.
 
-## Service Pattern
+- Replace the transport with your own `types.AsyncBackend`; add `types.AcknowledgingBackend` for retries that wait for an acknowledgement.
+- With `DurableEvents`, `authentication.completed` and the events of security operations that run in a transaction are written to an outbox table together with the change they describe.
+- Delivery is at least once. Events have stable IDs, so a consumer can ignore one it already handled.
 
-Built-in modules separate HTTP DTOs/handlers from service logic and persistence. `Auth.SignIn` exposes password sign-in without HTTP, and `Auth.Authenticate` returns a verified principal. Custom transports deliver credentials themselves. Extension services use the shared completer so successful proof does not skip current policy or factor requirements.
+See [Events and deployment](enterprise.md).
+
+## Storage {#storage-architecture}
+
+```mermaid
+graph TD
+    S["types.Storage"] --> Core["Core: users and tokens"]
+    S --> Sessions["Session: sessions and grant context"]
+    S --> OAuth["OAuth: external identities"]
+    S --> TwoFactor["TwoFactorAuth: TOTP and backup codes"]
+    S --> Passkeys["Passkeys: WebAuthn credentials"]
+    S --> Organization["Organization: orgs, members, invitations"]
+    S --> RBAC["RBAC: custom roles and role assignments"]
+    S --> Team["Team: teams and team members"]
+    S --> Invitation["Invitation: platform invitations"]
+    S --> Audit["AuditLog: audit records"]
+    S --> Tx["TransactionalStorage: one transaction across stores"]
+    Tx --> Outbox["OutboxStore when durable events are enabled"]
+```
+
+`types.Storage` gives each module a typed store, such as `Storage.Core()`.
+
+Some operations change several stores at once: accepting an invitation creates a user and a membership. Those need `TransactionalStorage`, one transaction across all stores. `StorageSet` combines separate stores into one `Storage` but does not make them atomic. Refresh and resume also need repositories that update conditionally. See [Storage](storage.md) and the [Models reference](api/models.md).
+
+## Migrations
+
+Each module that owns tables embeds versioned SQL for every supported database. The runner applies modules in dependency order and versions in numeric order, takes a lock so two instances do not migrate at once, and records a checksum for each migration. A half-applied migration, or recorded SQL that no longer matches, blocks automatic startup. See [Migrations](migrations.md).
+
+## Inside a module
+
+Bundled modules keep three layers apart: HTTP handlers and their request types, service logic, and persistence. Handlers depend on a service interface.
+
+`Auth.SignIn` exposes password sign-in without HTTP, and `Auth.Authenticate` turns a token into a verified principal, so another transport can reuse the same checks. A module of your own that signs users in should use the shared completer, so that proving identity never skips the account checks or the second factor.
