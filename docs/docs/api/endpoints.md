@@ -2769,6 +2769,114 @@ Requires `goauth.assignments:read`. Membership roles are not assignments and are
 
 ---
 
+### Team roles
+
+With `rbac.Config{Organizations: true, Teams: true}` and the team module. The permission must be held in the team named in the path, which counts roles on the team, on teams above it, in its organization and application-wide. A team named under another organization's path is not found.
+
+<details>
+<summary><code>GET</code> <code>/org/&#123;orgId&#125;/teams/&#123;teamId&#125;/roles</code> — List roles assignable in a team <span className="badge badge--primary">Auth</span></summary>
+
+Requires `goauth.roles:read`. The built-in `lead` and `member` team roles, roles defined in code that apply to teams, and the organization's custom roles. Creating, changing or deleting roles in a team is refused: roles belong to the organization.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/org/&#123;orgId&#125;/teams/&#123;teamId&#125;/members/&#123;userId&#125;/roles</code> — Get a user's roles in a team <span className="badge badge--primary">Auth</span></summary>
+
+Requires `goauth.assignments:read`, except for your own.
+
+</details>
+
+<details>
+<summary><code>PUT</code> <code>/org/&#123;orgId&#125;/teams/&#123;teamId&#125;/members/&#123;userId&#125;/roles</code> — Set a user's roles in a team <span className="badge badge--primary">Auth</span></summary>
+
+**Body:** `{"roles": ["editor"]}`. Requires `goauth.assignments:write` and every grant of the roles. The user must be a member of the organization; the assignment ends with that membership.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/org/&#123;orgId&#125;/teams/&#123;teamId&#125;/role-assignments</code> — List role assignments in a team <span className="badge badge--primary">Auth</span></summary>
+
+Requires `goauth.assignments:read`. Same filters as the organization list.
+
+</details>
+
+## Team Module
+
+:::info
+Requires `team.New(...)` and the organization module. Every route needs `Authorization: Bearer <access_token>` (or the cookies). Organization owners and admins manage every team; leads manage their team and everything beneath it. See [Team](../modules/team.md).
+:::
+
+<details>
+<summary><code>GET</code> <code>/org/&#123;orgId&#125;/teams</code> — List teams <span className="badge badge--primary">Auth</span></summary>
+
+**Query:** `tree=true` (every team, each after its parent), `parent_id`, `top=true`, `q`, `offset`, `limit` (max 100), `sort_field` (`created_at`, `name`, `slug`, `path`), `sort_dir`. Any member of the organization may read.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/org/&#123;orgId&#125;/teams</code> — Create a team <span className="badge badge--primary">Auth</span></summary>
+
+**Body:** `{"name": "Backend", "slug": "backend", "description": "", "parent_id": "..."}`. A top-level team needs the owner or an admin; a team beneath another needs the right to manage that team. **Response** `201` with the team.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/org/&#123;orgId&#125;/teams/&#123;teamId&#125;</code> — Get a team <span className="badge badge--primary">Auth</span></summary>
+
+**Response** `200`: `{"data": {"id", "org_id", "parent_id", "name", "slug", "description", "depth", "ancestors": [...], "created_at", "updated_at"}}`.
+
+</details>
+
+<details>
+<summary><code>PUT</code> <code>/org/&#123;orgId&#125;/teams/&#123;teamId&#125;</code> — Update a team <span className="badge badge--primary">Auth</span></summary>
+
+**Body:** `name`, `slug`, `description`.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/org/&#123;orgId&#125;/teams/&#123;teamId&#125;/move</code> — Move a team <span className="badge badge--primary">Auth</span></summary>
+
+**Body:** `{"parent_id": "..."}`, empty for the top level. Everything beneath moves with it. Errors: `TEAM_INVALID_PARENT`, `TEAM_TOO_DEEP`, `TEAM_FORBIDDEN`.
+
+</details>
+
+<details>
+<summary><code>DELETE</code> <code>/org/&#123;orgId&#125;/teams/&#123;teamId&#125;</code> — Delete a team <span className="badge badge--primary">Auth</span></summary>
+
+Refused with `TEAM_HAS_SUBTEAMS` while teams sit beneath it.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/org/&#123;orgId&#125;/teams/&#123;teamId&#125;/members</code> — List team members <span className="badge badge--primary">Auth</span></summary>
+
+**Query:** `role`, `offset`, `limit`, `sort_field` (`created_at`, `role`), `sort_dir`.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/org/&#123;orgId&#125;/teams/&#123;teamId&#125;/members</code> — Add a team member <span className="badge badge--primary">Auth</span></summary>
+
+**Body:** `{"user_id": "...", "role": "member"}` (`lead` or `member`). The user must be a member of the organization. **Response** `201`.
+
+</details>
+
+<details>
+<summary><code>PUT</code> <code>/org/&#123;orgId&#125;/teams/&#123;teamId&#125;/members/&#123;userId&#125;</code> — Change a member's role <span className="badge badge--primary">Auth</span></summary>
+
+**Body:** `{"role": "lead"}`.
+
+</details>
+
+<details>
+<summary><code>DELETE</code> <code>/org/&#123;orgId&#125;/teams/&#123;teamId&#125;/members/&#123;userId&#125;</code> — Remove a team member <span className="badge badge--primary">Auth</span></summary>
+
+Leads remove members; members may remove themselves.
+
+</details>
+
 ## UI Module
 
 :::info
@@ -2778,7 +2886,7 @@ Requires `ui.New(...)`. These routes serve HTML pages, not JSON, and refuse cros
 <details>
 <summary><code>GET</code> <code>/ui</code> — Console home and overview</summary>
 
-Overview for a super admin: totals, newest users and recent events. Redirects (`303`) others to `/ui/account` (with `UserPages`) or `/ui/login`.
+Overview for a super admin: totals, charts of sign-ups, sign-ins and failed sign-ins over 30 days (when the stores can count per day; sign-ins need the `audit` module), newest users and recent events. Redirects (`303`) others to `/ui/account` (with `UserPages`) or `/ui/login`.
 
 </details>
 
@@ -2820,7 +2928,7 @@ Revokes the credentials as `POST /logout` does, clears the cookies and redirects
 <details>
 <summary><code>GET</code> <code>/ui/account</code> — Account page <span className="badge badge--primary">Auth</span></summary>
 
-Only with `UserPages: true`.
+Your profile, password, sessions, passkeys, connected applications and recent activity. Administrators always have it; everyone else only with `UserPages: true`.
 
 </details>
 
@@ -3245,6 +3353,233 @@ Read-only: strategy, token lifetimes, password and lockout policy, cookies, regi
 </details>
 
 ---
+
+### Sign-in methods
+
+<details>
+<summary><code>GET</code> <code>/ui/login/done</code> — Finish an OAuth or SAML sign-in</summary>
+
+Where `GET /oauth/{provider}` and `GET /saml/{provider}/login` return when the sign-in page starts them with `redirect_uri=/ui/login/done?next=...` (a local path, so the cookies are set and no token is put in the URL). Checks the visitor like a password sign-in. `error=challenge_required` (the account uses two-factor authentication) and other errors show the sign-in page with a message.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/login/code</code> — Email a sign-in code</summary>
+
+**Form:** `email`, optional `next`. Requires the `magiclink` module with a delivery mode that sends codes. Answers the same whether or not the address has an account. Rate limited with the send rules.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/login/code/verify</code> — Sign in with an emailed code</summary>
+
+**Form:** `email`, `code`, optional `next`. Rate limited as a credential check.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/login/passkey/begin</code> — Start a passkey sign-in</summary>
+
+Answers JSON `{challenge_token, public_key}` for `navigator.credentials.get`. Requires the `passkeys` module; its `RPOrigins` must include the console's origin.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/login/passkey/finish</code> — Finish a passkey sign-in</summary>
+
+**Body (JSON):** `challenge_token`, `credential_response`; optional query `next`. Sets the credential cookies and answers `{"redirect": "..."}`, or `422` with `{"error": "..."}`. Rate limited as a credential check.
+
+</details>
+
+### Your account
+
+<details>
+<summary><code>POST</code> <code>/ui/account</code> — Save your profile <span className="badge badge--primary">Auth</span></summary>
+
+**Form:** `name`, `phone_number`. Changing the phone number signs you out everywhere (core bumps the token version). Available to administrators always and to everyone with `UserPages`.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/account/password</code> — Change your password <span className="badge badge--primary">Auth</span></summary>
+
+**Form:** `current_password`, `new_password`, `confirm_password`. Signs you out everywhere and redirects to the sign-in page. Rate limited as a credential check.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/account/sessions/&#123;sessionId&#125;/revoke</code> — End one of your sessions <span className="badge badge--primary">Auth</span></summary>
+
+Session strategy only; not the current session.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/account/passkeys/&#123;passkeyId&#125;/delete</code> — Remove one of your passkeys <span className="badge badge--primary">Auth</span></summary>
+
+Requires the `passkeys` module.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/account/apps/&#123;grantId&#125;/revoke</code> — Disconnect an application <span className="badge badge--primary">Auth</span></summary>
+
+Requires the `idp` module.
+
+</details>
+
+### Bulk actions, bans and exports
+
+<details>
+<summary><code>POST</code> <code>/ui/users/bulk</code> — Apply an action to selected users <span className="badge badge--primary">Super admin</span></summary>
+
+**Form:** `action` (`deactivate`, `activate`, `sign-out`, `delete`), `ids` (repeated, at most 100), optional `q`. Your own account is skipped. Redirects with how many were done and skipped.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/ui/users/export.csv</code> — Export users as CSV <span className="badge badge--primary">Super admin</span></summary>
+
+Follows the list's `q`. Cells that would start a spreadsheet formula get a leading quote.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/ui/orgs/export.csv</code> — Export organizations as CSV <span className="badge badge--primary">Super admin</span></summary>
+
+Follows the list's `q`. Requires the `organization` module.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/ui/audit/export.csv</code> — Export audit events as CSV <span className="badge badge--primary">Super admin</span></summary>
+
+Follows the log's `action` and `user` filters. Requires the `audit` module.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/users/&#123;id&#125;/ban</code> — Ban a user <span className="badge badge--primary">Super admin</span></summary>
+
+**Form:** `reason` (required, at most 500 characters), `duration` (`1h`, `24h`, `168h`, `720h`, or empty for until lifted). Revokes every credential the user holds; signing in answers `USER_BLOCKED` until the ban ends. You cannot ban yourself.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/users/&#123;id&#125;/unban</code> — Lift a ban <span className="badge badge--primary">Super admin</span></summary>
+
+Redirects back with a notice.
+
+</details>
+
+### Invitations
+
+<details>
+<summary><code>POST</code> <code>/ui/invitations/import</code> — Import platform invitations <span className="badge badge--primary">Super admin</span></summary>
+
+**Form (multipart):** `file` (CSV, at most 256 KiB) or `emails` (pasted), optional `purpose` for rows without one. Each line is `email[,purpose]`; a header row `email,...` is skipped; at most 200 rows. Each row goes through the same send as the single form; the result page lists every row as sent or skipped with the reason.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/orgs/&#123;orgId&#125;/invitations</code> — Invite someone to an organization <span className="badge badge--primary">Super admin</span></summary>
+
+**Form:** `email`, `role` (`member` or `admin`). Sent as the super admin, with the organization's rules (no duplicates, no existing members, the member limit).
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/orgs/&#123;orgId&#125;/invitations/import</code> — Import organization invitations <span className="badge badge--primary">Super admin</span></summary>
+
+As `POST /ui/invitations/import`, with `email[,role]` lines and a default `role`.
+
+</details>
+
+### Teams
+
+<details>
+<summary><code>GET</code> <code>/ui/teams</code> — Teams: pick an organization <span className="badge badge--primary">Super admin</span></summary>
+
+Lists organizations with their team counts. Requires the `team` module.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/ui/orgs/&#123;orgId&#125;/teams</code> — An organization's teams <span className="badge badge--primary">Super admin</span></summary>
+
+The tree of teams and the create form. `parent` (optional) preselects the parent.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/orgs/&#123;orgId&#125;/teams</code> — Create a team <span className="badge badge--primary">Super admin</span></summary>
+
+**Form:** `name`, optional `slug`, `description`, `parent_id`.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/ui/orgs/&#123;orgId&#125;/teams/&#123;teamId&#125;</code> — A team <span className="badge badge--primary">Super admin</span></summary>
+
+Members, teams beneath, details, move and delete.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/orgs/&#123;orgId&#125;/teams/&#123;teamId&#125;</code> — Save a team <span className="badge badge--primary">Super admin</span></summary>
+
+**Form:** `name`, `slug`, `description`.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/orgs/&#123;orgId&#125;/teams/&#123;teamId&#125;/move</code> — Move a team <span className="badge badge--primary">Super admin</span></summary>
+
+**Form:** `parent_id` (empty for the top level).
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/orgs/&#123;orgId&#125;/teams/&#123;teamId&#125;/delete</code> — Delete a team <span className="badge badge--primary">Super admin</span></summary>
+
+Refused while teams sit beneath it.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/orgs/&#123;orgId&#125;/teams/&#123;teamId&#125;/members</code> — Add a team member <span className="badge badge--primary">Super admin</span></summary>
+
+**Form:** `user_id` (a member of the organization), `role` (`lead` or `member`).
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/ui/orgs/&#123;orgId&#125;/teams/&#123;teamId&#125;/members/&#123;userId&#125;</code> — A member's roles in a team <span className="badge badge--primary">Super admin</span></summary>
+
+Requires rbac with `Teams: true`.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/orgs/&#123;orgId&#125;/teams/&#123;teamId&#125;/members/&#123;userId&#125;/role</code> — Change a team member's role <span className="badge badge--primary">Super admin</span></summary>
+
+**Form:** `role`.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/orgs/&#123;orgId&#125;/teams/&#123;teamId&#125;/members/&#123;userId&#125;/remove</code> — Remove a team member <span className="badge badge--primary">Super admin</span></summary>
+
+Redirects back with a notice.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/orgs/&#123;orgId&#125;/teams/&#123;teamId&#125;/members/&#123;userId&#125;/roles</code> — Set a member's roles in a team <span className="badge badge--primary">Super admin</span></summary>
+
+**Form:** `roles` (repeated). Requires rbac with `Teams: true`.
+
+</details>
 
 ## Public Signing Keys
 

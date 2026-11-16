@@ -60,9 +60,18 @@ type User struct {
 	TokenVersion        int        `json:"-" gorm:"default:0;not null"`
 	FailedLoginAttempts int        `json:"-" gorm:"default:0;not null"`
 	LockedUntil         *time.Time `json:"-" gorm:"index"`
-	CreatedAt           time.Time  `json:"created_at"`
-	LastLoginAt         *time.Time `json:"last_login_at"`
-	UpdatedAt           *time.Time `json:"updated_at"`
+	// BannedAt is when an administrator suspended the account, or nil. A
+	// banned user cannot sign in and their credentials stop working.
+	BannedAt *time.Time `json:"banned_at,omitempty" gorm:"index"`
+	// BannedUntil ends a ban on its own; nil with BannedAt set means the
+	// ban lasts until an administrator lifts it.
+	BannedUntil *time.Time `json:"banned_until,omitempty"`
+	// BanReason is the administrators' note on why; it is not shown to the
+	// user.
+	BanReason   string     `json:"ban_reason,omitempty" gorm:"type:varchar(500);not null;default:''"`
+	CreatedAt   time.Time  `json:"created_at"`
+	LastLoginAt *time.Time `json:"last_login_at"`
+	UpdatedAt   *time.Time `json:"updated_at"`
 }
 ```
 
@@ -74,6 +83,8 @@ type User struct {
 | `TokenVersion` | Incremented to invalidate existing credentials checked by the built-in strategies for this user. |
 | `FailedLoginAttempts` | Counter for account lockout after repeated failures. |
 | `LockedUntil` | Timestamp until which the account is locked. Nil means not locked. |
+
+**Bans.** `BannedAt`, `BannedUntil` and `BanReason` record an administrator's ban (core migration `005_add_ban_columns`). `User.Banned(now)` reports whether a ban is in force: `BannedAt` is set and `BannedUntil` is nil or after `now`, so a ban with an end lifts itself. Wherever eligibility is checked (sign-in, refresh, every authenticated request, the identity provider), a banned user gets `USER_BLOCKED`. The reason is for administrators and is not shown to the user.
 
 #### UserRepository
 
@@ -610,6 +621,156 @@ type InvitationRepository interface {
 	DeleteExpired(ctx context.Context) error
 }
 ```
+
+---
+
+## Team Module Models
+
+The [team module](../modules/team) stores nested teams. `types.Storage` gained `Team() TeamStorage` (and `types.StorageSet` a `TeamStore` field); a custom `Storage` implementation must add the method and may return nil when it has no team store. Role assignments in a team use `RoleScopeTeam` (`"team"`) with the team ID as the scope ID.
+
+### Team
+
+Table: `teams`
+
+```go
+type Team struct {
+	ID    string `json:"id" gorm:"primaryKey;type:varchar(36)"`
+	OrgID string `json:"org_id" gorm:"type:varchar(36);not null;uniqueIndex:idx_teams_org_slug;index:idx_teams_org_path"`
+	// ParentID is "" for a team at the top of the organization.
+	ParentID    string `json:"parent_id,omitempty" gorm:"type:varchar(36);not null;default:'';index"`
+	Name        string `json:"name" gorm:"type:varchar(255);not null"`
+	Slug        string `json:"slug" gorm:"type:varchar(255);not null;uniqueIndex:idx_teams_org_slug"`
+	Description string `json:"description,omitempty" gorm:"type:varchar(1000);not null;default:''"`
+	// Path lists the team's ancestors and the team itself, top first, as
+	// "/<id>/<id>/", so a team's whole sub-tree is the teams whose path
+	// starts with its own.
+	Path string `json:"path" gorm:"type:varchar(255);not null;index:idx_teams_org_path"`
+	// Depth is 0 for a top-level team.
+	Depth     int        `json:"depth" gorm:"not null;default:0"`
+	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt *time.Time `json:"updated_at,omitempty"`
+}
+```
+
+`models.MaxTeamDepth` (5) is the deepest a team may sit. `models.TeamPath(parentPath, teamID)` builds a team's path, and `Team.AncestorIDs()` returns the IDs on it, top first, the team itself last.
+
+### TeamMember
+
+Table: `team_members`. `Role` is `lead` (`models.TeamRoleLead`) or `member` (`models.TeamRoleMember`).
+
+```go
+type TeamMember struct {
+	ID           string     `json:"id" gorm:"primaryKey;type:varchar(36)"`
+	TeamID       string     `json:"team_id" gorm:"type:varchar(36);not null;uniqueIndex:idx_team_member"`
+	OrgID        string     `json:"org_id" gorm:"type:varchar(36);not null;index:idx_team_members_org_user"`
+	UserID       string     `json:"user_id" gorm:"type:varchar(36);not null;uniqueIndex:idx_team_member;index:idx_team_members_org_user"`
+	Role         string     `json:"role" gorm:"type:varchar(20);not null;default:'member'"`
+	MembershipID string     `json:"-" gorm:"type:varchar(36);not null;default:''"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    *time.Time `json:"updated_at,omitempty"`
+}
+```
+
+#### TeamRepository
+
+```go
+type TeamRepository interface {
+	// Create stores a team; a slug already used in the organization is
+	// ErrConflict.
+	Create(ctx context.Context, team *Team) error
+	FindByID(ctx context.Context, id string) (*Team, error)
+	// FindByIDs returns the teams that exist among ids, in no order.
+	FindByIDs(ctx context.Context, ids []string) ([]*Team, error)
+	// List lists an organization's teams.
+	List(ctx context.Context, orgID string, opts TeamListOpts) ([]*Team, int64, error)
+	// Subtree returns the teams whose path starts with path: a team and
+	// everything beneath it.
+	Subtree(ctx context.Context, orgID, path string) ([]*Team, error)
+	// CountChildren counts the teams directly beneath a team.
+	CountChildren(ctx context.Context, teamID string) (int64, error)
+	// Update saves a team's name, slug and description.
+	Update(ctx context.Context, team *Team) error
+	// Move gives a team a new parent, path and depth, and rewrites the paths
+	// and depths of everything beneath it, in one transaction.
+	Move(ctx context.Context, team *Team, oldPath string) error
+	// Delete removes a team and its memberships. It refuses (ErrConflict) a
+	// team that still has teams beneath it.
+	Delete(ctx context.Context, id string) error
+	// DeleteByOrg removes every team of an organization and its memberships.
+	DeleteByOrg(ctx context.Context, orgID string) error
+}
+```
+
+#### TeamMemberRepository
+
+```go
+type TeamMemberRepository interface {
+	// Create adds a member; one already in the team is ErrConflict.
+	Create(ctx context.Context, member *TeamMember) error
+	FindByTeamAndUser(ctx context.Context, teamID, userID string) (*TeamMember, error)
+	ListByTeam(ctx context.Context, teamID string, opts TeamMemberListOpts) ([]*TeamMember, int64, error)
+	// ListByUser returns the user's memberships in an organization's teams.
+	ListByUser(ctx context.Context, orgID, userID string) ([]*TeamMember, error)
+	// ListByTeams returns the user's memberships among the given teams.
+	ListByTeams(ctx context.Context, userID string, teamIDs []string) ([]*TeamMember, error)
+	Update(ctx context.Context, member *TeamMember) error
+	Delete(ctx context.Context, teamID, userID string) error
+	// DeleteByOrgAndUser removes a user from every team of an organization,
+	// for a user who left it.
+	DeleteByOrgAndUser(ctx context.Context, orgID, userID string) error
+	// DeleteByUser removes a deleted user from every team.
+	DeleteByUser(ctx context.Context, userID string) error
+}
+```
+
+#### TeamListOpts and TeamMemberListOpts
+
+```go
+type TeamListOpts struct {
+	ListingOpts
+	// ParentID lists only the teams directly beneath it; Top lists only the
+	// top-level teams. With neither, every team is listed.
+	ParentID string
+	Top      bool
+	Query    string // search name or slug
+}
+```
+
+```go
+type TeamMemberListOpts struct {
+	ListingOpts
+	Role string
+}
+```
+
+Sort fields: teams `created_at`, `name`, `slug`, `path`; team members `created_at`, `role`.
+
+---
+
+## Per-Day Counts (optional capabilities)
+
+The admin console's overview charts count rows per UTC day. Stores opt in by implementing these interfaces; the built-in GORM stores do. A store that does not is simply not charted.
+
+```go
+type DailyCount struct {
+	Day   string
+	Count int64
+}
+```
+
+```go
+type UserSignupCounter interface {
+	CountCreatedPerDay(ctx context.Context, since time.Time) ([]DailyCount, error)
+}
+```
+
+```go
+type AuditActionCounter interface {
+	CountActionPerDay(ctx context.Context, action string, since time.Time) ([]DailyCount, error)
+}
+```
+
+`UserSignupCounter` is checked on `Storage.Core().Users()`, `AuditActionCounter` on `Storage.AuditLog().AuditLogs()`.
 
 ---
 

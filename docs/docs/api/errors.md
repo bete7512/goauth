@@ -84,7 +84,7 @@ The HTTP status code is set on the response header, not in the JSON body.
 | `ErrUserNotFound` | `USER_NOT_FOUND` | 404 Not Found | User not found |
 | `ErrUserAlreadyExists` | `USER_ALREADY_EXISTS` | 409 Conflict | User with this email already exists |
 | `ErrUserNotActive` | `USER_NOT_ACTIVE` | 403 Forbidden | User account is not active |
-| `ErrUserBlocked` | `USER_BLOCKED` | 403 Forbidden | User account is blocked |
+| `ErrUserBlocked` | `USER_BLOCKED` | 403 Forbidden | User account is blocked: an administrator banned it and the ban has not ended. Returned wherever eligibility is checked (sign-in, refresh, authenticated requests, the identity provider). |
 | `ErrEmailNotVerified` | `EMAIL_NOT_VERIFIED` | 403 Forbidden | Email address not verified |
 | `ErrPhoneNotVerified` | `PHONE_NOT_VERIFIED` | 403 Forbidden | Phone number not verified |
 | `ErrAccountDeactivated` | `ACCOUNT_DEACTIVATED` | 403 Forbidden | Account has been deactivated |
@@ -224,6 +224,19 @@ These are the codes of the consent, grant and admin endpoints. The OpenID Connec
 | `ErrInvitationExpired` | `INVITATION_EXPIRED` | 400 Bad Request | Invitation has expired |
 | `ErrInvitationExists` | `INVITATION_ALREADY_EXISTS` | 409 Conflict | A pending invitation already exists for this email |
 | `ErrInvitationEmailMismatch` | `INVITATION_EMAIL_MISMATCH` | 403 Forbidden | Your email does not match the invitation |
+
+### Team Errors
+
+| Constant | Code | HTTP Status | Description |
+|---|---|---|---|
+| `ErrTeamNotFound` | `TEAM_NOT_FOUND` | 404 Not Found | No such team in this organization |
+| `ErrTeamSlugTaken` | `TEAM_SLUG_TAKEN` | 409 Conflict | Another team of the organization uses the slug |
+| `ErrTeamTooDeep` | `TEAM_TOO_DEEP` | 400 Bad Request | Teams can be nested at most 5 levels deep |
+| `ErrTeamHasSubteams` | `TEAM_HAS_SUBTEAMS` | 409 Conflict | Delete or move the teams beneath this team first |
+| `ErrTeamInvalidParent` | `TEAM_INVALID_PARENT` | 400 Bad Request | The parent is in another organization, or is the team itself or one beneath it |
+| `ErrTeamMemberNotFound` | `TEAM_MEMBER_NOT_FOUND` | 404 Not Found | The user is not in the team |
+| `ErrTeamMemberExists` | `TEAM_MEMBER_EXISTS` | 409 Conflict | The user is already in the team |
+| `ErrTeamForbidden` | `TEAM_FORBIDDEN` | 403 Forbidden | The caller cannot manage this team |
 
 ### RBAC Errors
 
