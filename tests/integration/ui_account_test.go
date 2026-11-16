@@ -123,3 +123,35 @@ func TestUI_AccountWithoutUserPages(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, plain.Get("/auth/ui/account").Code)
 	assert.Equal(t, http.StatusForbidden, plain.Post("/auth/ui/account/password", url.Values{"current_password": {uiPassword}, "new_password": {"Newpass1234"}, "confirm_password": {"Newpass1234"}}).Code)
 }
+
+// A browser signed in to the application as a plain user (the application
+// and the console share cookies) is offered the sign-in page, not a dead end.
+func TestUI_NonAdminCookiesLeadToSignIn(t *testing.T) {
+	env := h.SetupUI(t, h.UIOptions{})
+	uiAdmin(t, env, "root@example.com")
+	h.SignupUser(t, env.Handler, "plain@example.com")
+	req := httptest.NewRequest(http.MethodPost, "/auth/login", bytes.NewBufferString(`{"email":"plain@example.com","password":"`+uiPassword+`"}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	env.Handler.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusOK, rec.Code)
+	b := h.NewBrowser(t, env.Handler)
+	for _, cookie := range rec.Result().Cookies() {
+		b.Cookies[cookie.Name] = cookie
+	}
+
+	w := b.Get("/auth/ui")
+	require.Equal(t, http.StatusSeeOther, w.Code)
+	assert.Equal(t, "/auth/ui/login", w.Header().Get("Location"))
+	w = b.Get("/auth/ui/users")
+	require.Equal(t, http.StatusSeeOther, w.Code)
+	assert.Contains(t, w.Header().Get("Location"), "/auth/ui/login?next=")
+
+	w = b.Get("/auth/ui/login")
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "You are signed in as plain@example.com, which is not an administrator account.")
+
+	// Signing in as an administrator from there replaces the session.
+	require.Equal(t, http.StatusSeeOther, b.SignIn("root@example.com", uiPassword).Code)
+	assert.Equal(t, http.StatusOK, b.Get("/auth/ui/users").Code)
+}

@@ -13,6 +13,10 @@ The RBAC module answers one question for your own application: may this user do 
 The module is new. Roles apply application-wide or inside one organization; teams are not supported yet.
 :::
 
+## Example
+
+[`examples/rbac`](https://github.com/bete7512/goauth/tree/main/examples/rbac) is a runnable project tracker that uses every guard on this page: application-wide, organization and team roles, `OrgFrom`/`TeamFrom` ownership lookups, `OnlyIf`/`AllowIf` rules, `TeamsWhere` for lists, and checks in code. It ships with a walkthrough script and a test of each scenario.
+
 ## Registration
 
 ```go

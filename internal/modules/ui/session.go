@@ -129,6 +129,11 @@ func (m *UIModule) signedIn(next http.HandlerFunc) http.HandlerFunc {
 func (m *UIModule) adminOnly(next http.HandlerFunc) http.HandlerFunc {
 	return m.signedIn(func(w http.ResponseWriter, r *http.Request) {
 		if !visitorFrom(r.Context()).admin() {
+			if !m.config.UserPages {
+				// Only administrators use this console: let them sign in.
+				m.toLogin(w, r)
+				return
+			}
 			m.renderError(w, r, http.StatusForbidden, "This page is for administrators.")
 			return
 		}

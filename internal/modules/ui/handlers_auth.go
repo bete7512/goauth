@@ -34,17 +34,26 @@ func (m *UIModule) home(w http.ResponseWriter, r *http.Request) {
 	case m.config.UserPages:
 		m.redirect(w, r, m.base+"/account")
 	default:
-		m.renderError(w, withVisitor(r, v), http.StatusForbidden, "This console is for administrators.")
+		// Signed in to the application, but not as an administrator: offer
+		// the sign-in page rather than a dead end.
+		m.redirect(w, r, m.base+"/login")
 	}
 }
 
 func (m *UIModule) loginPage(w http.ResponseWriter, r *http.Request) {
-	if v := m.identify(w, r); v != nil && (v.admin() || m.config.UserPages) {
+	v := m.identify(w, r)
+	if v != nil && (v.admin() || m.config.UserPages) {
 		m.redirect(w, r, m.landing(v, m.safeNext(r.URL.Query().Get("next"))))
 		return
 	}
 	page := &loginPage{Next: m.safeNext(r.URL.Query().Get("next"))}
-	m.renderLogin(w, r, http.StatusOK, page, "")
+	message := ""
+	if v != nil {
+		// The application's own sign-in shares these cookies, so a browser
+		// can arrive here signed in as someone who may not use the console.
+		message = "You are signed in as " + v.User.Email + ", which is not an administrator account. Sign in with an administrator account to continue."
+	}
+	m.renderLogin(w, r, http.StatusOK, page, message)
 }
 
 // renderLogin shows a step of the sign-in page with the sign-in methods the
