@@ -17,7 +17,7 @@ type PasskeyCredential struct {
 	PublicKey         []byte     `json:"public_key" gorm:"not null"`
 	AttestationType   string     `json:"attestation_type"`
 	AttestationFormat string     `json:"attestation_format"`
-	AAGUID            []byte     `json:"aaguid"`
+	AAGUID            []byte     `json:"aaguid" gorm:"column:aaguid"`
 	SignCount         uint32     `json:"sign_count" gorm:"not null;default:0"`
 	Transports        string     `json:"transports"` // comma-separated ("usb,nfc,internal,hybrid")
 	BackupEligible    bool       `json:"backup_eligible" gorm:"not null;default:false"`

@@ -165,6 +165,33 @@ func TestIdentifierKeyFollowsTheAccountNotTheAddress(t *testing.T) {
 	}
 }
 
+// HTML sign-in forms send the identifier form-encoded, and it must count
+// against the same budget as a JSON request for the same account.
+func TestIdentifierKeyReadsFormBodies(t *testing.T) {
+	rule := Rule{Name: "login_id", ApplyTo: []types.RouteName{"core.login", "ui.login"}, Key: types.RateLimitKeyIdentifier, Budget: types.RateLimitRule{Limit: 1, Window: time.Minute}}
+	f := newFixture(t, Options{Rules: []Rule{rule}})
+	form := map[string]string{"Content-Type": "application/x-www-form-urlencoded"}
+	body := "email=Victim%40Example.com&password=x"
+	if rec := f.post("ui.login", "198.51.100.1:1", body, form); rec.Code != http.StatusOK {
+		t.Fatalf("first: %d", rec.Code)
+	}
+	if f.bodies[0] != body {
+		t.Fatalf("handler saw body %q, want the original", f.bodies[0])
+	}
+	if rec := f.post("core.login", "198.51.100.2:1", `{"email":"victim@example.com"}`, nil); rec.Code != http.StatusTooManyRequests {
+		t.Fatalf("JSON request for the same account: %d, want 429", rec.Code)
+	}
+	if rec := f.post("ui.login", "198.51.100.2:1", "email=other%40example.com", form); rec.Code != http.StatusOK {
+		t.Fatalf("another account: %d", rec.Code)
+	}
+	if rec := f.post("ui.login", "198.51.100.2:1", "password=only", form); rec.Code != http.StatusOK {
+		t.Fatalf("no identifier should skip the identifier rule: %d", rec.Code)
+	}
+	if rec := f.post("ui.login", "198.51.100.2:1", "email=victim%40example.com", map[string]string{"Content-Type": "multipart/form-data; boundary=x"}); rec.Code != http.StatusOK {
+		t.Fatalf("other content types are not read: %d", rec.Code)
+	}
+}
+
 func TestTrustedProxiesControlForwardedHeaders(t *testing.T) {
 	trusted, _ := http_utils.ParseCIDRs([]string{"10.0.0.0/8"})
 	f := newFixture(t, Options{Rules: []Rule{ipRule("login_ip", 1, "core.login")}, TrustedProxies: trusted})

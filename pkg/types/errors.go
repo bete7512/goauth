@@ -3,6 +3,7 @@ package types
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -158,6 +159,10 @@ const (
 	ErrRBACLimitExceeded     ErrorCode = "RBAC_LIMIT_EXCEEDED"
 	ErrRBACScopeUnavailable  ErrorCode = "RBAC_SCOPE_UNAVAILABLE"
 	ErrRBACAssignmentRefused ErrorCode = "RBAC_ASSIGNMENT_REFUSED"
+
+	// ErrNotFound is a generic "no such resource" for resources without a
+	// code of their own, such as a linked account or a passkey.
+	ErrNotFound ErrorCode = "NOT_FOUND"
 
 	// unknown error
 	ErrUnknown ErrorCode = "UNKNOWN_ERROR"
@@ -1184,4 +1189,13 @@ func NewRBACAssignmentRefusedError(message string) *GoAuthError {
 		Message:    message,
 		StatusCode: http.StatusForbidden,
 	}
+}
+
+// NewNotFoundError returns the NOT_FOUND error (HTTP 404). what names the
+// missing resource, for example "passkey"; the message is "<what> not found".
+func NewNotFoundError(what string) *GoAuthError {
+	if what == "" {
+		what = "resource"
+	}
+	return &GoAuthError{Code: ErrNotFound, Message: strings.ToUpper(what[:1]) + what[1:] + " not found", StatusCode: http.StatusNotFound}
 }

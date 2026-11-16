@@ -1,0 +1,74 @@
+{{define "content"}}
+{{$u := .Page.User}}
+{{template "user-head" .}}
+<div class="grid-2">
+  <div class="col">
+    <form class="card" method="post" action="{{.Base}}/users/{{$u.ID}}">
+      <div class="card-head"><div><h2>Profile</h2><p>Changes apply as soon as you save.</p></div></div>
+      <div class="card-body form-grid">
+        <div class="field span-2"><label for="name">Display name</label><input class="input" id="name" name="name" value="{{$u.Name}}"></div>
+        <div class="field"><label for="first_name">First name</label><input class="input" id="first_name" name="first_name" value="{{$u.FirstName}}"></div>
+        <div class="field"><label for="last_name">Last name</label><input class="input" id="last_name" name="last_name" value="{{$u.LastName}}"></div>
+        <div class="field"><label for="email">Email</label><input class="input" id="email" name="email" type="email" value="{{$u.Email}}" required></div>
+        <div class="field"><label for="username">Username</label><input class="input" id="username" name="username" value="{{$u.Username}}"></div>
+        <div class="field span-2"><label for="phone_number">Phone number</label><input class="input" id="phone_number" name="phone_number" type="tel" value="{{$u.PhoneNumber}}"></div>
+        <div class="span-2 toggles">
+          <label class="toggle"><span class="toggle-text"><strong>Active</strong><span>Inactive users cannot sign in, and their existing sign-ins stop working. Use this to ban an account.</span></span><span class="switch"><input type="checkbox" name="active" {{if $u.Active}}checked{{end}} {{if .Page.Self}}disabled{{end}}><span></span></span></label>
+          <label class="toggle"><span class="toggle-text"><strong>Email verified</strong><span>Mark the address as confirmed without sending a link.</span></span><span class="switch"><input type="checkbox" name="email_verified" {{if $u.EmailVerified}}checked{{end}}><span></span></span></label>
+          <label class="toggle"><span class="toggle-text"><strong>Phone verified</strong><span>Mark the phone number as confirmed.</span></span><span class="switch"><input type="checkbox" name="phone_number_verified" {{if $u.PhoneNumberVerified}}checked{{end}}><span></span></span></label>
+          <label class="toggle"><span class="toggle-text"><strong>Super admin</strong><span>Full access to this console and every administrative API.</span></span><span class="switch"><input type="checkbox" name="is_super_admin" {{if $u.IsSuperAdmin}}checked{{end}} {{if .Page.Self}}disabled{{end}}><span></span></span></label>
+          {{if .Page.Self}}<input type="hidden" name="active" value="on"><input type="hidden" name="is_super_admin" value="on">{{end}}
+        </div>
+      </div>
+      <div class="card-foot"><a class="btn btn-ghost" href="{{.Base}}/users/{{$u.ID}}">Discard</a><button class="btn btn-primary" type="submit">Save changes</button></div>
+    </form>
+
+    {{if not .Page.Self}}
+    <section class="card">
+      <div class="card-head"><div><h2>Set a new password</h2><p>For a user who cannot use the reset email. They are signed out everywhere and must use the new password.</p></div></div>
+      <form class="card-body inline-form" method="post" action="{{.Base}}/users/{{$u.ID}}/password" autocomplete="off">
+        <div class="field"><label for="new-password">New password</label><input class="input" id="new-password" name="password" type="password" autocomplete="new-password" required></div>
+        <button class="btn" type="submit">Set password</button>
+      </form>
+    </section>
+
+    <section class="card danger-zone">
+      <div class="card-head"><div><h2>Delete user</h2><p>Removes the account and everything stored for it. This cannot be undone.</p></div>
+        <form class="inline" method="post" action="{{.Base}}/users/{{$u.ID}}/delete" hx-confirm="Delete {{$u.Email}}? This cannot be undone.">
+          <button class="btn btn-danger" type="submit">{{template "icon-trash"}}<span>Delete</span></button>
+        </form>
+      </div>
+    </section>
+    {{end}}
+  </div>
+
+  <div class="col">
+    {{if not .Page.Self}}
+    <section class="card">
+      <div class="card-head"><h2>Quick actions</h2></div>
+      <div class="card-body stack">
+        {{if .Page.Features.Email}}
+        <form method="post" action="{{.Base}}/users/{{$u.ID}}/reset-email"><button class="btn btn-block" type="submit">{{template "icon-mail"}}<span>Send password reset email</span></button></form>
+        {{if not $u.EmailVerified}}<form method="post" action="{{.Base}}/users/{{$u.ID}}/verification-email"><button class="btn btn-block" type="submit">{{template "icon-mail"}}<span>Send verification email</span></button></form>{{end}}
+        {{else}}<p class="hint">Register the notification module to send reset and verification emails from here.</p>{{end}}
+        <form method="post" action="{{.Base}}/users/{{$u.ID}}/sign-out" hx-confirm="Sign {{$u.Email}} out of every device?"><button class="btn btn-block" type="submit">{{template "icon-logout"}}<span>Sign out everywhere</span></button></form>
+        {{if .Page.Locked}}<form method="post" action="{{.Base}}/users/{{$u.ID}}/unlock"><button class="btn btn-block" type="submit">Unlock account</button></form>{{end}}
+      </div>
+    </section>
+    {{end}}
+    <section class="card">
+      <div class="card-head"><h2>Details</h2></div>
+      <div class="card-body">
+        <dl class="facts">
+          <div><dt>User ID</dt><dd class="mono">{{$u.ID}}</dd></div>
+          <div><dt>Joined</dt><dd>{{date $u.CreatedAt}}</dd></div>
+          <div><dt>Last sign-in</dt><dd>{{date $u.LastLoginAt}}</dd></div>
+          <div><dt>Updated</dt><dd>{{date $u.UpdatedAt}}</dd></div>
+          <div><dt>Failed sign-ins</dt><dd>{{$u.FailedLoginAttempts}}</dd></div>
+          <div><dt>Locked until</dt><dd>{{date $u.LockedUntil}}</dd></div>
+        </dl>
+      </div>
+    </section>
+  </div>
+</div>
+{{end}}

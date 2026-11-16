@@ -263,6 +263,7 @@ These are the codes of the consent, grant and admin endpoints. The OpenID Connec
 
 | Constant | Code | HTTP Status | Default Message |
 |---|---|---|---|
+| `ErrNotFound` | `NOT_FOUND` | 404 Not Found | *What* not found, for resources without a code of their own, such as a linked account or a passkey |
 | `ErrUnknown` | `UNKNOWN_ERROR` | 500 Internal Server Error | An unexpected error occurred |
 | `ErrCustom` | `CUSTOM_ERROR` | *(caller-defined)* | *(caller-defined)* |
 

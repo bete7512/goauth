@@ -3,7 +3,6 @@ package idp
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	"github.com/bete7512/goauth/pkg/models"
@@ -49,9 +48,4 @@ func utcPtr(t *time.Time) *time.Time {
 	}
 	utc := t.UTC()
 	return &utc
-}
-
-// escapeLike escapes LIKE wildcards with '!' so user input matches literally.
-func escapeLike(value string) string {
-	return strings.NewReplacer("!", "!!", "%", "!%", "_", "!_").Replace(value)
 }

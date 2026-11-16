@@ -1,0 +1,34 @@
+{{define "content"}}
+<div class="page-head">
+  <div><h1>OIDC clients</h1><p>Applications that sign users in with your accounts through OpenID Connect.</p></div>
+  <a class="btn btn-primary" href="{{.Base}}/clients/new">{{template "icon-plus"}}<span>New client</span></a>
+</div>
+<section class="card">
+  <div class="card-head">
+    <form class="search" method="get" action="{{.Base}}/clients" role="search">
+      {{template "icon-search"}}
+      <label class="sr-only" for="q">Search clients</label>
+      <input class="input" id="q" type="search" name="q" value="{{.Page.Query}}" placeholder="Search by name or client ID" autocomplete="off" data-search
+        hx-get="{{.Base}}/clients" hx-trigger="input changed delay:300ms, search" hx-target="#clients-table" hx-push-url="true">
+      <kbd class="kbd" aria-hidden="true">/</kbd>
+    </form>
+  </div>
+  {{template "clients-table" .}}
+</section>
+{{end}}
+{{define "clients-table"}}
+<div id="clients-table">
+  {{if .Page.Clients}}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Application</th><th>Type</th><th>Status</th><th class="num hide-sm">Last used</th></tr></thead>
+    <tbody>{{range .Page.Clients}}
+      <tr class="row-link" data-href><td><a class="identity" href="{{$.Base}}/clients/{{.ID}}"><span class="avatar" aria-hidden="true">{{initials .Name ""}}</span><span class="identity-text"><span class="identity-name">{{.Name}}</span><br><span class="identity-sub mono">{{.ClientID}}</span></span></a></td>
+        <td><div class="badges"><span class="badge plain">{{if .Public}}Public{{else}}Confidential{{end}}</span>{{if .Managed}}<span class="badge accent plain">In config</span>{{end}}</div></td>
+        <td>{{if .Disabled}}<span class="badge danger">Disabled</span>{{else}}<span class="badge success">Active</span>{{end}}</td>
+        <td class="num muted nowrap hide-sm">{{ago .LastUsedAt}}</td></tr>
+    {{end}}</tbody>
+  </table></div>
+  {{else}}<div class="empty">{{template "icon-grid"}}<p>{{if .Page.Query}}No clients match “{{.Page.Query}}”.{{else}}No clients yet.{{end}}</p></div>{{end}}
+  {{template "pager" .Page.Pager}}
+</div>
+{{end}}

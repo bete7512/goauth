@@ -131,3 +131,20 @@ func TestAuditLogListOpts_Normalize_DisallowedSortField(t *testing.T) {
 	opts.Normalize(100)
 	assert.Equal(t, "created_at", opts.SortField)
 }
+
+// Memberships have no created_at column; an unknown or empty sort field must
+// not fall back to it.
+func TestMemberListOptsDefaultsToJoinedAt(t *testing.T) {
+	for _, field := range []string{"", "created_at", "nonsense"} {
+		opts := MemberListOpts{ListingOpts: ListingOpts{SortField: field}}
+		opts.Normalize(100)
+		if opts.SortField != "joined_at" {
+			t.Fatalf("sort field %q normalized to %q, want joined_at", field, opts.SortField)
+		}
+	}
+	opts := MemberListOpts{ListingOpts: ListingOpts{SortField: "role"}}
+	opts.Normalize(100)
+	if opts.SortField != "role" {
+		t.Fatalf("an allowed field must be kept, got %q", opts.SortField)
+	}
+}

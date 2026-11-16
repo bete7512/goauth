@@ -36,6 +36,8 @@ type InvitationRepository interface {
 	FindByToken(ctx context.Context, token string) (*Invitation, error)
 	FindPendingByEmail(ctx context.Context, email, purpose string) (*Invitation, error)
 	ListByInviter(ctx context.Context, inviterID string, opts InvitationListOpts) ([]*Invitation, int64, error)
+	// List lists every invitation, whoever sent it, for administrators.
+	List(ctx context.Context, opts InvitationListOpts) ([]*Invitation, int64, error)
 	ListPendingByEmail(ctx context.Context, email string) ([]*Invitation, error)
 	Update(ctx context.Context, invitation *Invitation) error
 	Delete(ctx context.Context, id string) error

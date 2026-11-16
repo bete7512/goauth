@@ -1,0 +1,39 @@
+{{define "body"}}
+<main class="auth">
+  <div class="card auth-card">
+    <div class="brand">{{template "mark"}}<span>{{.Product}}</span></div>
+    {{if .Page.TempToken}}
+    <h1>Two-factor authentication</h1>
+    <p class="lead">Enter the 6-digit code from your authenticator app, or one of your backup codes.</p>
+    {{template "notices" .}}
+    <form method="post" action="{{.Base}}/login/2fa" hx-boost="false">
+      <input type="hidden" name="temp_token" value="{{.Page.TempToken}}">
+      <input type="hidden" name="next" value="{{.Page.Next}}">
+      <div class="field">
+        <label for="code">Verification code</label>
+        <input class="input code-input" id="code" name="code" inputmode="numeric" autocomplete="one-time-code" autofocus required maxlength="32">
+      </div>
+      <button class="btn btn-primary btn-block" type="submit">Verify</button>
+    </form>
+    <p class="auth-foot"><a href="{{.Base}}/login">Start over</a></p>
+    {{else}}
+    <h1>Sign in</h1>
+    <p class="lead">{{if .UserPages}}Use the account you use for {{.Product}}.{{else}}Administrators only.{{end}}</p>
+    {{template "notices" .}}
+    <form method="post" action="{{.Base}}/login" hx-boost="false">
+      <input type="hidden" name="next" value="{{.Page.Next}}">
+      <div class="field">
+        <label for="email">Email or username</label>
+        <input class="input" id="email" name="email" type="text" autocomplete="username" value="{{.Page.Email}}" {{if not .Page.Email}}autofocus{{end}} required>
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input class="input" id="password" name="password" type="password" autocomplete="current-password" {{if .Page.Email}}autofocus{{end}} required>
+      </div>
+      <button class="btn btn-primary btn-block" type="submit">Sign in</button>
+    </form>
+    {{end}}
+    <p class="auth-foot">Protected by {{.Product}}</p>
+  </div>
+</main>
+{{end}}

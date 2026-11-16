@@ -17,6 +17,23 @@ type AdminService interface {
 	GetUser(ctx context.Context, userID string) (*models.User, *types.GoAuthError)
 	UpdateUser(ctx context.Context, user *models.User) *types.GoAuthError
 	DeleteUser(ctx context.Context, userID string) *types.GoAuthError
+
+	// Security returns a user's linked accounts, sessions, two-factor state
+	// and passkeys.
+	Security(ctx context.Context, userID string) (*UserSecurity, *types.GoAuthError)
+	UnlinkAccount(ctx context.Context, userID, accountID string) *types.GoAuthError
+	RevokeSession(ctx context.Context, userID, sessionID string) *types.GoAuthError
+	SignOutEverywhere(ctx context.Context, userID string) *types.GoAuthError
+	ResetTwoFactor(ctx context.Context, userID string) *types.GoAuthError
+	DeletePasskey(ctx context.Context, userID, passkeyID string) *types.GoAuthError
+	// CreateUser creates an account as signup would, with the
+	// administrator's choice of verification and super admin flags.
+	CreateUser(ctx context.Context, input CreateUserInput) (*models.User, *types.GoAuthError)
+	// Unlock clears a lockout caused by failed sign-in attempts.
+	Unlock(ctx context.Context, userID string) *types.GoAuthError
+	// SetPassword replaces a user's password; it signs the user out
+	// everywhere and clears any lockout.
+	SetPassword(ctx context.Context, userID, password string) *types.GoAuthError
 }
 
 type adminService struct {

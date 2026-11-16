@@ -1,0 +1,13 @@
+{{define "content"}}
+<div class="page-head">
+  <div><div class="crumbs"><a href="{{.Base}}/orgs">Organizations</a> / New</div><h1>New organization</h1><p>Create an organization on behalf of an existing user, who becomes its owner.</p></div>
+</div>
+<form class="card" method="post" action="{{.Base}}/orgs">
+  <div class="card-body form-grid">
+    <div class="field"><label for="name">Name</label><input class="input" id="name" name="name" value="{{.Page.Name}}" required autofocus></div>
+    <div class="field"><label for="slug">Slug</label><input class="input mono" id="slug" name="slug" value="{{.Page.Slug}}" placeholder="Generated from the name"><span class="hint">Lowercase letters, digits and hyphens. It cannot be changed later.</span></div>
+    <div class="field span-2"><label for="owner_email">Owner's email</label><input class="input" id="owner_email" name="owner_email" type="email" value="{{.Page.OwnerEmail}}" required><span class="hint">The owner must already have an account.</span></div>
+  </div>
+  <div class="card-foot"><a class="btn btn-ghost" href="{{.Base}}/orgs">Cancel</a><button class="btn btn-primary" type="submit">{{template "icon-plus"}}<span>Create organization</span></button></div>
+</form>
+{{end}}

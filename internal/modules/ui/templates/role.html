@@ -1,0 +1,46 @@
+{{define "content"}}
+{{$r := .Page.Role}}
+{{if .Page.Frame}}{{template "org-head" .Page.Frame}}{{end}}
+<div class="page-head">
+  <div>
+    <div class="crumbs"><a href="{{.Page.Base}}">Roles</a> / {{$r.Name}}</div>
+    <h1>{{$r.Name}}</h1>
+    <p class="muted"><span class="mono">{{$r.Key}}</span>{{if $r.Implied}} · implied by {{if .Page.Org}}membership{{else}}the super admin flag{{end}}{{else if $r.System}} · defined in code{{end}}</p>
+  </div>
+  {{if not $r.System}}
+  <form class="inline" method="post" action="{{.Page.Base}}/{{$r.Key}}/delete" hx-confirm="Delete the role “{{$r.Name}}”? Everyone who holds it loses it.">
+    <button class="btn btn-danger" type="submit">{{template "icon-trash"}}<span>Delete role</span></button>
+  </form>
+  {{end}}
+</div>
+<div class="grid-2">
+  <div class="col">
+    {{if $r.System}}
+    <section class="card">
+      <div class="card-head"><div><h2>Grants</h2><p>This role is defined in code, so it is changed there.</p></div></div>
+      <div class="card-body"><div class="badges">{{range $r.Grants}}<span class="chip">{{.}}</span>{{else}}<span class="muted">No grants</span>{{end}}</div></div>
+    </section>
+    {{else}}
+    <form class="card" method="post" action="{{.Page.Base}}/{{$r.Key}}">
+      <div class="card-head"><div><h2>Edit role</h2><p>Changes apply to everyone who holds it on their next request. You can only grant what you hold yourself.</p></div></div>
+      <div class="card-body stack">
+        <div class="field"><label for="name">Name</label><input class="input" id="name" name="name" value="{{$r.Name}}" required></div>
+        <div class="field"><label for="description">Description</label><input class="input" id="description" name="description" value="{{$r.Description}}"></div>
+        <div class="field"><label for="grants">Grants</label><textarea class="input" id="grants" name="grants" spellcheck="false">{{.Page.GrantsText}}</textarea><span class="hint">One per line.</span></div>
+        {{template "catalog" .Page.Permissions}}
+      </div>
+      <div class="card-foot"><button class="btn btn-primary" type="submit">Save role</button></div>
+    </form>
+    {{end}}
+  </div>
+  <section class="card">
+    <div class="card-head"><div><h2>Who holds it</h2><p>{{if $r.Implied}}Everyone the role is implied for; it is never assigned.{{else}}Users this role was assigned to{{if .Page.Org}} in {{.Page.Org.Name}}{{end}}.{{end}}</p></div></div>
+    {{if .Page.Holders}}
+    <ul class="timeline">{{range .Page.Holders}}
+      <li><span class="dot" aria-hidden="true"></span><div class="grow">{{with .User}}<a class="what" href="{{$.Base}}/users/{{.ID}}">{{if .Name}}{{.Name}}{{else}}{{.Email}}{{end}}</a><div class="when">{{.Email}}</div>{{else}}<span class="mono muted">{{.Assignment.UserID}}</span>{{end}}<div class="when">since {{ago .Assignment.CreatedAt}}</div></div></li>
+    {{end}}</ul>
+    {{if .Page.HoldersMore}}<div class="card-body"><p class="hint">Showing the 50 most recent.</p></div>{{end}}
+    {{else if not $r.Implied}}<div class="empty"><p>Nobody holds this role yet. Assign it from a user's Access tab{{if .Page.Org}} or a member's Roles page{{end}}.</p></div>{{end}}
+  </section>
+</div>
+{{end}}

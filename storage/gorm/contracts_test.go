@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -209,4 +210,39 @@ func TestMigrationRecordContracts(t *testing.T) {
 		return nil
 	})
 	require.NoError(t, err)
+}
+
+// Searching users must work on every dialect, ignore case, and treat LIKE
+// wildcards in the query as literal characters.
+func TestUserSearchContracts(t *testing.T) {
+	s := contractStore(t)
+	ctx := context.Background()
+	repo := s.Core().Users()
+	tag := uuid.NewString()[:8]
+	for _, u := range []struct{ name, email string }{
+		{"Ada Lovelace", "ada-" + tag + "@example.com"},
+		{"Grace 100% Hopper", "grace-" + tag + "@example.com"},
+		{"Alan_Turing", "alan-" + tag + "@example.com"},
+	} {
+		require.NoError(t, repo.Create(ctx, &models.User{ID: uuid.NewString(), Name: u.name, Email: u.email, Username: u.email, PasswordHash: "x", Active: true}))
+	}
+	search := func(q string) []string {
+		opts := models.UserListOpts{Query: q}
+		opts.Normalize(100)
+		users, _, err := repo.List(ctx, opts)
+		require.NoError(t, err, q)
+		var names []string
+		for _, user := range users {
+			if strings.Contains(user.Email, tag) {
+				names = append(names, user.Name)
+			}
+		}
+		return names
+	}
+	require.Equal(t, []string{"Ada Lovelace"}, search("LOVELACE"))
+	require.Equal(t, []string{"Ada Lovelace"}, search("ADA-"+strings.ToUpper(tag)))
+	require.Equal(t, []string{"Grace 100% Hopper"}, search("100%"))
+	require.Empty(t, search("100%x"), "% in the query is not a wildcard")
+	require.Equal(t, []string{"Alan_Turing"}, search("n_t"))
+	require.Empty(t, search("a_a"), "_ in the query is not a wildcard")
 }

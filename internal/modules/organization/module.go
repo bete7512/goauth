@@ -34,6 +34,7 @@ type OrganizationModule struct {
 	memberHandler     *handlers.MemberHandler
 	invitationHandler *handlers.InvitationHandler
 	orgAuthMiddleware *middlewares.OrgAuthMiddleware
+	admin             services.AdminService
 }
 
 func New(cfg *Config) *OrganizationModule {
@@ -72,6 +73,8 @@ func (m *OrganizationModule) Init(ctx context.Context, deps config.ModuleDepende
 		deps, invitationRepo, memberRepo, orgRepo, userRepo,
 		m.config.InvitationExpiry, m.config.InvitationCallbackURL, m.config.MaxMembersPerOrg,
 	)
+
+	m.admin = services.NewAdminService(deps, orgStorage, userRepo)
 
 	// Create handlers
 	m.orgHandler = handlers.NewOrgHandler(deps, orgService)
@@ -206,4 +209,14 @@ func (m *OrganizationModule) buildOrgName(user *models.User) string {
 		result = user.Email + "'s workspace"
 	}
 	return result
+}
+
+// AdminServiceOf returns the platform administrators' organization service,
+// or nil before Init. It is a function rather than a method so that it is
+// reachable only from inside GoAuth, for the ui module's pages.
+func AdminServiceOf(m *OrganizationModule) services.AdminService {
+	if m == nil {
+		return nil
+	}
+	return m.admin
 }

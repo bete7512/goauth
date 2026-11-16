@@ -1,0 +1,47 @@
+{{define "content"}}
+{{$o := .Page.Org}}
+{{template "org-head" .Page}}
+<div class="grid-2">
+  <section class="card">
+    {{template "members-table" .}}
+  </section>
+  <form class="card" method="post" action="{{.Base}}/orgs/{{$o.ID}}/members">
+    <div class="card-head"><div><h2>Add a member</h2><p>Adds an existing user right away, without an invitation.</p></div></div>
+    <div class="card-body stack">
+      <div class="field"><label for="email">Email</label><input class="input" id="email" name="email" type="email" required></div>
+      <div class="field"><label for="role">Role</label><select class="input" id="role" name="role"><option value="member">Member</option><option value="admin">Admin</option></select></div>
+    </div>
+    <div class="card-foot"><button class="btn btn-primary" type="submit">{{template "icon-plus"}}<span>Add member</span></button></div>
+  </form>
+</div>
+{{end}}
+{{define "members-table"}}
+{{$o := .Page.Org}}
+<div id="members-table">
+  {{if .Page.List}}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Member</th><th>Role</th><th class="hide-sm">Joined</th><th></th></tr></thead>
+    <tbody>{{range .Page.List}}
+      <tr>
+        <td>{{with .User}}<a class="identity" href="{{$.Base}}/users/{{.ID}}"><span class="avatar" aria-hidden="true">{{initials .Name .Email}}</span><span class="identity-text"><span class="identity-name">{{if .Name}}{{.Name}}{{else}}{{.Email}}{{end}}</span><br><span class="identity-sub">{{.Email}}</span></span></a>{{else}}<span class="mono muted">{{.Member.UserID}}</span>{{end}}</td>
+        <td>{{if eq .Member.Role "owner"}}<span class="badge accent">Owner</span>{{else}}
+          <form class="inline" method="post" action="{{$.Base}}/orgs/{{$o.ID}}/members/{{.Member.UserID}}/role">
+            <label class="sr-only" for="role-{{.Member.UserID}}">Role</label>
+            <select class="select" id="role-{{.Member.UserID}}" name="role" data-autosubmit>
+              <option value="member" {{if eq .Member.Role "member"}}selected{{end}}>Member</option>
+              <option value="admin" {{if eq .Member.Role "admin"}}selected{{end}}>Admin</option>
+            </select>
+            <noscript><button class="btn btn-sm" type="submit">Save</button></noscript>
+          </form>{{end}}</td>
+        <td class="muted nowrap hide-sm" title="{{date .Member.JoinedAt}}">{{ago .Member.JoinedAt}}</td>
+        <td><div class="row-actions">
+          {{if $.Page.OrgRoles}}<a class="btn btn-ghost btn-sm" href="{{$.Base}}/orgs/{{$o.ID}}/members/{{.Member.UserID}}">Roles</a>{{end}}
+          {{if ne .Member.Role "owner"}}<form class="inline" method="post" action="{{$.Base}}/orgs/{{$o.ID}}/members/{{.Member.UserID}}/remove" hx-confirm="Remove this member from {{$o.Name}}?"><button class="btn btn-ghost btn-sm" type="submit">Remove</button></form>{{end}}
+        </div></td>
+      </tr>
+    {{end}}</tbody>
+  </table></div>
+  {{else}}<div class="empty"><p>No members.</p></div>{{end}}
+  {{template "pager" .Page.Pager}}
+</div>
+{{end}}

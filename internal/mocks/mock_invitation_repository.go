@@ -128,6 +128,22 @@ func (mr *MockInvitationRepositoryMockRecorder) FindPendingByEmail(ctx, email, p
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindPendingByEmail", reflect.TypeOf((*MockInvitationRepository)(nil).FindPendingByEmail), ctx, email, purpose)
 }
 
+// List mocks base method.
+func (m *MockInvitationRepository) List(ctx context.Context, opts models.InvitationListOpts) ([]*models.Invitation, int64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "List", ctx, opts)
+	ret0, _ := ret[0].([]*models.Invitation)
+	ret1, _ := ret[1].(int64)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// List indicates an expected call of List.
+func (mr *MockInvitationRepositoryMockRecorder) List(ctx, opts any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockInvitationRepository)(nil).List), ctx, opts)
+}
+
 // ListByInviter mocks base method.
 func (m *MockInvitationRepository) ListByInviter(ctx context.Context, inviterID string, opts models.InvitationListOpts) ([]*models.Invitation, int64, error) {
 	m.ctrl.T.Helper()

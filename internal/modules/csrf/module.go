@@ -75,6 +75,11 @@ func (m *CSRFModule) Middlewares() []config.MiddlewareConfig {
 				types.RouteSAMLACS,
 				types.RouteIDPToken,
 				types.RouteIDPUserInfoPost,
+				// The ui module's pages are same-origin HTML forms. Every
+				// ui route is wrapped in net/http's CrossOriginProtection,
+				// which refuses cross-site requests by Sec-Fetch-Site and
+				// Origin, so they need no token of this module's.
+				"ui.*",
 			},
 		},
 	}

@@ -11,6 +11,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -180,7 +181,9 @@ func (l *Limiter) identifier(r *http.Request) (string, *http.Request) {
 	default:
 		return "", r
 	}
-	if ct := r.Header.Get("Content-Type"); ct != "" && !strings.Contains(strings.ToLower(ct), "json") {
+	contentType := strings.ToLower(r.Header.Get("Content-Type"))
+	form := strings.HasPrefix(contentType, "application/x-www-form-urlencoded")
+	if contentType != "" && !form && !strings.Contains(contentType, "json") {
 		return "", r
 	}
 	buf, err := io.ReadAll(io.LimitReader(r.Body, l.opts.MaxBodyBytes+1))
@@ -194,7 +197,16 @@ func (l *Limiter) identifier(r *http.Request) (string, *http.Request) {
 		Phone       string `json:"phone"`
 		PhoneNumber string `json:"phone_number"`
 	}
-	if json.Unmarshal(buf, &body) != nil {
+	if form {
+		// HTML forms, such as the ui module's sign-in page, send the same
+		// fields form-encoded.
+		values, err := url.ParseQuery(string(buf))
+		if err != nil {
+			return "", r
+		}
+		body.Email, body.Username = values.Get("email"), values.Get("username")
+		body.Phone, body.PhoneNumber = values.Get("phone"), values.Get("phone_number")
+	} else if json.Unmarshal(buf, &body) != nil {
 		return "", r
 	}
 	for _, candidate := range []string{body.Email, body.Username, body.Phone, body.PhoneNumber} {

@@ -166,4 +166,13 @@ const (
 	RouteRBACOrgGetMemberRoles  RouteName = "rbac.org.members.roles.get"
 	RouteRBACOrgSetMemberRoles  RouteName = "rbac.org.members.roles.set"
 	RouteRBACOrgListAssignments RouteName = "rbac.org.assignments.list"
+
+	// UI Routes (server-rendered pages)
+	RouteUIAsset          RouteName = "ui.asset"
+	RouteUIHome           RouteName = "ui.home"
+	RouteUILoginPage      RouteName = "ui.login.page"
+	RouteUILogin          RouteName = "ui.login"
+	RouteUILoginTwoFactor RouteName = "ui.login.2fa"
+	RouteUILogout         RouteName = "ui.logout"
+	RouteUIAccount        RouteName = "ui.account"
 )

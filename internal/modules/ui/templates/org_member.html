@@ -1,0 +1,9 @@
+{{define "content"}}
+{{$o := .Page.Org}}{{$m := .Page.Member}}
+{{template "org-head" .Page}}
+<div class="page-head">
+  <div><h2>{{with $m.User}}{{if .Name}}{{.Name}}{{else}}{{.Email}}{{end}}{{end}}</h2><p class="muted">{{$m.Member.Role}} of {{$o.Name}} · roles held inside this organization</p></div>
+  <a class="btn btn-sm" href="{{.Base}}/orgs/{{$o.ID}}/members">Back to members</a>
+</div>
+{{with .Page.Roles}}{{template "roles-form" .}}{{else}}<div class="card">{{template "module-off" "Register the rbac module with Organizations: true to give members roles inside an organization."}}</div>{{end}}
+{{end}}

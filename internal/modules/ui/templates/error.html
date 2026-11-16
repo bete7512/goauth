@@ -1,0 +1,10 @@
+{{define "body"}}{{if .Visitor}}{{template "shell" .}}{{else}}
+<main class="auth"><div class="card auth-card">{{template "content" .}}</div></main>
+{{end}}{{end}}
+{{define "content"}}
+<div class="card error-page">
+  <div class="error-code">{{.Page.Status}}</div>
+  <p>{{.Page.Message}}</p>
+  {{if .Visitor}}<a class="btn btn-primary" href="{{.Base}}">Back to the console</a>{{else}}<a class="btn btn-primary" href="{{.Base}}/login">Sign in</a>{{end}}
+</div>
+{{end}}

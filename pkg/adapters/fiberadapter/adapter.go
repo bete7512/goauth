@@ -39,6 +39,7 @@ func wrapHandler(handler http.HandlerFunc, paramNames []string) fiber.Handler {
 		}
 		w := &responseWriter{ctx: c}
 		handler(w, &r)
+		w.flush()
 		return nil
 	}
 }
@@ -70,6 +71,7 @@ type responseWriter struct {
 	statusCode int
 	header     http.Header
 	written    bool
+	committed  bool
 }
 
 func (w *responseWriter) Header() http.Header {
@@ -80,6 +82,9 @@ func (w *responseWriter) Header() http.Header {
 }
 
 func (w *responseWriter) WriteHeader(statusCode int) {
+	if w.written {
+		return
+	}
 	w.statusCode = statusCode
 	w.written = true
 }
@@ -88,12 +93,32 @@ func (w *responseWriter) Write(data []byte) (int, error) {
 	if !w.written {
 		w.WriteHeader(http.StatusOK)
 	}
-	// Apply headers to Fiber context
+	w.commit()
+	return w.ctx.Write(data)
+}
+
+// commit copies the status and headers to the Fiber context once. Repeated
+// headers such as Set-Cookie are added, not replaced.
+func (w *responseWriter) commit() {
+	if w.committed {
+		return
+	}
+	w.committed = true
+	headers := &w.ctx.Response().Header
 	for key, values := range w.header {
+		headers.Del(key)
 		for _, value := range values {
-			w.ctx.Set(key, value)
+			headers.Add(key, value)
 		}
 	}
 	w.ctx.Status(w.statusCode)
-	return w.ctx.Write(data)
+}
+
+// flush sends the status and headers of a response that wrote no body, such
+// as a redirect or a response that only sets cookies.
+func (w *responseWriter) flush() {
+	if !w.written {
+		w.WriteHeader(http.StatusOK)
+	}
+	w.commit()
 }

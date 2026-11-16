@@ -27,6 +27,7 @@ type InvitationModule struct {
 	deps              config.ModuleDependencies
 	config            *Config
 	invitationHandler *handlers.InvitationHandler
+	service           services.InvitationService
 }
 
 func New(cfg *Config) *InvitationModule {
@@ -63,6 +64,7 @@ func (m *InvitationModule) Init(ctx context.Context, deps config.ModuleDependenc
 		m.config.DefaultPurpose, m.config.AllowedPurposes, m.config.MaxPendingPerEmail,
 	)
 
+	m.service = invitationService
 	m.invitationHandler = handlers.NewInvitationHandler(deps, invitationService)
 
 	deps.Logger.Info("Invitation module initialized")
@@ -98,4 +100,14 @@ func (m *InvitationModule) OpenAPISpecs() []byte {
 
 func (m *InvitationModule) Migrations() types.ModuleMigrations {
 	return utils.ParseMigrations(migrationFS)
+}
+
+// ServiceOf returns the invitation module's service, or nil before Init. It
+// is a function rather than a method so that it is reachable only from
+// inside GoAuth, for the ui module's pages.
+func ServiceOf(m *InvitationModule) services.InvitationService {
+	if m == nil {
+		return nil
+	}
+	return m.service
 }

@@ -31,6 +31,12 @@ type InvitationService interface {
 	Accept(ctx context.Context, token, name, password string) (*AcceptResult, *types.GoAuthError)
 	Decline(ctx context.Context, token string) *types.GoAuthError
 	ListPendingByEmail(ctx context.Context, email string) ([]*models.Invitation, *types.GoAuthError)
+	// AdminList lists every invitation, whoever sent it. The caller in the
+	// context must be an active super admin.
+	AdminList(ctx context.Context, opts models.InvitationListOpts) ([]*models.Invitation, int64, *types.GoAuthError)
+	// AdminCancel withdraws any invitation. The caller in the context must be
+	// an active super admin.
+	AdminCancel(ctx context.Context, invID string) *types.GoAuthError
 }
 
 type invitationService struct {
@@ -276,4 +282,44 @@ func (s *invitationService) ListPendingByEmail(ctx context.Context, email string
 		return nil, types.NewInternalError("failed to list invitations").Wrap(err)
 	}
 	return invitations, nil
+}
+
+func (s *invitationService) authorizeAdmin(ctx context.Context) *types.GoAuthError {
+	principal, ok := types.PrincipalFromContext(ctx)
+	if !ok || principal.UserID == "" {
+		return types.NewUnauthorizedError()
+	}
+	actor, err := s.userRepo.FindByID(ctx, principal.UserID)
+	if err != nil || actor == nil || !actor.Active || !actor.IsSuperAdmin {
+		return types.NewForbiddenError()
+	}
+	return nil
+}
+
+func (s *invitationService) AdminList(ctx context.Context, opts models.InvitationListOpts) ([]*models.Invitation, int64, *types.GoAuthError) {
+	if authErr := s.authorizeAdmin(ctx); authErr != nil {
+		return nil, 0, authErr
+	}
+	invitations, total, err := s.invitationRepo.List(ctx, opts)
+	if err != nil {
+		return nil, 0, types.NewInternalError("failed to list invitations").Wrap(err)
+	}
+	return invitations, total, nil
+}
+
+func (s *invitationService) AdminCancel(ctx context.Context, invID string) *types.GoAuthError {
+	if authErr := s.authorizeAdmin(ctx); authErr != nil {
+		return authErr
+	}
+	inv, err := s.invitationRepo.FindByID(ctx, invID)
+	if errors.Is(err, models.ErrNotFound) || (err == nil && inv == nil) {
+		return types.NewInvitationNotFoundError()
+	}
+	if err != nil {
+		return types.NewInternalError("failed to find invitation").Wrap(err)
+	}
+	if err := s.invitationRepo.Delete(ctx, inv.ID); err != nil {
+		return types.NewInternalError("failed to cancel invitation").Wrap(err)
+	}
+	return nil
 }

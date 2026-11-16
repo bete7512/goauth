@@ -21,6 +21,7 @@ import (
 	"github.com/bete7512/goauth/pkg/modules/oauth"
 	"github.com/bete7512/goauth/pkg/modules/session"
 	"github.com/bete7512/goauth/pkg/modules/twofactor"
+	"github.com/bete7512/goauth/pkg/modules/ui"
 	"github.com/bete7512/goauth/pkg/types"
 	"github.com/bete7512/goauth/storage"
 	"github.com/joho/godotenv"
@@ -146,6 +147,12 @@ func main() {
 	})))
 
 	mustUse(authInstance.Use(organization.New(&organization.Config{})))
+	authInstance.Use(ui.New(
+		&ui.Config{
+			Path: "/admin",
+			
+		},
+	))
 	// // csrf (HMAC-based double-submit cookie pattern)
 	// go.Use(csrf.New(&config.CSRFModuleConfig{
 	// 	TokenExpiry: 2 * time.Hour,
@@ -233,7 +240,7 @@ func main() {
 			Version:     "1.0.0",
 			Path:        "/api/v1/docs",
 			Servers: []types.OpenAPIServer{
-				{URL: "http://localhost:8080", Description: "Development Server"},
+				{URL: "http://localhost:8089", Description: "Development Server"},
 				{URL: "https://goauth.com", Description: "Production Server"},
 			},
 		},
@@ -249,8 +256,9 @@ func main() {
 	handler := stdhttp.Register(mux, authInstance)
 	handler = CORSMiddleware(handler, []string{"*"})
 	handler = LoggingMiddleware(handler)
-	log.Println("Server running on :8080")
-	http.ListenAndServe(":8080", handler)
+	addr := ":8089"
+	log.Println("Server running on " + addr)
+	log.Fatal(http.ListenAndServe(addr, handler))
 
 	//
 	// Gin:

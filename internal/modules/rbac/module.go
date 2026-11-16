@@ -242,3 +242,22 @@ func (m *RBACModule) catalogDTO() []dto.PermissionDTO {
 	}
 	return out
 }
+
+// Internals are the rbac services, for the ui module's pages.
+type Internals struct {
+	// Organizations is true when roles can be held inside organizations.
+	Organizations bool
+	Access        services.AccessService
+	Roles         services.RoleService
+	Assignments   services.AssignmentService
+}
+
+// ServicesOf returns the services of an initialized rbac module and false
+// before Init. It is a function rather than a method so that it does not
+// appear on the public rbac.Module type.
+func ServicesOf(m *RBACModule) (Internals, bool) {
+	if m == nil || !m.ready.Load() {
+		return Internals{}, false
+	}
+	return Internals{Organizations: m.config.Organizations, Access: m.access, Roles: m.roles, Assignments: m.assignments}, true
+}

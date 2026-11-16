@@ -136,6 +136,7 @@ Pick what you need. Each one brings its own routes, tables, and OpenAPI docs.
 | **Passkeys** | WebAuthn login with Touch ID, Face ID, Windows Hello, or security keys. | Experimental |
 | **Organization** | Multi-tenant orgs with members, roles, invitations, and org switching. | Experimental |
 | **RBAC** | Roles and permission checks for your own routes and services, application-wide or per organization. | Experimental |
+| **UI** | A modern admin console (users, audit log, roles) built with htmx, plus optional sign-in and account pages. No build step. | Experimental |
 | **Invitation** | Invite-only signups for apps without organizations. | Experimental |
 | **Admin** | User management endpoints behind admin middleware. | Experimental |
 | **Audit** | A security event trail covering logins, password changes, and more. | Stable |

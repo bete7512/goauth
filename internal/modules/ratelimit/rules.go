@@ -26,6 +26,8 @@ func DefaultRules() []config.RateLimitRuleConfig {
 		types.RouteVerifyEmail,
 		types.RouteInvitationAccept,
 		types.RouteOrgAcceptInvitation,
+		types.RouteUILogin,
+		types.RouteUILoginTwoFactor,
 	}
 	sends := []types.RouteName{
 		types.RouteForgotPassword,

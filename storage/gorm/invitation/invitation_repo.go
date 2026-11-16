@@ -102,6 +102,26 @@ func (r *InvitationRepo) ListByInviter(ctx context.Context, inviterID string, op
 	return invitations, total, nil
 }
 
+// List lists every invitation with filtering, pagination and sorting.
+func (r *InvitationRepo) List(ctx context.Context, opts models.InvitationListOpts) ([]*models.Invitation, int64, error) {
+	query := r.db.WithContext(ctx).Model(&models.Invitation{})
+	if opts.Status != "" {
+		query = query.Where("status = ?", opts.Status)
+	}
+	if opts.Purpose != "" {
+		query = query.Where("purpose = ?", opts.Purpose)
+	}
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("invitation_repository.List count: %w", err)
+	}
+	var invitations []*models.Invitation
+	if err := helpers.ApplyListingOpts(query, opts.ListingOpts).Find(&invitations).Error; err != nil {
+		return nil, 0, fmt.Errorf("invitation_repository.List find: %w", err)
+	}
+	return invitations, total, nil
+}
+
 // ListPendingByEmail lists all pending, non-expired invitations for an email
 func (r *InvitationRepo) ListPendingByEmail(ctx context.Context, email string) ([]*models.Invitation, error) {
 	var invitations []*models.Invitation

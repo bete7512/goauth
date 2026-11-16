@@ -97,6 +97,9 @@ graph TD
     Core --> Organization["Organizations"]
     Core --> RBAC["RBAC: roles and permission checks"]
     Organization -.->|organization roles, when enabled| RBAC
+    Core --> UI["UI: server-rendered console"]
+    Audit -.->|audit log page| UI
+    RBAC -.->|roles page| UI
     Core --> Admin["Admin"]
     Admin --> Invitation["Invitations"]
     Core --> Invitation

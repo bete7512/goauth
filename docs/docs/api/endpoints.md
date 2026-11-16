@@ -2769,6 +2769,483 @@ Requires `goauth.assignments:read`. Membership roles are not assignments and are
 
 ---
 
+## UI Module
+
+:::info
+Requires `ui.New(...)`. These routes serve HTML pages, not JSON, and refuse cross-site form submissions. They are listed at the default mount, `BasePath + "/ui"`; with `ui.Config{Path: "/admin"}` the same pages are at `/admin`, `/admin/users` and so on, outside `BasePath`. Pages for a module that is not registered answer `404` with a page naming the module. Errors are shown as pages: `422` with the form and a message for a rejected change, `403` for a non-admin. See [UI](../modules/ui.md).
+:::
+
+<details>
+<summary><code>GET</code> <code>/ui</code> — Console home and overview</summary>
+
+Overview for a super admin: totals, newest users and recent events. Redirects (`303`) others to `/ui/account` (with `UserPages`) or `/ui/login`.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/ui/assets/&#123;file&#125;</code> — Console asset</summary>
+
+Serves `app.css`, `app.js` or `htmx.min.js`, cacheable for a year when `v` matches the current version.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/ui/login</code> — Sign-in page</summary>
+
+`next` (optional) is a console page to open afterwards.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/login</code> — Submit sign-in</summary>
+
+**Form:** `email` (or username), `password`, optional `next`. Sets the credential cookies and redirects, or shows the code page for two-factor accounts. Rate limited like `POST /login`.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/login/2fa</code> — Submit two-factor code</summary>
+
+**Form:** `temp_token`, `code`, optional `next`. Requires the `twofactor` module.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/logout</code> — Sign out</summary>
+
+Revokes the credentials as `POST /logout` does, clears the cookies and redirects to `/ui/login`.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/ui/account</code> — Account page <span className="badge badge--primary">Auth</span></summary>
+
+Only with `UserPages: true`.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/ui/users</code> — Users <span className="badge badge--primary">Super admin</span></summary>
+
+**Query:** `q`, `offset`. With `HX-Target: users-table`, answers with the table only.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/ui/users/new</code> — New user form <span className="badge badge--primary">Super admin</span></summary>
+
+HTML page.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/users</code> — Create user <span className="badge badge--primary">Super admin</span></summary>
+
+**Form:** `email`, `name`, `username` (optional), `password`, `email_verified`, `is_super_admin`. Same password policy and uniqueness rules as signup.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/ui/users/&#123;id&#125;</code> — User profile <span className="badge badge--primary">Super admin</span></summary>
+
+Profile form, quick actions and details. A locked account shows a banner with an unlock button.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/users/&#123;id&#125;</code> — Save user <span className="badge badge--primary">Super admin</span></summary>
+
+**Form:** profile fields and the checkboxes `active`, `email_verified`, `phone_number_verified`, `is_super_admin` (absent means off). Your own account cannot be deactivated or demoted.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/users/&#123;id&#125;/delete</code> — Delete user <span className="badge badge--primary">Super admin</span></summary>
+
+Not your own account.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/ui/users/&#123;id&#125;/security</code> — User security <span className="badge badge--primary">Super admin</span></summary>
+
+Linked accounts, sessions (session strategy), two-factor status, passkeys and connected IdP applications.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/users/&#123;id&#125;/unlock</code> — Unlock user <span className="badge badge--primary">Super admin</span></summary>
+
+Clears a lockout from failed sign-ins.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/users/&#123;id&#125;/sign-out</code> — Sign out everywhere <span className="badge badge--primary">Super admin</span></summary>
+
+Revokes every token (token version) and session of the user.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/users/&#123;id&#125;/password</code> — Set password <span className="badge badge--primary">Super admin</span></summary>
+
+**Form:** `password`. Must meet the policy; signs the user out everywhere and clears any lockout.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/users/&#123;id&#125;/reset-email</code> — Send password reset email <span className="badge badge--primary">Super admin</span></summary>
+
+Requires the `notification` module.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/users/&#123;id&#125;/verification-email</code> — Send verification email <span className="badge badge--primary">Super admin</span></summary>
+
+Requires the `notification` module.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/users/&#123;id&#125;/accounts/&#123;accountId&#125;/unlink</code> — Unlink external account <span className="badge badge--primary">Super admin</span></summary>
+
+Requires the `oauth` or `saml` module.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/users/&#123;id&#125;/sessions/&#123;sessionId&#125;/revoke</code> — End session <span className="badge badge--primary">Super admin</span></summary>
+
+Session strategy only.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/users/&#123;id&#125;/2fa/reset</code> — Reset two-factor <span className="badge badge--primary">Super admin</span></summary>
+
+Deletes the user's TOTP settings and backup codes. Requires the `twofactor` module.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/users/&#123;id&#125;/passkeys/&#123;passkeyId&#125;/delete</code> — Remove passkey <span className="badge badge--primary">Super admin</span></summary>
+
+Requires the `passkeys` module.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/users/&#123;id&#125;/apps/&#123;grantId&#125;/revoke</code> — Disconnect application <span className="badge badge--primary">Super admin</span></summary>
+
+Revokes an IdP grant. Requires the `idp` module.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/ui/users/&#123;id&#125;/access</code> — User access <span className="badge badge--primary">Super admin</span></summary>
+
+Application-wide roles (with `rbac`) and organization memberships (with `organization`).
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/users/&#123;id&#125;/roles</code> — Set user roles <span className="badge badge--primary">Super admin</span></summary>
+
+**Form:** `roles`, repeated. Same rules as `PUT /rbac/users/{userId}/roles`.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/ui/users/&#123;id&#125;/activity</code> — User activity <span className="badge badge--primary">Super admin</span></summary>
+
+Audit events about the user, with `offset`. Requires the `audit` module.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/ui/orgs</code> — Organizations <span className="badge badge--primary">Super admin</span></summary>
+
+**Query:** `q`, `offset`. With `HX-Target: orgs-table`, the table only. Requires the `organization` module, as do all `/ui/orgs` pages.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/ui/orgs/new</code> — New organization form <span className="badge badge--primary">Super admin</span></summary>
+
+HTML page.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/orgs</code> — Create organization <span className="badge badge--primary">Super admin</span></summary>
+
+**Form:** `name`, `slug` (optional), `owner_email` of an existing user, who becomes the owner.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/ui/orgs/&#123;orgId&#125;</code> — Organization overview <span className="badge badge--primary">Super admin</span></summary>
+
+Profile, ownership transfer, suspend or restore, delete.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/orgs/&#123;orgId&#125;</code> — Save organization <span className="badge badge--primary">Super admin</span></summary>
+
+**Form:** `name`, `logo_url`.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/orgs/&#123;orgId&#125;/status</code> — Suspend or restore organization <span className="badge badge--primary">Super admin</span></summary>
+
+**Form:** `active` (`true` or `false`).
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/orgs/&#123;orgId&#125;/delete</code> — Delete organization <span className="badge badge--primary">Super admin</span></summary>
+
+**Form:** `confirm` must equal the slug. Removes memberships and invitations too.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/orgs/&#123;orgId&#125;/owner</code> — Transfer ownership <span className="badge badge--primary">Super admin</span></summary>
+
+**Form:** `user_id` of an existing member. The previous owner becomes an admin.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/ui/orgs/&#123;orgId&#125;/members</code> — Organization members <span className="badge badge--primary">Super admin</span></summary>
+
+With `offset`. With `HX-Target: members-table`, the table only.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/orgs/&#123;orgId&#125;/members</code> — Add member <span className="badge badge--primary">Super admin</span></summary>
+
+**Form:** `email` of an existing user, `role` (`admin` or `member`).
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/ui/orgs/&#123;orgId&#125;/members/&#123;userId&#125;</code> — Member roles <span className="badge badge--primary">Super admin</span></summary>
+
+Roles the member holds inside the organization. Requires `rbac` with `Organizations: true`.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/orgs/&#123;orgId&#125;/members/&#123;userId&#125;/role</code> — Change membership role <span className="badge badge--primary">Super admin</span></summary>
+
+**Form:** `role` (`admin` or `member`). The owner changes only by transfer.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/orgs/&#123;orgId&#125;/members/&#123;userId&#125;/remove</code> — Remove member <span className="badge badge--primary">Super admin</span></summary>
+
+Not the owner.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/orgs/&#123;orgId&#125;/members/&#123;userId&#125;/roles</code> — Set member roles <span className="badge badge--primary">Super admin</span></summary>
+
+**Form:** `roles`, repeated. Same rules as `PUT /org/{orgId}/members/{userId}/roles`.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/ui/orgs/&#123;orgId&#125;/invitations</code> — Organization invitations <span className="badge badge--primary">Super admin</span></summary>
+
+With `offset`.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/orgs/&#123;orgId&#125;/invitations/&#123;invId&#125;/cancel</code> — Cancel organization invitation <span className="badge badge--primary">Super admin</span></summary>
+
+HTML page.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/ui/orgs/&#123;orgId&#125;/roles</code> — Organization roles <span className="badge badge--primary">Super admin</span></summary>
+
+Requires `rbac` with `Organizations: true`, as do the organization role pages below.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/orgs/&#123;orgId&#125;/roles</code> — Create organization role <span className="badge badge--primary">Super admin</span></summary>
+
+**Form:** `key`, `name`, `description`, `grants` (one per line).
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/ui/orgs/&#123;orgId&#125;/roles/&#123;roleKey&#125;</code> — Organization role <span className="badge badge--primary">Super admin</span></summary>
+
+Grants and who holds the role.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/orgs/&#123;orgId&#125;/roles/&#123;roleKey&#125;</code> — Save organization role <span className="badge badge--primary">Super admin</span></summary>
+
+**Form:** `name`, `description`, `grants`.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/orgs/&#123;orgId&#125;/roles/&#123;roleKey&#125;/delete</code> — Delete organization role <span className="badge badge--primary">Super admin</span></summary>
+
+HTML page.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/ui/invitations</code> — Platform invitations <span className="badge badge--primary">Super admin</span></summary>
+
+Every invitation, whoever sent it. **Query:** `status`, `offset`. Requires the `invitation` module.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/invitations</code> — Send invitation <span className="badge badge--primary">Super admin</span></summary>
+
+**Form:** `email`, `purpose` (optional).
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/invitations/&#123;invId&#125;/cancel</code> — Cancel invitation <span className="badge badge--primary">Super admin</span></summary>
+
+HTML page.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/ui/roles</code> — Roles <span className="badge badge--primary">Super admin</span></summary>
+
+Application-wide roles with the new-role form. Requires the `rbac` module, as do the role pages below.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/roles</code> — Create role <span className="badge badge--primary">Super admin</span></summary>
+
+**Form:** `key`, `name`, `description`, `grants` (one per line). Same rules as `POST /rbac/roles`.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/ui/roles/&#123;roleKey&#125;</code> — Role <span className="badge badge--primary">Super admin</span></summary>
+
+Grants (editable for custom roles) and who holds the role.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/roles/&#123;roleKey&#125;</code> — Save role <span className="badge badge--primary">Super admin</span></summary>
+
+**Form:** `name`, `description`, `grants`. Same rules as `PUT /rbac/roles/{roleKey}`.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/roles/&#123;roleKey&#125;/delete</code> — Delete role <span className="badge badge--primary">Super admin</span></summary>
+
+Takes the role from everyone who holds it.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/ui/permissions</code> — Permissions <span className="badge badge--primary">Super admin</span></summary>
+
+The permission catalog with the application-wide roles that grant each permission.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/ui/clients</code> — OIDC clients <span className="badge badge--primary">Super admin</span></summary>
+
+**Query:** `q`, `offset`. Requires the `idp` module, as do the client pages below.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/ui/clients/new</code> — New OIDC client form <span className="badge badge--primary">Super admin</span></summary>
+
+HTML page.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/clients</code> — Create OIDC client <span className="badge badge--primary">Super admin</span></summary>
+
+**Form:** `name`, `client_id` (optional), `redirect_uris` (one per line), `scopes`, `public`, `require_pkce`, `skip_consent`, `logo_uri`, `client_uri`, `disabled`. Answers `201` with the secret shown once.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/ui/clients/&#123;clientId&#125;</code> — OIDC client <span className="badge badge--primary">Super admin</span></summary>
+
+Settings and connection details. Clients declared in configuration are read-only.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/clients/&#123;clientId&#125;</code> — Save OIDC client <span className="badge badge--primary">Super admin</span></summary>
+
+Same form as creating.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/clients/&#123;clientId&#125;/rotate</code> — Rotate client secret <span className="badge badge--primary">Super admin</span></summary>
+
+Answers `200` with the new secret shown once; the old one stops working.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/clients/&#123;clientId&#125;/delete</code> — Delete OIDC client <span className="badge badge--primary">Super admin</span></summary>
+
+Disconnects every user from the application.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/ui/audit</code> — Audit log <span className="badge badge--primary">Super admin</span></summary>
+
+**Query:** `action`, `user`, `offset`. With `HX-Target: audit-table`, the table only. Requires the `audit` module.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/ui/audit/cleanup</code> — Apply audit retention <span className="badge badge--primary">Super admin</span></summary>
+
+Deletes events older than the retention periods.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/ui/settings</code> — Settings <span className="badge badge--primary">Super admin</span></summary>
+
+Read-only: strategy, token lifetimes, password and lockout policy, cookies, registered modules.
+
+</details>
+
+---
+
 ## Public Signing Keys
 
 <details>

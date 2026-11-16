@@ -1,0 +1,20 @@
+{{define "content"}}
+<div class="page-head">
+  <div><h1>Permissions</h1><p>Every permission your application checks, and the application-wide roles that grant it.</p></div>
+  <a class="btn" href="{{.Base}}/roles">{{template "icon-key"}}<span>Roles</span></a>
+</div>
+{{if .Page.Wide}}
+<div class="callout">Granted by every permission check: {{range $i, $r := .Page.Wide}}{{if $i}}, {{end}}<a href="{{$.Base}}/roles/{{$r.Key}}">{{$r.Name}}</a>{{end}}. Their wildcards reach everything below, so they are not repeated in each row.</div>
+{{end}}
+<section class="card">
+  {{if .Page.Rows}}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Permission</th><th>Granted by</th></tr></thead>
+    <tbody>{{range .Page.Rows}}
+      <tr><td><span class="chip">{{.Permission}}</span>{{if .Description}}<div class="muted mt">{{.Description}}</div>{{end}}</td>
+        <td><div class="badges">{{range .Roles}}<a class="badge accent plain" href="{{$.Base}}/roles/{{.Key}}">{{.Name}}</a>{{else}}<span class="muted">Only the roles above</span>{{end}}</div></td></tr>
+    {{end}}</tbody>
+  </table></div>
+  {{else}}<div class="empty">{{template "icon-shield"}}<p>Your application has not declared any permissions yet. They appear here as <span class="mono">Require</span>, <span class="mono">Resource</span> and <span class="mono">Define</span> are used.</p></div>{{end}}
+</section>
+{{end}}

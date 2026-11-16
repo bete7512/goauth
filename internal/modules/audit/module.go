@@ -381,3 +381,13 @@ func (m *AuditModule) OpenAPISpecs() []byte {
 func (m *AuditModule) Migrations() types.ModuleMigrations {
 	return utils.ParseMigrations(migrationFS)
 }
+
+// Service returns the audit module's service, or nil before Init. It is a
+// function rather than a method so that it is reachable only from inside
+// GoAuth, for the ui module's pages.
+func Service(m *AuditModule) services.AuditService {
+	if m == nil {
+		return nil
+	}
+	return m.service
+}

@@ -37,6 +37,7 @@ import (
 	"github.com/bete7512/goauth/pkg/modules/session"
 	"github.com/bete7512/goauth/pkg/modules/stateless"
 	"github.com/bete7512/goauth/pkg/modules/twofactor"
+	"github.com/bete7512/goauth/pkg/modules/ui"
 	"github.com/bete7512/goauth/pkg/types"
 	"github.com/bete7512/goauth/storage"
 )
@@ -173,6 +174,38 @@ func verify(dir, strategy string) ([]route, error) {
 	return routes, nil
 }
 
+// consoleRoutes lists the ui module's pages. The console signs in with
+// cookies and refuses the bearer-only fixture above, so it gets an instance
+// of its own. UserPages is on so that the account page is listed too.
+func consoleRoutes(dir string) ([]route, error) {
+	store, err := storage.NewGormStorage(storage.GormConfig{Dialect: types.DialectTypeSqlite, DSN: filepath.Join(dir, "ui.db")})
+	if err != nil {
+		return nil, err
+	}
+	a, err := auth.New(&config.Config{
+		Storage: store, BasePath: "/auth", Migration: config.MigrationConfig{Auto: true},
+		Security: types.SecurityConfig{JwtSecretKey: strings.Repeat("d", 32), EncryptionKey: strings.Repeat("e", 32)},
+	})
+	if err != nil {
+		_ = store.Close()
+		return nil, err
+	}
+	defer a.Close()
+	if err := a.Use(ui.New(&ui.Config{UserPages: true})); err != nil {
+		return nil, err
+	}
+	if err := a.Initialize(context.Background()); err != nil {
+		return nil, err
+	}
+	var routes []route
+	for _, r := range a.Routes() {
+		if strings.HasPrefix(r.Name, "ui.") {
+			routes = append(routes, route{r.Method, strings.TrimPrefix(r.Path, "/auth"), r.Name})
+		}
+	}
+	return routes, nil
+}
+
 func main() {
 	dir, err := os.MkdirTemp("", "goauth-doc-api-")
 	if err != nil {
@@ -188,6 +221,12 @@ func main() {
 		}
 		routes = append(routes, found...)
 	}
+	console, err := consoleRoutes(dir)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "ui:", err)
+		os.Exit(1)
+	}
+	routes = append(routes, console...)
 	output, err := json.Marshal(routes)
 	if err != nil {
 		panic(err)

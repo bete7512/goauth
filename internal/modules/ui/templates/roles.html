@@ -1,0 +1,49 @@
+{{define "content"}}
+{{if .Page.Frame}}{{template "org-head" .Page.Frame}}{{else}}
+<div class="page-head">
+  <div><h1>Roles</h1><p>Application-wide roles and the permissions they grant. Changes apply on the next request.</p></div>
+  <a class="btn" href="{{.Base}}/permissions">{{template "icon-shield"}}<span>Permissions</span></a>
+</div>
+{{end}}
+<div class="grid-2">
+  <section class="card">
+    <div class="card-head"><div><h2>{{if .Page.Org}}Roles in {{.Page.Org.Name}}{{else}}All roles{{end}}</h2><p>Built-in roles are defined in code; open one to see who holds it.</p></div></div>
+    {{if .Page.Roles}}
+    <div class="table-wrap"><table>
+      <thead><tr><th>Role</th><th class="hide-sm">Grants</th><th></th></tr></thead>
+      <tbody>
+      {{range .Page.Roles}}
+        <tr class="row-link" data-href>
+          <td>
+            <a class="identity-name" href="{{$.Page.Base}}/{{.Key}}">{{.Name}}</a>
+            <div class="identity-sub"><span class="mono">{{.Key}}</span>{{if .Implied}} · implied{{else if .System}} · built in{{end}}</div>
+            {{if .Description}}<div class="muted">{{.Description}}</div>{{end}}
+          </td>
+          <td class="hide-sm"><div class="badges">{{range .Grants}}<span class="chip">{{.}}</span>{{else}}<span class="muted">No grants</span>{{end}}</div></td>
+          <td class="num">
+            {{if not .System}}
+            <form class="inline" method="post" action="{{$.Page.Base}}/{{.Key}}/delete" hx-confirm="Delete the role “{{.Name}}”? Everyone who holds it loses it.">
+              <button class="btn btn-ghost btn-sm" type="submit" aria-label="Delete {{.Name}}">{{template "icon-trash"}}</button>
+            </form>
+            {{end}}
+          </td>
+        </tr>
+      {{end}}
+      </tbody>
+    </table></div>
+    {{else}}<div class="empty">{{template "icon-key"}}<p>No roles yet.</p></div>{{end}}
+  </section>
+
+  <form class="card" method="post" action="{{.Page.Base}}">
+    <div class="card-head"><div><h2>New role</h2><p>You can only grant what you hold yourself.</p></div></div>
+    <div class="card-body stack">
+      <div class="field"><label for="role-name">Name</label><input class="input" id="role-name" name="name" value="{{.Page.Form.Name}}" placeholder="Billing manager" required></div>
+      <div class="field"><label for="role-key">Key</label><input class="input mono" id="role-key" name="key" value="{{.Page.Form.Key}}" placeholder="billing-manager" pattern="[a-z0-9][a-z0-9_\-]{0,63}" required><span class="hint">Lowercase letters, digits, “-” and “_”. It cannot be changed later.</span></div>
+      <div class="field"><label for="role-description">Description</label><input class="input" id="role-description" name="description" value="{{.Page.Form.Description}}" placeholder="Approves and exports invoices"></div>
+      <div class="field"><label for="role-grants">Grants</label><textarea class="input" id="role-grants" name="grants" placeholder="invoice:*&#10;report:read" spellcheck="false">{{.Page.GrantsText}}</textarea><span class="hint">One per line: <span class="chip">invoice:approve</span>, <span class="chip">invoice:*</span>, <span class="chip">*:read</span> or <span class="chip">*</span>.</span></div>
+      {{template "catalog" .Page.Permissions}}
+    </div>
+    <div class="card-foot"><button class="btn btn-primary" type="submit">{{template "icon-plus"}}<span>Create role</span></button></div>
+  </form>
+</div>
+{{end}}

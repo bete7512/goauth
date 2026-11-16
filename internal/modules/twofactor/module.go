@@ -205,3 +205,18 @@ func (m *TwoFactorModule) OpenAPISpecs() []byte {
 func (m *TwoFactorModule) Migrations() types.ModuleMigrations {
 	return utils.ParseMigrations(migrationFS)
 }
+
+var _ types.TwoFactorLoginVerifier = (*TwoFactorModule)(nil)
+
+// VerifyLogin completes a sign-in that returned a two-factor challenge, with
+// the same checks as the verify-login route.
+func (m *TwoFactorModule) VerifyLogin(ctx context.Context, tempToken, code string, _ *types.RequestMetadata) (types.AuthenticationResult, error) {
+	if m.handlers == nil {
+		return types.AuthenticationResult{Status: types.Denied}, types.NewInternalError("two-factor module is not initialized")
+	}
+	result, authErr := m.handlers.VerifyLogin(ctx, tempToken, code)
+	if authErr != nil {
+		return result, authErr
+	}
+	return result, nil
+}

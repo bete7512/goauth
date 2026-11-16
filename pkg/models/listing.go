@@ -93,7 +93,11 @@ type MemberListOpts struct {
 }
 
 // Normalize validates and clamps all fields.
+// Memberships have no created_at column, so they default to joined_at.
 func (o *MemberListOpts) Normalize(maxLimit int) {
+	if !memberSortFields[o.SortField] {
+		o.SortField = "joined_at"
+	}
 	o.ListingOpts.Normalize(maxLimit, memberSortFields)
 	o.Role = strings.TrimSpace(o.Role)
 }

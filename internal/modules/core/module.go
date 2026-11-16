@@ -18,6 +18,7 @@ type CoreModule struct {
 	deps     config.ModuleDependencies
 	handlers *handlers.CoreHandler
 	config   *config.CoreConfig
+	service  core_services.CoreService
 }
 
 //go:embed docs/openapi.yml
@@ -70,15 +71,16 @@ func (m *CoreModule) Init(ctx context.Context, deps config.ModuleDependencies) e
 
 	// Initialize handlers with all dependencies
 	// Repositories now use concrete types - no adapters needed
+	m.service = core_services.NewCoreService(
+		m.deps,
+		coreStorage.Users(),
+		coreStorage.Tokens(),
+		m.deps.Logger,
+		securityManager,
+		m.config,
+	)
 	m.handlers = handlers.NewCoreHandler(
-		core_services.NewCoreService(
-			m.deps,
-			coreStorage.Users(),
-			coreStorage.Tokens(),
-			m.deps.Logger,
-			securityManager,
-			m.config,
-		),
+		m.service,
 		m.deps,
 	)
 
@@ -130,4 +132,14 @@ func (m *CoreModule) updateConfigFromDeps() {
 		snapshot := *m.deps.Config.Core
 		m.config = &snapshot
 	}
+}
+
+// ServiceOf returns the core service, or nil before Init. It is a function
+// rather than a method so that it is reachable only from inside GoAuth, for
+// the ui module's pages.
+func ServiceOf(m *CoreModule) core_services.CoreService {
+	if m == nil {
+		return nil
+	}
+	return m.service
 }

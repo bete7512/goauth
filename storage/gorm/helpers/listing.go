@@ -3,6 +3,7 @@ package helpers
 import (
 	"fmt"
 	"regexp"
+	"strings"
 
 	"github.com/bete7512/goauth/pkg/models"
 	"gorm.io/gorm"
@@ -27,4 +28,12 @@ func ApplyListingOpts(db *gorm.DB, opts models.ListingOpts) *gorm.DB {
 	}
 	orderClause := fmt.Sprintf("%s %s", sortField, sortDir)
 	return db.Order(orderClause).Limit(opts.Limit).Offset(opts.Offset)
+}
+
+// ContainsPattern returns a LIKE pattern that matches value anywhere, in
+// lower case, with LIKE wildcards in value escaped by '!'. Use it as
+// "LOWER(column) LIKE ? ESCAPE '!'", which every supported dialect accepts.
+func ContainsPattern(value string) string {
+	escaped := strings.NewReplacer("!", "!!", "%", "!%", "_", "!_").Replace(strings.ToLower(value))
+	return "%" + escaped + "%"
 }

@@ -1,0 +1,50 @@
+{{define "content"}}
+{{$c := .Page.Config}}{{$s := $c.Security}}
+<div class="page-head">
+  <div><h1>Settings</h1><p>How this application is configured. Settings live in code, so they are shown here read-only.</p></div>
+</div>
+<div class="grid-2">
+  <div class="col">
+    <section class="card">
+      <div class="card-head"><h2>Authentication</h2></div>
+      <div class="card-body"><dl class="kv">
+        <dt>Strategy</dt><dd>{{$c.Strategy}}</dd>
+        <dt>Credential transport</dt><dd>{{$c.AuthMode}}</dd>
+        <dt>Access token lifetime</dt><dd>{{duration $s.Session.AccessTokenTTL}}</dd>
+        <dt>Refresh token lifetime</dt><dd>{{duration $s.Session.RefreshTokenTTL}}</dd>
+        {{if eq $c.Strategy "session"}}<dt>Session lifetime</dt><dd>{{duration $s.Session.SessionTTL}}</dd>{{end}}
+        <dt>Email verification</dt><dd>{{if $c.RequireEmailVerification}}Required{{else}}Optional{{end}}</dd>
+        <dt>Phone verification</dt><dd>{{if $c.RequirePhoneVerification}}Required{{else}}Optional{{end}}</dd>
+      </dl></div>
+    </section>
+    <section class="card">
+      <div class="card-head"><h2>Passwords and lockout</h2></div>
+      <div class="card-body"><dl class="kv">
+        <dt>Length</dt><dd>{{$s.PasswordPolicy.MinLength}} to {{$s.PasswordPolicy.MaxLength}} characters</dd>
+        <dt>Must contain</dt><dd>{{if $s.PasswordPolicy.RequireUppercase}}uppercase · {{end}}{{if $s.PasswordPolicy.RequireLowercase}}lowercase · {{end}}{{if $s.PasswordPolicy.RequireNumbers}}a number · {{end}}{{if $s.PasswordPolicy.RequireSpecial}}a symbol · {{end}}any characters</dd>
+        <dt>Lockout</dt><dd>{{if $s.Lockout.Disabled}}Off{{else}}After {{$s.Lockout.MaxAttempts}} failed attempts, for {{duration $s.Lockout.LockoutDuration}}{{end}}</dd>
+        <dt>Rate limiting</dt><dd>{{$c.RateLimit}}</dd>
+      </dl></div>
+    </section>
+    <section class="card">
+      <div class="card-head"><h2>Cookies and network</h2></div>
+      <div class="card-body"><dl class="kv">
+        <dt>Secure cookies</dt><dd>{{if $s.Session.Secure}}Yes{{else}}<span class="badge warn">No (local development)</span>{{end}}</dd>
+        <dt>SameSite</dt><dd>{{$c.SameSite}}</dd>
+        <dt>Cookie path</dt><dd class="mono">{{$s.Session.Path}}</dd>
+        {{if $s.Session.Domain}}<dt>Cookie domain</dt><dd class="mono">{{$s.Session.Domain}}</dd>{{end}}
+        <dt>API base path</dt><dd class="mono">{{$c.BasePath}}</dd>
+        <dt>Console</dt><dd class="mono">{{$c.Console}}</dd>
+        {{if $c.APIURL}}<dt>Public URL</dt><dd class="mono">{{$c.APIURL}}</dd>{{end}}
+        <dt>Trusted proxies</dt><dd>{{range $i, $p := $c.TrustedProxies}}{{if $i}}, {{end}}<span class="mono">{{$p}}</span>{{else}}None{{end}}</dd>
+      </dl></div>
+    </section>
+  </div>
+  <section class="card">
+    <div class="card-head"><div><h2>Modules</h2><p>What this application has registered.</p></div></div>
+    <ul class="timeline">{{range .Page.Modules}}
+      <li><span class="dot {{if not .Enabled}}muted{{end}}" aria-hidden="true"></span><div class="grow"><div class="what">{{.Name}}</div><div class="when">{{.Purpose}}</div></div>{{if .Enabled}}<span class="badge success">On</span>{{else}}<span class="badge">Off</span>{{end}}</li>
+    {{end}}</ul>
+  </section>
+</div>
+{{end}}

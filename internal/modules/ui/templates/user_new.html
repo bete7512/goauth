@@ -1,0 +1,19 @@
+{{define "content"}}
+<div class="page-head">
+  <div><div class="crumbs"><a href="{{.Base}}/users">Users</a> / New</div><h1>New user</h1><p>Create an account directly. Share the password with the user over a safe channel, or send them a reset email afterwards.</p></div>
+</div>
+<form class="card" method="post" action="{{.Base}}/users" autocomplete="off">
+  <div class="card-body form-grid">
+    <div class="field"><label for="email">Email</label><input class="input" id="email" name="email" type="email" value="{{.Page.Form.Email}}" required autofocus></div>
+    <div class="field"><label for="name">Name</label><input class="input" id="name" name="name" value="{{.Page.Form.Name}}"></div>
+    <div class="field"><label for="username">Username</label><input class="input" id="username" name="username" value="{{.Page.Form.Username}}" placeholder="Generated from the email"></div>
+    <div class="field"><label for="password">Password</label><input class="input" id="password" name="password" type="password" autocomplete="new-password" required>
+      <span class="hint">At least {{.Page.Policy.MinLength}} characters{{if .Page.Policy.RequireUppercase}}, an uppercase letter{{end}}{{if .Page.Policy.RequireLowercase}}, a lowercase letter{{end}}{{if .Page.Policy.RequireNumbers}}, a number{{end}}{{if .Page.Policy.RequireSpecial}}, a symbol{{end}}.</span></div>
+    <div class="span-2 toggles">
+      <label class="toggle"><span class="toggle-text"><strong>Email verified</strong><span>Skip email verification for this account.</span></span><span class="switch"><input type="checkbox" name="email_verified" {{if .Page.Form.EmailVerified}}checked{{end}}><span></span></span></label>
+      <label class="toggle"><span class="toggle-text"><strong>Super admin</strong><span>Full access to this console and every administrative API.</span></span><span class="switch"><input type="checkbox" name="is_super_admin" {{if .Page.Form.SuperAdmin}}checked{{end}}><span></span></span></label>
+    </div>
+  </div>
+  <div class="card-foot"><a class="btn btn-ghost" href="{{.Base}}/users">Cancel</a><button class="btn btn-primary" type="submit">{{template "icon-plus"}}<span>Create user</span></button></div>
+</form>
+{{end}}

@@ -86,8 +86,8 @@ func (r *UserRepository) List(ctx context.Context, opts models.UserListOpts) ([]
 	query := r.db.WithContext(ctx).Model(&models.User{})
 
 	if opts.Query != "" {
-		search := "%" + opts.Query + "%"
-		query = query.Where("name ILIKE ? OR email ILIKE ? OR username ILIKE ?", search, search, search)
+		search := helpers.ContainsPattern(opts.Query)
+		query = query.Where("LOWER(name) LIKE ? ESCAPE '!' OR LOWER(email) LIKE ? ESCAPE '!' OR LOWER(username) LIKE ? ESCAPE '!'", search, search, search)
 	}
 
 	var total int64

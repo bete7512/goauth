@@ -24,6 +24,7 @@ const (
 	SAMLModule         ModuleName = "saml"
 	IDPModule          ModuleName = "idp"
 	RBACModule         ModuleName = "rbac"
+	UIModule           ModuleName = "ui"
 )
 
 // CaptchaProvider represents a supported captcha provider.

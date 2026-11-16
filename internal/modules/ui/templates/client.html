@@ -1,0 +1,60 @@
+{{define "content"}}
+{{$c := .Page.Client}}{{$f := .Page.Form}}
+<div class="page-head">
+  <div>
+    <div class="crumbs"><a href="{{.Base}}/clients">OIDC clients</a> / {{if $c}}{{$c.Name}}{{else}}New{{end}}</div>
+    <h1>{{if $c}}{{$c.Name}}{{else}}New OIDC client{{end}}</h1>
+    {{if $c}}<p class="muted mono">{{$c.ClientID}}</p>{{end}}
+  </div>
+  {{if $c}}<div class="badges"><span class="badge plain">{{if $c.Public}}Public{{else}}Confidential{{end}}</span>{{if $c.Disabled}}<span class="badge danger">Disabled</span>{{else}}<span class="badge success">Active</span>{{end}}</div>{{end}}
+</div>
+{{if .Page.Secret}}
+<div class="card card-body stack">
+  <h2>Client secret</h2>
+  <div class="secret"><code>{{.Page.Secret}}</code></div>
+  <p class="callout warn">Copy it now and store it in the application's configuration. It is stored only as a digest and will not be shown again; rotate it if it is lost.</p>
+</div>
+{{end}}
+{{if and $c $c.Managed}}<div class="callout">This client is declared in the identity provider's configuration, so it is changed there, not here.</div>{{end}}
+<div class="grid-2">
+  <form class="card" method="post" action="{{.Base}}/clients{{if $c}}/{{$c.ID}}{{end}}">
+    <div class="card-head"><div><h2>Settings</h2></div></div>
+    <div class="card-body form-grid">
+      <div class="field"><label for="name">Name</label><input class="input" id="name" name="name" value="{{$f.Name}}" required></div>
+      <div class="field"><label for="client_id">Client ID</label><input class="input mono" id="client_id" name="client_id" value="{{$f.ClientID}}" {{if $c}}readonly{{else}}placeholder="Generated if empty"{{end}}></div>
+      <div class="field span-2"><label for="redirect_uris">Redirect URIs</label><textarea class="input" id="redirect_uris" name="redirect_uris" required spellcheck="false" placeholder="https://app.example.com/callback">{{$f.RedirectURIs}}</textarea><span class="hint">One per line. Matched exactly.</span></div>
+      <div class="field span-2"><label for="scopes">Scopes</label><input class="input mono" id="scopes" name="scopes" value="{{$f.Scopes}}"><span class="hint">Separated by spaces. Empty allows openid, profile and email.</span></div>
+      <div class="field"><label for="logo_uri">Logo URL</label><input class="input" id="logo_uri" name="logo_uri" type="url" value="{{$f.LogoURI}}"></div>
+      <div class="field"><label for="client_uri">Home page</label><input class="input" id="client_uri" name="client_uri" type="url" value="{{$f.ClientURI}}"></div>
+      <div class="span-2 toggles">
+        <label class="toggle"><span class="toggle-text"><strong>Public client</strong><span>For apps that cannot keep a secret, such as single-page and mobile apps. They get no secret and must use PKCE.</span></span><span class="switch"><input type="checkbox" name="public" {{if $f.Public}}checked{{end}} {{if $c}}disabled{{end}}><span></span></span></label>
+        {{if and $c $f.Public}}<input type="hidden" name="public" value="on">{{end}}
+        <label class="toggle"><span class="toggle-text"><strong>Require PKCE</strong><span>Recommended for every client.</span></span><span class="switch"><input type="checkbox" name="require_pkce" {{if $f.RequirePKCE}}checked{{end}}><span></span></span></label>
+        <label class="toggle"><span class="toggle-text"><strong>Skip consent</strong><span>For your own first-party applications only.</span></span><span class="switch"><input type="checkbox" name="skip_consent" {{if $f.SkipConsent}}checked{{end}}><span></span></span></label>
+        <label class="toggle"><span class="toggle-text"><strong>Disabled</strong><span>The application can no longer sign anyone in.</span></span><span class="switch"><input type="checkbox" name="disabled" {{if $f.Disabled}}checked{{end}}><span></span></span></label>
+      </div>
+    </div>
+    <div class="card-foot"><a class="btn btn-ghost" href="{{.Base}}/clients">Cancel</a><button class="btn btn-primary" type="submit">{{if $c}}Save changes{{else}}Create client{{end}}</button></div>
+  </form>
+  <div class="col">
+    <section class="card">
+      <div class="card-head"><h2>Connection details</h2></div>
+      <div class="card-body"><dl class="facts">
+        <div><dt>Issuer</dt><dd class="mono">{{.Page.Issuer}}</dd></div>
+        <div><dt>Discovery</dt><dd class="mono">{{.Page.Issuer}}/.well-known/openid-configuration</dd></div>
+        {{if $c}}<div><dt>Created</dt><dd>{{date $c.CreatedAt}}</dd></div><div><dt>Last used</dt><dd>{{date $c.LastUsedAt}}</dd></div>{{end}}
+      </dl></div>
+    </section>
+    {{if and $c (not $c.Managed)}}
+    <section class="card danger-zone">
+      <div class="card-body stack">
+        {{if not $c.Public}}
+        <form method="post" action="{{.Base}}/clients/{{$c.ID}}/rotate" hx-confirm="Rotate the secret of {{$c.Name}}? The old secret stops working immediately."><button class="btn btn-block" type="submit">Rotate secret</button></form>
+        {{end}}
+        <form method="post" action="{{.Base}}/clients/{{$c.ID}}/delete" hx-confirm="Delete {{$c.Name}}? Every user is disconnected from it."><button class="btn btn-danger btn-block" type="submit">{{template "icon-trash"}}<span>Delete client</span></button></form>
+      </div>
+    </section>
+    {{end}}
+  </div>
+</div>
+{{end}}

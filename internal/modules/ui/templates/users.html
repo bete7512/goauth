@@ -1,0 +1,42 @@
+{{define "content"}}
+<div class="page-head">
+  <div><h1>Users</h1><p>Search, review and manage every account.</p></div>
+  <a class="btn btn-primary" href="{{.Base}}/users/new">{{template "icon-plus"}}<span>New user</span></a>
+</div>
+<section class="card">
+  <div class="card-head">
+    <form class="search" method="get" action="{{.Base}}/users" role="search">
+      {{template "icon-search"}}
+      <label class="sr-only" for="q">Search users</label>
+      <input class="input" id="q" type="search" name="q" value="{{.Page.Query}}" placeholder="Search by name, email or username" autocomplete="off" data-search
+        hx-get="{{.Base}}/users" hx-trigger="input changed delay:300ms, search" hx-target="#users-table" hx-push-url="true">
+      <kbd class="kbd" aria-hidden="true">/</kbd>
+    </form>
+  </div>
+  {{template "users-table" .}}
+</section>
+{{end}}
+
+{{define "users-table"}}
+<div id="users-table">
+  {{if .Page.Users}}
+  <div class="table-wrap"><table>
+    <thead><tr><th>User</th><th class="hide-sm">Username</th><th>Status</th><th class="num hide-sm">Last sign-in</th><th class="num hide-sm">Joined</th></tr></thead>
+    <tbody>
+    {{range .Page.Users}}
+      <tr class="row-link" data-href>
+        <td><a class="identity" href="{{$.Base}}/users/{{.ID}}"><span class="avatar" aria-hidden="true">{{initials .Name .Email}}</span><span class="identity-text"><span class="identity-name">{{if .Name}}{{.Name}}{{else}}{{.Email}}{{end}}</span><br><span class="identity-sub">{{.Email}}</span></span></a></td>
+        <td class="muted hide-sm">{{if .Username}}{{.Username}}{{else}}—{{end}}</td>
+        <td>{{template "user-badges" .}}</td>
+        <td class="num muted nowrap hide-sm" title="{{date .LastLoginAt}}">{{ago .LastLoginAt}}</td>
+        <td class="num muted nowrap hide-sm" title="{{date .CreatedAt}}">{{ago .CreatedAt}}</td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table></div>
+  {{else}}
+  <div class="empty">{{template "icon-search"}}<p>{{if .Page.Query}}No users match “{{.Page.Query}}”.{{else}}No users yet.{{end}}</p></div>
+  {{end}}
+  {{template "pager" .Page.Pager}}
+</div>
+{{end}}

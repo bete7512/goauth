@@ -194,6 +194,7 @@ export function syncContent() {
         "invitation",
         "organization",
         "rbac",
+        "ui",
         "...",
       ],
     },

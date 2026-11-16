@@ -12,7 +12,7 @@ The Rate Limit module puts request budgets on the built-in authentication routes
 ## Capabilities
 
 - **On by default** — No code needed. `auth.New` plus `Initialize` gives you the default rules with an in-memory store.
-- **Two kinds of keys** — Rules count per client IP (`types.RateLimitKeyIP`), per submitted identifier such as the email, username or phone number in the request body (`types.RateLimitKeyIdentifier`), or per pair (`types.RateLimitKeyIPIdentifier`). Identifiers are stored only as digests.
+- **Two kinds of keys** — Rules count per client IP (`types.RateLimitKeyIP`), per submitted identifier such as the email, username or phone number in a JSON or form-encoded request body (`types.RateLimitKeyIdentifier`), or per pair (`types.RateLimitKeyIPIdentifier`). Identifiers are stored only as digests.
 - **Route patterns** — Rules target route names (`types.RouteLogin`, `"core.*"`) with optional exclusions, like every other GoAuth middleware.
 - **Proxy aware** — `X-Forwarded-For` and `X-Real-IP` are honored only when the direct peer is listed in `Config.TrustedProxies`, so clients cannot forge their address. IPv6 clients share a `/64` bucket.
 - **Standard responses** — `429 Too Many Requests` with `Retry-After`, plus `RateLimit-Limit`, `RateLimit-Remaining` and `RateLimit-Reset` headers on every limited route.
@@ -24,7 +24,7 @@ The Rate Limit module puts request budgets on the built-in authentication routes
 
 | Routes | Key | Budget |
 |---|---|---|
-| Login, two-factor verification, passkey login finish, magic-link verification, password reset, email and phone verification, invitation acceptance | IP | 30 per minute |
+| Login (including the UI module's sign-in and code pages), two-factor verification, passkey login finish, magic-link verification, password reset, email and phone verification, invitation acceptance | IP | 30 per minute |
 | The same routes | Identifier | 10 per 10 minutes |
 | Forgot password, verification sends and resends, magic-link send and resend, two-factor resend, invitation send | IP | 10 per hour |
 | The same routes | Identifier | 3 per hour |

@@ -47,6 +47,7 @@ internal/modules/<name>/
 - `CHANGELOG.md`: entry under `## [Unreleased]` → `### Added`
 - `make sdk-spec` to regenerate `clients/ts/openapi.yml`
 - If the module depends on other modules or adds a dependency to `go.mod`, say so in the docs page and changelog
+- **Admin console:** if the module adds anything an administrator manages (a route named `admin.*`, `rbac.*` or `*.admin.*`), add its page to the ui module (`internal/modules/ui`) and map the route in `internal/modules/ui/coverage.go`. Only if the screen genuinely has to wait, list the route in `Exempt` there with the reason. `tests/integration/ui_coverage_test.go` enforces this.
 
 ### 6. Do NOT
 - Auto-register the module

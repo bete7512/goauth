@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"time"
@@ -250,26 +251,8 @@ func (h *TwoFactorHandler) VerifyLoginHandler(w http.ResponseWriter, r *http.Req
 		http_utils.RespondError(w, authErr.StatusCode, string(authErr.Code), authErr.Message)
 		return
 	}
-	userID, authErr := h.verifyTempToken(req.TempToken)
+	userID, continuation, authErr := h.checkCode(r.Context(), req.TempToken, req.Code)
 	if authErr != nil {
-		http_utils.RespondError(w, authErr.StatusCode, string(authErr.Code), authErr.Message)
-		return
-	}
-	continuation, err := h.deps.Storage.Core().Tokens().FindByToken(r.Context(), h.deps.SecurityManager.HashRefreshToken(req.TempToken))
-	if err != nil || continuation == nil || continuation.Type != "2fa_pending" || continuation.UserID != userID || continuation.Used || !time.Now().Before(continuation.ExpiresAt) {
-		http_utils.RespondError(w, http.StatusUnauthorized, string(types.ErrInvalidToken), "invalid continuation")
-		return
-	}
-
-	if continuation.Data != "" {
-		attempts, err := h.deps.Storage.Core().Tokens().IncrementAttempts(r.Context(), continuation.ID)
-		if err != nil || attempts > 10 {
-			http_utils.RespondError(w, http.StatusUnauthorized, string(types.ErrInvalidToken), "continuation attempt limit reached")
-			return
-		}
-	}
-	// Verify TOTP code or backup code
-	if authErr := h.service.VerifyCodeOrBackup(r.Context(), userID, req.Code); authErr != nil {
 		http_utils.RespondError(w, authErr.StatusCode, string(authErr.Code), authErr.Message)
 		return
 	}
@@ -319,6 +302,47 @@ func (h *TwoFactorHandler) VerifyLoginHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	http_utils.RespondSuccess(w, response, nil)
+}
+
+// checkCode validates a login continuation and the code submitted for it,
+// counting the attempt. It returns the user and the continuation record.
+func (h *TwoFactorHandler) checkCode(ctx context.Context, tempToken, code string) (string, *models.Token, *types.GoAuthError) {
+	userID, authErr := h.verifyTempToken(tempToken)
+	if authErr != nil {
+		return "", nil, authErr
+	}
+	continuation, err := h.deps.Storage.Core().Tokens().FindByToken(ctx, h.deps.SecurityManager.HashRefreshToken(tempToken))
+	if err != nil || continuation == nil || continuation.Type != "2fa_pending" || continuation.UserID != userID || continuation.Used || !time.Now().Before(continuation.ExpiresAt) {
+		return "", nil, &types.GoAuthError{Code: types.ErrInvalidToken, Message: "invalid continuation", StatusCode: http.StatusUnauthorized}
+	}
+	if continuation.Data != "" {
+		attempts, err := h.deps.Storage.Core().Tokens().IncrementAttempts(ctx, continuation.ID)
+		if err != nil || attempts > 10 {
+			return "", nil, &types.GoAuthError{Code: types.ErrInvalidToken, Message: "continuation attempt limit reached", StatusCode: http.StatusUnauthorized}
+		}
+	}
+	if authErr := h.service.VerifyCodeOrBackup(ctx, userID, code); authErr != nil {
+		return "", nil, authErr
+	}
+	return userID, continuation, nil
+}
+
+// VerifyLogin completes a sign-in challenged for a second factor, outside
+// HTTP. It needs the shared completion engine, which resumes the stored
+// continuation.
+func (h *TwoFactorHandler) VerifyLogin(ctx context.Context, tempToken, code string) (types.AuthenticationResult, *types.GoAuthError) {
+	denied := types.AuthenticationResult{Status: types.Denied}
+	if tempToken == "" || code == "" {
+		return denied, types.NewValidationError("temp_token and code are required")
+	}
+	resumer, ok := h.deps.Completion.(types.AuthenticationResumer)
+	if !ok {
+		return denied, types.NewInternalError("two-factor sign-in cannot be resumed")
+	}
+	if _, _, authErr := h.checkCode(ctx, tempToken, code); authErr != nil {
+		return denied, authErr
+	}
+	return resumer.Resume(ctx, tempToken, types.ChallengeTwoFactor)
 }
 
 // verifyTempToken verifies and extracts user ID from temporary 2FA token

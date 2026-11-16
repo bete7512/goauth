@@ -1,0 +1,12 @@
+{{define "content"}}
+{{template "user-head" .}}
+<section class="card">
+  {{template "activity-list" .}}
+</section>
+{{end}}
+{{define "activity-list"}}
+<div id="activity-list">
+  {{template "events" .Page.Events}}
+  {{template "pager" .Page.Pager}}
+</div>
+{{end}}

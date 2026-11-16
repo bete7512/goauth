@@ -1,0 +1,29 @@
+{{define "content"}}
+{{$u := .Page.User}}
+<div class="page-head">
+  <div class="profile">
+    <span class="avatar avatar-lg" aria-hidden="true">{{initials $u.Name $u.Email}}</span>
+    <div><h1>{{if $u.Name}}{{$u.Name}}{{else}}Your account{{end}}</h1><p class="muted">{{$u.Email}}</p></div>
+  </div>
+  {{if .Admin}}<a class="btn btn-primary" href="{{.Base}}">Open the admin console</a>{{end}}
+</div>
+<div class="grid-2">
+  <section class="card">
+    <div class="card-head"><div><h2>Recent activity</h2><p>Sign-ins and changes to your account. If you don’t recognise something, change your password.</p></div></div>
+    {{if .Features.Audit}}{{template "events" .Page.Events}}{{else}}<div class="empty">{{template "icon-list"}}<p>Activity is not recorded for this application.</p></div>{{end}}
+  </section>
+  <section class="card">
+    <div class="card-head"><h2>Details</h2></div>
+    <div class="card-body">
+      <dl class="facts">
+        <div><dt>Email</dt><dd>{{$u.Email}}</dd></div>
+        <div><dt>Email verified</dt><dd>{{if $u.EmailVerified}}Yes{{else}}No{{end}}</dd></div>
+        {{if $u.Username}}<div><dt>Username</dt><dd>{{$u.Username}}</dd></div>{{end}}
+        {{if $u.PhoneNumber}}<div><dt>Phone</dt><dd>{{$u.PhoneNumber}}</dd></div>{{end}}
+        <div><dt>Member since</dt><dd>{{date $u.CreatedAt}}</dd></div>
+        <div><dt>Last sign-in</dt><dd>{{date $u.LastLoginAt}}</dd></div>
+      </dl>
+    </div>
+  </section>
+</div>
+{{end}}

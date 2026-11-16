@@ -1,0 +1,74 @@
+{{define "content"}}
+{{$u := .Page.User}}{{$s := .Page.Security}}{{$f := .Page.Features}}
+{{template "user-head" .}}
+<div class="grid-2">
+  <div class="col">
+    <section class="card">
+      <div class="card-head"><div><h2>Linked accounts</h2><p>External identities the user signs in with.</p></div></div>
+      {{if not $f.LinkedAccount}}{{template "module-off" "Register the oauth module to let users sign in with Google, GitHub, Microsoft or Discord."}}
+      {{else if $s.LinkedAccounts}}
+      <div class="table-wrap"><table>
+        <thead><tr><th>Provider</th><th>Account</th><th>Linked</th><th></th></tr></thead>
+        <tbody>{{range $s.LinkedAccounts}}
+          <tr><td><span class="badge accent plain">{{.Provider}}</span></td><td class="mono muted">{{.ProviderAccountID}}</td><td class="muted nowrap" title="{{date .CreatedAt}}">{{ago .CreatedAt}}</td>
+            <td class="num"><form class="inline" method="post" action="{{$.Base}}/users/{{$u.ID}}/accounts/{{.ID}}/unlink" hx-confirm="Unlink the {{.Provider}} account? The user can no longer sign in with it."><button class="btn btn-ghost btn-sm" type="submit">Unlink</button></form></td></tr>
+        {{end}}</tbody>
+      </table></div>
+      {{else}}<div class="empty"><p>No linked accounts.</p></div>{{end}}
+    </section>
+
+    <section class="card">
+      <div class="card-head"><div><h2>Sessions</h2><p>Where the user is signed in.</p></div>
+        {{if not .Page.Self}}<form class="inline" method="post" action="{{.Base}}/users/{{$u.ID}}/sign-out" hx-confirm="Sign {{$u.Email}} out of every device?"><button class="btn btn-sm" type="submit">Sign out everywhere</button></form>{{end}}
+      </div>
+      {{if not $f.Sessions}}<div class="card-body"><p class="callout">This application uses stateless tokens, so there is no list of sessions. <strong>Sign out everywhere</strong> still revokes every token the user holds.</p></div>
+      {{else if $s.Sessions}}
+      <div class="table-wrap"><table>
+        <thead><tr><th>Device</th><th>IP address</th><th>Started</th><th>Expires</th><th></th></tr></thead>
+        <tbody>{{range $s.Sessions}}
+          <tr><td class="muted">{{if .UserAgent}}{{.UserAgent}}{{else}}Unknown{{end}}</td><td class="mono muted">{{.IPAddress}}</td><td class="muted nowrap" title="{{date .CreatedAt}}">{{ago .CreatedAt}}</td><td class="muted nowrap">{{date .ExpiresAt}}</td>
+            <td class="num"><form class="inline" method="post" action="{{$.Base}}/users/{{$u.ID}}/sessions/{{.ID}}/revoke"><button class="btn btn-ghost btn-sm" type="submit">End</button></form></td></tr>
+        {{end}}</tbody>
+      </table></div>
+      {{else}}<div class="empty"><p>No active sessions.</p></div>{{end}}
+    </section>
+
+    {{if .Page.Apps}}
+    <section class="card">
+      <div class="card-head"><div><h2>Connected applications</h2><p>Applications the user signed in to through this provider.</p></div></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Application</th><th>Scopes</th><th>Last used</th><th></th></tr></thead>
+        <tbody>{{range .Page.Apps}}
+          <tr><td><div class="identity-name">{{.ClientName}}</div><div class="identity-sub mono">{{.ClientID}}</div></td><td><div class="badges">{{range .Scopes}}<span class="chip">{{.}}</span>{{end}}</div></td><td class="muted nowrap">{{ago .LastUsedAt}}</td>
+            <td class="num"><form class="inline" method="post" action="{{$.Base}}/users/{{$u.ID}}/apps/{{.ID}}/revoke" hx-confirm="Disconnect {{.ClientName}}? Its tokens stop working."><button class="btn btn-ghost btn-sm" type="submit">Disconnect</button></form></td></tr>
+        {{end}}</tbody>
+      </table></div>
+    </section>
+    {{end}}
+  </div>
+
+  <div class="col">
+    <section class="card">
+      <div class="card-head"><h2>Two-factor authentication</h2></div>
+      <div class="card-body stack">
+        {{if not $f.TwoFactor}}<p class="hint">Register the twofactor module to offer authenticator apps and backup codes.</p>
+        {{else if and $s.TwoFactor $s.TwoFactor.Enabled}}
+        <p><span class="badge success">On</span> <span class="muted">{{$s.TwoFactor.Method}} · {{$s.BackupCodes}} backup code{{if ne $s.BackupCodes 1}}s{{end}} left</span></p>
+        <form method="post" action="{{.Base}}/users/{{$u.ID}}/2fa/reset" hx-confirm="Reset two-factor authentication for {{$u.Email}}? They can sign in with a password alone until they set it up again."><button class="btn btn-danger btn-block" type="submit">Reset two-factor</button></form>
+        <p class="hint">For a user who lost their authenticator and backup codes. Confirm their identity first.</p>
+        {{else}}<p><span class="badge">Off</span></p>{{end}}
+      </div>
+    </section>
+    <section class="card">
+      <div class="card-head"><h2>Passkeys</h2></div>
+      {{if not $f.Passkeys}}<div class="card-body"><p class="hint">Register the passkeys module to let users sign in with Touch ID, Face ID, Windows Hello or a security key.</p></div>
+      {{else if $s.Passkeys}}
+      <ul class="timeline">{{range $s.Passkeys}}
+        <li><span class="dot" aria-hidden="true"></span><div class="grow"><div class="what">{{if .Name}}{{.Name}}{{else}}Passkey{{end}}</div><div class="when">Added {{ago .CreatedAt}} · last used {{ago .LastUsedAt}}</div></div>
+          <form class="inline" method="post" action="{{$.Base}}/users/{{$u.ID}}/passkeys/{{.ID}}/delete" hx-confirm="Remove this passkey?"><button class="btn btn-ghost btn-sm" type="submit" aria-label="Remove">{{template "icon-trash"}}</button></form></li>
+      {{end}}</ul>
+      {{else}}<div class="empty"><p>No passkeys.</p></div>{{end}}
+    </section>
+  </div>
+</div>
+{{end}}

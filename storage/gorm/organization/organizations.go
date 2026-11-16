@@ -82,8 +82,8 @@ func (r *OrganizationRepo) List(ctx context.Context, opts models.OrganizationLis
 	}
 
 	if opts.Query != "" {
-		search := "%" + opts.Query + "%"
-		query = query.Where("name ILIKE ? OR slug ILIKE ?", search, search)
+		search := helpers.ContainsPattern(opts.Query)
+		query = query.Where("LOWER(name) LIKE ? ESCAPE '!' OR LOWER(slug) LIKE ? ESCAPE '!'", search, search)
 	}
 
 	var total int64
@@ -109,8 +109,20 @@ func (r *OrganizationRepo) Update(ctx context.Context, org *models.Organization)
 }
 
 // Delete deletes an organization by its ID
+// Delete deletes an organization together with its memberships and
+// invitations, in one transaction, so that no row is left pointing at an
+// organization that no longer exists.
 func (r *OrganizationRepo) Delete(ctx context.Context, id string) error {
-	if err := r.db.WithContext(ctx).Delete(&models.Organization{}, "id = ?", id).Error; err != nil {
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("org_id = ?", id).Delete(&models.OrgInvitation{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("org_id = ?", id).Delete(&models.OrganizationMember{}).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&models.Organization{}, "id = ?", id).Error
+	})
+	if err != nil {
 		return fmt.Errorf("organization_repository.Delete: %w", err)
 	}
 	return nil

@@ -20,6 +20,11 @@ type RouteInfo struct {
 	Path        string
 	Handler     http.HandlerFunc
 	Middlewares []types.MiddlewareName
+	// Absolute mounts Path as given instead of under Config.BasePath. It is
+	// for routes that must not live under the API's base path, such as
+	// well-known URIs a standard places at the host root, or the ui module's
+	// console mounted at a path of the host's choosing.
+	Absolute bool
 }
 
 // MigrationConfig controls the module migration system.
@@ -75,6 +80,13 @@ type ModuleDependencies struct {
 	SecurityManager   types.SecurityManager
 	AuthInterceptors  types.AuthInterceptorRegistry
 	Options           interface{}
+	// Lookup returns another registered module by name. Use it for optional
+	// collaborations, such as a page that is shown only when the audit
+	// module is registered; declare required modules in Dependencies.
+	// Modules may initialize in any order relative to a module found this
+	// way, so call it when serving a request rather than relying on the
+	// other module being initialized during Init. It may be nil in tests.
+	Lookup func(name string) (Module, bool)
 }
 
 // MiddlewareConfig for modules to define middleware application

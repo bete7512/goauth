@@ -1,0 +1,22 @@
+{{define "content"}}
+{{$o := .Page.Org}}
+{{template "org-head" .Page}}
+<section class="card">
+  {{template "invitations-table" .}}
+</section>
+{{end}}
+{{define "invitations-table"}}
+{{$o := .Page.Org}}
+<div id="invitations-table">
+  {{if .Page.Invitations}}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Email</th><th>Role</th><th>Status</th><th class="hide-sm">Expires</th><th></th></tr></thead>
+    <tbody>{{range .Page.Invitations}}
+      <tr><td>{{.Email}}</td><td class="muted">{{.Role}}</td><td><span class="badge {{if eq .Status "pending"}}warn{{else if eq .Status "accepted"}}success{{end}}">{{.Status}}</span></td><td class="muted nowrap hide-sm">{{date .ExpiresAt}}</td>
+        <td class="num">{{if eq .Status "pending"}}<form class="inline" method="post" action="{{$.Base}}/orgs/{{$o.ID}}/invitations/{{.ID}}/cancel" hx-confirm="Cancel the invitation to {{.Email}}?"><button class="btn btn-ghost btn-sm" type="submit">Cancel</button></form>{{end}}</td></tr>
+    {{end}}</tbody>
+  </table></div>
+  {{else}}<div class="empty">{{template "icon-mail"}}<p>No invitations.</p></div>{{end}}
+  {{template "pager" .Page.Pager}}
+</div>
+{{end}}

@@ -245,6 +245,33 @@ Notes for contributors:
 
 ---
 
+## UI Module
+
+Server-rendered console: admin pages for super admins (users, audit log, roles) and, with `UserPages`, sign-in and account pages for everyone. html/template plus embedded htmx; no build step. Depends on Core; pages for audit, roles and the 2FA step appear when those modules are registered.
+
+```go
+import "github.com/bete7512/goauth/pkg/modules/ui"
+
+a.Use(ui.New(&ui.Config{Path: "/admin", UserPages: true, Title: "Acme"}))
+```
+
+Areas: users (with Profile, Security, Access and Activity tabs), organizations, invitations, roles, permissions, OIDC clients, audit log, settings. Areas whose module is missing stay in the sidebar, disabled, with a hint naming the module.
+
+Provides, relative to the console root (`BasePath + "/ui"`, or `Path` as absolute routes): the overview at the root, `/login`, `/login/2fa`, `/logout`, `/account` (with `UserPages`), `/users/...`, `/orgs/...`, `/invitations/...`, `/roles/...`, `/permissions`, `/clients/...`, `/audit[/cleanup]`, `/settings`, `/assets/{file}` (67 routes; see `module.go`).
+
+Notes for contributors:
+- Operations live in the owning module, never in the console: the admin service (users and their sign-in methods), the organization module's `AdminService`, the invitation service's `AdminList`/`AdminCancel`, the IdP service's `Admin*` methods, rbac's services. Each checks for a super admin itself. The console reaches them through internal-only accessors (`organization.AdminServiceOf`, `invitation.ServiceOf`, `idp.ServiceOf`, `core.ServiceOf`, `audit.Service`, `rbac.ServicesOf`).
+- An area is offered when its module is registered (`features()`), not when its store exists: GORM storage always has every store, but the tables come only from the module's migrations.
+- **Every administrative route needs a console page or a written reason.** `coverage.go` maps `admin.*`, `rbac.*`, `*.admin.*` and admin-middleware routes to pages (`Covered`) or gaps (`Exempt`); `tests/integration/ui_coverage_test.go` fails otherwise. Adding an admin feature means adding its page here in the same change.
+- The console finds optional modules at request time through `ModuleDependencies.Lookup`, and reaches their services through internal-only functions (`audit.Service`, `rbac.ServicesOf`) so nothing is added to their public types.
+- Sign-in, refresh, sign-out and the 2FA step go through `types.PasswordAuthenticator`, `CredentialRefresher`, `CredentialRevoker` and `TwoFactorLoginVerifier`, the same code paths as the JSON routes.
+- CSRF: every route is wrapped in `http.CrossOriginProtection`; the CSRF module excludes `ui.*`. The CSP forbids inline script and style, so behaviour goes in `assets/app.js` and styling in `assets/app.css`.
+- `render` returns only a named fragment when `HX-Target` names one the page declares; otherwise the whole page.
+- Messages after a redirect are keys into `notices`; never put text in a URL.
+- Route paths in `Routes()` are relative to the console root and `m.base` is the root; build every link and redirect from `m.base` (templates: `{{.Base}}`), never from `BasePath`, so `Config.Path` keeps working.
+
+---
+
 ## Magic Link Module
 
 Passwordless authentication via email.

@@ -1,0 +1,54 @@
+{{define "content"}}
+{{$o := .Page.Org}}
+{{template "org-head" .Page}}
+<div class="grid-2">
+  <div class="col">
+    <form class="card" method="post" action="{{.Base}}/orgs/{{$o.ID}}">
+      <div class="card-head"><div><h2>Profile</h2></div></div>
+      <div class="card-body form-grid">
+        <div class="field"><label for="name">Name</label><input class="input" id="name" name="name" value="{{$o.Name}}" required></div>
+        <div class="field"><label for="logo_url">Logo URL</label><input class="input" id="logo_url" name="logo_url" type="url" value="{{$o.LogoURL}}" placeholder="https://"></div>
+      </div>
+      <div class="card-foot"><button class="btn btn-primary" type="submit">Save changes</button></div>
+    </form>
+
+    <section class="card">
+      <div class="card-head"><div><h2>Transfer ownership</h2><p>The new owner must already be a member. The current owner stays on as an admin.</p></div></div>
+      {{if .Page.Admins}}
+      <form class="card-body inline-form" method="post" action="{{.Base}}/orgs/{{$o.ID}}/owner" hx-confirm="Transfer ownership of {{$o.Name}}?">
+        <div class="field"><label for="user_id">New owner</label>
+          <select class="input" id="user_id" name="user_id" required>{{range .Page.Admins}}<option value="{{.Member.UserID}}">{{if .User.Name}}{{.User.Name}} · {{end}}{{.User.Email}} ({{.Member.Role}})</option>{{end}}</select></div>
+        <button class="btn" type="submit">Transfer</button>
+      </form>
+      {{else}}<div class="card-body"><p class="muted">Add another member first.</p></div>{{end}}
+    </section>
+
+    <section class="card danger-zone">
+      <div class="card-head"><div><h2>{{if $o.Active}}Suspend{{else}}Restore{{end}} organization</h2><p>{{if $o.Active}}Members can no longer select it, and sign-ins that selected it stop working until it is restored.{{else}}Members can select it again.{{end}}</p></div>
+        <form class="inline" method="post" action="{{.Base}}/orgs/{{$o.ID}}/status"><input type="hidden" name="active" value="{{if $o.Active}}false{{else}}true{{end}}"><button class="btn {{if $o.Active}}btn-danger{{end}}" type="submit">{{if $o.Active}}Suspend{{else}}Restore{{end}}</button></form>
+      </div>
+      <div class="card-body">
+        <h2>Delete organization</h2>
+        <p class="hint mb">Deletes the organization, its memberships, invitations and roles. Type <span class="mono">{{$o.Slug}}</span> to confirm.</p>
+        <form class="inline-form" method="post" action="{{.Base}}/orgs/{{$o.ID}}/delete">
+          <div class="field"><label class="sr-only" for="confirm">Slug</label><input class="input mono" id="confirm" name="confirm" autocomplete="off" placeholder="{{$o.Slug}}" required></div>
+          <button class="btn btn-danger" type="submit">{{template "icon-trash"}}<span>Delete</span></button>
+        </form>
+      </div>
+    </section>
+  </div>
+  <div class="col">
+    <section class="card">
+      <div class="card-head"><h2>Details</h2></div>
+      <div class="card-body">
+        <dl class="facts">
+          <div><dt>Organization ID</dt><dd class="mono">{{$o.ID}}</dd></div>
+          <div><dt>Slug</dt><dd class="mono">{{$o.Slug}}</dd></div>
+          <div><dt>Created</dt><dd>{{date $o.CreatedAt}}</dd></div>
+          <div><dt>Updated</dt><dd>{{date $o.UpdatedAt}}</dd></div>
+        </dl>
+      </div>
+    </section>
+  </div>
+</div>
+{{end}}

@@ -1,0 +1,43 @@
+{{define "content"}}
+<div class="page-head">
+  <div><h1>Invitations</h1><p>Invitations to join the platform, from every administrator.</p></div>
+</div>
+<div class="grid-2">
+  <section class="card">
+    <div class="card-head">
+      <nav class="tabs" aria-label="Filter by status">
+        <a class="tab" href="{{.Base}}/invitations" {{if not .Page.Status}}aria-current="page"{{end}}>All</a>
+        <a class="tab" href="{{.Base}}/invitations?status=pending" {{if eq .Page.Status "pending"}}aria-current="page"{{end}}>Pending</a>
+        <a class="tab" href="{{.Base}}/invitations?status=accepted" {{if eq .Page.Status "accepted"}}aria-current="page"{{end}}>Accepted</a>
+        <a class="tab" href="{{.Base}}/invitations?status=declined" {{if eq .Page.Status "declined"}}aria-current="page"{{end}}>Declined</a>
+      </nav>
+    </div>
+    {{template "invitations-table" .}}
+  </section>
+  <form class="card" method="post" action="{{.Base}}/invitations">
+    <div class="card-head"><div><h2>Invite someone</h2><p>They receive an email with a link to create their account.</p></div></div>
+    <div class="card-body stack">
+      <div class="field"><label for="email">Email</label><input class="input" id="email" name="email" type="email" value="{{.Page.Email}}" required></div>
+      <div class="field"><label for="purpose">Purpose</label><input class="input" id="purpose" name="purpose" value="{{.Page.Purpose}}" placeholder="platform"><span class="hint">Optional label, such as beta or referral.</span></div>
+    </div>
+    <div class="card-foot"><button class="btn btn-primary" type="submit">{{template "icon-mail"}}<span>Send invitation</span></button></div>
+  </form>
+</div>
+{{end}}
+{{define "invitations-table"}}
+<div id="invitations-table">
+  {{if .Page.Invitations}}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Email</th><th>Status</th><th class="hide-sm">Invited by</th><th class="hide-sm">Expires</th><th></th></tr></thead>
+    <tbody>{{range .Page.Invitations}}
+      <tr><td><div class="identity-name">{{.Email}}</div><div class="identity-sub">{{.Purpose}}</div></td>
+        <td><span class="badge {{if eq .Status "pending"}}warn{{else if eq .Status "accepted"}}success{{end}}">{{.Status}}</span></td>
+        <td class="muted nowrap hide-sm">{{with index $.Page.Inviters .InviterID}}{{if .Name}}{{.Name}}{{else}}{{.Email}}{{end}}{{else}}—{{end}}</td>
+        <td class="muted nowrap hide-sm">{{date .ExpiresAt}}</td>
+        <td class="num">{{if eq .Status "pending"}}<form class="inline" method="post" action="{{$.Base}}/invitations/{{.ID}}/cancel" hx-confirm="Cancel the invitation to {{.Email}}?"><button class="btn btn-ghost btn-sm" type="submit">Cancel</button></form>{{end}}</td></tr>
+    {{end}}</tbody>
+  </table></div>
+  {{else}}<div class="empty">{{template "icon-mail"}}<p>No invitations.</p></div>{{end}}
+  {{template "pager" .Page.Pager}}
+</div>
+{{end}}

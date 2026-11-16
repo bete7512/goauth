@@ -1,0 +1,33 @@
+{{define "content"}}
+<div class="page-head">
+  <div><h1>Organizations</h1><p>Every organization, its owner and its status.</p></div>
+  <a class="btn btn-primary" href="{{.Base}}/orgs/new">{{template "icon-plus"}}<span>New organization</span></a>
+</div>
+<section class="card">
+  <div class="card-head">
+    <form class="search" method="get" action="{{.Base}}/orgs" role="search">
+      {{template "icon-search"}}
+      <label class="sr-only" for="q">Search organizations</label>
+      <input class="input" id="q" type="search" name="q" value="{{.Page.Query}}" placeholder="Search by name or slug" autocomplete="off" data-search
+        hx-get="{{.Base}}/orgs" hx-trigger="input changed delay:300ms, search" hx-target="#orgs-table" hx-push-url="true">
+      <kbd class="kbd" aria-hidden="true">/</kbd>
+    </form>
+  </div>
+  {{template "orgs-table" .}}
+</section>
+{{end}}
+{{define "orgs-table"}}
+<div id="orgs-table">
+  {{if .Page.Orgs}}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Organization</th><th>Status</th><th class="num hide-sm">Created</th></tr></thead>
+    <tbody>{{range .Page.Orgs}}
+      <tr class="row-link" data-href><td><a class="identity" href="{{$.Base}}/orgs/{{.ID}}"><span class="avatar" aria-hidden="true">{{initials .Name ""}}</span><span class="identity-text"><span class="identity-name">{{.Name}}</span><br><span class="identity-sub mono">{{.Slug}}</span></span></a></td>
+        <td>{{if .Active}}<span class="badge success">Active</span>{{else}}<span class="badge danger">Suspended</span>{{end}}</td>
+        <td class="num muted nowrap hide-sm" title="{{date .CreatedAt}}">{{ago .CreatedAt}}</td></tr>
+    {{end}}</tbody>
+  </table></div>
+  {{else}}<div class="empty">{{template "icon-building"}}<p>{{if .Page.Query}}No organizations match “{{.Page.Query}}”.{{else}}No organizations yet.{{end}}</p></div>{{end}}
+  {{template "pager" .Page.Pager}}
+</div>
+{{end}}

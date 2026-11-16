@@ -185,3 +185,13 @@ func (m *IDPModule) OpenAPISpecs() []byte {
 func (m *IDPModule) Migrations() types.ModuleMigrations {
 	return utils.ParseMigrations(migrationFS)
 }
+
+// ServiceOf returns the identity provider's service, or nil before Init. It
+// is a function rather than a method so that it is reachable only from
+// inside GoAuth, for the ui module's pages.
+func ServiceOf(m *IDPModule) services.IDPService {
+	if m == nil {
+		return nil
+	}
+	return m.service
+}

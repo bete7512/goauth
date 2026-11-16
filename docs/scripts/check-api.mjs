@@ -81,6 +81,7 @@ try {
     saml: "pkg/modules/saml",
     idp: "pkg/modules/idp",
     rbac: "pkg/modules/rbac",
+    ui: "pkg/modules/ui",
   };
   const supplied = {
     ctx: "context.Context",

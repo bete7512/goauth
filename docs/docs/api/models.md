@@ -602,6 +602,8 @@ type InvitationRepository interface {
 	FindByToken(ctx context.Context, token string) (*Invitation, error)
 	FindPendingByEmail(ctx context.Context, email, purpose string) (*Invitation, error)
 	ListByInviter(ctx context.Context, inviterID string, opts InvitationListOpts) ([]*Invitation, int64, error)
+	// List lists every invitation, whoever sent it, for administrators.
+	List(ctx context.Context, opts InvitationListOpts) ([]*Invitation, int64, error)
 	ListPendingByEmail(ctx context.Context, email string) ([]*Invitation, error)
 	Update(ctx context.Context, invitation *Invitation) error
 	Delete(ctx context.Context, id string) error
@@ -657,7 +659,7 @@ type PasskeyCredential struct {
 	PublicKey         []byte     `json:"public_key" gorm:"not null"`
 	AttestationType   string     `json:"attestation_type"`
 	AttestationFormat string     `json:"attestation_format"`
-	AAGUID            []byte     `json:"aaguid"`
+	AAGUID            []byte     `json:"aaguid" gorm:"column:aaguid"`
 	SignCount         uint32     `json:"sign_count" gorm:"not null;default:0"`
 	Transports        string     `json:"transports"` // comma-separated ("usb,nfc,internal,hybrid")
 	BackupEligible    bool       `json:"backup_eligible" gorm:"not null;default:false"`

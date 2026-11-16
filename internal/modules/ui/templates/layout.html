@@ -1,0 +1,68 @@
+{{define "layout"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="same-origin">
+<meta name="robots" content="noindex, nofollow">
+<meta name="htmx-config" content='{"includeIndicatorStyles":false,"allowEval":false,"allowScriptTags":false,"historyCacheSize":0,"refreshOnHistoryMiss":true,"selfRequestsOnly":true,"responseHandling":[{"code":"204","swap":false},{"code":"...","swap":true}]}'>
+<title>{{.Title}} · {{.Product}}</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234f46e5'/%3E%3Cpath d='M16 7l8 3v6c0 5-3.4 8.4-8 9.6C11.4 24.4 8 21 8 16v-6z' fill='white'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="{{.CSS}}">
+<script src="{{.HTMX}}" defer></script>
+<script src="{{.JS}}" defer></script>
+</head>
+<body hx-boost="true">
+<div class="progress" aria-hidden="true"></div>
+{{block "body" .}}{{template "shell" .}}{{end}}
+</body>
+</html>{{end}}
+
+{{define "shell"}}
+<div class="shell">
+  <aside class="sidebar">
+    <a class="brand" href="{{.Base}}">{{template "mark"}}<span>{{.Product}}</span></a>
+    <nav class="nav-group" aria-label="Main">
+      {{range .Menu}}
+      {{if .Label}}<div class="nav-label">{{.Label}}</div>{{end}}
+      {{range .Items}}
+      {{if .Enabled}}
+      <a class="nav-link" href="{{.Href}}" {{if eq .Key $.Nav}}aria-current="page"{{end}}>{{template "icon" .Icon}}<span>{{.Label}}</span></a>
+      {{else}}
+      <span class="nav-link is-disabled" tabindex="0" role="link" aria-disabled="true" data-tip="{{.Hint}}" aria-label="{{.Label}}: {{.Hint}}">{{template "icon" .Icon}}<span>{{.Label}}</span><span class="nav-off">Off</span></span>
+      {{end}}
+      {{end}}
+      {{end}}
+      {{if .UserPages}}
+      <div class="nav-label">You</div>
+      <a class="nav-link" href="{{.Base}}/account" {{if eq .Nav "account"}}aria-current="page"{{end}}>{{template "icon-user"}}<span>Account</span></a>
+      {{end}}
+    </nav>
+    {{with .Visitor}}
+    <div class="sidebar-foot">
+      <div class="me">
+        <span class="avatar" aria-hidden="true">{{initials .User.Name .User.Email}}</span>
+        <div class="me-text">
+          <div class="me-name">{{if .User.Name}}{{.User.Name}}{{else}}{{.User.Email}}{{end}}</div>
+          <div class="me-email">{{.User.Email}}</div>
+        </div>
+      </div>
+      <form method="post" action="{{$.Base}}/logout" hx-boost="false">
+        <button class="btn btn-ghost btn-sm btn-block" type="submit">{{template "icon-logout"}}<span>Sign out</span></button>
+      </form>
+    </div>
+    {{end}}
+  </aside>
+  <main class="main" id="main">
+    <div class="content">
+      {{template "notices" .}}
+      {{template "content" .}}
+    </div>
+  </main>
+</div>
+{{end}}
+
+{{define "notices"}}
+{{if .Notice}}<div class="notice success fade" role="status">{{template "icon-check"}}<span>{{.Notice}}</span></div>{{end}}
+{{if .Error}}<div class="notice error" role="alert">{{template "icon-alert"}}<span>{{.Error}}</span></div>{{end}}
+{{end}}

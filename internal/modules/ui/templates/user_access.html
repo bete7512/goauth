@@ -1,0 +1,24 @@
+{{define "content"}}
+{{$u := .Page.User}}
+{{template "user-head" .}}
+<div class="grid-2">
+  <div class="col">
+    <section>
+      <div class="page-head"><div><h2>Application roles</h2><p class="muted">Roles held across the whole application. They also apply inside every organization.</p></div></div>
+    </section>
+    {{with .Page.Roles}}{{template "roles-form" .}}{{else}}<div class="card">{{template "module-off" "Register the rbac module to give users roles."}}</div>{{end}}
+  </div>
+  <div class="col">
+    <section class="card">
+      <div class="card-head"><div><h2>Organizations</h2><p>Where the user is a member.</p></div></div>
+      {{if not .Page.OrgsEnabled}}{{template "module-off" "Register the organization module to group users into organizations."}}
+      {{else if .Page.Memberships}}
+      <ul class="timeline">{{range .Page.Memberships}}
+        <li><span class="dot" aria-hidden="true"></span><div class="grow"><a class="what" href="{{$.Base}}/orgs/{{.Organization.ID}}">{{.Organization.Name}}</a><div class="when">{{.Member.Role}} · joined {{ago .Member.JoinedAt}}</div></div>
+          <a class="btn btn-ghost btn-sm" href="{{$.Base}}/orgs/{{.Organization.ID}}/members/{{$u.ID}}">Roles</a></li>
+      {{end}}</ul>
+      {{else}}<div class="empty"><p>Not a member of any organization.</p></div>{{end}}
+    </section>
+  </div>
+</div>
+{{end}}

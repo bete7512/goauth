@@ -55,6 +55,27 @@ type PasswordAuthenticator interface {
 	SignIn(context.Context, SignInRequest) (AuthenticationResult, error)
 }
 
+// CredentialRefresher exchanges a refresh credential for new credentials,
+// outside HTTP, with the same checks as the refresh route. The session and
+// stateless modules implement it.
+type CredentialRefresher interface {
+	RefreshCredentials(ctx context.Context, refreshToken string, metadata *RequestMetadata) (AuthenticationResult, error)
+}
+
+// CredentialRevoker ends the credentials a principal was issued, outside
+// HTTP, with the same effect as the logout route. The session and stateless
+// modules implement it.
+type CredentialRevoker interface {
+	SignOut(ctx context.Context, principal Principal) error
+}
+
+// TwoFactorLoginVerifier completes a sign-in that returned a two-factor
+// challenge, outside HTTP. tempToken is the challenge's temp_token and code a
+// TOTP or backup code. The two-factor module implements it.
+type TwoFactorLoginVerifier interface {
+	VerifyLogin(ctx context.Context, tempToken, code string, metadata *RequestMetadata) (AuthenticationResult, error)
+}
+
 // GrantContext persists assurance and selected organization across refreshes.
 // Authorization still checks current membership in storage.
 type GrantContext struct {

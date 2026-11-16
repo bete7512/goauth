@@ -59,6 +59,36 @@ func (mr *MockInvitationServiceMockRecorder) Accept(ctx, token, name, password a
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Accept", reflect.TypeOf((*MockInvitationService)(nil).Accept), ctx, token, name, password)
 }
 
+// AdminCancel mocks base method.
+func (m *MockInvitationService) AdminCancel(ctx context.Context, invID string) *types.GoAuthError {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AdminCancel", ctx, invID)
+	ret0, _ := ret[0].(*types.GoAuthError)
+	return ret0
+}
+
+// AdminCancel indicates an expected call of AdminCancel.
+func (mr *MockInvitationServiceMockRecorder) AdminCancel(ctx, invID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AdminCancel", reflect.TypeOf((*MockInvitationService)(nil).AdminCancel), ctx, invID)
+}
+
+// AdminList mocks base method.
+func (m *MockInvitationService) AdminList(ctx context.Context, opts models.InvitationListOpts) ([]*models.Invitation, int64, *types.GoAuthError) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AdminList", ctx, opts)
+	ret0, _ := ret[0].([]*models.Invitation)
+	ret1, _ := ret[1].(int64)
+	ret2, _ := ret[2].(*types.GoAuthError)
+	return ret0, ret1, ret2
+}
+
+// AdminList indicates an expected call of AdminList.
+func (mr *MockInvitationServiceMockRecorder) AdminList(ctx, opts any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AdminList", reflect.TypeOf((*MockInvitationService)(nil).AdminList), ctx, opts)
+}
+
 // Cancel mocks base method.
 func (m *MockInvitationService) Cancel(ctx context.Context, invID, inviterID string) *types.GoAuthError {
 	m.ctrl.T.Helper()

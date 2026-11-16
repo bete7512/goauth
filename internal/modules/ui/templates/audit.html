@@ -1,0 +1,47 @@
+{{define "content"}}
+<div class="page-head">
+  <div><h1>Audit log</h1><p>Every security event GoAuth recorded, newest first.</p></div>
+  <form method="post" action="{{.Base}}/audit/cleanup" hx-confirm="Delete every event older than the audit module's retention periods?">
+    <button class="btn" type="submit">{{template "icon-trash"}}<span>Apply retention</span></button>
+  </form>
+</div>
+<section class="card">
+  <div class="card-head">
+    <form class="search" method="get" action="{{.Base}}/audit" role="search">
+      {{template "icon-search"}}
+      <label class="sr-only" for="action">Filter by action</label>
+      <input class="input" id="action" type="search" name="action" value="{{.Page.Action}}" placeholder="Filter by exact action, e.g. auth.login" autocomplete="off" data-search
+        hx-get="{{.Base}}/audit" hx-trigger="input changed delay:400ms, search" hx-target="#audit-table" hx-push-url="true">
+      <kbd class="kbd" aria-hidden="true">/</kbd>
+    </form>
+    {{if .Page.UserID}}<a class="btn btn-sm" href="{{.Base}}/audit">Clear user filter</a>{{end}}
+  </div>
+  {{template "audit-table" .}}
+</section>
+{{end}}
+
+{{define "audit-table"}}
+<div id="audit-table">
+  {{if .Page.UserID}}<div class="card-body pb-0"><span class="badge accent plain">Events about user <span class="mono">{{.Page.UserID}}</span></span></div>{{end}}
+  {{if .Page.Events}}
+  <div class="table-wrap"><table>
+    <thead><tr><th>When</th><th>Action</th><th>Severity</th><th>Actor</th><th class="hide-sm">Details</th><th class="hide-sm">IP address</th></tr></thead>
+    <tbody>
+    {{range .Page.Events}}
+      <tr>
+        <td class="nowrap muted" title="{{date .CreatedAt}}">{{ago .CreatedAt}}</td>
+        <td><a class="chip" href="{{$.Base}}/audit?action={{.Action}}">{{.Action}}</a></td>
+        <td><span class="badge {{severity .Severity}}">{{if .Severity}}{{.Severity}}{{else}}info{{end}}</span></td>
+        <td>{{if .ActorID}}{{with index $.Page.Actors .ActorID}}<a class="identity" href="{{$.Base}}/users/{{.ID}}"><span class="avatar avatar-sm" aria-hidden="true">{{initials .Name .Email}}</span><span class="identity-text"><span class="identity-name">{{if .Name}}{{.Name}}{{else}}{{.Email}}{{end}}</span><br><span class="identity-sub">{{.Email}}</span></span></a>{{else}}<span class="mono muted" title="This user no longer exists">{{.ActorID}}</span>{{end}}{{else}}<span class="muted">System</span>{{end}}</td>
+        <td class="hide-sm">{{.Details}}</td>
+        <td class="mono muted nowrap hide-sm">{{if .IPAddress}}{{.IPAddress}}{{else}}—{{end}}</td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table></div>
+  {{else}}
+  <div class="empty">{{template "icon-inbox"}}<p>{{if or .Page.Action .Page.UserID}}No events match this filter.{{else}}No events recorded yet.{{end}}</p></div>
+  {{end}}
+  {{template "pager" .Page.Pager}}
+</div>
+{{end}}

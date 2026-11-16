@@ -141,3 +141,49 @@ func (m *StatelessModule) SignIn(ctx context.Context, request types.SignInReques
 	}
 	return result, nil
 }
+
+var (
+	_ types.CredentialRefresher = (*StatelessModule)(nil)
+	_ types.CredentialRevoker   = (*StatelessModule)(nil)
+)
+
+// RefreshCredentials exchanges a refresh token for new credentials with the
+// same checks as the refresh route.
+func (m *StatelessModule) RefreshCredentials(ctx context.Context, refreshToken string, _ *types.RequestMetadata) (types.AuthenticationResult, error) {
+	request := &dto.RefreshRequest{RefreshToken: refreshToken}
+	if err := request.Validate(); err != nil {
+		return types.AuthenticationResult{Status: types.Denied}, types.NewInvalidRefreshTokenError()
+	}
+	response, authErr := m.service.Refresh(ctx, request)
+	if authErr != nil {
+		return types.AuthenticationResult{Status: types.Denied}, authErr
+	}
+	result := types.AuthenticationResult{Status: types.Authenticated, Challenges: response.Challenges, Data: response.Data, ExpiresIn: response.ExpiresIn}
+	if len(result.Challenges) > 0 {
+		result.Status = types.ChallengeRequired
+	}
+	if response.User != nil {
+		result.UserID = response.User.ID
+	}
+	if response.AccessToken != nil {
+		result.AccessToken = *response.AccessToken
+	}
+	if response.RefreshToken != nil {
+		result.RefreshToken = *response.RefreshToken
+	}
+	return result, nil
+}
+
+// SignOut revokes the principal's credentials, as the logout route does.
+func (m *StatelessModule) SignOut(ctx context.Context, principal types.Principal) error {
+	if principal.UserID == "" {
+		return types.NewUnauthorizedError()
+	}
+	if authErr := m.service.Logout(ctx, principal.UserID); authErr != nil {
+		return authErr
+	}
+	if m.deps.Events != nil {
+		_ = m.deps.Events.EmitAsync(ctx, types.EventAfterLogout, &types.LogoutEventData{UserID: principal.UserID})
+	}
+	return nil
+}

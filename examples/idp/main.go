@@ -37,6 +37,7 @@ import (
 	"github.com/bete7512/goauth/pkg/auth"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/modules/idp"
+	"github.com/bete7512/goauth/pkg/modules/ui"
 	"github.com/bete7512/goauth/pkg/types"
 	"github.com/bete7512/goauth/storage"
 )
@@ -80,8 +81,9 @@ func main() {
 			JwtSecretKey:  "example-jwt-secret-change-me-32-chars",
 			EncryptionKey: "example-encryption-key-change-me",
 			// The consent page keeps the user's token in the tab and sends
-			// it as a bearer token, so no cookies are involved.
-			AuthMode: types.AuthModeBearer,
+			// it as a bearer token; the ui console signs in with cookies.
+			// "both" serves the two.
+			AuthMode: types.AuthModeBoth,
 		},
 	})
 	if err != nil {
@@ -111,6 +113,10 @@ func main() {
 	if err := a.Use(provider); err != nil {
 		log.Fatalf("idp: %v", err)
 	}
+	if err := a.Use(ui.New(nil)); err != nil {
+		log.Fatalf("ui: %v", err)
+	}
+
 	if err := a.Initialize(context.Background()); err != nil {
 		log.Fatalf("initialize: %v", err)
 	}

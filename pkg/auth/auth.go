@@ -141,6 +141,7 @@ func New(cfg *config.Config) (*Auth, error) {
 		SecurityManager:   securityManager,
 		AuthInterceptors:  interceptorRegistry,
 	}
+	auth.moduleDependencies.Lookup = auth.lookupModule
 
 	// Auto-register core module if not already configured
 	// Core module will get storage from deps.Storage.Core() during initialization
@@ -252,10 +253,11 @@ func (a *Auth) Routes() []config.RouteInfo {
 		})
 
 		routesWithMiddleware[i] = config.RouteInfo{
-			Name:    route.Name,
-			Path:    route.Path,
-			Method:  route.Method,
-			Handler: guarded,
+			Name:     route.Name,
+			Path:     route.Path,
+			Method:   route.Method,
+			Handler:  guarded,
+			Absolute: route.Absolute,
 		}
 	}
 
@@ -419,8 +421,10 @@ func (a *Auth) buildRoutes() []config.RouteInfo {
 		module := a.modules[name]
 		moduleRoutes := module.Routes()
 		for _, route := range moduleRoutes {
-			// Prepend base path
-			route.Path = a.config.BasePath + route.Path
+			// Prepend base path, except for routes mounted at an absolute path.
+			if !route.Absolute {
+				route.Path = a.config.BasePath + route.Path
+			}
 			routes = append(routes, route)
 		}
 	}
@@ -437,6 +441,14 @@ func (a *Auth) RequireAuth(next http.Handler) http.Handler {
 		mw := middlewares.NewAuthMiddleware(a.config, a.moduleDependencies.SecurityManager)
 		mw.AuthMiddleware(next).ServeHTTP(w, r)
 	})
+}
+
+// lookupModule is ModuleDependencies.Lookup.
+func (a *Auth) lookupModule(name string) (config.Module, bool) {
+	a.registryMu.RLock()
+	defer a.registryMu.RUnlock()
+	module, ok := a.modules[name]
+	return module, ok
 }
 
 // GetModule retrieves a registered module by name

@@ -1,0 +1,63 @@
+{{define "content"}}
+<div class="page-head">
+  <div>
+    <h1>Overview</h1>
+    <p>Welcome back{{with .Visitor}}{{if .User.Name}}, {{.User.Name}}{{end}}{{end}}.</p>
+  </div>
+</div>
+
+<section class="stats" aria-label="Totals">
+  <div class="card stat">
+    <div class="stat-label">Users</div>
+    <div class="stat-value">{{.Page.Users}}</div>
+    <a class="stat-link" href="{{.Base}}/users">View users →</a>
+  </div>
+  {{if .Features.Organizations}}
+  <div class="card stat">
+    <div class="stat-label">Organizations</div>
+    <div class="stat-value">{{.Page.Orgs}}</div>
+    <a class="stat-link" href="{{.Base}}/orgs">View organizations →</a>
+  </div>
+  {{end}}
+  {{if .Features.Roles}}
+  <div class="card stat">
+    <div class="stat-label">Application roles</div>
+    <div class="stat-value">{{.Page.Roles}}</div>
+    <a class="stat-link" href="{{.Base}}/roles">Manage roles →</a>
+  </div>
+  {{end}}
+  {{if .Features.Audit}}
+  <div class="card stat">
+    <div class="stat-label">Audit events</div>
+    <div class="stat-value">{{.Page.AuditEvents}}</div>
+    <a class="stat-link" href="{{.Base}}/audit">Open the audit log →</a>
+  </div>
+  {{end}}
+</section>
+
+<div class="grid-2">
+  <section class="card">
+    <div class="card-head"><div><h2>Newest users</h2><p>The latest accounts created.</p></div><a class="btn btn-sm" href="{{.Base}}/users">All users</a></div>
+    {{if .Page.RecentUsers}}
+    <div class="table-wrap"><table>
+      <thead><tr><th>User</th><th>Status</th><th class="num">Joined</th></tr></thead>
+      <tbody>
+      {{range .Page.RecentUsers}}
+        <tr class="row-link" data-href>
+          <td><a class="identity" href="{{$.Base}}/users/{{.ID}}"><span class="avatar" aria-hidden="true">{{initials .Name .Email}}</span><span class="identity-text"><span class="identity-name">{{if .Name}}{{.Name}}{{else}}{{.Email}}{{end}}</span><br><span class="identity-sub">{{.Email}}</span></span></a></td>
+          <td>{{template "user-badges" .}}</td>
+          <td class="num muted nowrap" title="{{date .CreatedAt}}">{{ago .CreatedAt}}</td>
+        </tr>
+      {{end}}
+      </tbody>
+    </table></div>
+    {{else}}<div class="empty">{{template "icon-inbox"}}<p>No users yet.</p></div>{{end}}
+  </section>
+
+  <section class="card">
+    <div class="card-head"><div><h2>Recent activity</h2><p>Security events across all users.</p></div></div>
+    {{if .Features.Audit}}{{template "events" .Page.RecentEvents}}{{else}}
+    <div class="empty">{{template "icon-list"}}<p>Register the audit module to record activity here.</p></div>{{end}}
+  </section>
+</div>
+{{end}}

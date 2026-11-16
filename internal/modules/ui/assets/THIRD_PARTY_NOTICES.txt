@@ -1,0 +1,8 @@
+htmx.min.js is htmx 2.0.7 (https://htmx.org, https://github.com/bigskysoftware/htmx),
+vendored unmodified so the console loads nothing from another origin.
+
+SHA-256: 60231ae6ba9db3825eb15a261122d5f55921c4d53b66bf637dc18b4ee27c79f9
+
+htmx is published by Big Sky Software under the Zero-Clause BSD license
+(0BSD). Before a release, compare this file with the htmx.min.js of the
+htmx.org@2.0.7 npm package and confirm the license in its LICENSE file.

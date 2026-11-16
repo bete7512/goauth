@@ -119,7 +119,7 @@ func (r *ClientRepo) List(ctx context.Context, opts models.IDPClientListOpts) ([
 		query = query.Where("managed = ?", *opts.Managed)
 	}
 	if q := strings.TrimSpace(opts.Query); q != "" {
-		like := "%" + escapeLike(strings.ToLower(q)) + "%"
+		like := helpers.ContainsPattern(q)
 		query = query.Where("LOWER(name) LIKE ? ESCAPE '!' OR LOWER(client_id) LIKE ? ESCAPE '!'", like, like)
 	}
 	var total int64

@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	services "github.com/bete7512/goauth/internal/modules/admin/services"
 	models "github.com/bete7512/goauth/pkg/models"
 	types "github.com/bete7512/goauth/pkg/types"
 	gomock "go.uber.org/mock/gomock"
@@ -40,6 +41,35 @@ func NewMockAdminService(ctrl *gomock.Controller) *MockAdminService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockAdminService) EXPECT() *MockAdminServiceMockRecorder {
 	return m.recorder
+}
+
+// CreateUser mocks base method.
+func (m *MockAdminService) CreateUser(ctx context.Context, input services.CreateUserInput) (*models.User, *types.GoAuthError) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateUser", ctx, input)
+	ret0, _ := ret[0].(*models.User)
+	ret1, _ := ret[1].(*types.GoAuthError)
+	return ret0, ret1
+}
+
+// CreateUser indicates an expected call of CreateUser.
+func (mr *MockAdminServiceMockRecorder) CreateUser(ctx, input any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateUser", reflect.TypeOf((*MockAdminService)(nil).CreateUser), ctx, input)
+}
+
+// DeletePasskey mocks base method.
+func (m *MockAdminService) DeletePasskey(ctx context.Context, userID, passkeyID string) *types.GoAuthError {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeletePasskey", ctx, userID, passkeyID)
+	ret0, _ := ret[0].(*types.GoAuthError)
+	return ret0
+}
+
+// DeletePasskey indicates an expected call of DeletePasskey.
+func (mr *MockAdminServiceMockRecorder) DeletePasskey(ctx, userID, passkeyID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeletePasskey", reflect.TypeOf((*MockAdminService)(nil).DeletePasskey), ctx, userID, passkeyID)
 }
 
 // DeleteUser mocks base method.
@@ -85,6 +115,105 @@ func (m *MockAdminService) ListUsers(ctx context.Context, opts models.UserListOp
 func (mr *MockAdminServiceMockRecorder) ListUsers(ctx, opts any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListUsers", reflect.TypeOf((*MockAdminService)(nil).ListUsers), ctx, opts)
+}
+
+// ResetTwoFactor mocks base method.
+func (m *MockAdminService) ResetTwoFactor(ctx context.Context, userID string) *types.GoAuthError {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ResetTwoFactor", ctx, userID)
+	ret0, _ := ret[0].(*types.GoAuthError)
+	return ret0
+}
+
+// ResetTwoFactor indicates an expected call of ResetTwoFactor.
+func (mr *MockAdminServiceMockRecorder) ResetTwoFactor(ctx, userID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResetTwoFactor", reflect.TypeOf((*MockAdminService)(nil).ResetTwoFactor), ctx, userID)
+}
+
+// RevokeSession mocks base method.
+func (m *MockAdminService) RevokeSession(ctx context.Context, userID, sessionID string) *types.GoAuthError {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RevokeSession", ctx, userID, sessionID)
+	ret0, _ := ret[0].(*types.GoAuthError)
+	return ret0
+}
+
+// RevokeSession indicates an expected call of RevokeSession.
+func (mr *MockAdminServiceMockRecorder) RevokeSession(ctx, userID, sessionID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RevokeSession", reflect.TypeOf((*MockAdminService)(nil).RevokeSession), ctx, userID, sessionID)
+}
+
+// Security mocks base method.
+func (m *MockAdminService) Security(ctx context.Context, userID string) (*services.UserSecurity, *types.GoAuthError) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Security", ctx, userID)
+	ret0, _ := ret[0].(*services.UserSecurity)
+	ret1, _ := ret[1].(*types.GoAuthError)
+	return ret0, ret1
+}
+
+// Security indicates an expected call of Security.
+func (mr *MockAdminServiceMockRecorder) Security(ctx, userID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Security", reflect.TypeOf((*MockAdminService)(nil).Security), ctx, userID)
+}
+
+// SetPassword mocks base method.
+func (m *MockAdminService) SetPassword(ctx context.Context, userID, password string) *types.GoAuthError {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetPassword", ctx, userID, password)
+	ret0, _ := ret[0].(*types.GoAuthError)
+	return ret0
+}
+
+// SetPassword indicates an expected call of SetPassword.
+func (mr *MockAdminServiceMockRecorder) SetPassword(ctx, userID, password any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetPassword", reflect.TypeOf((*MockAdminService)(nil).SetPassword), ctx, userID, password)
+}
+
+// SignOutEverywhere mocks base method.
+func (m *MockAdminService) SignOutEverywhere(ctx context.Context, userID string) *types.GoAuthError {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SignOutEverywhere", ctx, userID)
+	ret0, _ := ret[0].(*types.GoAuthError)
+	return ret0
+}
+
+// SignOutEverywhere indicates an expected call of SignOutEverywhere.
+func (mr *MockAdminServiceMockRecorder) SignOutEverywhere(ctx, userID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SignOutEverywhere", reflect.TypeOf((*MockAdminService)(nil).SignOutEverywhere), ctx, userID)
+}
+
+// UnlinkAccount mocks base method.
+func (m *MockAdminService) UnlinkAccount(ctx context.Context, userID, accountID string) *types.GoAuthError {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UnlinkAccount", ctx, userID, accountID)
+	ret0, _ := ret[0].(*types.GoAuthError)
+	return ret0
+}
+
+// UnlinkAccount indicates an expected call of UnlinkAccount.
+func (mr *MockAdminServiceMockRecorder) UnlinkAccount(ctx, userID, accountID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnlinkAccount", reflect.TypeOf((*MockAdminService)(nil).UnlinkAccount), ctx, userID, accountID)
+}
+
+// Unlock mocks base method.
+func (m *MockAdminService) Unlock(ctx context.Context, userID string) *types.GoAuthError {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Unlock", ctx, userID)
+	ret0, _ := ret[0].(*types.GoAuthError)
+	return ret0
+}
+
+// Unlock indicates an expected call of Unlock.
+func (mr *MockAdminServiceMockRecorder) Unlock(ctx, userID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unlock", reflect.TypeOf((*MockAdminService)(nil).Unlock), ctx, userID)
 }
 
 // UpdateUser mocks base method.

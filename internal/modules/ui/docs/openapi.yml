@@ -1,0 +1,8 @@
+openapi: 3.0.0
+info:
+  title: GoAuth UI Module
+  version: 1.0.0
+  description: |
+    The ui module serves server-rendered HTML pages under /ui, not an API,
+    so it documents no paths here. See docs/docs/modules/ui.md.
+paths: {}
