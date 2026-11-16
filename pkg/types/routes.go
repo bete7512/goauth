@@ -167,6 +167,24 @@ const (
 	RouteRBACOrgSetMemberRoles  RouteName = "rbac.org.members.roles.set"
 	RouteRBACOrgListAssignments RouteName = "rbac.org.assignments.list"
 
+	// RBAC team routes (Config.Teams): roles held inside one team.
+	RouteRBACTeamListRoles       RouteName = "rbac.team.roles.list"
+	RouteRBACTeamGetMemberRoles  RouteName = "rbac.team.members.roles.get"
+	RouteRBACTeamSetMemberRoles  RouteName = "rbac.team.members.roles.set"
+	RouteRBACTeamListAssignments RouteName = "rbac.team.assignments.list"
+
+	// Team Routes
+	RouteTeamList          RouteName = "team.list"
+	RouteTeamCreate        RouteName = "team.create"
+	RouteTeamGet           RouteName = "team.get"
+	RouteTeamUpdate        RouteName = "team.update"
+	RouteTeamMove          RouteName = "team.move"
+	RouteTeamDelete        RouteName = "team.delete"
+	RouteTeamMembersList   RouteName = "team.members.list"
+	RouteTeamMembersAdd    RouteName = "team.members.add"
+	RouteTeamMembersUpdate RouteName = "team.members.update"
+	RouteTeamMembersRemove RouteName = "team.members.remove"
+
 	// UI Routes (server-rendered pages)
 	RouteUIAsset          RouteName = "ui.asset"
 	RouteUIHome           RouteName = "ui.home"
@@ -174,5 +192,19 @@ const (
 	RouteUILogin          RouteName = "ui.login"
 	RouteUILoginTwoFactor RouteName = "ui.login.2fa"
 	RouteUILogout         RouteName = "ui.logout"
-	RouteUIAccount        RouteName = "ui.account"
+	// RouteUILoginDone is where OAuth and SAML sign-ins to the console end.
+	RouteUILoginDone RouteName = "ui.login.done"
+	// RouteUILoginCode emails a sign-in code (magic link module).
+	RouteUILoginCode RouteName = "ui.login.code"
+	// RouteUILoginCodeVerify checks an emailed sign-in code.
+	RouteUILoginCodeVerify RouteName = "ui.login.code.verify"
+	// RouteUILoginPasskeyBegin starts a passkey sign-in.
+	RouteUILoginPasskeyBegin RouteName = "ui.login.passkey.begin"
+	// RouteUILoginPasskeyFinish checks a passkey assertion.
+	RouteUILoginPasskeyFinish RouteName = "ui.login.passkey.finish"
+	RouteUIAccount            RouteName = "ui.account"
+	// RouteUIAccountPassword changes the signed-in user's password; it
+	// checks the current password, so the rate limiter counts it as a
+	// credential check.
+	RouteUIAccountPassword RouteName = "ui.account.password"
 )

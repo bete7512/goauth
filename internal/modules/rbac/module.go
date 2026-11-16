@@ -42,6 +42,7 @@ type RBACModule struct {
 	access      services.AccessService
 	roles       services.RoleService
 	assignments services.AssignmentService
+	stores      services.Stores
 	handler     *handlers.Handler
 	ready       atomic.Bool
 }
@@ -109,9 +110,23 @@ func (m *RBACModule) Init(_ context.Context, deps config.ModuleDependencies) err
 		stores.Orgs = orgStorage.Organizations()
 		stores.Members = orgStorage.Members()
 	}
+	if m.config.Teams {
+		if deps.Lookup != nil {
+			if _, ok := deps.Lookup(string(types.TeamModule)); !ok {
+				return config.ErrConfig("rbac: Teams is on but the team module is not registered")
+			}
+		}
+		teamStorage := deps.Storage.Team()
+		if teamStorage == nil {
+			return config.ErrConfig("rbac: Teams is on but team storage is not available")
+		}
+		stores.Teams = teamStorage.Teams()
+		stores.TeamMembers = teamStorage.Members()
+	}
 
 	settings := services.Settings{
 		Organizations:    m.config.Organizations,
+		Teams:            m.config.Teams,
 		Roles:            m.roleTable,
 		Decide:           m.config.Decide,
 		MaxRolesPerScope: m.config.MaxRolesPerScope,
@@ -120,6 +135,7 @@ func (m *RBACModule) Init(_ context.Context, deps config.ModuleDependencies) err
 	}
 	accessService := services.NewAccessService(deps, stores, settings)
 	m.access = accessService
+	m.stores = stores
 	m.roles = services.NewRoleService(deps, stores, settings, accessService)
 	m.assignments = services.NewAssignmentService(deps, stores, settings, accessService)
 	m.handler = handlers.NewHandler(deps, m.access, m.roles, m.assignments, m.catalogDTO, m.config.Organizations)
@@ -150,7 +166,7 @@ func (m *RBACModule) Routes() []config.RouteInfo {
 		return routes
 	}
 	org := "/org/{" + handlers.ParamOrgID + "}"
-	return append(routes,
+	routes = append(routes,
 		config.RouteInfo{Name: string(types.RouteRBACOrgListRoles), Path: org + "/roles", Method: http.MethodGet, Handler: m.handler.ListRoles, Middlewares: auth},
 		config.RouteInfo{Name: string(types.RouteRBACOrgCreateRole), Path: org + "/roles", Method: http.MethodPost, Handler: m.handler.CreateRole, Middlewares: auth},
 		config.RouteInfo{Name: string(types.RouteRBACOrgGetRole), Path: org + "/roles/{" + handlers.ParamRoleKey + "}", Method: http.MethodGet, Handler: m.handler.GetRole, Middlewares: auth},
@@ -159,6 +175,16 @@ func (m *RBACModule) Routes() []config.RouteInfo {
 		config.RouteInfo{Name: string(types.RouteRBACOrgGetMemberRoles), Path: org + "/members/{" + handlers.ParamUserID + "}/roles", Method: http.MethodGet, Handler: m.handler.GetUserRoles, Middlewares: auth},
 		config.RouteInfo{Name: string(types.RouteRBACOrgSetMemberRoles), Path: org + "/members/{" + handlers.ParamUserID + "}/roles", Method: http.MethodPut, Handler: m.handler.SetUserRoles, Middlewares: auth},
 		config.RouteInfo{Name: string(types.RouteRBACOrgListAssignments), Path: org + "/role-assignments", Method: http.MethodGet, Handler: m.handler.ListAssignments, Middlewares: auth},
+	)
+	if !m.config.Teams {
+		return routes
+	}
+	team := org + "/teams/{" + handlers.ParamTeamID + "}"
+	return append(routes,
+		config.RouteInfo{Name: string(types.RouteRBACTeamListRoles), Path: team + "/roles", Method: http.MethodGet, Handler: m.handler.ListRoles, Middlewares: auth},
+		config.RouteInfo{Name: string(types.RouteRBACTeamGetMemberRoles), Path: team + "/members/{" + handlers.ParamUserID + "}/roles", Method: http.MethodGet, Handler: m.handler.GetUserRoles, Middlewares: auth},
+		config.RouteInfo{Name: string(types.RouteRBACTeamSetMemberRoles), Path: team + "/members/{" + handlers.ParamUserID + "}/roles", Method: http.MethodPut, Handler: m.handler.SetUserRoles, Middlewares: auth},
+		config.RouteInfo{Name: string(types.RouteRBACTeamListAssignments), Path: team + "/role-assignments", Method: http.MethodGet, Handler: m.handler.ListAssignments, Middlewares: auth},
 	)
 }
 
@@ -247,9 +273,11 @@ func (m *RBACModule) catalogDTO() []dto.PermissionDTO {
 type Internals struct {
 	// Organizations is true when roles can be held inside organizations.
 	Organizations bool
-	Access        services.AccessService
-	Roles         services.RoleService
-	Assignments   services.AssignmentService
+	// Teams is true when roles can be held inside teams.
+	Teams       bool
+	Access      services.AccessService
+	Roles       services.RoleService
+	Assignments services.AssignmentService
 }
 
 // ServicesOf returns the services of an initialized rbac module and false
@@ -259,5 +287,5 @@ func ServicesOf(m *RBACModule) (Internals, bool) {
 	if m == nil || !m.ready.Load() {
 		return Internals{}, false
 	}
-	return Internals{Organizations: m.config.Organizations, Access: m.access, Roles: m.roles, Assignments: m.assignments}, true
+	return Internals{Organizations: m.config.Organizations, Teams: m.config.Teams, Access: m.access, Roles: m.roles, Assignments: m.assignments}, true
 }

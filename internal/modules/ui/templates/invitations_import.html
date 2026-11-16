@@ -1,0 +1,16 @@
+{{define "content"}}
+<div class="page-head">
+  <div><div class="crumbs"><a href="{{.Page.Back}}">{{.Page.BackLabel}}</a> / Import</div><h1>Import results</h1>
+  <p>{{.Page.Sent}} sent{{if .Page.Skipped}}, {{.Page.Skipped}} skipped{{end}}.</p></div>
+  <a class="btn" href="{{.Page.Back}}">Back to invitations</a>
+</div>
+<section class="card">
+  <div class="table-wrap"><table>
+    <thead><tr><th class="num">Line</th><th>Email</th><th class="hide-sm">{{.Page.Column}}</th><th>Result</th></tr></thead>
+    <tbody>{{range .Page.Rows}}
+      <tr><td class="num muted">{{.Line}}</td><td>{{.Email}}</td><td class="muted hide-sm">{{.Purpose}}</td>
+        <td>{{if .Sent}}<span class="badge success">Sent</span>{{else}}<span class="badge warn">Skipped</span> <span class="muted">{{.Problem}}</span>{{end}}</td></tr>
+    {{end}}</tbody>
+  </table></div>
+</section>
+{{end}}

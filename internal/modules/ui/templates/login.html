@@ -16,6 +16,20 @@
       <button class="btn btn-primary btn-block" type="submit">Verify</button>
     </form>
     <p class="auth-foot"><a href="{{.Base}}/login">Start over</a></p>
+    {{else if .Page.CodeSent}}
+    <h1>Check your email</h1>
+    <p class="lead">If {{.Page.Email}} has an account, a sign-in code is on its way.</p>
+    {{template "notices" .}}
+    <form method="post" action="{{.Base}}/login/code/verify" hx-boost="false">
+      <input type="hidden" name="email" value="{{.Page.Email}}">
+      <input type="hidden" name="next" value="{{.Page.Next}}">
+      <div class="field">
+        <label for="code">Sign-in code</label>
+        <input class="input code-input" id="code" name="code" inputmode="numeric" autocomplete="one-time-code" autofocus required maxlength="12">
+      </div>
+      <button class="btn btn-primary btn-block" type="submit">Sign in</button>
+    </form>
+    <p class="auth-foot"><a href="{{.Base}}/login">Use another method</a></p>
     {{else}}
     <h1>Sign in</h1>
     <p class="lead">{{if .UserPages}}Use the account you use for {{.Product}}.{{else}}Administrators only.{{end}}</p>
@@ -32,6 +46,21 @@
       </div>
       <button class="btn btn-primary btn-block" type="submit">Sign in</button>
     </form>
+    {{with .Page.Methods}}{{if .Any}}
+    <div class="divider"><span>or</span></div>
+    <div class="stack">
+      {{if .Passkeys}}<button class="btn btn-block" type="button" data-passkey-login data-begin="{{$.Base}}/login/passkey/begin" data-finish="{{$.Base}}/login/passkey/finish?next={{$.Page.Next}}" hidden>{{template "icon-key"}}<span>Sign in with a passkey</span></button>{{end}}
+      {{range .OAuth}}<a class="btn btn-block" href="{{.Href}}" hx-boost="false">Continue with {{.Label}}</a>{{end}}
+      {{range .SAML}}<a class="btn btn-block" href="{{.Href}}" hx-boost="false">Single sign-on: {{.Label}}</a>{{end}}
+    </div>
+    {{if .Code}}
+    <form class="code-form" method="post" action="{{$.Base}}/login/code" hx-boost="false">
+      <input type="hidden" name="next" value="{{$.Page.Next}}">
+      <div class="field"><label for="code-email">Or get a code by email</label>
+        <div class="inline-form"><input class="input" id="code-email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required><button class="btn" type="submit">Email me a code</button></div></div>
+    </form>
+    {{end}}
+    {{end}}{{end}}
     {{end}}
     <p class="auth-foot">Protected by {{.Product}}</p>
   </div>

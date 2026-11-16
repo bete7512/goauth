@@ -25,6 +25,7 @@ var migrationFS embed.FS
 
 // OAuthModule provides OAuth authentication functionality
 type OAuthModule struct {
+	service  services.OAuthService
 	deps     config.ModuleDependencies
 	handlers *handlers.OAuthHandler
 	config   *config.OAuthModuleConfig
@@ -178,6 +179,7 @@ func (m *OAuthModule) Init(ctx context.Context, deps config.ModuleDependencies) 
 
 	// Create handlers
 	m.handlers = handlers.NewOAuthHandler(service, deps, m.config)
+	m.service = service
 
 	authMode := "stateless"
 	if m.config.UseSessionAuth {
@@ -234,4 +236,14 @@ func (m *OAuthModule) RegisterProvider(connection string, provider providers.OAu
 	}
 	m.registry.RegisterConnection(connection, provider)
 	return nil
+}
+
+// ServiceOf returns the oauth service, or nil before Init. It is a function
+// rather than a method so that it is reachable only from inside GoAuth, for
+// the ui module's sign-in page.
+func ServiceOf(m *OAuthModule) services.OAuthService {
+	if m == nil {
+		return nil
+	}
+	return m.service
 }

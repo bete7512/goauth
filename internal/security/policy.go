@@ -1,6 +1,8 @@
 package security
 
 import (
+	"time"
+
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
@@ -10,6 +12,9 @@ import (
 func CheckEligibility(user *models.User, cfg *config.CoreConfig) *types.GoAuthError {
 	if user == nil || !user.Active {
 		return types.NewUnauthorizedError()
+	}
+	if user.Banned(time.Now()) {
+		return types.NewUserBlockedError()
 	}
 	if cfg != nil {
 		if cfg.RequireEmailVerification && !user.EmailVerified {

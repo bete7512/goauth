@@ -149,6 +149,16 @@ const (
 	ErrInvitationExists        ErrorCode = "INVITATION_ALREADY_EXISTS"
 	ErrInvitationEmailMismatch ErrorCode = "INVITATION_EMAIL_MISMATCH"
 
+	// Team errors
+	ErrTeamNotFound       ErrorCode = "TEAM_NOT_FOUND"
+	ErrTeamSlugTaken      ErrorCode = "TEAM_SLUG_TAKEN"
+	ErrTeamTooDeep        ErrorCode = "TEAM_TOO_DEEP"
+	ErrTeamHasSubteams    ErrorCode = "TEAM_HAS_SUBTEAMS"
+	ErrTeamInvalidParent  ErrorCode = "TEAM_INVALID_PARENT"
+	ErrTeamMemberNotFound ErrorCode = "TEAM_MEMBER_NOT_FOUND"
+	ErrTeamMemberExists   ErrorCode = "TEAM_MEMBER_EXISTS"
+	ErrTeamForbidden      ErrorCode = "TEAM_FORBIDDEN"
+
 	// RBAC errors
 	ErrRBACPermissionDenied  ErrorCode = "RBAC_PERMISSION_DENIED"
 	ErrRBACRoleNotFound      ErrorCode = "RBAC_ROLE_NOT_FOUND"
@@ -1085,6 +1095,57 @@ func NewIDPGrantNotFoundError() *GoAuthError {
 		Message:    "Connected application not found",
 		StatusCode: http.StatusNotFound,
 	}
+}
+
+// Team error factory functions
+
+// NewTeamNotFoundError returns the TEAM_NOT_FOUND error (HTTP 404).
+func NewTeamNotFoundError() *GoAuthError {
+	return &GoAuthError{Code: ErrTeamNotFound, Message: "Team not found", StatusCode: http.StatusNotFound}
+}
+
+// NewTeamSlugTakenError returns the TEAM_SLUG_TAKEN error (HTTP 409): another
+// team of the organization uses the slug.
+func NewTeamSlugTakenError() *GoAuthError {
+	return &GoAuthError{Code: ErrTeamSlugTaken, Message: "Another team in this organization uses that slug", StatusCode: http.StatusConflict}
+}
+
+// NewTeamTooDeepError returns the TEAM_TOO_DEEP error (HTTP 400): the team
+// would be nested more deeply than allowed.
+func NewTeamTooDeepError(maxDepth int) *GoAuthError {
+	return &GoAuthError{Code: ErrTeamTooDeep, Message: fmt.Sprintf("Teams can be nested at most %d levels deep", maxDepth), StatusCode: http.StatusBadRequest}
+}
+
+// NewTeamHasSubteamsError returns the TEAM_HAS_SUBTEAMS error (HTTP 409): a
+// team with teams beneath it cannot be deleted.
+func NewTeamHasSubteamsError() *GoAuthError {
+	return &GoAuthError{Code: ErrTeamHasSubteams, Message: "Delete or move the teams beneath this team first", StatusCode: http.StatusConflict}
+}
+
+// NewTeamInvalidParentError returns the TEAM_INVALID_PARENT error (HTTP
+// 400): the parent is in another organization, or is the team itself or
+// one beneath it.
+func NewTeamInvalidParentError(message string) *GoAuthError {
+	return &GoAuthError{Code: ErrTeamInvalidParent, Message: message, StatusCode: http.StatusBadRequest}
+}
+
+// NewTeamMemberNotFoundError returns the TEAM_MEMBER_NOT_FOUND error (HTTP 404).
+func NewTeamMemberNotFoundError() *GoAuthError {
+	return &GoAuthError{Code: ErrTeamMemberNotFound, Message: "Team member not found", StatusCode: http.StatusNotFound}
+}
+
+// NewTeamMemberExistsError returns the TEAM_MEMBER_EXISTS error (HTTP 409).
+func NewTeamMemberExistsError() *GoAuthError {
+	return &GoAuthError{Code: ErrTeamMemberExists, Message: "The user is already in this team", StatusCode: http.StatusConflict}
+}
+
+// NewTeamForbiddenError returns the TEAM_FORBIDDEN error (HTTP 403): the
+// caller may not manage this team.
+func NewTeamForbiddenError(message string) *GoAuthError {
+	if message == "" {
+		message = "You cannot manage this team"
+	}
+	return &GoAuthError{Code: ErrTeamForbidden, Message: message, StatusCode: http.StatusForbidden}
 }
 
 // RBAC error factory functions

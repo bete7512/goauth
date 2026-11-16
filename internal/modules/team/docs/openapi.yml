@@ -1,0 +1,373 @@
+openapi: 3.0.0
+info:
+  title: GoAuth Team Module API
+  version: 1.0.0
+  description: |
+    Nested teams inside organizations. Any member of the organization may read
+    its teams; the organization's owner and admins manage every team; a team's
+    leads manage that team and every team beneath it. Deleting or moving a team
+    needs the right to manage where it sits (its parent, or the organization for
+    a top-level team). Teams nest at most 5 levels deep.
+
+servers:
+  - url: /
+
+tags:
+  - name: Teams
+    description: Teams of an organization
+  - name: Team members
+    description: Who is in a team
+
+paths:
+  /org/{orgId}/teams:
+    parameters:
+      - $ref: '#/components/parameters/OrgID'
+    get:
+      tags: [Teams]
+      summary: List teams
+      description: |
+        Lists the organization's teams. With `tree=true` every team is returned
+        at once, each after its parent; otherwise the list is paginated and can
+        be narrowed to one team's children (`parent_id`) or the top level (`top=true`).
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tree
+          in: query
+          schema: { type: boolean }
+        - name: parent_id
+          in: query
+          schema: { type: string }
+        - name: top
+          in: query
+          schema: { type: boolean }
+        - name: q
+          in: query
+          description: Search name or slug
+          schema: { type: string }
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+        - name: sort_field
+          in: query
+          schema:
+            type: string
+            default: created_at
+            enum: [created_at, name, slug, path]
+        - $ref: '#/components/parameters/SortDir'
+      responses:
+        '200':
+          description: Teams
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/TeamListResponse'
+        '401': { description: Authentication required }
+        '404': { description: Organization not found, or the caller is not a member }
+    post:
+      tags: [Teams]
+      summary: Create a team
+      description: A top-level team needs the organization's owner or an admin; a team beneath another needs the right to manage that team.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TeamRequest'
+      responses:
+        '201':
+          description: Team created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Team'
+        '400': { description: Invalid name or slug, unknown parent (TEAM_INVALID_PARENT), or too deep (TEAM_TOO_DEEP) }
+        '403': { description: The caller cannot manage there (TEAM_FORBIDDEN) }
+        '409': { description: The slug is taken in this organization (TEAM_SLUG_TAKEN) }
+
+  /org/{orgId}/teams/{teamId}:
+    parameters:
+      - $ref: '#/components/parameters/OrgID'
+      - $ref: '#/components/parameters/TeamID'
+    get:
+      tags: [Teams]
+      summary: Get a team
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: The team
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Team'
+        '404': { description: Team not found (TEAM_NOT_FOUND) }
+    put:
+      tags: [Teams]
+      summary: Update a team
+      description: Changes the name, slug or description. Use the move endpoint to change the parent.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TeamRequest'
+      responses:
+        '200':
+          description: The updated team
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Team'
+        '403': { description: The caller cannot manage this team }
+        '409': { description: The slug is taken }
+    delete:
+      tags: [Teams]
+      summary: Delete a team
+      description: Deletes a team and its memberships. A team with teams beneath it is refused (TEAM_HAS_SUBTEAMS).
+      security:
+        - BearerAuth: []
+      responses:
+        '200': { description: Team deleted }
+        '403': { description: The caller cannot manage where the team sits }
+        '409': { description: The team has teams beneath it }
+
+  /org/{orgId}/teams/{teamId}/move:
+    parameters:
+      - $ref: '#/components/parameters/OrgID'
+      - $ref: '#/components/parameters/TeamID'
+    post:
+      tags: [Teams]
+      summary: Move a team
+      description: Puts the team, with everything beneath it, under another team of the organization, or at the top with an empty parent_id.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                parent_id:
+                  type: string
+                  description: The new parent; empty for the top level
+      responses:
+        '200':
+          description: The moved team
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Team'
+        '400': { description: The new parent is the team itself or beneath it, or the move would nest too deep }
+        '403': { description: The caller cannot manage the old or the new place }
+
+  /org/{orgId}/teams/{teamId}/members:
+    parameters:
+      - $ref: '#/components/parameters/OrgID'
+      - $ref: '#/components/parameters/TeamID'
+    get:
+      tags: [Team members]
+      summary: List a team's members
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: role
+          in: query
+          schema: { type: string, enum: [lead, member] }
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+        - name: sort_field
+          in: query
+          schema:
+            type: string
+            default: created_at
+            enum: [created_at, role]
+        - $ref: '#/components/parameters/SortDir'
+      responses:
+        '200':
+          description: Members
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/TeamMemberListResponse'
+    post:
+      tags: [Team members]
+      summary: Add a member
+      description: Adds a member of the organization to the team, as a lead or a member.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id]
+              properties:
+                user_id: { type: string }
+                role: { type: string, enum: [lead, member], default: member }
+      responses:
+        '201':
+          description: Member added
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/TeamMember'
+        '403': { description: The caller cannot manage this team }
+        '404': { description: The user is not a member of the organization (ORG_MEMBER_NOT_FOUND) }
+        '409': { description: The user is already in the team (TEAM_MEMBER_EXISTS) }
+
+  /org/{orgId}/teams/{teamId}/members/{userId}:
+    parameters:
+      - $ref: '#/components/parameters/OrgID'
+      - $ref: '#/components/parameters/TeamID'
+      - name: userId
+        in: path
+        required: true
+        schema: { type: string }
+    put:
+      tags: [Team members]
+      summary: Change a member's role
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties:
+                role: { type: string, enum: [lead, member] }
+      responses:
+        '200': { description: Role changed }
+        '404': { description: Not a member of the team (TEAM_MEMBER_NOT_FOUND) }
+    delete:
+      tags: [Team members]
+      summary: Remove a member
+      description: Leads remove members; any member may remove themselves.
+      security:
+        - BearerAuth: []
+      responses:
+        '200': { description: Member removed }
+        '404': { description: Not a member of the team }
+
+components:
+  parameters:
+    OrgID:
+      name: orgId
+      in: path
+      required: true
+      schema: { type: string }
+    TeamID:
+      name: teamId
+      in: path
+      required: true
+      schema: { type: string }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, default: 20, maximum: 100 }
+      description: Maximum number of items to return
+    Offset:
+      name: offset
+      in: query
+      schema: { type: integer, default: 0, minimum: 0 }
+      description: Number of items to skip
+    SortDir:
+      name: sort_dir
+      in: query
+      schema: { type: string, default: desc, enum: [asc, desc] }
+      description: Sort direction
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Team:
+      type: object
+      properties:
+        id: { type: string }
+        org_id: { type: string }
+        parent_id: { type: string, description: Absent for a top-level team }
+        name: { type: string }
+        slug: { type: string }
+        description: { type: string }
+        depth: { type: integer, description: 0 for a top-level team }
+        ancestors:
+          type: array
+          description: The IDs of the teams above, top first
+          items: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    TeamRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, maxLength: 255 }
+        slug:
+          type: string
+          maxLength: 100
+          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+          description: Made from the name when empty
+        description: { type: string, maxLength: 1000 }
+        parent_id: { type: string, description: Only when creating; empty for a top-level team }
+
+    TeamListResponse:
+      type: object
+      properties:
+        list:
+          type: array
+          items:
+            $ref: '#/components/schemas/Team'
+        sort_field: { type: string }
+        sort_dir: { type: string, enum: [asc, desc] }
+        total: { type: integer }
+
+    TeamMember:
+      type: object
+      properties:
+        team_id: { type: string }
+        user_id: { type: string }
+        role: { type: string, enum: [lead, member] }
+        created_at: { type: string, format: date-time }
+
+    TeamMemberListResponse:
+      type: object
+      properties:
+        list:
+          type: array
+          items:
+            $ref: '#/components/schemas/TeamMember'
+        sort_field: { type: string }
+        sort_dir: { type: string, enum: [asc, desc] }
+        total: { type: integer }

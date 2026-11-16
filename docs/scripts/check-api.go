@@ -36,6 +36,7 @@ import (
 	"github.com/bete7512/goauth/pkg/modules/saml"
 	"github.com/bete7512/goauth/pkg/modules/session"
 	"github.com/bete7512/goauth/pkg/modules/stateless"
+	"github.com/bete7512/goauth/pkg/modules/team"
 	"github.com/bete7512/goauth/pkg/modules/twofactor"
 	"github.com/bete7512/goauth/pkg/modules/ui"
 	"github.com/bete7512/goauth/pkg/types"
@@ -91,8 +92,10 @@ func verify(dir, strategy string) ([]route, error) {
 			ConsentURL: "http://localhost:3000/oidc/consent",
 			AdminAPI:   true,
 		}),
-		// Organizations is on so that the organization role routes are checked too.
-		rbac.New(&rbac.Config{Organizations: true}),
+		team.New(nil),
+		// Organizations and Teams are on so that the organization and team
+		// role routes are checked too.
+		rbac.New(&rbac.Config{Organizations: true, Teams: true}),
 	} {
 		if err := a.Use(module); err != nil {
 			return nil, err

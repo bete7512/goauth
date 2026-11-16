@@ -129,6 +129,21 @@ func (mr *MockOrgAdminServiceMockRecorder) GetOrganization(ctx, orgID any) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOrganization", reflect.TypeOf((*MockOrgAdminService)(nil).GetOrganization), ctx, orgID)
 }
 
+// InviteMember mocks base method.
+func (m *MockOrgAdminService) InviteMember(ctx context.Context, orgID, email, role string) (*models.OrgInvitation, *types.GoAuthError) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InviteMember", ctx, orgID, email, role)
+	ret0, _ := ret[0].(*models.OrgInvitation)
+	ret1, _ := ret[1].(*types.GoAuthError)
+	return ret0, ret1
+}
+
+// InviteMember indicates an expected call of InviteMember.
+func (mr *MockOrgAdminServiceMockRecorder) InviteMember(ctx, orgID, email, role any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InviteMember", reflect.TypeOf((*MockOrgAdminService)(nil).InviteMember), ctx, orgID, email, role)
+}
+
 // ListInvitations mocks base method.
 func (m *MockOrgAdminService) ListInvitations(ctx context.Context, orgID string, opts models.OrgInvitationListOpts) ([]*models.OrgInvitation, int64, *types.GoAuthError) {
 	m.ctrl.T.Helper()

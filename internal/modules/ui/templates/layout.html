@@ -33,7 +33,7 @@
       {{end}}
       {{end}}
       {{end}}
-      {{if .UserPages}}
+      {{if or .UserPages .Admin}}
       <div class="nav-label">You</div>
       <a class="nav-link" href="{{.Base}}/account" {{if eq .Nav "account"}}aria-current="page"{{end}}>{{template "icon-user"}}<span>Account</span></a>
       {{end}}

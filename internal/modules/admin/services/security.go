@@ -132,6 +132,16 @@ func (s *adminService) SignOutEverywhere(ctx context.Context, userID string) *ty
 	if authErr != nil {
 		return authErr
 	}
+	if authErr := s.revokeAll(ctx, userID); authErr != nil {
+		return authErr
+	}
+	s.securityEvent(ctx, actor.ID, userID, "Signed out of every device")
+	return nil
+}
+
+// revokeAll invalidates the user's access and refresh tokens through the
+// token version and deletes their sessions.
+func (s *adminService) revokeAll(ctx context.Context, userID string) *types.GoAuthError {
 	mutator, ok := s.userRepository.(models.UserCredentialMutator)
 	if !ok {
 		return types.NewInternalError("the user store cannot revoke tokens")
@@ -147,7 +157,6 @@ func (s *adminService) SignOutEverywhere(ctx context.Context, userID string) *ty
 			return types.NewInternalError("failed to revoke sessions").Wrap(err)
 		}
 	}
-	s.securityEvent(ctx, actor.ID, userID, "Signed out of every device")
 	return nil
 }
 

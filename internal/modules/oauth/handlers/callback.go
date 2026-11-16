@@ -68,6 +68,12 @@ func (h *OAuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		h.handleError(w, r, string(authErr.Code), authErr.Message)
 		return
 	}
+	// A redirect to a path on this server is a first-party page, such as
+	// the admin console: cookies only, never tokens in the URL.
+	if local, ok := http_utils.LocalRedirectPath(result.ClientRedirectURI); ok {
+		http_utils.FinishLocalSignIn(w, r, h.deps.Config.Security, local, result.AccessToken, result.RefreshToken, len(result.Challenges) > 0)
+		return
+	}
 	if len(result.Challenges) > 0 {
 		http_utils.RespondSuccess(w, map[string]interface{}{"challenges": result.Challenges, "message": "Authentication challenge required"}, nil)
 		return

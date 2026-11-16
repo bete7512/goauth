@@ -162,3 +162,15 @@ func (r *GormAuditLogRepository) DeleteByActionOlderThan(ctx context.Context, ac
 	}
 	return nil
 }
+
+var _ models.AuditActionCounter = (*GormAuditLogRepository)(nil)
+
+// CountActionPerDay counts events of one action per UTC day since the given
+// time.
+func (r *GormAuditLogRepository) CountActionPerDay(ctx context.Context, action string, since time.Time) ([]models.DailyCount, error) {
+	rows, err := helpers.CountPerDay(r.db.WithContext(ctx).Model(&models.AuditLog{}).Where("action = ?", action), since)
+	if err != nil {
+		return nil, fmt.Errorf("audit_log_repository.CountActionPerDay: %w", err)
+	}
+	return rows, nil
+}

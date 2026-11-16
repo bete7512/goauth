@@ -280,12 +280,20 @@ const (
 	// EventBeforeRBACRoleAssign is emitted synchronously before a role is
 	// given to a user. A subscriber that returns an error refuses the change.
 	// Data is *RBACAssignmentEventData.
-	EventBeforeRBACRoleAssign EventType = "before.rbac.role.assign"
-	EventRBACRoleAssigned     EventType = "rbac.role.assigned"
-	EventRBACRoleRevoked      EventType = "rbac.role.revoked"
-	EventRBACRoleCreated      EventType = "rbac.role.created"
-	EventRBACRoleUpdated      EventType = "rbac.role.updated"
-	EventRBACRoleDeleted      EventType = "rbac.role.deleted"
+	EventBeforeRBACRoleAssign  EventType = "before.rbac.role.assign"
+	EventTeamCreated           EventType = "team.created"
+	EventTeamUpdated           EventType = "team.updated"
+	EventTeamMoved             EventType = "team.moved"
+	EventTeamDeleted           EventType = "team.deleted"
+	EventTeamMemberAdded       EventType = "team.member.added"
+	EventTeamMemberRemoved     EventType = "team.member.removed"
+	EventTeamMemberRoleChanged EventType = "team.member.role.changed"
+
+	EventRBACRoleAssigned EventType = "rbac.role.assigned"
+	EventRBACRoleRevoked  EventType = "rbac.role.revoked"
+	EventRBACRoleCreated  EventType = "rbac.role.created"
+	EventRBACRoleUpdated  EventType = "rbac.role.updated"
+	EventRBACRoleDeleted  EventType = "rbac.role.deleted"
 )
 
 // Rate limiting events

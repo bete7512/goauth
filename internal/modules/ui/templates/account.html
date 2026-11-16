@@ -1,5 +1,5 @@
 {{define "content"}}
-{{$u := .Page.User}}
+{{$u := .Page.User}}{{$f := .Features}}
 <div class="page-head">
   <div class="profile">
     <span class="avatar avatar-lg" aria-hidden="true">{{initials $u.Name $u.Email}}</span>
@@ -8,22 +8,100 @@
   {{if .Admin}}<a class="btn btn-primary" href="{{.Base}}">Open the admin console</a>{{end}}
 </div>
 <div class="grid-2">
-  <section class="card">
-    <div class="card-head"><div><h2>Recent activity</h2><p>Sign-ins and changes to your account. If you don’t recognise something, change your password.</p></div></div>
-    {{if .Features.Audit}}{{template "events" .Page.Events}}{{else}}<div class="empty">{{template "icon-list"}}<p>Activity is not recorded for this application.</p></div>{{end}}
-  </section>
-  <section class="card">
-    <div class="card-head"><h2>Details</h2></div>
-    <div class="card-body">
-      <dl class="facts">
-        <div><dt>Email</dt><dd>{{$u.Email}}</dd></div>
-        <div><dt>Email verified</dt><dd>{{if $u.EmailVerified}}Yes{{else}}No{{end}}</dd></div>
-        {{if $u.Username}}<div><dt>Username</dt><dd>{{$u.Username}}</dd></div>{{end}}
-        {{if $u.PhoneNumber}}<div><dt>Phone</dt><dd>{{$u.PhoneNumber}}</dd></div>{{end}}
-        <div><dt>Member since</dt><dd>{{date $u.CreatedAt}}</dd></div>
-        <div><dt>Last sign-in</dt><dd>{{date $u.LastLoginAt}}</dd></div>
-      </dl>
-    </div>
-  </section>
+  <div class="col">
+    <form class="card" method="post" action="{{.Base}}/account">
+      <div class="card-head"><div><h2>Profile</h2><p>How you appear to others.</p></div></div>
+      <div class="card-body form-grid">
+        <div class="field span-2"><label for="name">Display name</label><input class="input" id="name" name="name" value="{{$u.Name}}" autocomplete="name"></div>
+        <div class="field span-2"><label for="phone_number">Phone number</label><input class="input" id="phone_number" name="phone_number" type="tel" value="{{$u.PhoneNumber}}" autocomplete="tel" placeholder="+14155550100">
+          <p class="hint">Changing it marks the number as unverified and signs you out everywhere. Leave a field as it is to keep it.</p></div>
+      </div>
+      <div class="card-foot"><button class="btn btn-primary" type="submit">Save profile</button></div>
+    </form>
+
+    {{if .Page.HasPassword}}
+    <form class="card" method="post" action="{{.Base}}/account/password" hx-boost="false">
+      <div class="card-head"><div><h2>Password</h2><p>Changing it signs you out everywhere, here included.</p></div></div>
+      <div class="card-body form-grid">
+        <input type="email" name="username" value="{{$u.Email}}" autocomplete="username" hidden>
+        <div class="field span-2"><label for="current_password">Current password</label><input class="input" id="current_password" name="current_password" type="password" autocomplete="current-password" required></div>
+        <div class="field"><label for="new_password">New password</label><input class="input" id="new_password" name="new_password" type="password" autocomplete="new-password" minlength="{{.Page.Policy.MinLength}}" required></div>
+        <div class="field"><label for="confirm_password">Repeat new password</label><input class="input" id="confirm_password" name="confirm_password" type="password" autocomplete="new-password" required></div>
+        <p class="hint span-2">At least {{.Page.Policy.MinLength}} characters{{if .Page.Policy.RequireUppercase}}, with an uppercase letter{{end}}{{if .Page.Policy.RequireLowercase}}, a lowercase letter{{end}}{{if .Page.Policy.RequireNumbers}}, a number{{end}}{{if .Page.Policy.RequireSpecial}}, a symbol{{end}}.</p>
+      </div>
+      <div class="card-foot"><button class="btn" type="submit">Change password</button></div>
+    </form>
+    {{end}}
+
+    <section class="card">
+      <div class="card-head"><div><h2>Where you’re signed in</h2><p>End any session you don’t recognise, then change your password.</p></div></div>
+      {{if not $f.Sessions}}<div class="card-body"><p class="hint">This application uses stateless tokens, so there is no list of sessions. <strong>Sign out</strong> ends this one; changing your password ends them all.</p></div>
+      {{else if .Page.Sessions}}
+      <div class="table-wrap"><table>
+        <thead><tr><th>Device</th><th>IP address</th><th>Started</th><th></th></tr></thead>
+        <tbody>{{range .Page.Sessions}}
+          <tr><td class="muted">{{if .UserAgent}}{{.UserAgent}}{{else}}Unknown{{end}}{{if .Current}} <span class="badge success">This device</span>{{end}}</td><td class="mono muted">{{.IPAddress}}</td><td class="muted nowrap" title="{{date .CreatedAt}}">{{ago .CreatedAt}}</td>
+            <td class="num">{{if not .Current}}<form class="inline" method="post" action="{{$.Base}}/account/sessions/{{.ID}}/revoke"><button class="btn btn-ghost btn-sm" type="submit">End</button></form>{{end}}</td></tr>
+        {{end}}</tbody>
+      </table></div>
+      {{else}}<div class="empty"><p>No other sessions.</p></div>{{end}}
+    </section>
+
+    {{if .Page.Apps}}
+    <section class="card">
+      <div class="card-head"><div><h2>Connected applications</h2><p>Applications you signed in to with this account.</p></div></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Application</th><th>Access</th><th>Last used</th><th></th></tr></thead>
+        <tbody>{{range .Page.Apps}}
+          <tr><td><div class="identity-name">{{.ClientName}}</div></td><td><div class="badges">{{range .Scopes}}<span class="chip">{{.}}</span>{{end}}</div></td><td class="muted nowrap">{{ago .LastUsedAt}}</td>
+            <td class="num"><form class="inline" method="post" action="{{$.Base}}/account/apps/{{.ID}}/revoke" hx-confirm="Disconnect {{.ClientName}}? You will have to sign in to it again."><button class="btn btn-ghost btn-sm" type="submit">Disconnect</button></form></td></tr>
+        {{end}}</tbody>
+      </table></div>
+    </section>
+    {{end}}
+  </div>
+
+  <div class="col">
+    <section class="card">
+      <div class="card-head"><h2>Sign-in methods</h2></div>
+      <div class="card-body">
+        <dl class="facts">
+          <div><dt>Password</dt><dd>{{if .Page.HasPassword}}<span class="badge success">Set</span>{{else}}<span class="badge">Not set</span>{{end}}</dd></div>
+          {{if $f.TwoFactor}}<div><dt>Two-factor</dt><dd>{{if and .Page.TwoFactor .Page.TwoFactor.Enabled}}<span class="badge success">On</span> <span class="muted">{{.Page.TwoFactor.Method}}</span>{{else}}<span class="badge">Off</span> <span class="muted">set it up in your application</span>{{end}}</dd></div>{{end}}
+          {{if $f.LinkedAccount}}<div><dt>Linked accounts</dt><dd>{{range .Page.Linked}}<span class="badge accent plain">{{.Provider}}</span> {{else}}<span class="muted">None</span>{{end}}</dd></div>{{end}}
+        </dl>
+      </div>
+    </section>
+
+    {{if $f.Passkeys}}
+    <section class="card">
+      <div class="card-head"><h2>Passkeys</h2></div>
+      {{if .Page.Passkeys}}
+      <ul class="timeline">{{range .Page.Passkeys}}
+        <li><span class="dot" aria-hidden="true"></span><div class="grow"><div class="what">{{if .Name}}{{.Name}}{{else}}Passkey{{end}}</div><div class="when">Added {{ago .CreatedAt}} · last used {{ago .LastUsedAt}}</div></div>
+          <form class="inline" method="post" action="{{$.Base}}/account/passkeys/{{.ID}}/delete" hx-confirm="Remove this passkey? You can no longer sign in with it."><button class="btn btn-ghost btn-sm" type="submit" aria-label="Remove">{{template "icon-trash"}}</button></form></li>
+      {{end}}</ul>
+      {{else}}<div class="empty"><p>No passkeys. Add one in your application.</p></div>{{end}}
+    </section>
+    {{end}}
+
+    <section class="card">
+      <div class="card-head"><div><h2>Recent activity</h2><p>If you don’t recognise something, change your password.</p></div></div>
+      {{if $f.Audit}}{{template "events" .Page.Events}}{{else}}<div class="empty">{{template "icon-list"}}<p>Activity is not recorded for this application.</p></div>{{end}}
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h2>Details</h2></div>
+      <div class="card-body">
+        <dl class="facts">
+          <div><dt>Email</dt><dd>{{$u.Email}}</dd></div>
+          <div><dt>Email verified</dt><dd>{{if $u.EmailVerified}}Yes{{else}}No{{end}}</dd></div>
+          {{if $u.Username}}<div><dt>Username</dt><dd>{{$u.Username}}</dd></div>{{end}}
+          <div><dt>Member since</dt><dd>{{date $u.CreatedAt}}</dd></div>
+          <div><dt>Last sign-in</dt><dd>{{date $u.LastLoginAt}}</dd></div>
+        </dl>
+      </div>
+    </section>
+  </div>
 </div>
 {{end}}

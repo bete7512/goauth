@@ -28,9 +28,24 @@ type User struct {
 	TokenVersion        int        `json:"-" gorm:"default:0;not null"`
 	FailedLoginAttempts int        `json:"-" gorm:"default:0;not null"`
 	LockedUntil         *time.Time `json:"-" gorm:"index"`
-	CreatedAt           time.Time  `json:"created_at"`
-	LastLoginAt         *time.Time `json:"last_login_at"`
-	UpdatedAt           *time.Time `json:"updated_at"`
+	// BannedAt is when an administrator suspended the account, or nil. A
+	// banned user cannot sign in and their credentials stop working.
+	BannedAt *time.Time `json:"banned_at,omitempty" gorm:"index"`
+	// BannedUntil ends a ban on its own; nil with BannedAt set means the
+	// ban lasts until an administrator lifts it.
+	BannedUntil *time.Time `json:"banned_until,omitempty"`
+	// BanReason is the administrators' note on why; it is not shown to the
+	// user.
+	BanReason   string     `json:"ban_reason,omitempty" gorm:"type:varchar(500);not null;default:''"`
+	CreatedAt   time.Time  `json:"created_at"`
+	LastLoginAt *time.Time `json:"last_login_at"`
+	UpdatedAt   *time.Time `json:"updated_at"`
+}
+
+// Banned reports whether the user is under a ban at now. A ban with an end
+// that has passed no longer counts, so nothing has to lift it.
+func (u *User) Banned(now time.Time) bool {
+	return u != nil && u.BannedAt != nil && (u.BannedUntil == nil || now.Before(*u.BannedUntil))
 }
 
 // UserRepository persists users.

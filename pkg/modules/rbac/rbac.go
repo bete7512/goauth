@@ -43,6 +43,8 @@ const (
 	ScopeGlobal = internal.ScopeGlobal
 	// ScopeOrg is one organization.
 	ScopeOrg = internal.ScopeOrg
+	// ScopeTeam is one team and every team beneath it (Config.Teams).
+	ScopeTeam = internal.ScopeTeam
 )
 
 // Permissions lists, per resource, the actions the application checks. It is
@@ -112,6 +114,17 @@ func InOrg(orgID string) Option { return internal.InOrg(orgID) }
 // OrgParam runs a check in the organization named by a path parameter of
 // the route.
 func OrgParam(name string) Option { return internal.OrgParam(name) }
+
+// InTeam runs a check in the given team: roles on it or any team above it
+// count, as do the caller's organization and application-wide roles.
+func InTeam(teamID string) Option { return internal.InTeam(teamID) }
+
+// TeamParam runs a check in the team named by a path parameter of the route.
+func TeamParam(name string) Option { return internal.TeamParam(name) }
+
+// TeamFrom runs a check in the team fn returns, usually the one that owns
+// the resource the request is about.
+func TeamFrom(fn func(r *http.Request) (string, error)) Option { return internal.TeamFrom(fn) }
 
 // OrgFrom runs a check in the organization fn returns, usually the one that
 // owns the resource the request is about. A *types.GoAuthError with an HTTP

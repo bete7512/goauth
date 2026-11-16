@@ -20,6 +20,7 @@ const maxListLimit = 100
 // Path parameters of the rbac routes.
 const (
 	ParamOrgID   = "orgId"
+	ParamTeamID  = "teamId"
 	ParamRoleKey = "roleKey"
 	ParamUserID  = "userId"
 )
@@ -265,7 +266,15 @@ func (h *Handler) ownScope(r *http.Request, actor *services.Actor) access.Scope 
 // routeScope is the scope a role or assignment route is about: the
 // organization in its path, or the whole application.
 func routeScope(r *http.Request) access.Scope {
-	if orgID := r.PathValue(ParamOrgID); orgID != "" {
+	orgID := r.PathValue(ParamOrgID)
+	if teamID := r.PathValue(ParamTeamID); teamID != "" {
+		// The organization in the path must be the team's own; the services
+		// treat a team of another organization as not found.
+		scope := access.TeamScope(teamID)
+		scope.Org = orgID
+		return scope
+	}
+	if orgID != "" {
 		return access.OrgScope(orgID)
 	}
 	return access.GlobalScope()

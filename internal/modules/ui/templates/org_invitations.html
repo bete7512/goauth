@@ -1,9 +1,30 @@
 {{define "content"}}
 {{$o := .Page.Org}}
 {{template "org-head" .Page}}
-<section class="card">
-  {{template "invitations-table" .}}
-</section>
+<div class="grid-2">
+  <section class="card">
+    {{template "invitations-table" .}}
+  </section>
+  <div class="col">
+    <form class="card" method="post" action="{{.Base}}/orgs/{{$o.ID}}/invitations">
+      <div class="card-head"><div><h2>Invite someone</h2><p>They receive an email with a link to join {{$o.Name}}, creating an account if they need one.</p></div></div>
+      <div class="card-body stack">
+        <div class="field"><label for="inv-email">Email</label><input class="input" id="inv-email" name="email" type="email" value="{{.Page.Email}}" required></div>
+        <div class="field"><label for="inv-role">Role</label><select class="input" id="inv-role" name="role"><option value="member" {{if ne .Page.Role "admin"}}selected{{end}}>Member</option><option value="admin" {{if eq .Page.Role "admin"}}selected{{end}}>Admin</option></select></div>
+      </div>
+      <div class="card-foot"><button class="btn btn-primary" type="submit">{{template "icon-mail"}}<span>Send invitation</span></button></div>
+    </form>
+    <form class="card" method="post" action="{{.Base}}/orgs/{{$o.ID}}/invitations/import" enctype="multipart/form-data" hx-boost="false">
+      <div class="card-head"><div><h2>Import a list</h2><p>Up to 200 people from a CSV file or a pasted list: an email per line, optionally followed by a comma and <span class="chip">admin</span> or <span class="chip">member</span>. Existing members and addresses already invited are reported and skipped.</p></div></div>
+      <div class="card-body form-grid">
+        <div class="field"><label for="org-import-file">CSV file</label><input class="input input-file" id="org-import-file" name="file" type="file" accept=".csv,text/csv,text/plain"></div>
+        <div class="field"><label for="org-import-role">Role for rows without one</label><select class="input" id="org-import-role" name="role"><option value="member">Member</option><option value="admin">Admin</option></select></div>
+        <div class="field span-2"><label for="org-import-emails">Or paste addresses</label><textarea class="input" id="org-import-emails" name="emails" rows="4" placeholder="ada@example.com&#10;grace@example.com,admin"></textarea></div>
+      </div>
+      <div class="card-foot"><button class="btn btn-primary" type="submit">{{template "icon-mail"}}<span>Send invitations</span></button></div>
+    </form>
+  </div>
+</div>
 {{end}}
 {{define "invitations-table"}}
 {{$o := .Page.Org}}

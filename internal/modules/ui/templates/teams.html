@@ -1,0 +1,34 @@
+{{define "content"}}
+<div class="page-head">
+  <div><h1>Teams</h1><p>Teams live inside organizations. Pick one to see and manage its teams.</p></div>
+</div>
+<section class="card">
+  <div class="card-head">
+    <form class="search" method="get" action="{{.Base}}/teams" role="search">
+      {{template "icon-search"}}
+      <label class="sr-only" for="q">Search organizations</label>
+      <input class="input" id="q" type="search" name="q" value="{{.Page.Query}}" placeholder="Search organizations" autocomplete="off" data-search
+        hx-get="{{.Base}}/teams" hx-trigger="input changed delay:300ms, search" hx-target="#teams-orgs" hx-push-url="true">
+      <kbd class="kbd" aria-hidden="true">/</kbd>
+    </form>
+  </div>
+  {{template "teams-orgs" .}}
+</section>
+{{end}}
+{{define "teams-orgs"}}
+<div id="teams-orgs">
+  {{if .Page.Orgs}}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Organization</th><th class="num">Teams</th><th></th></tr></thead>
+    <tbody>{{range .Page.Orgs}}
+      <tr class="row-link" data-href>
+        <td><a class="identity" href="{{$.Base}}/orgs/{{.Org.ID}}/teams"><span class="avatar" aria-hidden="true">{{initials .Org.Name ""}}</span><span class="identity-text"><span class="identity-name">{{.Org.Name}}</span><br><span class="identity-sub mono">{{.Org.Slug}}</span></span></a></td>
+        <td class="num">{{.Teams}}</td>
+        <td class="num"><a class="btn btn-ghost btn-sm" href="{{$.Base}}/orgs/{{.Org.ID}}/teams">Open</a></td>
+      </tr>
+    {{end}}</tbody>
+  </table></div>
+  {{else}}<div class="empty">{{template "icon-team"}}<p>{{if .Page.Query}}No organizations match “{{.Page.Query}}”.{{else}}No organizations yet. Teams are created inside an organization.{{end}}</p></div>{{end}}
+  {{template "pager" .Page.Pager}}
+</div>
+{{end}}

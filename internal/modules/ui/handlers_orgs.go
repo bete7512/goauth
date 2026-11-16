@@ -109,6 +109,9 @@ func (m *UIModule) orgFrame(r *http.Request, orgs orgservices.AdminService, org 
 		{Label: "Members", Href: base + "/members", Current: current == "members", Count: int(frame.Members)},
 		{Label: "Invitations", Href: base + "/invitations", Current: current == "invitations"},
 	}
+	if m.features().Teams {
+		frame.Tabs = append(frame.Tabs, tab{Label: "Teams", Href: base + "/teams", Current: current == "teams"})
+	}
 	if m.features().OrgRoles {
 		frame.Tabs = append(frame.Tabs, tab{Label: "Roles", Href: base + "/roles", Current: current == "roles"})
 	}
@@ -349,9 +352,14 @@ type orgInvitationsPage struct {
 	orgFrame
 	Invitations []*models.OrgInvitation
 	Pager       pager
+	Email, Role string // the send form, kept after an error
 }
 
 func (m *UIModule) orgInvitations(w http.ResponseWriter, r *http.Request) {
+	m.showOrgInvitations(w, r, http.StatusOK, "", "member", "")
+}
+
+func (m *UIModule) showOrgInvitations(w http.ResponseWriter, r *http.Request, status int, email, role, message string) {
 	orgs, org, ok := m.loadOrg(w, r)
 	if !ok {
 		return
@@ -364,9 +372,65 @@ func (m *UIModule) orgInvitations(w http.ResponseWriter, r *http.Request) {
 		m.serviceError(w, r, authErr)
 		return
 	}
-	page := &orgInvitationsPage{orgFrame: m.orgFrame(r, orgs, org, "invitations"), Invitations: invitations,
+	page := &orgInvitationsPage{orgFrame: m.orgFrame(r, orgs, org, "invitations"), Invitations: invitations, Email: email, Role: role,
 		Pager: pager{Offset: opts.Offset, Limit: opts.Limit, Total: total, Path: m.orgURL(org.ID, "invitations"), Target: "invitations-table"}}
-	m.render(w, r, http.StatusOK, "org_invitations", m.newView(r, org.Name, "orgs", page), "invitations-table")
+	data := m.newView(r, org.Name, "orgs", page)
+	data.Error = message
+	m.render(w, r, status, "org_invitations", data, "invitations-table")
+}
+
+// sendOrgInvitation invites someone to the organization as a super admin.
+func (m *UIModule) sendOrgInvitation(w http.ResponseWriter, r *http.Request) {
+	orgs, org, ok := m.loadOrg(w, r)
+	if !ok || !parseForm(w, r, m) {
+		return
+	}
+	email, role := strings.TrimSpace(r.PostForm.Get("email")), r.PostForm.Get("role")
+	if _, authErr := orgs.InviteMember(r.Context(), org.ID, email, role); authErr != nil {
+		m.showOrgInvitations(w, r, statusFor(authErr), email, role, orgMessage(authErr))
+		return
+	}
+	m.redirect(w, r, m.orgURL(org.ID, "invitations")+"?notice=invitation-sent")
+}
+
+// importOrgInvitations invites every address of a list: email[,role],
+// where the role is admin or member.
+func (m *UIModule) importOrgInvitations(w http.ResponseWriter, r *http.Request) {
+	orgs, org, ok := m.loadOrg(w, r)
+	if !ok {
+		return
+	}
+	source, err := importSource(w, r)
+	if err != nil {
+		m.showOrgInvitations(w, r, http.StatusUnprocessableEntity, "", "member", err.Error())
+		return
+	}
+	defaultRole := r.FormValue("role")
+	if defaultRole == "" {
+		defaultRole = "member"
+	}
+	rows, err := parseImport(source, defaultRole)
+	if err != nil {
+		m.showOrgInvitations(w, r, http.StatusUnprocessableEntity, "", "member", err.Error())
+		return
+	}
+	page := &importPage{Rows: rows, Back: m.orgURL(org.ID, "invitations"), BackLabel: org.Name + " invitations", Column: "Role"}
+	for i := range page.Rows {
+		row := &page.Rows[i]
+		if row.Problem == "" {
+			if _, authErr := orgs.InviteMember(r.Context(), org.ID, row.Email, strings.ToLower(row.Purpose)); authErr != nil {
+				row.Problem = orgMessage(authErr)
+			} else {
+				row.Sent = true
+			}
+		}
+		if row.Sent {
+			page.Sent++
+		} else {
+			page.Skipped++
+		}
+	}
+	m.render(w, r, http.StatusOK, "invitations_import", m.newView(r, "Invitation import", "orgs", page))
 }
 
 func (m *UIModule) cancelOrgInvitation(w http.ResponseWriter, r *http.Request) {

@@ -28,6 +28,9 @@ func DefaultRules() []config.RateLimitRuleConfig {
 		types.RouteOrgAcceptInvitation,
 		types.RouteUILogin,
 		types.RouteUILoginTwoFactor,
+		types.RouteUIAccountPassword,
+		types.RouteUILoginCodeVerify,
+		types.RouteUILoginPasskeyFinish,
 	}
 	sends := []types.RouteName{
 		types.RouteForgotPassword,
@@ -39,6 +42,7 @@ func DefaultRules() []config.RateLimitRuleConfig {
 		types.RouteMagicLinkResend,
 		types.RouteTwoFactorResend,
 		types.RouteInvitationSend,
+		types.RouteUILoginCode,
 	}
 	return []config.RateLimitRuleConfig{
 		{Name: "credential_ip", ApplyTo: credentialChecks, Key: types.RateLimitKeyIP, Limit: 30, Window: time.Minute},
@@ -55,6 +59,6 @@ func DefaultRules() []config.RateLimitRuleConfig {
 		// applications' servers, many users behind one address, so the
 		// budget is larger.
 		{Name: "idp_token_ip", ApplyTo: []types.RouteName{types.RouteIDPToken, types.RouteIDPUserInfo, types.RouteIDPUserInfoPost}, Key: types.RateLimitKeyIP, Limit: 300, Window: time.Minute},
-		{Name: "federation_ip", ApplyTo: []types.RouteName{types.RouteOAuthLogin, types.RouteOAuthCallback, types.RouteSAMLLogin, types.RouteSAMLACS, types.RoutePasskeysLoginBegin, types.RoutePasskeysRegisterBegin}, Key: types.RateLimitKeyIP, Limit: 60, Window: time.Minute},
+		{Name: "federation_ip", ApplyTo: []types.RouteName{types.RouteOAuthLogin, types.RouteOAuthCallback, types.RouteSAMLLogin, types.RouteSAMLACS, types.RoutePasskeysLoginBegin, types.RoutePasskeysRegisterBegin, types.RouteUILoginPasskeyBegin}, Key: types.RateLimitKeyIP, Limit: 60, Window: time.Minute},
 	}
 }

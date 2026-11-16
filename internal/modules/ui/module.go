@@ -53,6 +53,8 @@ type UIModule struct {
 	admin    services.AdminService
 	protect  *http.CrossOriginProtection
 	notFound http.Handler
+
+	refreshes refreshGroup
 }
 
 // New creates the ui module. Pass nil for the defaults: the admin console
@@ -136,17 +138,26 @@ func (m *UIModule) Routes() []config.RouteInfo {
 		m.route(types.RouteUILoginPage, get, "/login", m.loginPage),
 		m.route(types.RouteUILogin, post, "/login", m.login),
 		m.route(types.RouteUILoginTwoFactor, post, "/login/2fa", m.loginTwoFactor),
+		m.route(types.RouteUILoginDone, get, "/login/done", m.loginDone),
+		m.route(types.RouteUILoginCode, post, "/login/code", m.sendLoginCode),
+		m.route(types.RouteUILoginCodeVerify, post, "/login/code/verify", m.verifyLoginCode),
+		m.route(types.RouteUILoginPasskeyBegin, post, "/login/passkey/begin", m.beginPasskeyLogin),
+		m.route(types.RouteUILoginPasskeyFinish, post, "/login/passkey/finish", m.finishPasskeyLogin),
 		m.route(types.RouteUILogout, post, "/logout", m.logout),
 
 		// Users
 		m.route(routeUsers, get, "/users", admin(m.users)),
 		m.route(routeUserNew, get, "/users/new", admin(m.newUserPage)),
+		m.route(routeUsersBulk, post, "/users/bulk", admin(m.bulkUsers)),
+		m.route(routeUsersExport, get, "/users/export.csv", admin(m.exportUsers)),
 		m.route(routeUserCreate, post, "/users", admin(m.createUser)),
 		m.route(routeUser, get, "/users/{id}", admin(m.user)),
 		m.route(routeUserUpdate, post, "/users/{id}", admin(m.updateUser)),
 		m.route(routeUserDelete, post, "/users/{id}/delete", admin(m.deleteUser)),
 		m.route(routeUserSecurity, get, "/users/{id}/security", admin(m.userSecurity)),
 		m.route(routeUserUnlock, post, "/users/{id}/unlock", admin(m.unlockUser)),
+		m.route(routeUserBan, post, "/users/{id}/ban", admin(m.banUser)),
+		m.route(routeUserUnban, post, "/users/{id}/unban", admin(m.unbanUser)),
 		m.route(routeUserSignOut, post, "/users/{id}/sign-out", admin(m.signOutUser)),
 		m.route(routeUserPassword, post, "/users/{id}/password", admin(m.setUserPassword)),
 		m.route(routeUserResetEmail, post, "/users/{id}/reset-email", admin(m.sendResetEmail)),
@@ -163,6 +174,7 @@ func (m *UIModule) Routes() []config.RouteInfo {
 		// Organizations
 		m.route(routeOrgs, get, "/orgs", admin(m.orgs)),
 		m.route(routeOrgNew, get, "/orgs/new", admin(m.newOrgPage)),
+		m.route(routeOrgsExport, get, "/orgs/export.csv", admin(m.exportOrgs)),
 		m.route(routeOrgCreate, post, "/orgs", admin(m.createOrg)),
 		m.route(routeOrg, get, "/orgs/{orgId}", admin(m.org)),
 		m.route(routeOrgUpdate, post, "/orgs/{orgId}", admin(m.updateOrg)),
@@ -176,6 +188,8 @@ func (m *UIModule) Routes() []config.RouteInfo {
 		m.route(routeOrgMemberRemove, post, "/orgs/{orgId}/members/{userId}/remove", admin(m.removeOrgMember)),
 		m.route(routeOrgMemberRoles, post, "/orgs/{orgId}/members/{userId}/roles", admin(m.setOrgMemberRoles)),
 		m.route(routeOrgInvitations, get, "/orgs/{orgId}/invitations", admin(m.orgInvitations)),
+		m.route(routeOrgInvitationSend, post, "/orgs/{orgId}/invitations", admin(m.sendOrgInvitation)),
+		m.route(routeOrgInvitationImport, post, "/orgs/{orgId}/invitations/import", admin(m.importOrgInvitations)),
 		m.route(routeOrgInvitationCancel, post, "/orgs/{orgId}/invitations/{invId}/cancel", admin(m.cancelOrgInvitation)),
 		m.route(routeOrgRoles, get, "/orgs/{orgId}/roles", admin(m.roles)),
 		m.route(routeOrgRoleCreate, post, "/orgs/{orgId}/roles", admin(m.createRole)),
@@ -183,9 +197,24 @@ func (m *UIModule) Routes() []config.RouteInfo {
 		m.route(routeOrgRoleUpdate, post, "/orgs/{orgId}/roles/{roleKey}", admin(m.updateRole)),
 		m.route(routeOrgRoleDelete, post, "/orgs/{orgId}/roles/{roleKey}/delete", admin(m.deleteRole)),
 
+		// Teams
+		m.route(routeTeams, get, "/teams", admin(m.teamsIndex)),
+		m.route(routeOrgTeams, get, "/orgs/{orgId}/teams", admin(m.orgTeams)),
+		m.route(routeOrgTeamCreate, post, "/orgs/{orgId}/teams", admin(m.createTeam)),
+		m.route(routeTeam, get, "/orgs/{orgId}/teams/{teamId}", admin(m.teamPage)),
+		m.route(routeTeamUpdate, post, "/orgs/{orgId}/teams/{teamId}", admin(m.updateTeam)),
+		m.route(routeTeamMove, post, "/orgs/{orgId}/teams/{teamId}/move", admin(m.moveTeam)),
+		m.route(routeTeamDelete, post, "/orgs/{orgId}/teams/{teamId}/delete", admin(m.deleteTeam)),
+		m.route(routeTeamMemberAdd, post, "/orgs/{orgId}/teams/{teamId}/members", admin(m.addTeamMember)),
+		m.route(routeTeamMember, get, "/orgs/{orgId}/teams/{teamId}/members/{userId}", admin(m.teamMember)),
+		m.route(routeTeamMemberRole, post, "/orgs/{orgId}/teams/{teamId}/members/{userId}/role", admin(m.changeTeamMemberRole)),
+		m.route(routeTeamMemberRemove, post, "/orgs/{orgId}/teams/{teamId}/members/{userId}/remove", admin(m.removeTeamMember)),
+		m.route(routeTeamMemberRoles, post, "/orgs/{orgId}/teams/{teamId}/members/{userId}/roles", admin(m.setTeamMemberRoles)),
+
 		// Platform invitations
 		m.route(routeInvitations, get, "/invitations", admin(m.invitations)),
 		m.route(routeInvitationSend, post, "/invitations", admin(m.sendInvitation)),
+		m.route(routeInvitationImport, post, "/invitations/import", admin(m.importInvitations)),
 		m.route(routeInvitationCancel, post, "/invitations/{invId}/cancel", admin(m.cancelInvitation)),
 
 		// Roles and permissions
@@ -208,11 +237,20 @@ func (m *UIModule) Routes() []config.RouteInfo {
 		// Activity and system
 		m.route(routeAudit, get, "/audit", admin(m.auditLog)),
 		m.route(routeAuditCleanup, post, "/audit/cleanup", admin(m.cleanupAudit)),
+		m.route(routeAuditExport, get, "/audit/export.csv", admin(m.exportAudit)),
 		m.route(routeSettings, get, "/settings", admin(m.settings)),
 	}
-	if m.config.UserPages {
-		routes = append(routes, m.route(types.RouteUIAccount, get, "/account", m.signedIn(m.account)))
-	}
+	// The signed-in user's own account: always for administrators, for
+	// everyone with UserPages.
+	account := m.accountOnly
+	routes = append(routes,
+		m.route(types.RouteUIAccount, get, "/account", account(m.account)),
+		m.route(routeAccountUpdate, post, "/account", account(m.updateAccount)),
+		m.route(types.RouteUIAccountPassword, post, "/account/password", account(m.changePassword)),
+		m.route(routeAccountSessionRevoke, post, "/account/sessions/{sessionId}/revoke", account(m.revokeOwnSession)),
+		m.route(routeAccountPasskeyDelete, post, "/account/passkeys/{passkeyId}/delete", account(m.deleteOwnPasskey)),
+		m.route(routeAccountAppRevoke, post, "/account/apps/{grantId}/revoke", account(m.revokeOwnApp)),
+	)
 	return routes
 }
 

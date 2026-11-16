@@ -29,6 +29,7 @@ type (
 const (
 	ScopeGlobal = access.ScopeGlobal
 	ScopeOrg    = access.ScopeOrg
+	ScopeTeam   = access.ScopeTeam
 )
 
 // Keep leaves a decision as the roles and conditions reached it.
@@ -61,6 +62,16 @@ type Config struct {
 	// built-in role, and custom roles can be created and assigned per
 	// organization. When false, every role is application-wide.
 	Organizations bool
+
+	// Teams turns on roles inside teams. It requires Organizations and the
+	// team module. A role held on a team applies to that team and every team
+	// beneath it, and an organization's roles apply in all its teams. A
+	// team's leads hold the built-in "lead" role there (every permission of
+	// the application's own, like an organization admin) and plain members
+	// the "member" role (nothing); define roles with those keys and
+	// ScopeTeam to change what they grant. The organization's custom roles
+	// can be assigned in its teams.
+	Teams bool
 
 	// Roles are roles defined in code. They can be assigned but not changed
 	// through the API. A role with the key "owner", "admin" or "member" that
@@ -114,6 +125,10 @@ var (
 	// resources and may see roles, but handing roles out stays with the
 	// owner, as changing member roles does in the organization module.
 	adminGrants = []string{access.Wildcard, access.PermRolesRead, access.PermAssignmentsRead}
+	// A team lead may do anything with the application's own resources in
+	// the team and beneath it; GoAuth's own permissions stay with the
+	// organization.
+	teamLeadGrants = []string{access.Wildcard}
 )
 
 // roleTable builds the roles defined in code, by scope and key, from the
@@ -129,7 +144,17 @@ func (c *Config) roleTable() (map[access.ScopeType]map[string]access.Role, error
 				Grants:      superAdminGrants,
 			},
 		},
-		access.ScopeOrg: {},
+		access.ScopeOrg:  {},
+		access.ScopeTeam: {},
+	}
+	if c.Teams {
+		if !c.Organizations {
+			return nil, fmt.Errorf("the Teams option needs Organizations")
+		}
+		table[access.ScopeTeam] = map[string]access.Role{
+			access.RoleTeamLead:   {Key: access.RoleTeamLead, Name: "Team lead", Description: "Leads of the team or of a team above it.", Scope: access.ScopeTeam, Grants: teamLeadGrants},
+			access.RoleTeamMember: {Key: access.RoleTeamMember, Name: "Team member", Description: "Every other member of the team.", Scope: access.ScopeTeam, Grants: []string{}},
+		}
 	}
 	if c.Organizations {
 		table[access.ScopeOrg] = map[string]access.Role{
@@ -139,7 +164,7 @@ func (c *Config) roleTable() (map[access.ScopeType]map[string]access.Role, error
 		}
 	}
 
-	seen := map[access.ScopeType]map[string]bool{access.ScopeGlobal: {}, access.ScopeOrg: {}}
+	seen := map[access.ScopeType]map[string]bool{access.ScopeGlobal: {}, access.ScopeOrg: {}, access.ScopeTeam: {}}
 	for _, role := range c.Roles {
 		if !services.ValidRoleKey(role.Key) {
 			return nil, fmt.Errorf("role key %q must be 1 to 64 lowercase letters, digits, '_' or '-'", role.Key)
@@ -163,6 +188,9 @@ func (c *Config) roleTable() (map[access.ScopeType]map[string]access.Role, error
 			if c.Organizations {
 				scopes = append(scopes, access.ScopeOrg)
 			}
+			if c.Teams {
+				scopes = append(scopes, access.ScopeTeam)
+			}
 		case access.ScopeGlobal:
 			scopes = []access.ScopeType{access.ScopeGlobal}
 		case access.ScopeOrg:
@@ -170,6 +198,11 @@ func (c *Config) roleTable() (map[access.ScopeType]map[string]access.Role, error
 				return nil, fmt.Errorf("role %q is limited to organizations, but Organizations is off", role.Key)
 			}
 			scopes = []access.ScopeType{access.ScopeOrg}
+		case access.ScopeTeam:
+			if !c.Teams {
+				return nil, fmt.Errorf("role %q is limited to teams, but Teams is off", role.Key)
+			}
+			scopes = []access.ScopeType{access.ScopeTeam}
 		default:
 			return nil, fmt.Errorf("role %q has unknown scope %q", role.Key, role.Scope)
 		}

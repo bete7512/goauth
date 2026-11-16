@@ -47,6 +47,11 @@ var Covered = map[types.RouteName]types.RouteName{
 	types.RouteRBACOrgSetMemberRoles:  routeOrgMemberRoles,
 	types.RouteRBACOrgListAssignments: routeOrgRole,
 
+	types.RouteRBACTeamListRoles:       routeTeamMember,
+	types.RouteRBACTeamGetMemberRoles:  routeTeamMember,
+	types.RouteRBACTeamSetMemberRoles:  routeTeamMemberRoles,
+	types.RouteRBACTeamListAssignments: routeTeam,
+
 	types.RouteIDPAdminClientsList:   routeClients,
 	types.RouteIDPAdminClientsCreate: routeClientCreate,
 	types.RouteIDPAdminClientsGet:    routeClient,

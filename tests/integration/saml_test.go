@@ -132,6 +132,23 @@ func TestSAML_RedirectWithFragment(t *testing.T) {
 	rec = postACS(handler, idp.Respond(t, location), cookie)
 	assert.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
 	assert.Contains(t, rec.Body.String(), "invalid_redirect_url")
+
+	// A path on this server is a first-party page: cookies, and no tokens in
+	// the URL.
+	location, cookie = startLogin(t, handler, "?redirect_uri="+url.QueryEscape("/admin/login/done?next=%2Fadmin"))
+	rec = postACS(handler, idp.Respond(t, location), cookie)
+	require.Equal(t, http.StatusFound, rec.Code, rec.Body.String())
+	assert.Equal(t, "/admin/login/done?next=%2Fadmin", rec.Header().Get("Location"))
+	var names []string
+	for _, c := range rec.Result().Cookies() {
+		names = append(names, c.Name)
+	}
+	assert.Contains(t, strings.Join(names, " "), "goauth_access_")
+
+	// A path that could leave the site is not one.
+	location, cookie = startLogin(t, handler, "?redirect_uri="+url.QueryEscape("//evil.example.com/steal"))
+	rec = postACS(handler, idp.Respond(t, location), cookie)
+	assert.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
 }
 
 func TestSAML_ACSRejectsMissingCookieReplayAndTampering(t *testing.T) {

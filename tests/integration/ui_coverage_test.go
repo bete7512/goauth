@@ -21,6 +21,7 @@ import (
 	"github.com/bete7512/goauth/pkg/modules/invitation"
 	"github.com/bete7512/goauth/pkg/modules/organization"
 	"github.com/bete7512/goauth/pkg/modules/rbac"
+	"github.com/bete7512/goauth/pkg/modules/team"
 	"github.com/bete7512/goauth/pkg/modules/twofactor"
 	"github.com/bete7512/goauth/pkg/modules/ui"
 	"github.com/bete7512/goauth/pkg/types"
@@ -51,8 +52,8 @@ func TestUI_EveryAdministrativeRouteHasAPageOrAReason(t *testing.T) {
 	require.NoError(t, err)
 	for _, module := range []config.Component{
 		ui.New(&ui.Config{UserPages: true}),
-		admin.New(nil), audit.New(nil), invitation.New(nil), organization.New(nil), twofactor.New(nil),
-		rbac.New(&rbac.Config{Organizations: true}),
+		admin.New(nil), audit.New(nil), invitation.New(nil), organization.New(nil), team.New(nil), twofactor.New(nil),
+		rbac.New(&rbac.Config{Organizations: true, Teams: true}),
 		idp.New(&config.IDPModuleConfig{
 			SigningKey: config.IDPSigningKey{PrivateKeyPEM: pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)})},
 			ConsentURL: "http://localhost:3000/consent",
@@ -70,7 +71,7 @@ func TestUI_EveryAdministrativeRouteHasAPageOrAReason(t *testing.T) {
 	for _, route := range a.Routes() {
 		registered[types.RouteName(route.Name)] = true
 	}
-	for _, name := range []string{"core", "admin", "audit", "invitation", "organization", "twofactor", "rbac", "idp", "ui", "stateless"} {
+	for _, name := range []string{"core", "admin", "audit", "invitation", "organization", "team", "twofactor", "rbac", "idp", "ui", "stateless"} {
 		module, err := a.GetModule(name)
 		require.NoError(t, err, name)
 		routes = append(routes, module.Routes()...)

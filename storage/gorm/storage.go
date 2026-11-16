@@ -15,6 +15,7 @@ import (
 	"github.com/bete7512/goauth/storage/gorm/passkeys"
 	"github.com/bete7512/goauth/storage/gorm/rbac"
 	"github.com/bete7512/goauth/storage/gorm/session"
+	"github.com/bete7512/goauth/storage/gorm/team"
 	"github.com/bete7512/goauth/storage/gorm/twofactor"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
@@ -65,6 +66,7 @@ type GormStorage struct {
 	organizationStorage *organization.GormOrganizationStorage
 	idpStorage          *idp.GormIDPStorage
 	rbacStorage         *rbac.GormRBACStorage
+	teamStorage         *team.GormTeamStorage
 }
 
 // NewStorage creates a new GORM storage from configuration
@@ -143,6 +145,7 @@ func NewStorageFromDB(db *gorm.DB) *GormStorage {
 		organizationStorage: organization.NewOrganizationStorage(db),
 		idpStorage:          idp.NewIDPStorage(db),
 		rbacStorage:         rbac.NewRBACStorage(db),
+		teamStorage:         team.NewTeamStorage(db),
 	}
 }
 
@@ -209,6 +212,11 @@ func (s *GormStorage) IDP() types.IDPStorage {
 // RBAC returns storage for the role-based access control (rbac) module
 func (s *GormStorage) RBAC() types.RBACStorage {
 	return s.rbacStorage
+}
+
+// Team returns storage for the team module
+func (s *GormStorage) Team() types.TeamStorage {
+	return s.teamStorage
 }
 
 // Close closes the database connection

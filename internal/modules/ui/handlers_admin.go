@@ -25,6 +25,7 @@ type dashboardPage struct {
 	Orgs         int64
 	RecentUsers  []*models.User
 	RecentEvents []*models.AuditLog
+	Charts       []*chart
 }
 
 func (m *UIModule) dashboard(w http.ResponseWriter, r *http.Request) {
@@ -59,6 +60,7 @@ func (m *UIModule) dashboard(w http.ResponseWriter, r *http.Request) {
 			page.Orgs = count
 		}
 	}
+	page.Charts = m.overviewCharts(r)
 	m.render(w, r, http.StatusOK, "dashboard", m.newView(r, "Overview", "dashboard", page))
 }
 

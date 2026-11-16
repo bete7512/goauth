@@ -3,7 +3,9 @@
 package testhelpers
 
 import (
+	"bytes"
 	"context"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -20,11 +22,13 @@ import (
 	"github.com/bete7512/goauth/pkg/modules/csrf"
 	"github.com/bete7512/goauth/pkg/modules/idp"
 	"github.com/bete7512/goauth/pkg/modules/invitation"
+	"github.com/bete7512/goauth/pkg/modules/magiclink"
 	"github.com/bete7512/goauth/pkg/modules/oauth"
 	"github.com/bete7512/goauth/pkg/modules/organization"
 	"github.com/bete7512/goauth/pkg/modules/passkeys"
 	"github.com/bete7512/goauth/pkg/modules/rbac"
 	"github.com/bete7512/goauth/pkg/modules/session"
+	"github.com/bete7512/goauth/pkg/modules/team"
 	"github.com/bete7512/goauth/pkg/modules/twofactor"
 	"github.com/bete7512/goauth/pkg/modules/ui"
 	"github.com/bete7512/goauth/pkg/types"
@@ -42,9 +46,12 @@ type UIOptions struct {
 	RateLimit     *config.RateLimitModuleConfig
 	Session       bool
 	Organizations bool
+	Teams         bool // implies Organizations
 	Invitations   bool
 	IDP           bool
 	OAuth         bool
+	OAuthConfig   *config.OAuthModuleConfig // implies OAuth
+	MagicLink     *config.MagicLinkModuleConfig
 	Passkeys      bool
 	AuthMode      types.AuthMode
 	Mutate        func(*config.Config)
@@ -98,14 +105,20 @@ func SetupUI(t *testing.T, opts UIOptions) *UIEnv {
 	if opts.Session {
 		require.NoError(t, authInstance.Use(sessionModule()))
 	}
-	if opts.Organizations {
+	if opts.Organizations || opts.Teams {
 		require.NoError(t, authInstance.Use(organization.New(nil)))
+	}
+	if opts.Teams {
+		require.NoError(t, authInstance.Use(team.New(nil)))
 	}
 	if opts.Invitations {
 		require.NoError(t, authInstance.Use(invitation.New(nil)))
 	}
-	if opts.OAuth {
-		require.NoError(t, authInstance.Use(oauth.New(nil)))
+	if opts.OAuth || opts.OAuthConfig != nil {
+		require.NoError(t, authInstance.Use(oauth.New(opts.OAuthConfig)))
+	}
+	if opts.MagicLink != nil {
+		require.NoError(t, authInstance.Use(magiclink.New(opts.MagicLink)))
 	}
 	if opts.Passkeys {
 		require.NoError(t, authInstance.Use(passkeys.New(&config.PasskeysModuleConfig{RPID: "localhost", RPOrigins: []string{"http://localhost:3000"}})))
@@ -149,6 +162,34 @@ func (b *Browser) Post(path string, form url.Values, headers ...map[string]strin
 	return b.do(http.MethodPost, path, form, headers...)
 }
 
+// PostJSON sends a JSON body, as the console's scripts do.
+func (b *Browser) PostJSON(path, body string) *httptest.ResponseRecorder {
+	b.t.Helper()
+	req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	return b.send(req)
+}
+
+// Upload submits a multipart form with one file field.
+func (b *Browser) Upload(path string, form url.Values, field, filename string, content []byte) *httptest.ResponseRecorder {
+	b.t.Helper()
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	for key, values := range form {
+		for _, value := range values {
+			require.NoError(b.t, writer.WriteField(key, value))
+		}
+	}
+	part, err := writer.CreateFormFile(field, filename)
+	require.NoError(b.t, err)
+	_, err = part.Write(content)
+	require.NoError(b.t, err)
+	require.NoError(b.t, writer.Close())
+	req := httptest.NewRequest(http.MethodPost, path, &body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	return b.send(req)
+}
+
 func (b *Browser) do(method, path string, form url.Values, headers ...map[string]string) *httptest.ResponseRecorder {
 	b.t.Helper()
 	var req *http.Request
@@ -158,17 +199,24 @@ func (b *Browser) do(method, path string, form url.Values, headers ...map[string
 	} else {
 		req = httptest.NewRequest(method, path, nil)
 	}
+	for _, set := range headers {
+		for key, value := range set {
+			req.Header.Set(key, value)
+		}
+	}
+	return b.send(req)
+}
+
+// send adds the browser's headers and cookies, serves the request and keeps
+// the cookies it sets.
+func (b *Browser) send(req *http.Request) *httptest.ResponseRecorder {
+	b.t.Helper()
 	req.Header.Set("Accept", "text/html")
 	if b.Site != "" {
 		req.Header.Set("Sec-Fetch-Site", b.Site)
 	}
 	for _, cookie := range b.Cookies {
 		req.AddCookie(cookie)
-	}
-	for _, set := range headers {
-		for key, value := range set {
-			req.Header.Set(key, value)
-		}
 	}
 	rec := httptest.NewRecorder()
 	b.handler.ServeHTTP(rec, req)

@@ -81,6 +81,7 @@ try {
     saml: "pkg/modules/saml",
     idp: "pkg/modules/idp",
     rbac: "pkg/modules/rbac",
+    team: "pkg/modules/team",
     ui: "pkg/modules/ui",
   };
   const supplied = {

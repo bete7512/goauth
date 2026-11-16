@@ -103,7 +103,7 @@ func NewRoleService(deps config.ModuleDependencies, stores Stores, settings Sett
 }
 
 func (s *roleService) List(ctx context.Context, actor *Actor, scope access.Scope, opts models.RoleListOpts) ([]*RoleView, int64, *types.GoAuthError) {
-	if _, authErr := authorizeActor(ctx, s.access, s.settings, s.stores, actor, scope, access.PermRolesRead); authErr != nil {
+	if _, authErr := authorizeActor(ctx, s.access, s.settings, s.stores, actor, &scope, access.PermRolesRead); authErr != nil {
 		return nil, 0, authErr
 	}
 	views := systemRoleViews(s.settings, scope)
@@ -138,14 +138,17 @@ func (s *roleService) List(ctx context.Context, actor *Actor, scope access.Scope
 }
 
 func (s *roleService) Get(ctx context.Context, actor *Actor, scope access.Scope, key string) (*RoleView, *types.GoAuthError) {
-	if _, authErr := authorizeActor(ctx, s.access, s.settings, s.stores, actor, scope, access.PermRolesRead); authErr != nil {
+	if _, authErr := authorizeActor(ctx, s.access, s.settings, s.stores, actor, &scope, access.PermRolesRead); authErr != nil {
 		return nil, authErr
 	}
 	return findRoleView(ctx, s.stores, s.settings, scope, key)
 }
 
 func (s *roleService) Create(ctx context.Context, actor *Actor, scope access.Scope, input RoleInput) (*RoleView, *types.GoAuthError) {
-	holding, authErr := authorizeActor(ctx, s.access, s.settings, s.stores, actor, scope, access.PermRolesWrite)
+	if scope.IsTeam() {
+		return nil, types.NewRBACScopeUnavailableError("Roles are created per organization; assign the organization's roles in its teams")
+	}
+	holding, authErr := authorizeActor(ctx, s.access, s.settings, s.stores, actor, &scope, access.PermRolesWrite)
 	if authErr != nil {
 		return nil, authErr
 	}
@@ -200,7 +203,10 @@ func (s *roleService) Create(ctx context.Context, actor *Actor, scope access.Sco
 }
 
 func (s *roleService) Update(ctx context.Context, actor *Actor, scope access.Scope, key string, patch RolePatch) (*RoleView, *types.GoAuthError) {
-	holding, authErr := authorizeActor(ctx, s.access, s.settings, s.stores, actor, scope, access.PermRolesWrite)
+	if scope.IsTeam() {
+		return nil, types.NewRBACScopeUnavailableError("Roles are created per organization; assign the organization's roles in its teams")
+	}
+	holding, authErr := authorizeActor(ctx, s.access, s.settings, s.stores, actor, &scope, access.PermRolesWrite)
 	if authErr != nil {
 		return nil, authErr
 	}
@@ -250,7 +256,10 @@ func (s *roleService) Update(ctx context.Context, actor *Actor, scope access.Sco
 }
 
 func (s *roleService) Delete(ctx context.Context, actor *Actor, scope access.Scope, key string) *types.GoAuthError {
-	holding, authErr := authorizeActor(ctx, s.access, s.settings, s.stores, actor, scope, access.PermRolesWrite)
+	if scope.IsTeam() {
+		return types.NewRBACScopeUnavailableError("Roles are created per organization; assign the organization's roles in its teams")
+	}
+	holding, authErr := authorizeActor(ctx, s.access, s.settings, s.stores, actor, &scope, access.PermRolesWrite)
 	if authErr != nil {
 		return authErr
 	}
@@ -353,13 +362,26 @@ func mustCover(holding *Holding, grants access.Set) *types.GoAuthError {
 // authorizeActor checks that the scope can be managed and that the actor
 // holds permission in it. It returns the actor's holding, or nil for trusted
 // code.
-func authorizeActor(ctx context.Context, accessService AccessService, settings Settings, stores Stores, actor *Actor, scope access.Scope, permission string) (*Holding, *types.GoAuthError) {
-	if authErr := checkScope(settings, scope); authErr != nil {
+func authorizeActor(ctx context.Context, accessService AccessService, settings Settings, stores Stores, actor *Actor, scopeRef *access.Scope, permission string) (*Holding, *types.GoAuthError) {
+	if authErr := checkScope(settings, *scopeRef); authErr != nil {
 		return nil, authErr
 	}
-	if scope.IsOrg() {
-		org, err := stores.Orgs.FindByID(ctx, scope.ID)
-		if errors.Is(err, models.ErrNotFound) || (err == nil && (org == nil || org.ID != scope.ID)) {
+	if scopeRef.IsTeam() {
+		// The team's organization becomes part of the scope, for the roles
+		// and memberships read from here on.
+		team, err := stores.Teams.FindByID(ctx, scopeRef.ID)
+		if errors.Is(err, models.ErrNotFound) || (err == nil && (team == nil || team.ID != scopeRef.ID || (scopeRef.Org != "" && scopeRef.Org != team.OrgID))) {
+			return nil, types.NewTeamNotFoundError()
+		}
+		if err != nil {
+			return nil, types.NewInternalError("failed to load team").Wrap(err)
+		}
+		scopeRef.Org = team.OrgID
+	}
+	scope := *scopeRef
+	if orgID := scope.OrgID(); orgID != "" {
+		org, err := stores.Orgs.FindByID(ctx, orgID)
+		if errors.Is(err, models.ErrNotFound) || (err == nil && (org == nil || org.ID != orgID)) {
 			return nil, types.NewOrgNotFoundError()
 		}
 		if err != nil {

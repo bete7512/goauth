@@ -1,0 +1,11 @@
+{{define "content"}}
+{{$o := .Page.Org}}{{$t := .Page.Team}}{{$u := .Page.User}}
+{{template "org-head" .Page}}
+<div class="page-head">
+  <div><div class="crumbs"><a href="{{.Base}}/orgs/{{$o.ID}}/teams">Teams</a> / <a href="{{.Base}}/orgs/{{$o.ID}}/teams/{{$t.ID}}">{{$t.Name}}</a></div>
+    <h2>{{if $u.Name}}{{$u.Name}}{{else}}{{$u.Email}}{{end}}</h2>
+    <p class="muted">{{if .Page.Role}}{{.Page.Role}} of {{$t.Name}}{{else}}not in {{$t.Name}}{{end}} · roles held here apply to {{$t.Name}} and every team beneath it</p></div>
+  <a class="btn btn-sm" href="{{.Base}}/orgs/{{$o.ID}}/teams/{{$t.ID}}">Back to the team</a>
+</div>
+{{with .Page.Roles}}{{template "roles-form" .}}{{else}}<div class="card">{{template "module-off" "Register the rbac module with Organizations and Teams on to give roles inside teams."}}</div>{{end}}
+{{end}}

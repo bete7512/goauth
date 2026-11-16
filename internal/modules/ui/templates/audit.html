@@ -1,9 +1,12 @@
 {{define "content"}}
 <div class="page-head">
   <div><h1>Audit log</h1><p>Every security event GoAuth recorded, newest first.</p></div>
-  <form method="post" action="{{.Base}}/audit/cleanup" hx-confirm="Delete every event older than the audit module's retention periods?">
-    <button class="btn" type="submit">{{template "icon-trash"}}<span>Apply retention</span></button>
-  </form>
+  <div class="actions">
+    <a class="btn" href="{{.Base}}/audit/export.csv?action={{.Page.Action}}&user={{.Page.UserID}}" hx-boost="false" download>{{template "icon-download"}}<span>Export CSV</span></a>
+    <form class="inline" method="post" action="{{.Base}}/audit/cleanup" hx-confirm="Delete every event older than the audit module's retention periods?">
+      <button class="btn" type="submit">{{template "icon-trash"}}<span>Apply retention</span></button>
+    </form>
+  </div>
 </div>
 <section class="card">
   <div class="card-head">

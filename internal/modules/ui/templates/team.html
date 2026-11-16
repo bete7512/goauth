@@ -1,0 +1,83 @@
+{{define "content"}}
+{{$o := .Page.Org}}{{$t := .Page.Team}}
+{{template "org-head" .Page}}
+<div class="page-head">
+  <div>
+    <div class="crumbs"><a href="{{.Base}}/orgs/{{$o.ID}}/teams">Teams</a>{{range .Page.Ancestors}} / <a href="{{$.Base}}/orgs/{{$o.ID}}/teams/{{.ID}}">{{.Name}}</a>{{end}} / {{$t.Name}}</div>
+    <h2>{{$t.Name}}</h2>
+    <p class="muted"><span class="mono">{{$t.Slug}}</span> · level {{inc $t.Depth}} of 5{{if $t.Description}} · {{$t.Description}}{{end}}</p>
+  </div>
+</div>
+<div class="grid-2">
+  <div class="col">
+    <section class="card">
+      <div class="card-head"><div><h2>Members</h2><p>Members of {{$o.Name}} only. Leads manage this team and every team beneath it.</p></div></div>
+      {{if .Page.TeamMembers}}
+      <div class="table-wrap"><table>
+        <thead><tr><th>Member</th><th>Role</th><th></th></tr></thead>
+        <tbody>{{range .Page.TeamMembers}}
+          <tr>
+            <td>{{with .User}}<a class="identity" href="{{$.Base}}/users/{{.ID}}"><span class="avatar" aria-hidden="true">{{initials .Name .Email}}</span><span class="identity-text"><span class="identity-name">{{if .Name}}{{.Name}}{{else}}{{.Email}}{{end}}</span><br><span class="identity-sub">{{.Email}}</span></span></a>{{else}}<span class="mono muted">{{.Member.UserID}}</span>{{end}}</td>
+            <td><form class="inline" method="post" action="{{$.Base}}/orgs/{{$o.ID}}/teams/{{$t.ID}}/members/{{.Member.UserID}}/role">
+              <label class="sr-only" for="role-{{.Member.UserID}}">Role</label>
+              <select class="select" id="role-{{.Member.UserID}}" name="role" data-autosubmit>
+                <option value="member" {{if eq .Member.Role "member"}}selected{{end}}>Member</option>
+                <option value="lead" {{if eq .Member.Role "lead"}}selected{{end}}>Lead</option>
+              </select>
+              <noscript><button class="btn btn-sm" type="submit">Save</button></noscript></form></td>
+            <td><div class="row-actions">
+              {{if $.Page.TeamRoles}}<a class="btn btn-ghost btn-sm" href="{{$.Base}}/orgs/{{$o.ID}}/teams/{{$t.ID}}/members/{{.Member.UserID}}">Roles</a>{{end}}
+              <form class="inline" method="post" action="{{$.Base}}/orgs/{{$o.ID}}/teams/{{$t.ID}}/members/{{.Member.UserID}}/remove" hx-confirm="Remove this member from {{$t.Name}}?"><button class="btn btn-ghost btn-sm" type="submit">Remove</button></form>
+            </div></td>
+          </tr>
+        {{end}}</tbody>
+      </table></div>
+      {{else}}<div class="empty"><p>No members yet.</p></div>{{end}}
+      {{if .Page.OrgMembers}}
+      <form class="card-body inline-form" method="post" action="{{.Base}}/orgs/{{$o.ID}}/teams/{{$t.ID}}/members">
+        <div class="field"><label for="add-user">Add a member of {{$o.Name}}</label>
+          <select class="input" id="add-user" name="user_id" required>{{range .Page.OrgMembers}}<option value="{{.Member.UserID}}">{{with .User}}{{if .Name}}{{.Name}} · {{end}}{{.Email}}{{else}}{{.Member.UserID}}{{end}}</option>{{end}}</select></div>
+        <div class="field field-narrow"><label for="add-role">As</label><select class="input" id="add-role" name="role"><option value="member">Member</option><option value="lead">Lead</option></select></div>
+        <button class="btn" type="submit">{{template "icon-plus"}}<span>Add</span></button>
+      </form>
+      {{end}}
+    </section>
+
+    <section class="card">
+      <div class="card-head"><div><h2>Teams beneath</h2></div><a class="btn btn-sm" href="{{.Base}}/orgs/{{$o.ID}}/teams?parent={{$t.ID}}#new-team">{{template "icon-plus"}}<span>Add sub-team</span></a></div>
+      {{if .Page.Children}}<ul class="tree">{{range .Page.Children}}<li class="tree-row"><a href="{{$.Base}}/orgs/{{$o.ID}}/teams/{{.ID}}">{{template "icon-team"}}<span>{{.Name}}</span></a><span class="mono muted">{{.Slug}}</span></li>{{end}}</ul>
+      {{else}}<div class="empty"><p>No teams beneath this one.</p></div>{{end}}
+    </section>
+  </div>
+
+  <div class="col">
+    <form class="card" method="post" action="{{.Base}}/orgs/{{$o.ID}}/teams/{{$t.ID}}">
+      <div class="card-head"><h2>Details</h2></div>
+      <div class="card-body stack">
+        <div class="field"><label for="name">Name</label><input class="input" id="name" name="name" value="{{$t.Name}}" required maxlength="255"></div>
+        <div class="field"><label for="slug">Slug</label><input class="input mono" id="slug" name="slug" value="{{$t.Slug}}" required maxlength="100"></div>
+        <div class="field"><label for="description">Description</label><input class="input" id="description" name="description" value="{{$t.Description}}" maxlength="1000"></div>
+      </div>
+      <div class="card-foot"><button class="btn btn-primary" type="submit">Save</button></div>
+    </form>
+
+    <form class="card" method="post" action="{{.Base}}/orgs/{{$o.ID}}/teams/{{$t.ID}}/move">
+      <div class="card-head"><div><h2>Move</h2><p>Everything beneath moves with it.</p></div></div>
+      <div class="card-body"><div class="field"><label for="parent_id">Put beneath</label>
+        <select class="input" id="parent_id" name="parent_id">
+          <option value="" {{if not $t.ParentID}}selected{{end}}>Nothing: a top-level team</option>
+          {{range .Page.Parents}}<option value="{{.ID}}" {{if eq .ID $t.ParentID}}selected{{end}}>{{indent .Depth}}{{.Name}}</option>{{end}}
+        </select></div></div>
+      <div class="card-foot"><button class="btn" type="submit">Move team</button></div>
+    </form>
+
+    <section class="card danger-zone">
+      <div class="card-head"><div><h2>Delete team</h2><p>{{if .Page.Children}}Delete or move the teams beneath it first.{{else}}Removes the team and its memberships.{{end}}</p></div>
+        <form class="inline" method="post" action="{{.Base}}/orgs/{{$o.ID}}/teams/{{$t.ID}}/delete" hx-confirm="Delete {{$t.Name}}?">
+          <button class="btn btn-danger" type="submit" {{if .Page.Children}}disabled{{end}}>{{template "icon-trash"}}<span>Delete</span></button>
+        </form>
+      </div>
+    </section>
+  </div>
+</div>
+{{end}}

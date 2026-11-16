@@ -49,7 +49,7 @@ func TestUI_SidebarShowsEveryAreaAndExplainsMissingModules(t *testing.T) {
 	assert.Contains(t, page, `href="/auth/ui/settings"`, "settings is always available")
 	assert.NotContains(t, page, `href="/auth/ui/orgs"`, "a disabled area is not a link")
 
-	for path, module := range map[string]string{"/auth/ui/orgs": "organization", "/auth/ui/invitations": "invitation", "/auth/ui/clients": "idp", "/auth/ui/roles": "rbac", "/auth/ui/permissions": "rbac", "/auth/ui/audit": "audit"} {
+	for path, module := range map[string]string{"/auth/ui/orgs": "organization", "/auth/ui/teams": "team", "/auth/ui/invitations": "invitation", "/auth/ui/clients": "idp", "/auth/ui/roles": "rbac", "/auth/ui/permissions": "rbac", "/auth/ui/audit": "audit"} {
 		w := b.Get(path)
 		assert.Equal(t, http.StatusNotFound, w.Code, path)
 		assert.Contains(t, w.Body.String(), "Register the "+module, path)
@@ -380,4 +380,22 @@ func TestUI_AdministrationPagesNeedASuperAdmin(t *testing.T) {
 		assert.Equal(t, http.StatusForbidden, b.Post(path, url.Values{"email": {"x@example.com"}, "password": {"Whatever1"}, "name": {"x"}}).Code, path)
 	}
 	_ = types.RBACModule
+}
+
+func TestUI_OverviewCharts(t *testing.T) {
+	env := h.SetupUI(t, h.UIOptions{Audit: true})
+	b, _ := signedInAdmin(t, env)
+	h.SignupUser(t, env.Handler, "someone@example.com")
+	page := b.Get("/auth/ui").Body.String()
+	for _, title := range []string{"Sign-ups", "Sign-ins", "Failed sign-ins"} {
+		assert.Contains(t, page, ">"+title+"</h2>", title)
+	}
+	assert.Contains(t, page, `class="chart-mark"`, "today's sign-ups draw a bar")
+	assert.Contains(t, page, "Show as a table")
+
+	plain := h.SetupUI(t, h.UIOptions{})
+	b, _ = signedInAdmin(t, plain)
+	page = b.Get("/auth/ui").Body.String()
+	assert.Contains(t, page, ">Sign-ups</h2>")
+	assert.NotContains(t, page, ">Sign-ins</h2>", "activity charts need the audit module")
 }

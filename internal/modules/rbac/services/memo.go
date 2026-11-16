@@ -49,7 +49,7 @@ func memoGet(ctx context.Context, userID string, scope access.Scope) (*Holding, 
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	holding, found := m.holdings[memoKey{userID: userID, scope: scope}]
+	holding, found := m.holdings[keyFor(userID, scope)]
 	return holding, found
 }
 
@@ -59,6 +59,12 @@ func memoPut(ctx context.Context, holding *Holding) {
 		return
 	}
 	m.mu.Lock()
-	m.holdings[memoKey{userID: holding.UserID, scope: holding.Scope}] = holding
+	m.holdings[keyFor(holding.UserID, holding.Scope)] = holding
 	m.mu.Unlock()
+}
+
+// keyFor names a holding by user and scope. A team scope's organization is
+// filled in on the way, so it is not part of the key.
+func keyFor(userID string, scope access.Scope) memoKey {
+	return memoKey{userID: userID, scope: access.Scope{Type: scope.Type, ID: scope.ID}}
 }

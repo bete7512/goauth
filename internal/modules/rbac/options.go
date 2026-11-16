@@ -13,11 +13,13 @@ import (
 type Option func(*checkOptions)
 
 type checkOptions struct {
-	scope    *access.Scope
-	orgParam string
-	orgFrom  func(r *http.Request) (string, error)
-	allowIf  []access.Condition
-	onlyIf   []access.Condition
+	scope     *access.Scope
+	orgParam  string
+	orgFrom   func(r *http.Request) (string, error)
+	teamParam string
+	teamFrom  func(r *http.Request) (string, error)
+	allowIf   []access.Condition
+	onlyIf    []access.Condition
 }
 
 func collect(opts []Option) checkOptions {
@@ -66,6 +68,29 @@ func OrgFrom(fn func(r *http.Request) (string, error)) Option {
 	return func(o *checkOptions) { o.orgFrom = fn }
 }
 
+// InTeam runs the check in the given team (rbac Config.Teams). Roles held on
+// the team or on any team above it count, and so do the caller's roles in
+// the team's organization and application-wide.
+func InTeam(teamID string) Option {
+	return func(o *checkOptions) {
+		scope := access.TeamScope(teamID)
+		o.scope = &scope
+	}
+}
+
+// TeamParam runs the check in the team named by a path parameter, for
+// routes such as /teams/{teamId}/projects. It only works on a route.
+func TeamParam(name string) Option {
+	return func(o *checkOptions) { o.teamParam = name }
+}
+
+// TeamFrom runs the check in the team fn returns, usually the one that owns
+// the resource the request is about. Errors are handled as for OrgFrom. It
+// only works on a route; in code use InTeam.
+func TeamFrom(fn func(r *http.Request) (string, error)) Option {
+	return func(o *checkOptions) { o.teamFrom = fn }
+}
+
 // AllowIf lets a request through when fn returns true even if the caller
 // lacks the permission, for rules such as "authors may edit their own".
 func AllowIf(fn Condition) Option {
@@ -98,6 +123,24 @@ func (m *RBACModule) resolveScope(principal types.Principal, r *http.Request, ex
 			return access.Scope{}, types.NewRBACPermissionDeniedError("").Wrap(err)
 		}
 		return access.OrgScope(orgID), nil
+	case o.teamFrom != nil:
+		if r == nil {
+			return access.Scope{}, types.NewRBACScopeUnavailableError("TeamFrom needs a request; use InTeam when checking from code")
+		}
+		teamID, err := o.teamFrom(r)
+		if err != nil {
+			var authErr *types.GoAuthError
+			if errors.As(err, &authErr) && validStatus(authErr.StatusCode) {
+				return access.Scope{}, authErr
+			}
+			return access.Scope{}, types.NewRBACPermissionDeniedError("").Wrap(err)
+		}
+		return access.TeamScope(teamID), nil
+	case o.teamParam != "":
+		if r == nil {
+			return access.Scope{}, types.NewRBACScopeUnavailableError("TeamParam needs a request; use InTeam when checking from code")
+		}
+		return access.TeamScope(r.PathValue(o.teamParam)), nil
 	case o.orgParam != "":
 		if r == nil {
 			return access.Scope{}, types.NewRBACScopeUnavailableError("OrgParam needs a request; use InOrg when checking from code")

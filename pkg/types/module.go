@@ -25,6 +25,7 @@ const (
 	IDPModule          ModuleName = "idp"
 	RBACModule         ModuleName = "rbac"
 	UIModule           ModuleName = "ui"
+	TeamModule         ModuleName = "team"
 )
 
 // CaptchaProvider represents a supported captcha provider.

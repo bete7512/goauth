@@ -17,6 +17,7 @@ import (
 var openapiSpec []byte
 
 type MagicLinkModule struct {
+	service  services.MagicLinkService
 	deps     config.ModuleDependencies
 	handlers *handlers.MagicLinkHandler
 	config   *config.MagicLinkModuleConfig
@@ -74,6 +75,7 @@ func (m *MagicLinkModule) Init(ctx context.Context, deps config.ModuleDependenci
 	)
 
 	m.handlers = handlers.NewMagicLinkHandler(service, deps, m.config)
+	m.service = service
 
 	return nil
 }
@@ -103,4 +105,23 @@ func (m *MagicLinkModule) OpenAPISpecs() []byte {
 
 func (m *MagicLinkModule) Migrations() types.ModuleMigrations {
 	return types.ModuleMigrations{}
+}
+
+// ServiceOf returns the magiclink service, or nil before Init. It is a function
+// rather than a method so that it is reachable only from inside GoAuth, for
+// the ui module's sign-in page.
+func ServiceOf(m *MagicLinkModule) services.MagicLinkService {
+	if m == nil {
+		return nil
+	}
+	return m.service
+}
+
+// DeliversCodes reports whether the module sends a short code a person can
+// type, not only a link. The ui module's sign-in page offers codes only.
+func DeliversCodes(m *MagicLinkModule) bool {
+	if m == nil || m.config == nil {
+		return false
+	}
+	return m.config.DeliveryMode != types.MagicLinkDeliveryModeLink
 }

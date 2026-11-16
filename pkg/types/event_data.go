@@ -155,6 +155,18 @@ type OrgEventData struct {
 	Metadata     *RequestMetadata     `json:"metadata,omitempty"`
 }
 
+// TeamEventData is used for team events. UserID and Role are set for
+// membership events; ParentID is the new parent for team.moved.
+type TeamEventData struct {
+	OrgID    string `json:"org_id"`
+	TeamID   string `json:"team_id"`
+	TeamName string `json:"team_name"`
+	ParentID string `json:"parent_id,omitempty"`
+	UserID   string `json:"user_id,omitempty"`
+	Role     string `json:"role,omitempty"`
+	ActorID  string `json:"actor_id"`
+}
+
 // OrgMemberEventData is used for organization membership events.
 type OrgMemberEventData struct {
 	OrgID   string `json:"org_id"`

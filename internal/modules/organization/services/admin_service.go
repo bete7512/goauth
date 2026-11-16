@@ -50,6 +50,8 @@ type AdminService interface {
 	TransferOwnership(ctx context.Context, orgID, newOwnerID string) *types.GoAuthError
 	ListInvitations(ctx context.Context, orgID string, opts models.OrgInvitationListOpts) ([]*models.OrgInvitation, int64, *types.GoAuthError)
 	CancelInvitation(ctx context.Context, orgID, invitationID string) *types.GoAuthError
+	// InviteMember sends an invitation as the acting super admin.
+	InviteMember(ctx context.Context, orgID, email, role string) (*models.OrgInvitation, *types.GoAuthError)
 	// ListUserMemberships returns every organization a user belongs to.
 	ListUserMemberships(ctx context.Context, userID string) ([]AdminMembership, *types.GoAuthError)
 	// CreateOrganization creates an organization owned by an existing user,
@@ -63,14 +65,36 @@ type AdminService interface {
 }
 
 type adminService struct {
-	deps  config.ModuleDependencies
-	store types.OrganizationStorage
-	users models.UserRepository
+	deps        config.ModuleDependencies
+	store       types.OrganizationStorage
+	users       models.UserRepository
+	invitations *invitationService
 }
 
 // NewAdminService creates the administrators' organization service.
-func NewAdminService(deps config.ModuleDependencies, store types.OrganizationStorage, users models.UserRepository) *adminService {
-	return &adminService{deps: deps, store: store, users: users}
+// invitations sends the invitations administrators make; it may be nil,
+// and inviting is then unavailable.
+func NewAdminService(deps config.ModuleDependencies, store types.OrganizationStorage, users models.UserRepository, invitations *invitationService) *adminService {
+	return &adminService{deps: deps, store: store, users: users, invitations: invitations}
+}
+
+// InviteMember sends an invitation to join an organization, as the acting
+// super admin, with the same rules as the organization's own invitations
+// (no duplicates, no existing members, the member limit) except the rank of
+// the inviter.
+func (s *adminService) InviteMember(ctx context.Context, orgID, email, role string) (*models.OrgInvitation, *types.GoAuthError) {
+	actor, authErr := s.authorize(ctx)
+	if authErr != nil {
+		return nil, authErr
+	}
+	if s.invitations == nil {
+		return nil, types.NewInternalError("organization invitations are unavailable")
+	}
+	req := &dto.InviteRequest{Email: strings.TrimSpace(email), Role: role}
+	if err := req.Validate(); err != nil {
+		return nil, types.NewValidationError(err.Error())
+	}
+	return s.invitations.invite(ctx, orgID, req, actor.ID, false)
 }
 
 // authorize returns the acting super admin.

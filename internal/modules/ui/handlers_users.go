@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	adminservices "github.com/bete7512/goauth/internal/modules/admin/services"
 	coredto "github.com/bete7512/goauth/internal/modules/core/handlers/dto"
@@ -197,6 +198,29 @@ func (m *UIModule) unlockUser(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// banDurations are the lengths the ban form offers; "" bans until lifted.
+var banDurations = map[string]time.Duration{"": 0, "1h": time.Hour, "24h": 24 * time.Hour, "168h": 7 * 24 * time.Hour, "720h": 30 * 24 * time.Hour}
+
+func (m *UIModule) banUser(w http.ResponseWriter, r *http.Request) {
+	m.userAction(w, r, "", "banned", func(ctx context.Context, user *models.User) *types.GoAuthError {
+		duration, ok := banDurations[r.PostForm.Get("duration")]
+		if !ok {
+			return types.NewValidationError("Choose how long the ban lasts.")
+		}
+		input := adminservices.BanInput{Reason: r.PostForm.Get("reason")}
+		if duration > 0 {
+			input.Until = timeNow().Add(duration)
+		}
+		return m.admin.Ban(ctx, user.ID, input)
+	})
+}
+
+func (m *UIModule) unbanUser(w http.ResponseWriter, r *http.Request) {
+	m.userAction(w, r, "", "unbanned", func(ctx context.Context, user *models.User) *types.GoAuthError {
+		return m.admin.Unban(ctx, user.ID)
+	})
+}
+
 func (m *UIModule) signOutUser(w http.ResponseWriter, r *http.Request) {
 	m.userAction(w, r, "security", "signed-out-user", func(ctx context.Context, user *models.User) *types.GoAuthError {
 		if user.ID == visitorFrom(ctx).User.ID {
@@ -209,7 +233,7 @@ func (m *UIModule) signOutUser(w http.ResponseWriter, r *http.Request) {
 func (m *UIModule) setUserPassword(w http.ResponseWriter, r *http.Request) {
 	m.userAction(w, r, "", "password-set", func(ctx context.Context, user *models.User) *types.GoAuthError {
 		if user.ID == visitorFrom(ctx).User.ID {
-			return types.NewValidationError("Change your own password from your application's account settings.")
+			return types.NewValidationError("Change your own password on your account page.")
 		}
 		return m.admin.SetPassword(ctx, user.ID, r.PostForm.Get("password"))
 	})

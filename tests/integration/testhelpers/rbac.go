@@ -14,6 +14,7 @@ import (
 	"github.com/bete7512/goauth/pkg/modules/admin"
 	"github.com/bete7512/goauth/pkg/modules/organization"
 	"github.com/bete7512/goauth/pkg/modules/rbac"
+	"github.com/bete7512/goauth/pkg/modules/team"
 	"github.com/bete7512/goauth/pkg/types"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -48,6 +49,9 @@ func SetupRBAC(t *testing.T, cfg *rbac.Config) *RBACEnv {
 	require.NoError(t, authInstance.Use(admin.New(nil)))
 	if cfg != nil && cfg.Organizations {
 		require.NoError(t, authInstance.Use(organization.New(nil)))
+	}
+	if cfg != nil && cfg.Teams {
+		require.NoError(t, authInstance.Use(team.New(nil)))
 	}
 
 	require.NoError(t, authInstance.Initialize(context.Background()))

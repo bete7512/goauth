@@ -20,3 +20,4 @@ node_modules
 SCRATCHPAD.md
 .claude
 coverage.out
+*.pem

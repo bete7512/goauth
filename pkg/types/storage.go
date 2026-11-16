@@ -1,6 +1,6 @@
 package types
 
-//go:generate mockgen -destination=../../internal/mocks/mock_storage.go -package=mocks github.com/bete7512/goauth/pkg/types Storage,CoreStorage,SessionStorage,StatelessStorage,AdminStorage,OAuthStorage,TwoFactorStorage,PasskeyStorage,InvitationStorage,OrganizationStorage,IDPStorage,RBACStorage
+//go:generate mockgen -destination=../../internal/mocks/mock_storage.go -package=mocks github.com/bete7512/goauth/pkg/types Storage,CoreStorage,SessionStorage,StatelessStorage,AdminStorage,OAuthStorage,TwoFactorStorage,PasskeyStorage,InvitationStorage,OrganizationStorage,IDPStorage,RBACStorage,TeamStorage
 
 import (
 	"context"
@@ -76,6 +76,10 @@ type Storage interface {
 	// RBAC returns storage for the role-based access control (rbac) module
 	// Returns nil if rbac storage is not needed/available
 	RBAC() RBACStorage
+
+	// Team returns storage for the team module
+	// Returns nil if team storage is not needed/available
+	Team() TeamStorage
 
 	// Close closes all storage connections
 	Close() error
@@ -153,6 +157,14 @@ type IDPStorage interface {
 	Clients() models.IDPClientRepository
 	Grants() models.IDPGrantRepository
 	WithTransaction(ctx context.Context, fn func(tx IDPStorage) error) error
+}
+
+// TeamStorage defines storage interface for the team module: nested teams
+// inside organizations and their members.
+type TeamStorage interface {
+	Teams() models.TeamRepository
+	Members() models.TeamMemberRepository
+	WithTransaction(ctx context.Context, fn func(tx TeamStorage) error) error
 }
 
 // RBACStorage defines storage interface for the role-based access control

@@ -1,0 +1,29 @@
+{{define "content"}}
+{{$o := .Page.Org}}
+{{template "org-head" .Page}}
+<div class="grid-2">
+  <section class="card">
+    <div class="card-head"><div><h2>Teams</h2><p>Each team sits beneath its parent. Leads manage their team and everything beneath it.</p></div></div>
+    {{if .Page.Teams}}
+    <ul class="tree">{{range .Page.Teams}}
+      <li class="tree-row depth-{{.Depth}}"><a href="{{$.Base}}/orgs/{{$o.ID}}/teams/{{.ID}}">{{template "icon-team"}}<span>{{.Name}}</span></a><span class="mono muted">{{.Slug}}</span>
+        <a class="btn btn-ghost btn-sm" href="{{$.Base}}/orgs/{{$o.ID}}/teams?parent={{.ID}}#new-team">Add sub-team</a></li>
+    {{end}}</ul>
+    {{else}}<div class="empty">{{template "icon-team"}}<p>No teams yet.</p></div>{{end}}
+  </section>
+  <form class="card" id="new-team" method="post" action="{{.Base}}/orgs/{{$o.ID}}/teams">
+    <div class="card-head"><div><h2>New team</h2><p>Teams nest up to five levels deep.</p></div></div>
+    <div class="card-body stack">
+      <div class="field"><label for="team-name">Name</label><input class="input" id="team-name" name="name" value="{{.Page.Form.Name}}" required maxlength="255"></div>
+      <div class="field"><label for="team-slug">Slug <span class="muted">(optional)</span></label><input class="input mono" id="team-slug" name="slug" value="{{.Page.Form.Slug}}" maxlength="100" placeholder="made from the name"></div>
+      <div class="field"><label for="team-parent">Beneath</label>
+        <select class="input" id="team-parent" name="parent_id">
+          <option value="">Nothing: a top-level team</option>
+          {{$parent := .Page.Form.ParentID}}{{range .Page.Teams}}{{if lt .Depth 4}}<option value="{{.ID}}" {{if eq .ID $parent}}selected{{end}}>{{indent .Depth}}{{.Name}}</option>{{end}}{{end}}
+        </select></div>
+      <div class="field"><label for="team-description">Description <span class="muted">(optional)</span></label><input class="input" id="team-description" name="description" value="{{.Page.Form.Description}}" maxlength="1000"></div>
+    </div>
+    <div class="card-foot"><button class="btn btn-primary" type="submit">{{template "icon-plus"}}<span>Create team</span></button></div>
+  </form>
+</div>
+{{end}}

@@ -65,6 +65,13 @@ func NewInvitationService(
 }
 
 func (s *invitationService) Invite(ctx context.Context, orgID string, req *dto.InviteRequest, inviterID string) (*models.OrgInvitation, *types.GoAuthError) {
+	return s.invite(ctx, orgID, req, inviterID, true)
+}
+
+// invite sends an invitation. checkRank requires the inviter to be the
+// owner, or an admin inviting a member; the administrators' service skips it
+// because a super admin may invite anyone to any organization.
+func (s *invitationService) invite(ctx context.Context, orgID string, req *dto.InviteRequest, inviterID string, checkRank bool) (*models.OrgInvitation, *types.GoAuthError) {
 	role := req.Role
 	if role == "" {
 		role = string(types.OrgRoleMember)
@@ -119,7 +126,7 @@ func (s *invitationService) Invite(ctx context.Context, orgID string, req *dto.I
 	if !authenticated || principal.UserID != inviterID {
 		return nil, types.NewOrgInsufficientRoleError()
 	}
-	if inviterID != org.OwnerID {
+	if checkRank && inviterID != org.OwnerID {
 		actor, err := s.memberRepo.FindByOrgAndUser(ctx, orgID, inviterID)
 		if err != nil || actor.Role != string(types.OrgRoleAdmin) || role != string(types.OrgRoleMember) {
 			return nil, types.NewOrgInsufficientRoleError()

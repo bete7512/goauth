@@ -3,6 +3,16 @@ vendored unmodified so the console loads nothing from another origin.
 
 SHA-256: 60231ae6ba9db3825eb15a261122d5f55921c4d53b66bf637dc18b4ee27c79f9
 
+Verified on 2026-11-16: byte-identical to package/dist/htmx.min.js in the
+npm tarball https://registry.npmjs.org/htmx.org/-/htmx.org-2.0.7.tgz, whose
+sha512 matches the registry's published integrity
+(sha512-YiJqF3U5KyO28VC5mPfehKJPF+n1Gni+cupK+D69TF0nm7wY6AXn3a4mPWIikfAXtl1u1F1+ZhSCS7KT8pVmqA==).
+
 htmx is published by Big Sky Software under the Zero-Clause BSD license
-(0BSD). Before a release, compare this file with the htmx.min.js of the
-htmx.org@2.0.7 npm package and confirm the license in its LICENSE file.
+(0BSD), as stated in the package's package.json and LICENSE:
+
+  Permission to use, copy, modify, and/or distribute this software for any
+  purpose with or without fee is hereby granted.
+
+When upgrading htmx, repeat the comparison against the new npm package and
+update the version and checksums here.

@@ -245,3 +245,14 @@ func (r *UserRepository) UpdateProfile(ctx context.Context, id, name, phone, ava
 		return nil
 	})
 }
+
+var _ models.UserSignupCounter = (*UserRepository)(nil)
+
+// CountCreatedPerDay counts new users per UTC day since the given time.
+func (r *UserRepository) CountCreatedPerDay(ctx context.Context, since time.Time) ([]models.DailyCount, error) {
+	rows, err := helpers.CountPerDay(r.db.WithContext(ctx).Model(&models.User{}), since)
+	if err != nil {
+		return nil, fmt.Errorf("user_repository.CountCreatedPerDay: %w", err)
+	}
+	return rows, nil
+}

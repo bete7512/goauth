@@ -57,7 +57,7 @@ func (s *assignmentService) Get(ctx context.Context, actor *Actor, userID string
 		if authErr := checkScope(s.settings, scope); authErr != nil {
 			return nil, authErr
 		}
-	} else if _, authErr := authorizeActor(ctx, s.access, s.settings, s.stores, actor, scope, access.PermAssignmentsRead); authErr != nil {
+	} else if _, authErr := authorizeActor(ctx, s.access, s.settings, s.stores, actor, &scope, access.PermAssignmentsRead); authErr != nil {
 		return nil, authErr
 	}
 	if _, authErr := s.target(ctx, userID, scope); authErr != nil {
@@ -67,7 +67,7 @@ func (s *assignmentService) Get(ctx context.Context, actor *Actor, userID string
 }
 
 func (s *assignmentService) Set(ctx context.Context, actor *Actor, userID string, scope access.Scope, keys []string) (*UserRoles, *types.GoAuthError) {
-	holding, authErr := authorizeActor(ctx, s.access, s.settings, s.stores, actor, scope, access.PermAssignmentsWrite)
+	holding, authErr := authorizeActor(ctx, s.access, s.settings, s.stores, actor, &scope, access.PermAssignmentsWrite)
 	if authErr != nil {
 		return nil, authErr
 	}
@@ -155,7 +155,7 @@ func (s *assignmentService) Set(ctx context.Context, actor *Actor, userID string
 }
 
 func (s *assignmentService) Assign(ctx context.Context, actor *Actor, userID string, scope access.Scope, key string) *types.GoAuthError {
-	holding, authErr := authorizeActor(ctx, s.access, s.settings, s.stores, actor, scope, access.PermAssignmentsWrite)
+	holding, authErr := authorizeActor(ctx, s.access, s.settings, s.stores, actor, &scope, access.PermAssignmentsWrite)
 	if authErr != nil {
 		return authErr
 	}
@@ -192,7 +192,7 @@ func (s *assignmentService) Assign(ctx context.Context, actor *Actor, userID str
 }
 
 func (s *assignmentService) Revoke(ctx context.Context, actor *Actor, userID string, scope access.Scope, key string) *types.GoAuthError {
-	holding, authErr := authorizeActor(ctx, s.access, s.settings, s.stores, actor, scope, access.PermAssignmentsWrite)
+	holding, authErr := authorizeActor(ctx, s.access, s.settings, s.stores, actor, &scope, access.PermAssignmentsWrite)
 	if authErr != nil {
 		return authErr
 	}
@@ -226,7 +226,7 @@ func (s *assignmentService) Revoke(ctx context.Context, actor *Actor, userID str
 }
 
 func (s *assignmentService) List(ctx context.Context, actor *Actor, scope access.Scope, opts models.RoleAssignmentListOpts) ([]*models.RoleAssignment, int64, *types.GoAuthError) {
-	if _, authErr := authorizeActor(ctx, s.access, s.settings, s.stores, actor, scope, access.PermAssignmentsRead); authErr != nil {
+	if _, authErr := authorizeActor(ctx, s.access, s.settings, s.stores, actor, &scope, access.PermAssignmentsRead); authErr != nil {
 		return nil, 0, authErr
 	}
 	scopeType, scopeID := storageScope(scope)
@@ -253,12 +253,23 @@ func (s *assignmentService) RemoveMember(ctx context.Context, orgID, userID stri
 
 // target checks that userID can hold roles in scope and returns the
 // membership the assignment is tied to: empty for the global scope, the
-// organization membership row otherwise.
+// organization membership row for an organization or one of its teams.
 func (s *assignmentService) target(ctx context.Context, userID string, scope access.Scope) (string, *types.GoAuthError) {
 	if userID == "" {
 		return "", types.NewUserNotFoundError()
 	}
-	if !scope.IsOrg() {
+	if scope.IsTeam() {
+		team, err := s.stores.Teams.FindByID(ctx, scope.ID)
+		if errors.Is(err, models.ErrNotFound) || (err == nil && (team == nil || team.ID != scope.ID || (scope.Org != "" && scope.Org != team.OrgID))) {
+			return "", types.NewTeamNotFoundError()
+		}
+		if err != nil {
+			return "", types.NewInternalError("failed to load team").Wrap(err)
+		}
+		scope.Org = team.OrgID
+	}
+	orgID := scope.OrgID()
+	if orgID == "" {
 		user, err := s.stores.Users.FindByID(ctx, userID)
 		if errors.Is(err, models.ErrNotFound) || (err == nil && (user == nil || user.ID != userID)) {
 			return "", types.NewUserNotFoundError()
@@ -268,8 +279,10 @@ func (s *assignmentService) target(ctx context.Context, userID string, scope acc
 		}
 		return "", nil
 	}
-	member, err := s.stores.Members.FindByOrgAndUser(ctx, scope.ID, userID)
-	if errors.Is(err, models.ErrNotFound) || (err == nil && (member == nil || member.OrgID != scope.ID || member.UserID != userID)) {
+	// Team roles, like organization roles, are tied to the organization
+	// membership: they stop counting when the user leaves.
+	member, err := s.stores.Members.FindByOrgAndUser(ctx, orgID, userID)
+	if errors.Is(err, models.ErrNotFound) || (err == nil && (member == nil || member.OrgID != orgID || member.UserID != userID)) {
 		return "", types.NewOrgMemberNotFoundError()
 	}
 	if err != nil {
@@ -389,6 +402,9 @@ func (s *assignmentService) userRoles(ctx context.Context, userID string, scope 
 func impliedRoleError(key string) *types.GoAuthError {
 	if key == access.RoleSuperAdmin {
 		return types.NewRBACRoleSystemError("The super admin role comes from the user's super admin flag and cannot be assigned")
+	}
+	if key == access.RoleTeamLead || key == access.RoleTeamMember {
+		return types.NewRBACRoleSystemError("This role comes from team membership or organization membership and cannot be assigned; change the member's role instead")
 	}
 	return types.NewRBACRoleSystemError("This role comes from organization membership and cannot be assigned; change the member's role instead")
 }

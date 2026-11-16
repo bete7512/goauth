@@ -14,6 +14,9 @@ const (
 	RoleScopeGlobal = "global"
 	// RoleScopeOrg covers one organization; ScopeID is the organization ID.
 	RoleScopeOrg = "org"
+	// RoleScopeTeam is a team: the scope ID is the team ID, and the role
+	// applies to the team and every team beneath it.
+	RoleScopeTeam = "team"
 )
 
 // Role is a role created at runtime. Roles defined in code are not stored.

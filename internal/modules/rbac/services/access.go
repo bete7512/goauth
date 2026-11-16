@@ -19,6 +19,9 @@ type Settings struct {
 	// Organizations turns the organization scope on. Orgs and Members in
 	// Stores must then be set.
 	Organizations bool
+	// Teams turns the team scope on; it needs Organizations. Teams and
+	// TeamMembers in Stores must then be set.
+	Teams bool
 	// Roles holds the roles defined in code, by scope and key. Membership
 	// roles (owner, admin, member) live under the org scope.
 	Roles map[access.ScopeType]map[string]access.Role
@@ -42,10 +45,13 @@ func (s Settings) IsImplied(scope access.ScopeType, key string) bool {
 	if key == access.RoleSuperAdmin {
 		return true
 	}
-	if scope != access.ScopeOrg {
-		return false
+	switch scope {
+	case access.ScopeOrg:
+		return key == access.RoleOwner || key == access.RoleAdmin || key == access.RoleMember
+	case access.ScopeTeam:
+		return key == access.RoleTeamLead || key == access.RoleTeamMember
 	}
-	return key == access.RoleOwner || key == access.RoleAdmin || key == access.RoleMember
+	return false
 }
 
 // Stores are the repositories the services read and write.
@@ -54,6 +60,9 @@ type Stores struct {
 	Users   models.UserRepository
 	Orgs    models.OrganizationRepository
 	Members models.OrganizationMemberRepository
+	// Teams and TeamMembers are read for the team scope.
+	Teams       models.TeamRepository
+	TeamMembers models.TeamMemberRepository
 }
 
 // HeldRole is one role a user holds in a scope.
@@ -62,7 +71,7 @@ type HeldRole struct {
 	Name        string
 	Description string
 	// Scope is where the role is held. A global role also applies inside
-	// every organization.
+	// every organization, and an organization role inside its teams.
 	Scope access.ScopeType
 	// System is true for roles defined in code.
 	System bool
@@ -81,6 +90,9 @@ type Holding struct {
 	// MembershipID is the user's current membership row in the organization
 	// of the scope, or "" when there is none.
 	MembershipID string
+	// teams are the IDs on a team scope's path: the team and every team
+	// above it. A role held on any of them applies.
+	teams map[string]bool
 }
 
 // RoleKeys returns the keys of the held roles, in the order they were found.
@@ -163,8 +175,25 @@ func (s *accessService) Holding(ctx context.Context, userID string, scope access
 	}
 
 	refs := []models.RoleScopeRef{{Type: models.RoleScopeGlobal}}
-	if scope.IsOrg() {
-		membership, authErr := s.membership(ctx, userID, scope.ID)
+	var team *models.Team
+	if scope.IsTeam() {
+		var authErr *types.GoAuthError
+		team, authErr = s.team(ctx, scope.ID)
+		if authErr != nil {
+			return nil, authErr
+		}
+		if team == nil || (scope.Org != "" && scope.Org != team.OrgID) {
+			// A team that does not exist, or is not in the organization the
+			// caller named, grants nothing beyond global roles.
+			team = nil
+			scope.Org = ""
+		} else {
+			scope.Org = team.OrgID
+		}
+		holding.Scope = scope
+	}
+	if orgID := scope.OrgID(); orgID != "" {
+		membership, authErr := s.membership(ctx, userID, orgID)
 		if authErr != nil {
 			return nil, authErr
 		}
@@ -173,7 +202,14 @@ func (s *accessService) Holding(ctx context.Context, userID string, scope access
 			if _, ok := s.settings.Role(access.ScopeOrg, membership.Role); ok {
 				holding.add(s.heldSystemRole(access.ScopeOrg, membership.Role, true))
 			}
-			refs = append(refs, models.RoleScopeRef{Type: models.RoleScopeOrg, ID: scope.ID})
+			refs = append(refs, models.RoleScopeRef{Type: models.RoleScopeOrg, ID: orgID})
+			if team != nil {
+				teamRefs, authErr := s.addTeamRoles(ctx, holding, team, membership)
+				if authErr != nil {
+					return nil, authErr
+				}
+				refs = append(refs, teamRefs...)
+			}
 		}
 	}
 
@@ -186,6 +222,55 @@ func (s *accessService) Holding(ctx context.Context, userID string, scope access
 	}
 	memoPut(ctx, holding)
 	return holding, nil
+}
+
+// team loads the team of a team scope, or nil when it does not exist.
+func (s *accessService) team(ctx context.Context, teamID string) (*models.Team, *types.GoAuthError) {
+	team, err := s.stores.Teams.FindByID(ctx, teamID)
+	if errors.Is(err, models.ErrNotFound) || (err == nil && (team == nil || team.ID != teamID)) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, types.NewInternalError("failed to load team").Wrap(err)
+	}
+	return team, nil
+}
+
+// addTeamRoles adds the roles a team membership implies, on the team or any
+// team above it, and returns the scopes whose assignments count: the team
+// and its ancestors. A team membership counts only for the organization
+// membership it was made for.
+func (s *accessService) addTeamRoles(ctx context.Context, holding *Holding, team *models.Team, membership *models.OrganizationMember) ([]models.RoleScopeRef, *types.GoAuthError) {
+	path := team.AncestorIDs()
+	holding.teams = make(map[string]bool, len(path))
+	refs := make([]models.RoleScopeRef, 0, len(path))
+	for _, id := range path {
+		holding.teams[id] = true
+		refs = append(refs, models.RoleScopeRef{Type: models.RoleScopeTeam, ID: id})
+	}
+	rows, err := s.stores.TeamMembers.ListByTeams(ctx, holding.UserID, path)
+	if err != nil {
+		return nil, types.NewInternalError("failed to load team memberships").Wrap(err)
+	}
+	lead, member := false, false
+	for _, row := range rows {
+		if row.UserID != holding.UserID || row.OrgID != team.OrgID || row.MembershipID != membership.ID || !holding.teams[row.TeamID] {
+			continue
+		}
+		switch {
+		case row.Role == models.TeamRoleLead:
+			lead = true
+		case row.TeamID == team.ID:
+			// Plain membership is of this team only; a lead's reach goes down.
+			member = true
+		}
+	}
+	if lead {
+		holding.add(s.heldSystemRole(access.ScopeTeam, access.RoleTeamLead, true))
+	} else if member {
+		holding.add(s.heldSystemRole(access.ScopeTeam, access.RoleTeamMember, true))
+	}
+	return refs, nil
 }
 
 // membership returns the user's current membership in an active
@@ -235,14 +320,15 @@ func (s *accessService) addAssigned(ctx context.Context, holding *Holding, assig
 		}
 		custom[scope] = append(custom[scope], assignment.RoleKey)
 	}
-	for _, scope := range []access.ScopeType{access.ScopeGlobal, access.ScopeOrg} {
+	for _, scope := range []access.ScopeType{access.ScopeGlobal, access.ScopeOrg, access.ScopeTeam} {
 		keys := custom[scope]
 		if len(keys) == 0 {
 			continue
 		}
+		// Organization and team roles are both the organization's own.
 		orgID := ""
-		if scope == access.ScopeOrg {
-			orgID = holding.Scope.ID
+		if scope != access.ScopeGlobal {
+			orgID = holding.Scope.OrgID()
 		}
 		roles, err := s.stores.RBAC.Roles().FindByKeys(ctx, orgID, keys)
 		if err != nil {
@@ -272,9 +358,13 @@ func (s *accessService) assignmentScope(holding *Holding, assignment *models.Rol
 	case models.RoleScopeGlobal:
 		return access.ScopeGlobal, assignment.ScopeID == ""
 	case models.RoleScopeOrg:
-		current := holding.Scope.IsOrg() && assignment.ScopeID == holding.Scope.ID &&
+		current := holding.Scope.OrgID() != "" && assignment.ScopeID == holding.Scope.OrgID() &&
 			holding.MembershipID != "" && assignment.MembershipID == holding.MembershipID
 		return access.ScopeOrg, current
+	case models.RoleScopeTeam:
+		current := holding.Scope.IsTeam() && holding.teams[assignment.ScopeID] &&
+			holding.MembershipID != "" && assignment.MembershipID == holding.MembershipID
+		return access.ScopeTeam, current
 	default:
 		return "", false
 	}
@@ -298,7 +388,8 @@ func (s *accessService) Authorize(ctx context.Context, req AuthorizeRequest) (*V
 		UserID:     req.UserID,
 		Permission: req.Permission,
 		Scope:      req.Scope.Type,
-		OrgID:      req.Scope.OrgID(),
+		OrgID:      holding.Scope.OrgID(),
+		TeamID:     req.Scope.TeamID(),
 		Roles:      holding.RoleKeys(),
 		Request:    req.Request,
 	}
@@ -369,6 +460,14 @@ func checkScope(settings Settings, scope access.Scope) *types.GoAuthError {
 			return types.NewRBACScopeUnavailableError("An organization is required")
 		}
 		return nil
+	case access.ScopeTeam:
+		if !settings.Teams {
+			return types.NewRBACScopeUnavailableError("Team roles are not enabled")
+		}
+		if scope.ID == "" {
+			return types.NewRBACScopeUnavailableError("A team is required")
+		}
+		return nil
 	default:
 		return types.NewRBACScopeUnavailableError("Unknown scope")
 	}
@@ -376,8 +475,11 @@ func checkScope(settings Settings, scope access.Scope) *types.GoAuthError {
 
 // storageScope maps a scope to the values stored on assignments and roles.
 func storageScope(scope access.Scope) (scopeType, scopeID string) {
-	if scope.IsOrg() {
+	switch scope.Type {
+	case access.ScopeOrg:
 		return models.RoleScopeOrg, scope.ID
+	case access.ScopeTeam:
+		return models.RoleScopeTeam, scope.ID
 	}
 	return models.RoleScopeGlobal, ""
 }

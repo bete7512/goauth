@@ -2,11 +2,13 @@ package ui
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"net/http"
 	"net/url"
 	"path"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bete7512/goauth/internal/security"
@@ -80,7 +82,12 @@ func (m *UIModule) refresh(w http.ResponseWriter, r *http.Request) (types.Princi
 	if !ok {
 		return types.Principal{}, errors.New("refresh unavailable")
 	}
-	result, err := refresher.RefreshCredentials(r.Context(), cookie.Value, metadata(r))
+	// Requests that arrive together with the same expired access token share
+	// one refresh: rotation accepts a refresh token once, so separate
+	// refreshes would fail every request but the first.
+	result, err := m.refreshes.do(cookie.Value, func() (types.AuthenticationResult, error) {
+		return refresher.RefreshCredentials(context.WithoutCancel(r.Context()), cookie.Value, metadata(r))
+	})
 	if err != nil || result.Status != types.Authenticated || result.AccessToken == "" {
 		return types.Principal{}, errors.New("refresh refused")
 	}
@@ -174,4 +181,43 @@ func (m *UIModule) safeNext(next string) string {
 
 func metadata(r *http.Request) *types.RequestMetadata {
 	return &types.RequestMetadata{IPAddress: r.RemoteAddr, UserAgent: r.UserAgent(), Timestamp: time.Now()}
+}
+
+// refreshGroup runs one refresh per refresh token at a time; callers that
+// arrive while it runs wait for it and share its result. Nothing is kept
+// once it finishes, so a token is never exchanged from memory later.
+type refreshGroup struct {
+	mu       sync.Mutex
+	inFlight map[[32]byte]*refreshCall
+}
+
+type refreshCall struct {
+	done   chan struct{}
+	result types.AuthenticationResult
+	err    error
+}
+
+func (g *refreshGroup) do(token string, refresh func() (types.AuthenticationResult, error)) (types.AuthenticationResult, error) {
+	key := sha256.Sum256([]byte(token))
+	g.mu.Lock()
+	if g.inFlight == nil {
+		g.inFlight = map[[32]byte]*refreshCall{}
+	}
+	if call, ok := g.inFlight[key]; ok {
+		g.mu.Unlock()
+		<-call.done
+		return call.result, call.err
+	}
+	call := &refreshCall{done: make(chan struct{})}
+	g.inFlight[key] = call
+	g.mu.Unlock()
+
+	defer func() {
+		g.mu.Lock()
+		delete(g.inFlight, key)
+		g.mu.Unlock()
+		close(call.done)
+	}()
+	call.result, call.err = refresh()
+	return call.result, call.err
 }

@@ -8,10 +8,13 @@ import (
 	"html/template"
 	"io/fs"
 	"net/http"
+	"net/url"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
 )
 
@@ -140,6 +143,8 @@ type features struct {
 	Roles         bool
 	OrgRoles      bool // rbac with Organizations
 	Organizations bool
+	Teams         bool // the team module
+	TeamRoles     bool // rbac with Teams
 	Invitations   bool
 	Clients       bool // identity provider
 	Sessions      bool // session strategy
@@ -161,6 +166,8 @@ func (m *UIModule) features() features {
 		Roles:         roles,
 		OrgRoles:      roles && internals.Organizations,
 		Organizations: m.orgAdmin() != nil,
+		Teams:         m.teamService() != nil,
+		TeamRoles:     roles && internals.Teams,
 		Invitations:   m.invitationService() != nil,
 		Clients:       m.idpService() != nil,
 		Sessions:      m.deps.Config.Security.AuthStrategy == types.StrategySession && store.Session() != nil,
@@ -194,7 +201,7 @@ func (m *UIModule) menu(f features, userPages bool) []navGroup {
 			{Key: "users", Label: "Users", Href: m.base + "/users", Icon: "users", Enabled: true},
 			{Key: "orgs", Label: "Organizations", Href: m.base + "/orgs", Icon: "building", Enabled: f.Organizations, Hint: off("organization")},
 			{Key: "invitations", Label: "Invitations", Href: m.base + "/invitations", Icon: "mail", Enabled: f.Invitations, Hint: off("invitation")},
-			{Key: "teams", Label: "Teams", Icon: "team", Hint: "Nested teams are planned; they will appear here when the team module ships"},
+			{Key: "teams", Label: "Teams", Href: m.base + "/teams", Icon: "team", Enabled: f.Teams, Hint: off("team")},
 		}},
 		{Label: "Access", Items: []navItem{
 			{Key: "roles", Label: "Roles", Href: m.base + "/roles", Icon: "key", Enabled: f.Roles, Hint: off("rbac")},
@@ -224,7 +231,7 @@ func (m *UIModule) newView(r *http.Request, title, nav string, page any) *view {
 		Admin:     v.admin(),
 		UserPages: m.config.UserPages,
 		Features:  f,
-		Notice:    notices[r.URL.Query().Get("notice")],
+		Notice:    notice(r.URL.Query()),
 		CSS:       m.assetURL("app.css"),
 		JS:        m.assetURL("app.js"),
 		HTMX:      m.assetURL("htmx.min.js"),
@@ -269,12 +276,39 @@ var notices = map[string]string{
 	"client-saved":         "Application saved.",
 	"client-deleted":       "Application deleted.",
 	"signed-out":           "You are signed out.",
+	"password-changed":     "Your password was changed. Sign in with the new one.",
+	"phone-changed":        "Your phone number was changed, which signs you out everywhere. Sign in again.",
 	"saved":                "Changes saved.",
 	"user-deleted":         "The user was deleted.",
 	"roles-saved":          "Roles updated.",
 	"role-created":         "Role created.",
 	"role-deleted":         "Role deleted.",
 	"audit-cleaned":        "Events older than the retention period were deleted.",
+	"banned":               "The user is banned and signed out everywhere.",
+	"unbanned":             "The ban was lifted.",
+	"team-created":         "Team created.",
+	"team-moved":           "Team moved.",
+	"team-deleted":         "The team was deleted.",
+	"bulk-none":            "Select at least one user first.",
+	"bulk-done":            "Done for {n} user(s).",
+	"bulk-partial":         "Done for {n} user(s); {skipped} skipped (your own account, or the change was refused).",
+}
+
+// notice returns the text for the notice a redirect asked for. Counts are
+// the only values taken from the URL, and only as numbers.
+func notice(query url.Values) string {
+	text := notices[query.Get("notice")]
+	if !strings.Contains(text, "{n}") {
+		return text
+	}
+	count := func(key string) string {
+		n, err := strconv.Atoi(query.Get(key))
+		if err != nil || n < 0 {
+			return "0"
+		}
+		return strconv.Itoa(n)
+	}
+	return strings.NewReplacer("{n}", count("n"), "{skipped}", count("skipped")).Replace(text)
 }
 
 // render writes a whole page, or only the named fragment when htmx asked
@@ -347,6 +381,10 @@ func (m *UIModule) funcs() template.FuncMap {
 			return ago(time.Since(value))
 		},
 		"initials": initials,
+		"inc":      func(n int) int { return n + 1 },
+		// indent prefixes a team's name in a select by its depth.
+		"indent":   func(depth int) string { return strings.Repeat("\u00a0\u00a0\u00a0", depth) },
+		"banned":   func(u *models.User) bool { return u.Banned(timeNow()) },
 		"duration": humanDuration,
 		"deref": func(s *string) string {
 			if s == nil {

@@ -7,6 +7,7 @@ import (
 
 	"github.com/bete7512/goauth/internal/modules/rbac/access"
 	"github.com/bete7512/goauth/internal/modules/rbac/services"
+	"github.com/bete7512/goauth/pkg/models"
 	"github.com/bete7512/goauth/pkg/types"
 )
 
@@ -60,6 +61,16 @@ func (m *RBACModule) Check(ctx context.Context, permission string, opts ...Optio
 // such as "invoice:*".
 func (m *RBACModule) Permissions(ctx context.Context, opts ...Option) ([]string, error) {
 	return m.permissions(ctx, subject{}, opts)
+}
+
+// TeamsWhere says in which teams of an organization the caller in ctx may
+// do permission, for routes that list team resources (rbac Config.Teams).
+// all is true when the permission holds in the whole organization, through
+// an organization or application-wide role; ids is then nil. Otherwise ids
+// are the teams where it holds through a role on the team or on a team above
+// it, or a lead's membership, each checked as InTeam would.
+func (m *RBACModule) TeamsWhere(ctx context.Context, orgID, permission string) (ids []string, all bool, err error) {
+	return m.teamsWhere(ctx, subject{}, orgID, permission)
 }
 
 // For returns a view of the module that decides for userID instead of the
@@ -275,3 +286,81 @@ func (f fixed) Check(_ context.Context, permission string, _ ...Option) error {
 	}
 	return types.NewRBACPermissionDeniedError("Missing permission: " + permission)
 }
+
+// TeamsWhere is Module.TeamsWhere for this user.
+func (s *Subject) TeamsWhere(ctx context.Context, orgID, permission string) ([]string, bool, error) {
+	return s.module.teamsWhere(ctx, subject{userID: s.userID, explicit: true}, orgID, permission)
+}
+
+func (m *RBACModule) teamsWhere(ctx context.Context, who subject, orgID, permission string) ([]string, bool, error) {
+	if !m.ready.Load() {
+		return nil, false, notReady()
+	}
+	if !m.config.Teams {
+		return nil, false, types.NewRBACScopeUnavailableError("Team roles are not enabled")
+	}
+	ctx = services.WithMemo(ctx)
+	verdict, authErr := m.evaluate(ctx, nil, who, permission, []Option{InOrg(orgID)})
+	if authErr != nil {
+		return nil, false, authErr
+	}
+	if verdict.Allowed {
+		return nil, true, nil
+	}
+	userID, _, authErr := m.identify(ctx, who)
+	if authErr != nil {
+		return nil, false, authErr
+	}
+	opts := models.TeamListOpts{ListingOpts: models.ListingOpts{Limit: maxTeamsScanned, SortField: "path", SortDir: "asc"}}
+	opts.Normalize(maxTeamsScanned)
+	teams, _, err := m.stores.Teams.List(ctx, orgID, opts)
+	if err != nil {
+		return nil, false, types.NewInternalError("failed to list teams").Wrap(err)
+	}
+	// Teams where the user holds anything at all: a membership or a team
+	// role. Only those and the teams beneath them can allow more than the
+	// organization did.
+	roots := map[string]bool{}
+	memberships, err := m.stores.TeamMembers.ListByUser(ctx, orgID, userID)
+	if err != nil {
+		return nil, false, types.NewInternalError("failed to load team memberships").Wrap(err)
+	}
+	for _, membership := range memberships {
+		roots[membership.TeamID] = true
+	}
+	refs := make([]models.RoleScopeRef, 0, len(teams))
+	for _, team := range teams {
+		refs = append(refs, models.RoleScopeRef{Type: models.RoleScopeTeam, ID: team.ID})
+	}
+	assignments, err := m.stores.RBAC.Assignments().ListByUser(ctx, userID, refs)
+	if err != nil {
+		return nil, false, types.NewInternalError("failed to load role assignments").Wrap(err)
+	}
+	for _, assignment := range assignments {
+		roots[assignment.ScopeID] = true
+	}
+	var allowed []string
+	for _, team := range teams {
+		reachable := false
+		for _, id := range team.AncestorIDs() {
+			if roots[id] {
+				reachable = true
+				break
+			}
+		}
+		if !reachable {
+			continue
+		}
+		verdict, authErr := m.evaluate(ctx, nil, who, permission, []Option{InTeam(team.ID)})
+		if authErr != nil {
+			return nil, false, authErr
+		}
+		if verdict.Allowed {
+			allowed = append(allowed, team.ID)
+		}
+	}
+	return allowed, false, nil
+}
+
+// maxTeamsScanned bounds the teams TeamsWhere looks at in one organization.
+const maxTeamsScanned = 1000

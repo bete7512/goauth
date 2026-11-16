@@ -248,3 +248,13 @@ func (m *SessionModule) SignOut(ctx context.Context, principal types.Principal) 
 	}
 	return nil
 }
+
+// ServiceOf returns the session service, or nil before Init. It is a
+// function rather than a method so that it is reachable only from inside
+// GoAuth, for the ui module's account page.
+func ServiceOf(m *SessionModule) services.SessionService {
+	if m == nil {
+		return nil
+	}
+	return m.service
+}

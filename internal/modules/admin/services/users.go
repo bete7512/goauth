@@ -29,6 +29,11 @@ type AdminService interface {
 	// CreateUser creates an account as signup would, with the
 	// administrator's choice of verification and super admin flags.
 	CreateUser(ctx context.Context, input CreateUserInput) (*models.User, *types.GoAuthError)
+	// Ban suspends a user with a reason, until a time or until lifted, and
+	// revokes their credentials.
+	Ban(ctx context.Context, userID string, input BanInput) *types.GoAuthError
+	// Unban lifts a ban.
+	Unban(ctx context.Context, userID string) *types.GoAuthError
 	// Unlock clears a lockout caused by failed sign-in attempts.
 	Unlock(ctx context.Context, userID string) *types.GoAuthError
 	// SetPassword replaces a user's password; it signs the user out

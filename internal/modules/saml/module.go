@@ -24,6 +24,7 @@ var openapiSpec []byte
 
 // SAMLModule provides SAML 2.0 service-provider authentication.
 type SAMLModule struct {
+	service  services.SAMLService
 	deps     config.ModuleDependencies
 	handlers *handlers.SAMLHandler
 	config   *config.SAMLModuleConfig
@@ -152,6 +153,7 @@ func (m *SAMLModule) Init(ctx context.Context, deps config.ModuleDependencies) e
 		securityManager,
 	)
 	m.handlers = handlers.NewSAMLHandler(service, deps, m.config)
+	m.service = service
 
 	authMode := "stateless"
 	if m.config.UseSessionAuth {
@@ -202,4 +204,14 @@ func (m *SAMLModule) RegisterProvider(provider providers.ServiceProvider) error 
 		return errors.New("saml: connections are frozen after initialization")
 	}
 	return m.registry.Register(provider)
+}
+
+// ServiceOf returns the saml service, or nil before Init. It is a function
+// rather than a method so that it is reachable only from inside GoAuth, for
+// the ui module's sign-in page.
+func ServiceOf(m *SAMLModule) services.SAMLService {
+	if m == nil {
+		return nil
+	}
+	return m.service
 }

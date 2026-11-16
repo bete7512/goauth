@@ -1,7 +1,10 @@
 {{define "content"}}
 <div class="page-head">
   <div><h1>Users</h1><p>Search, review and manage every account.</p></div>
-  <a class="btn btn-primary" href="{{.Base}}/users/new">{{template "icon-plus"}}<span>New user</span></a>
+  <div class="actions">
+    <a class="btn" href="{{.Base}}/users/export.csv{{if .Page.Query}}?q={{.Page.Query}}{{end}}" hx-boost="false" download>{{template "icon-download"}}<span>Export CSV</span></a>
+    <a class="btn btn-primary" href="{{.Base}}/users/new">{{template "icon-plus"}}<span>New user</span></a>
+  </div>
 </div>
 <section class="card">
   <div class="card-head">
@@ -20,11 +23,26 @@
 {{define "users-table"}}
 <div id="users-table">
   {{if .Page.Users}}
+  <form method="post" action="{{.Base}}/users/bulk" data-bulk>
+  <input type="hidden" name="q" value="{{.Page.Query}}">
+  <div class="bulk-bar">
+    <label class="sr-only" for="bulk-action">With the selected users</label>
+    <select class="input input-sm" id="bulk-action" name="action" required>
+      <option value="">With selected…</option>
+      <option value="deactivate">Deactivate</option>
+      <option value="activate">Activate</option>
+      <option value="sign-out">Sign out everywhere</option>
+      <option value="delete">Delete</option>
+    </select>
+    <button class="btn btn-sm" type="submit" hx-confirm="Apply this to the selected users?">Apply</button>
+    <span class="muted bulk-count" data-bulk-count aria-live="polite"></span>
+  </div>
   <div class="table-wrap"><table>
-    <thead><tr><th>User</th><th class="hide-sm">Username</th><th>Status</th><th class="num hide-sm">Last sign-in</th><th class="num hide-sm">Joined</th></tr></thead>
+    <thead><tr><th class="pick"><input type="checkbox" data-bulk-all aria-label="Select every user on this page"></th><th>User</th><th class="hide-sm">Username</th><th>Status</th><th class="num hide-sm">Last sign-in</th><th class="num hide-sm">Joined</th></tr></thead>
     <tbody>
     {{range .Page.Users}}
       <tr class="row-link" data-href>
+        <td class="pick">{{if ne .ID $.Visitor.User.ID}}<input type="checkbox" name="ids" value="{{.ID}}" aria-label="Select {{.Email}}">{{end}}</td>
         <td><a class="identity" href="{{$.Base}}/users/{{.ID}}"><span class="avatar" aria-hidden="true">{{initials .Name .Email}}</span><span class="identity-text"><span class="identity-name">{{if .Name}}{{.Name}}{{else}}{{.Email}}{{end}}</span><br><span class="identity-sub">{{.Email}}</span></span></a></td>
         <td class="muted hide-sm">{{if .Username}}{{.Username}}{{else}}—{{end}}</td>
         <td>{{template "user-badges" .}}</td>
@@ -34,6 +52,7 @@
     {{end}}
     </tbody>
   </table></div>
+  </form>
   {{else}}
   <div class="empty">{{template "icon-search"}}<p>{{if .Page.Query}}No users match “{{.Page.Query}}”.{{else}}No users yet.{{end}}</p></div>
   {{end}}

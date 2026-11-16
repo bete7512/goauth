@@ -16,6 +16,9 @@ type loginPage struct {
 	Email     string
 	Next      string
 	TempToken string // set on the second step of a two-factor sign-in
+	// CodeSent is set on the step that asks for an emailed sign-in code.
+	CodeSent bool
+	Methods  signInMethods
 }
 
 // home sends visitors where they belong: administrators to the console,
@@ -40,8 +43,21 @@ func (m *UIModule) loginPage(w http.ResponseWriter, r *http.Request) {
 		m.redirect(w, r, m.landing(v, m.safeNext(r.URL.Query().Get("next"))))
 		return
 	}
-	data := m.newView(r, "Sign in", "", &loginPage{Next: m.safeNext(r.URL.Query().Get("next"))})
-	m.render(w, r, http.StatusOK, "login", data)
+	page := &loginPage{Next: m.safeNext(r.URL.Query().Get("next"))}
+	m.renderLogin(w, r, http.StatusOK, page, "")
+}
+
+// renderLogin shows a step of the sign-in page with the sign-in methods the
+// registered modules offer.
+func (m *UIModule) renderLogin(w http.ResponseWriter, r *http.Request, status int, page *loginPage, message string) {
+	title := "Sign in"
+	if page.TempToken != "" {
+		title = "Two-factor authentication"
+	}
+	page.Methods = m.signInMethods(page.Next)
+	data := m.newView(r, title, "", page)
+	data.Error = message
+	m.render(w, r, status, "login", data)
 }
 
 func (m *UIModule) login(w http.ResponseWriter, r *http.Request) {
@@ -115,7 +131,7 @@ func (m *UIModule) finishSignIn(w http.ResponseWriter, r *http.Request, page *lo
 			if token == "" {
 				break
 			}
-			m.render(w, r, http.StatusOK, "login", m.newView(r, "Two-factor authentication", "", &loginPage{Next: page.Next, TempToken: token}))
+			m.renderLogin(w, r, http.StatusOK, &loginPage{Next: page.Next, TempToken: token}, "")
 			return
 		}
 		m.loginFailed(w, r, &loginPage{Email: page.Email, Next: page.Next}, "This account needs a sign-in step the console does not support. Sign in through your application.")
@@ -167,13 +183,7 @@ func (m *UIModule) landing(v *visitor, next string) string {
 }
 
 func (m *UIModule) loginFailed(w http.ResponseWriter, r *http.Request, page *loginPage, message string) {
-	title := "Sign in"
-	if page.TempToken != "" {
-		title = "Two-factor authentication"
-	}
-	data := m.newView(r, title, "", page)
-	data.Error = message
-	m.render(w, r, http.StatusUnprocessableEntity, "login", data)
+	m.renderLogin(w, r, http.StatusUnprocessableEntity, page, message)
 }
 
 // signInMessage keeps the answer to a failed sign-in as uninformative as

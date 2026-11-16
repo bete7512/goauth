@@ -8,7 +8,11 @@ import (
 	"os"
 	"time"
 
+	"github.com/bete7512/goauth/internal/modules/idp"
 	"github.com/bete7512/goauth/internal/modules/organization"
+	"github.com/bete7512/goauth/internal/modules/rbac"
+	"github.com/bete7512/goauth/internal/modules/team"
+	"github.com/bete7512/goauth/internal/modules/ui"
 	"github.com/bete7512/goauth/pkg/adapters/stdhttp"
 	"github.com/bete7512/goauth/pkg/auth"
 	"github.com/bete7512/goauth/pkg/config"
@@ -21,7 +25,6 @@ import (
 	"github.com/bete7512/goauth/pkg/modules/oauth"
 	"github.com/bete7512/goauth/pkg/modules/session"
 	"github.com/bete7512/goauth/pkg/modules/twofactor"
-	"github.com/bete7512/goauth/pkg/modules/ui"
 	"github.com/bete7512/goauth/pkg/types"
 	"github.com/bete7512/goauth/storage"
 	"github.com/joho/godotenv"
@@ -146,13 +149,25 @@ func main() {
 		UpdateAge:               30 * time.Minute,
 	})))
 
-	mustUse(authInstance.Use(organization.New(&organization.Config{})))
+	mustUse(authInstance.Use(organization.New(&organization.Config{
+		
+	})))
 	authInstance.Use(ui.New(
 		&ui.Config{
 			Path: "/admin",
-			
 		},
 	))
+	authInstance.Use(
+		idp.New(&config.IDPModuleConfig{
+			SigningKey: config.IDPSigningKey{
+				// Generated with: openssl genrsa -out idp-signing-key.pem 2048
+				// Relative to the working directory (run from examples/).
+				PrivateKeyFile: "idp-signing-key.pem",
+			},
+		}),
+	)
+	authInstance.Use(rbac.New(&rbac.Config{}))
+	authInstance.Use(team.New(&team.Config{}))
 	// // csrf (HMAC-based double-submit cookie pattern)
 	// go.Use(csrf.New(&config.CSRFModuleConfig{
 	// 	TokenExpiry: 2 * time.Hour,

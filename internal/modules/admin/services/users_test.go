@@ -3,7 +3,9 @@ package services_test
 import (
 	"context"
 	"errors"
+	"net/http"
 	"testing"
+	"time"
 
 	"github.com/bete7512/goauth/internal/mocks"
 	"github.com/bete7512/goauth/internal/modules/admin/services"
@@ -283,4 +285,48 @@ func (s *AdminServiceSuite) TestDeleteUser() {
 			}
 		})
 	}
+}
+
+// ---------------------------------------------------------------------------
+// Ban
+// ---------------------------------------------------------------------------
+
+func (s *AdminServiceSuite) TestBanValidation() {
+	adminUser := testutil.TestAdminUser()
+	target := testutil.TestUser()
+	ctx := testutil.ContextWithAdminUser(context.Background(), adminUser)
+	long := make([]byte, 501)
+	for i := range long {
+		long[i] = 'x'
+	}
+	tests := []struct {
+		name   string
+		userID string
+		input  services.BanInput
+	}{
+		{"own account", adminUser.ID, services.BanInput{Reason: "testing"}},
+		{"no reason", target.ID, services.BanInput{Reason: "  "}},
+		{"reason too long", target.ID, services.BanInput{Reason: string(long)}},
+		{"end in the past", target.ID, services.BanInput{Reason: "spam", Until: time.Now().Add(-time.Minute)}},
+	}
+	for _, tt := range tests {
+		s.Run(tt.name, func() {
+			svc, _, _ := s.setupService()
+			authErr := svc.Ban(ctx, tt.userID, tt.input)
+			s.NotNil(authErr)
+			s.Equal(http.StatusBadRequest, authErr.StatusCode)
+		})
+	}
+	s.Run("not an administrator", func() {
+		svc, _, _ := s.setupService()
+		s.NotNil(svc.Ban(context.Background(), target.ID, services.BanInput{Reason: "spam"}))
+	})
+}
+
+func (s *AdminServiceSuite) TestUnbanWithoutBanChangesNothing() {
+	adminUser := testutil.TestAdminUser()
+	target := testutil.TestUser()
+	svc, users, _ := s.setupService()
+	users.EXPECT().FindByID(gomock.Any(), target.ID).Return(target, nil)
+	s.Nil(svc.Unban(testutil.ContextWithAdminUser(context.Background(), adminUser), target.ID))
 }

@@ -193,6 +193,7 @@ export function syncContent() {
         "magiclink",
         "invitation",
         "organization",
+        "team",
         "rbac",
         "ui",
         "...",

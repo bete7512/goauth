@@ -35,6 +35,26 @@
   {{end}}
 </section>
 
+{{if .Page.Charts}}
+<section class="charts" aria-label="Last 30 days">
+  {{range .Page.Charts}}
+  <figure class="card chart" aria-labelledby="chart-{{.ID}}">
+    <figcaption class="card-head"><div><h2 id="chart-{{.ID}}">{{.Title}}</h2><p>{{.Note}} · last 30 days</p></div><div class="chart-total">{{.Total}}</div></figcaption>
+    <div class="chart-body">
+      <svg viewBox="0 0 {{.Width}} {{.Height}}" role="img" aria-label="{{.Title}}: {{.Total}} in the last 30 days, at most {{.Max}} on one day">
+        <line class="chart-axis" x1="0" x2="{{.Width}}" y1="140" y2="140"></line>
+        {{range .Bars}}<g class="chart-bar"><rect class="chart-hit" x="{{.X}}" y="0" width="{{.W}}" height="140"></rect>{{if .Value}}<rect class="chart-mark" x="{{.X}}" y="{{.Y}}" width="{{.W}}" height="{{.H}}" rx="2"></rect>{{end}}<title>{{.Day}}: {{.Value}}</title></g>{{end}}
+        {{range .Ticks}}<text class="chart-tick" x="{{.X}}" y="166" text-anchor="middle">{{.Label}}</text>{{end}}
+      </svg>
+    </div>
+    <details class="chart-table"><summary>Show as a table</summary>
+      <div class="table-wrap"><table><thead><tr><th>Day</th><th class="num">{{.Title}}</th></tr></thead><tbody>{{range .Bars}}<tr><td>{{.Day}}</td><td class="num">{{.Value}}</td></tr>{{end}}</tbody></table></div>
+    </details>
+  </figure>
+  {{end}}
+</section>
+{{end}}
+
 <div class="grid-2">
   <section class="card">
     <div class="card-head"><div><h2>Newest users</h2><p>The latest accounts created.</p></div><a class="btn btn-sm" href="{{.Base}}/users">All users</a></div>

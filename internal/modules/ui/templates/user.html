@@ -13,7 +13,7 @@
         <div class="field"><label for="username">Username</label><input class="input" id="username" name="username" value="{{$u.Username}}"></div>
         <div class="field span-2"><label for="phone_number">Phone number</label><input class="input" id="phone_number" name="phone_number" type="tel" value="{{$u.PhoneNumber}}"></div>
         <div class="span-2 toggles">
-          <label class="toggle"><span class="toggle-text"><strong>Active</strong><span>Inactive users cannot sign in, and their existing sign-ins stop working. Use this to ban an account.</span></span><span class="switch"><input type="checkbox" name="active" {{if $u.Active}}checked{{end}} {{if .Page.Self}}disabled{{end}}><span></span></span></label>
+          <label class="toggle"><span class="toggle-text"><strong>Active</strong><span>Inactive users cannot sign in, and their existing sign-ins stop working. To record why, or to end it on a date, use Ban below instead.</span></span><span class="switch"><input type="checkbox" name="active" {{if $u.Active}}checked{{end}} {{if .Page.Self}}disabled{{end}}><span></span></span></label>
           <label class="toggle"><span class="toggle-text"><strong>Email verified</strong><span>Mark the address as confirmed without sending a link.</span></span><span class="switch"><input type="checkbox" name="email_verified" {{if $u.EmailVerified}}checked{{end}}><span></span></span></label>
           <label class="toggle"><span class="toggle-text"><strong>Phone verified</strong><span>Mark the phone number as confirmed.</span></span><span class="switch"><input type="checkbox" name="phone_number_verified" {{if $u.PhoneNumberVerified}}checked{{end}}><span></span></span></label>
           <label class="toggle"><span class="toggle-text"><strong>Super admin</strong><span>Full access to this console and every administrative API.</span></span><span class="switch"><input type="checkbox" name="is_super_admin" {{if $u.IsSuperAdmin}}checked{{end}} {{if .Page.Self}}disabled{{end}}><span></span></span></label>
@@ -31,6 +31,20 @@
         <button class="btn" type="submit">Set password</button>
       </form>
     </section>
+
+    {{if not (banned $u)}}
+    <section class="card">
+      <div class="card-head"><div><h2>Ban</h2><p>The user cannot sign in, and is signed out everywhere at once. Unlike turning off <strong>Active</strong>, a ban records why and can end on its own.</p></div></div>
+      <form class="card-body form-grid" method="post" action="{{.Base}}/users/{{$u.ID}}/ban">
+        <div class="field span-2"><label for="ban-reason">Reason <span class="muted">(for administrators; the user is not told)</span></label><input class="input" id="ban-reason" name="reason" maxlength="500" required placeholder="Spam reported in ticket #1234"></div>
+        <div class="field"><label for="ban-for">For</label>
+          <select class="input" id="ban-for" name="duration">
+            <option value="1h">1 hour</option><option value="24h">1 day</option><option value="168h" selected>7 days</option><option value="720h">30 days</option><option value="">Until lifted</option>
+          </select></div>
+        <div class="field ban-submit"><button class="btn btn-danger" type="submit" hx-confirm="Ban {{$u.Email}}? They are signed out everywhere.">Ban user</button></div>
+      </form>
+    </section>
+    {{end}}
 
     <section class="card danger-zone">
       <div class="card-head"><div><h2>Delete user</h2><p>Removes the account and everything stored for it. This cannot be undone.</p></div>

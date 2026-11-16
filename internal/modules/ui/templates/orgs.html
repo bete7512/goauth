@@ -1,7 +1,10 @@
 {{define "content"}}
 <div class="page-head">
   <div><h1>Organizations</h1><p>Every organization, its owner and its status.</p></div>
-  <a class="btn btn-primary" href="{{.Base}}/orgs/new">{{template "icon-plus"}}<span>New organization</span></a>
+  <div class="actions">
+    <a class="btn" href="{{.Base}}/orgs/export.csv{{if .Page.Query}}?q={{.Page.Query}}{{end}}" hx-boost="false" download>{{template "icon-download"}}<span>Export CSV</span></a>
+    <a class="btn btn-primary" href="{{.Base}}/orgs/new">{{template "icon-plus"}}<span>New organization</span></a>
+  </div>
 </div>
 <section class="card">
   <div class="card-head">

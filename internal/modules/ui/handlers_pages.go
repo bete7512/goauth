@@ -100,23 +100,3 @@ func (m *UIModule) cleanupAudit(w http.ResponseWriter, r *http.Request) {
 	}
 	m.redirect(w, r, m.base+"/audit?notice=audit-cleaned")
 }
-
-// --- account ---
-
-type accountPage struct {
-	User   *models.User
-	Events []*models.AuditLog
-}
-
-func (m *UIModule) account(w http.ResponseWriter, r *http.Request) {
-	v := visitorFrom(r.Context())
-	page := &accountPage{User: v.User}
-	if auditService := m.auditService(); auditService != nil {
-		opts := models.AuditLogListOpts{ListingOpts: models.ListingOpts{Limit: 10, SortField: "created_at", SortDir: "desc"}}
-		opts.Normalize(10)
-		if events, _, authErr := auditService.GetMyAuditLogs(r.Context(), v.User.ID, opts); authErr == nil {
-			page.Events = events
-		}
-	}
-	m.render(w, r, http.StatusOK, "account", m.newView(r, "Your account", "account", page))
-}

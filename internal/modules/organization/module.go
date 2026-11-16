@@ -74,7 +74,7 @@ func (m *OrganizationModule) Init(ctx context.Context, deps config.ModuleDepende
 		m.config.InvitationExpiry, m.config.InvitationCallbackURL, m.config.MaxMembersPerOrg,
 	)
 
-	m.admin = services.NewAdminService(deps, orgStorage, userRepo)
+	m.admin = services.NewAdminService(deps, orgStorage, userRepo, invitationService)
 
 	// Create handlers
 	m.orgHandler = handlers.NewOrgHandler(deps, orgService)

@@ -23,6 +23,15 @@
     <div class="card-foot"><button class="btn btn-primary" type="submit">{{template "icon-mail"}}<span>Send invitation</span></button></div>
   </form>
 </div>
+<form class="card" method="post" action="{{.Base}}/invitations/import" enctype="multipart/form-data" hx-boost="false">
+  <div class="card-head"><div><h2>Import a list</h2><p>Invite up to 200 people at once from a CSV file or a pasted list. Each line is an email address, optionally followed by a comma and a purpose; a first line reading <span class="chip">email,purpose</span> is skipped. An address that already has a pending invitation for the same purpose is reported and skipped.</p></div></div>
+  <div class="card-body form-grid">
+    <div class="field"><label for="import-file">CSV file</label><input class="input input-file" id="import-file" name="file" type="file" accept=".csv,text/csv,text/plain"></div>
+    <div class="field"><label for="import-purpose">Purpose for rows without one</label><input class="input" id="import-purpose" name="purpose" placeholder="platform"></div>
+    <div class="field span-2"><label for="import-emails">Or paste addresses</label><textarea class="input" id="import-emails" name="emails" rows="5" placeholder="ada@example.com&#10;grace@example.com,beta"></textarea></div>
+  </div>
+  <div class="card-foot"><button class="btn btn-primary" type="submit" hx-confirm="Send an invitation to every address in the list?">{{template "icon-mail"}}<span>Send invitations</span></button></div>
+</form>
 {{end}}
 {{define "invitations-table"}}
 <div id="invitations-table">

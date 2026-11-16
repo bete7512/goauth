@@ -19,13 +19,18 @@ const (
 	ScopeGlobal ScopeType = "global"
 	// ScopeOrg covers one organization.
 	ScopeOrg ScopeType = "org"
+	// ScopeTeam covers one team and every team beneath it.
+	ScopeTeam ScopeType = "team"
 )
 
-// Scope is one place a check runs in: the whole application, or one
-// organization.
+// Scope is one place a check runs in: the whole application, one
+// organization, or one team.
 type Scope struct {
 	Type ScopeType
 	ID   string
+	// Org is the organization of a team scope. Callers leave it empty; the
+	// services fill it in from the team.
+	Org string
 }
 
 // GlobalScope is the application-wide scope.
@@ -34,12 +39,30 @@ func GlobalScope() Scope { return Scope{Type: ScopeGlobal} }
 // OrgScope is the scope of one organization.
 func OrgScope(orgID string) Scope { return Scope{Type: ScopeOrg, ID: orgID} }
 
+// TeamScope is the scope of one team.
+func TeamScope(teamID string) Scope { return Scope{Type: ScopeTeam, ID: teamID} }
+
 // IsOrg reports whether the scope is an organization.
 func (s Scope) IsOrg() bool { return s.Type == ScopeOrg }
 
-// OrgID returns the organization ID, or "" for the global scope.
+// IsTeam reports whether the scope is a team.
+func (s Scope) IsTeam() bool { return s.Type == ScopeTeam }
+
+// OrgID returns the organization ID: the organization itself, the team's
+// organization once it is known, or "" for the global scope.
 func (s Scope) OrgID() string {
-	if s.Type == ScopeOrg {
+	switch s.Type {
+	case ScopeOrg:
+		return s.ID
+	case ScopeTeam:
+		return s.Org
+	}
+	return ""
+}
+
+// TeamID returns the team ID, or "" for any other scope.
+func (s Scope) TeamID() string {
+	if s.Type == ScopeTeam {
 		return s.ID
 	}
 	return ""
@@ -55,6 +78,11 @@ const (
 	RoleOwner  = "owner"
 	RoleAdmin  = "admin"
 	RoleMember = "member"
+	// RoleTeamLead and RoleTeamMember mirror the team module's member role,
+	// in the team scope: a lead of a team holds RoleTeamLead in it and in
+	// every team beneath it. They are implied and never assigned.
+	RoleTeamLead   = "lead"
+	RoleTeamMember = "member"
 )
 
 // Role is a named set of grants defined in code. Roles created at runtime
@@ -86,10 +114,12 @@ type Check struct {
 	UserID string
 	// Permission is the permission being checked, for example "invoice:approve".
 	Permission string
-	// Scope and OrgID say where the check runs. OrgID is empty for the
-	// global scope.
-	Scope ScopeType
-	OrgID string
+	// Scope, OrgID and TeamID say where the check runs. OrgID is empty for
+	// the global scope; TeamID is set for the team scope, with OrgID its
+	// organization.
+	Scope  ScopeType
+	OrgID  string
+	TeamID string
 	// Roles are the role keys the user holds in the scope.
 	Roles []string
 	// Granted is what the roles alone decided, before any callback ran.

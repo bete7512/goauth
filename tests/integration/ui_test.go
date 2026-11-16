@@ -102,7 +102,7 @@ func TestUI_NonAdminsAreTurnedAwayUnlessUserPagesAreOn(t *testing.T) {
 	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
 	assert.Contains(t, w.Body.String(), "This console is for administrators.")
 	assert.Empty(t, b.Cookies, "no cookies are set for a user the console turned away")
-	assert.Equal(t, http.StatusNotFound, b.Get("/auth/ui/account").Code, "no account page unless UserPages is on")
+	assert.Equal(t, http.StatusSeeOther, b.Get("/auth/ui/account").Code, "nobody is signed in")
 
 	env = h.SetupUI(t, h.UIOptions{UI: &ui.Config{UserPages: true, Title: "Acme"}, Audit: true})
 	h.SignupUser(t, env.Handler, "plain@example.com")

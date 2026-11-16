@@ -43,6 +43,20 @@ func (m *MockAdminService) EXPECT() *MockAdminServiceMockRecorder {
 	return m.recorder
 }
 
+// Ban mocks base method.
+func (m *MockAdminService) Ban(ctx context.Context, userID string, input services.BanInput) *types.GoAuthError {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Ban", ctx, userID, input)
+	ret0, _ := ret[0].(*types.GoAuthError)
+	return ret0
+}
+
+// Ban indicates an expected call of Ban.
+func (mr *MockAdminServiceMockRecorder) Ban(ctx, userID, input any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ban", reflect.TypeOf((*MockAdminService)(nil).Ban), ctx, userID, input)
+}
+
 // CreateUser mocks base method.
 func (m *MockAdminService) CreateUser(ctx context.Context, input services.CreateUserInput) (*models.User, *types.GoAuthError) {
 	m.ctrl.T.Helper()
@@ -186,6 +200,20 @@ func (m *MockAdminService) SignOutEverywhere(ctx context.Context, userID string)
 func (mr *MockAdminServiceMockRecorder) SignOutEverywhere(ctx, userID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SignOutEverywhere", reflect.TypeOf((*MockAdminService)(nil).SignOutEverywhere), ctx, userID)
+}
+
+// Unban mocks base method.
+func (m *MockAdminService) Unban(ctx context.Context, userID string) *types.GoAuthError {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Unban", ctx, userID)
+	ret0, _ := ret[0].(*types.GoAuthError)
+	return ret0
+}
+
+// Unban indicates an expected call of Unban.
+func (mr *MockAdminServiceMockRecorder) Unban(ctx, userID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unban", reflect.TypeOf((*MockAdminService)(nil).Unban), ctx, userID)
 }
 
 // UnlinkAccount mocks base method.
