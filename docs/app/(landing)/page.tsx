@@ -23,6 +23,8 @@ import {
   siteDescription,
   siteUrl,
   repositoryUrl,
+  goPackageUrl,
+  publisher,
 } from "@/lib/shared";
 
 export const metadata = {
@@ -42,13 +44,29 @@ export default function HomePage() {
         <StructuredData
           data={{
             "@context": "https://schema.org",
-            "@type": "SoftwareSourceCode",
-            name: "GoAuth",
-            description: siteDescription,
-            url: siteUrl,
-            codeRepository: repositoryUrl,
-            programmingLanguage: "Go",
-            license: `${repositoryUrl}/blob/main/LICENSE`,
+            "@graph": [
+              {
+                "@type": "SoftwareSourceCode",
+                name: "GoAuth",
+                description: siteDescription,
+                url: siteUrl,
+                codeRepository: repositoryUrl,
+                programmingLanguage: "Go",
+                runtimePlatform: "Go",
+                license: `${repositoryUrl}/blob/main/LICENSE`,
+                keywords:
+                  "golang authentication, jwt, oauth2, passkeys, webauthn, two-factor authentication, rbac, openid connect, saml",
+                sameAs: [repositoryUrl, goPackageUrl],
+                publisher,
+              },
+              {
+                "@type": "WebSite",
+                name: "GoAuth",
+                url: siteUrl,
+                description: siteDescription,
+                publisher,
+              },
+            ],
           }}
         />
         <section
@@ -57,7 +75,8 @@ export default function HomePage() {
         >
           <div className="hero-copy">
             <p className="eyebrow">
-              <span className="status-dot" /> Open source. Native Go. Yours.
+              <span className="status-dot" /> Open-source authentication library
+              for Go
             </p>
             <h1 id="hero-title">
               Your app.
@@ -67,9 +86,9 @@ export default function HomePage() {
               Your rules.
             </h1>
             <p className="hero-description">
-              Authentication that belongs in your codebase. Add sessions,
-              passkeys, OAuth, two-factor, and more with a modular Go library
-              built around your application.
+              Authentication that belongs in your codebase. Add login,
+              sessions, JWT, passkeys, OAuth2, two-factor, roles and
+              organizations to your Golang server with one modular library.
             </p>
             <div className="hero-actions">
               <Link href="/docs/quickstart" className="landing-button primary">

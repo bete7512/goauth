@@ -1,8 +1,10 @@
 ---
 id: performance
 title: Performance & Optimization
+seoTitle: "GoAuth performance and Go auth benchmarks"
+description: "What each GoAuth request costs in a Go server, the built-in limits, and how to benchmark sign-in, token refresh and protected requests against your own database."
+keywords: ["golang auth performance", "go jwt benchmark", "bcrypt performance go", "goauth benchmarks"]
 sidebar_label: Performance
-description: What each GoAuth request costs, the built-in limits, and how to measure sign-in, refresh and protected requests against your own database.
 ---
 
 # Performance and Optimization

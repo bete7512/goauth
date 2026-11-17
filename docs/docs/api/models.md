@@ -1,6 +1,9 @@
 ---
 id: models
 title: Models Reference
+seoTitle: "GoAuth data models: users, sessions, tokens"
+description: "Reference for GoAuth's Go data models in pkg/models: users, sessions, tokens, organizations, roles and audit logs, their database tables and repository interfaces."
+keywords: ["goauth models", "golang user model", "go auth database schema"]
 sidebar_label: Models
 sidebar_position: 4
 ---

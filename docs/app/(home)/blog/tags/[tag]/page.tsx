@@ -12,7 +12,7 @@ export async function generateMetadata({
   if (!tags().includes(tag)) notFound();
   return pageMetadata(
     `${tag} articles`,
-    `GoAuth articles about ${tag}.`,
+    `GoAuth articles and Go authentication guides about ${tag}.`,
     `/blog/tags/${tag}`,
   );
 }

@@ -1,8 +1,10 @@
 ---
 id: showcase
 title: Examples
+seoTitle: "GoAuth examples: Go authentication code you can run"
+description: "Runnable GoAuth example projects for Go and short setups for sessions, email, two-factor, Google login, passkeys, organizations, roles and the admin console."
+keywords: ["golang auth example", "go authentication sample code", "goauth examples", "go oauth example"]
 sidebar_label: Examples
-description: Runnable GoAuth example projects, and short setups for sessions, email, two-factor, social login, passkeys, organizations, roles and the admin console.
 ---
 
 # Examples

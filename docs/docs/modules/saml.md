@@ -1,13 +1,16 @@
 ---
 id: saml
 title: SAML Module
+seoTitle: "SAML 2.0 SSO for Go: Okta, Entra ID, Keycloak"
+description: "Enterprise SAML 2.0 single sign-on for Go with GoAuth as service provider: connect Okta, Microsoft Entra ID, Keycloak or Shibboleth, with signed assertion checks."
+keywords: ["golang saml", "go saml service provider", "saml sso go", "okta saml golang", "entra id saml go"]
 sidebar_label: SAML
 sidebar_position: 15
 ---
 
 # SAML Module
 
-SAML provides SAML 2.0 Web Browser SSO with GoAuth acting as the **service provider (SP)**. Each named connection points at one **identity provider (IdP)** such as a Keycloak realm, Okta, Microsoft Entra ID or Shibboleth. A verified assertion enters the same completion service as password, OAuth, passkey and magic-link authentication, so lockout, eligibility checks, two-factor challenges and session or stateless issuance behave identically.
+SAML adds enterprise single sign-on to your Go application: SAML 2.0 Web Browser SSO with GoAuth acting as the **service provider (SP)**. Each named connection points at one **identity provider (IdP)** such as a Keycloak realm, Okta, Microsoft Entra ID or Shibboleth. A verified assertion enters the same completion service as password, OAuth, passkey and magic-link authentication, so lockout, eligibility checks, two-factor challenges and session or stateless issuance behave identically.
 
 The protocol work (XML canonicalization, XML signature verification, assertion decryption, audience, destination, validity window and `InResponseTo` checks) is delegated to [`crewjam/saml`](https://github.com/crewjam/saml). The module wraps it behind a small interface so handlers, services and tests never touch the library directly.
 

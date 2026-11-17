@@ -1,6 +1,9 @@
 ---
 id: endpoints
 title: API Endpoints
+seoTitle: "GoAuth REST API endpoints: login, signup, tokens"
+description: "Every GoAuth HTTP endpoint by module: signup, login, refresh, logout, password reset, 2FA, OAuth, passkeys, organizations, RBAC and admin, with request and response."
+keywords: ["goauth endpoints", "golang auth rest api", "login api go", "jwt refresh endpoint"]
 sidebar_label: Endpoints
 sidebar_position: 1
 ---

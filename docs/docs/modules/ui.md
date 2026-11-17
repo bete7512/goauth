@@ -1,13 +1,16 @@
 ---
 id: ui
 title: UI Module
+seoTitle: "Go admin dashboard and login pages, no JavaScript build"
+description: "A server-rendered admin console and sign-in pages for Go with GoAuth: manage users, bans, organizations, roles, OIDC clients and audit logs. htmx, no Node build."
+keywords: ["golang admin dashboard", "go user management ui", "go login page", "htmx admin panel", "self-hosted auth dashboard"]
 sidebar_label: UI
 sidebar_position: 18
 ---
 
 # UI Module
 
-The UI module is a server-rendered console. Super admins get an admin console for everything GoAuth manages: users and their sign-in methods, bans, organizations and their teams, invitations (one at a time or imported from CSV), roles and permissions, OIDC clients, the audit log, activity charts and a read-only view of the configuration. Everyone it admits gets an account page, and the sign-in page offers every method the registered modules provide. Pages are plain HTML forms enhanced with [htmx](https://htmx.org), which is embedded, so the console needs no build step, no Node toolchain and nothing loaded from another origin.
+The UI module is a server-rendered admin dashboard and set of login pages for your Go application. Super admins get an admin console for everything GoAuth manages: users and their sign-in methods, bans, organizations and their teams, invitations (one at a time or imported from CSV), roles and permissions, OIDC clients, the audit log, activity charts and a read-only view of the configuration. Everyone it admits gets an account page, and the sign-in page offers every method the registered modules provide. Pages are plain HTML forms enhanced with [htmx](https://htmx.org), which is embedded, so the console needs no build step, no Node toolchain and nothing loaded from another origin.
 
 ## Registration
 

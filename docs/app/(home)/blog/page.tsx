@@ -2,8 +2,8 @@ import { BlogList } from "@/components/blog-list";
 import { pageMetadata } from "@/lib/metadata";
 
 export const metadata = pageMetadata(
-  "GoAuth Blog",
-  "Guides and articles about GoAuth authentication, JWT security, performance, and enterprise features.",
+  "Go authentication guides and articles",
+  "How-to guides for authentication in Go: passkeys, JWT refresh tokens, OpenID Connect, security and performance, written by the GoAuth maintainers.",
   "/blog",
 );
 

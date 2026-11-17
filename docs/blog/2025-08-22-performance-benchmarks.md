@@ -1,6 +1,9 @@
 ---
 slug: goauth-performance-benchmarks
 title: "GoAuth Performance: Architecture and Benchmarking"
+seoTitle: "Go authentication performance and benchmarks"
+description: "What a Go authentication request costs with GoAuth: database round trips, bcrypt, JWT validation, and how to benchmark sign-in and token refresh on your own stack."
+keywords: ["golang auth benchmark", "go jwt performance", "bcrypt cost go"]
 authors: [goauth-team]
 tags: [performance, benchmarks, go, authentication]
 ---

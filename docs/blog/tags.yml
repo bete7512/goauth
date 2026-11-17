@@ -49,3 +49,19 @@ sso:
 ldap:
   label: LDAP
   description: Enterprise directory integration.
+
+passkeys:
+  label: Passkeys
+  description: Passwordless sign-in with passkeys.
+
+webauthn:
+  label: WebAuthn
+  description: The Web Authentication API and its ceremonies.
+
+oidc:
+  label: OpenID Connect
+  description: OpenID Connect providers, clients and ID tokens.
+
+tutorial:
+  label: Tutorial
+  description: Step-by-step guides with working code.

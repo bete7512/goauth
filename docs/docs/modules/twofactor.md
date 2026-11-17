@@ -1,13 +1,16 @@
 ---
 id: twofactor
 title: Two-Factor Module
+seoTitle: "Two-factor authentication (TOTP 2FA) in Go"
+description: "Add two-factor authentication to Go with GoAuth: TOTP authenticator apps like Google Authenticator, single-use codes, backup codes, and a 2FA step at login."
+keywords: ["golang 2fa", "go totp", "two factor authentication golang", "google authenticator go", "go mfa"]
 sidebar_label: Two-Factor
 sidebar_position: 5
 ---
 
 # Two-Factor Module
 
-Two-Factor adds TOTP and backup-code verification to the shared authentication completion flow. A login requiring another factor returns a persisted continuation, not an authenticated access token.
+Two-Factor adds two-factor authentication (2FA) to your Go application: TOTP authenticator apps and backup codes, checked in the shared authentication completion flow. A login requiring another factor returns a persisted continuation, not an authenticated access token.
 
 ## Registration
 

@@ -1,8 +1,10 @@
 ---
 id: production
 title: Production Checklist
+seoTitle: "Go authentication production checklist"
+description: "Checklist before real users sign in to your Go app with GoAuth: HTTPS and secure cookies, proxies and rate limits, secrets and keys, database, email and operations."
+keywords: ["golang auth production", "go authentication checklist", "deploy goauth", "go auth best practices"]
 sidebar_label: Production Checklist
-description: What to check before real users sign in. HTTPS and cookies, proxies and rate limits, secrets and keys, the database, email delivery and operations.
 ---
 
 # Production Checklist

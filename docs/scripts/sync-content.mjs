@@ -6,6 +6,7 @@ import {
   writeFileSync,
   unlinkSync,
 } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { dirname, join, posix } from "node:path";
 import { fileURLToPath } from "node:url";
 import { load, dump } from "js-yaml";
@@ -28,6 +29,43 @@ function write(path, text) {
     /* new file */
   }
   writeFileSync(path, text);
+}
+
+// Last commit date of a source file, or undefined (shallow clone, uncommitted file).
+function lastModified(path) {
+  try {
+    const date = execFileSync("git", ["log", "-1", "--format=%cI", "--", path], {
+      cwd: root,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+    return date || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+// Search snippets: every guide and post states its own description, sized for results pages.
+function checkSearchMetadata(record) {
+  const where = record.relative;
+  const { description, seoTitle, keywords } = record.data;
+  if (record.kind === "pages") return;
+  if (typeof description !== "string" || !description.trim())
+    throw new Error(`${where}: add a description (140–160 characters).`);
+  if (description.length < 70 || description.length > 170)
+    throw new Error(
+      `${where}: description is ${description.length} characters; keep it between 70 and 170.`,
+    );
+  const title = seoTitle ?? record.title;
+  if (title.length > 65)
+    throw new Error(
+      `${where}: search title is ${title.length} characters; keep it at most 65 (set seoTitle).`,
+    );
+  if (
+    keywords !== undefined &&
+    (!Array.isArray(keywords) || keywords.some((k) => typeof k !== "string"))
+  )
+    throw new Error(`${where}: keywords must be a list of strings.`);
 }
 
 export function syncContent() {
@@ -60,6 +98,7 @@ export function syncContent() {
     const url = `${kind === "pages" ? "" : `/${kind}`}${slug ? `/${slug}` : ""}`;
     return { data, content, relative, kind, slug, url, title: data.title };
   });
+  records.forEach(checkSearchMetadata);
   const links = new Map(records.map((record) => [record.relative, record.url]));
   const urls = new Set();
   const outputs = new Set();
@@ -122,10 +161,14 @@ export function syncContent() {
       (plain.length > 160
         ? `${plain.slice(0, 157).replace(/\s+\S*$/, "")}…`
         : plain);
+    const modified = lastModified(record.relative);
     const frontmatter = {
       title: record.title,
       description,
+      ...(record.data.seoTitle ? { seoTitle: record.data.seoTitle } : {}),
+      ...(record.data.keywords?.length ? { keywords: record.data.keywords } : {}),
       sourcePath: record.relative,
+      ...(modified ? { lastModified: modified } : {}),
       ...(record.kind === "blog"
         ? {
             date: posix.basename(record.relative).slice(0, 10),
@@ -151,6 +194,7 @@ export function syncContent() {
         "intro",
         "installation",
         "quickstart",
+        "comparison",
         "architecture",
         "modules",
         "---Guides---",

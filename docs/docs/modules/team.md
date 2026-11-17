@@ -1,13 +1,16 @@
 ---
 id: team
 title: Team Module
+seoTitle: "Nested teams inside organizations in Go"
+description: "Nested teams for Go apps with GoAuth: teams inside organizations up to five levels deep, team leads and members, moving sub-trees, and team-scoped RBAC roles."
+keywords: ["golang teams", "go nested groups", "team management saas go", "hierarchical teams"]
 sidebar_label: Team
 sidebar_position: 19
 ---
 
 # Team Module
 
-The team module adds nested teams inside organizations. A team belongs to one organization, may sit beneath another team of the same organization (up to five levels), and holds members of that organization as **leads** or **members**. Leads manage their team and every team beneath it.
+The team module adds nested teams inside organizations to your Go application. A team belongs to one organization, may sit beneath another team of the same organization (up to five levels), and holds members of that organization as **leads** or **members**. Leads manage their team and every team beneath it.
 
 It is **experimental**. It needs the [organization module](./organization). Permission checks for your own resources inside a team belong to [rbac](./rbac) with `Config.Teams`.
 

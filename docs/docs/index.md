@@ -1,9 +1,11 @@
 ---
 id: index
 title: GoAuth Documentation
+seoTitle: "GoAuth: authentication library for Go (Golang)"
+description: "GoAuth adds user accounts to a Go app as a library: sign-up, login, JWT, 2FA, OAuth2, passkeys, organizations, RBAC and an admin console in your own database."
+keywords: ["golang authentication library", "go auth library", "go user authentication", "golang login system", "self-hosted auth go"]
 sidebar_label: Overview
 slug: /
-description: GoAuth adds user accounts to a Go app as a library. Sign-up, login, 2FA, social login, passkeys, organizations, roles and an admin console, in your own server and database.
 ---
 
 # GoAuth Documentation
@@ -39,6 +41,7 @@ There is no extra service to deploy and no third party holding your users.
 | Understand how the pieces fit before writing code | [Introduction](intro.md) |
 | Add it to an existing project and database | [Installation](installation.md) |
 | Copy a working setup for a feature | [Examples](showcase.md) |
+| Compare it with Goth, Authboss, Ory Kratos, Keycloak or Auth0 | [Comparison](comparison.md) |
 | See every endpoint, error code and model | [API Reference](api/endpoints.md) |
 | Go live | [Production checklist](production.md) |
 

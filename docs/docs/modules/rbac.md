@@ -1,13 +1,16 @@
 ---
 id: rbac
 title: RBAC Module
+seoTitle: "RBAC for Go: roles and permissions"
+description: "Role-based access control for Go with GoAuth: guard routes with permissions, check them in services, define roles in code or storage, scope them to organizations."
+keywords: ["golang rbac", "go roles and permissions", "go authorization library", "permission middleware golang", "casbin alternative"]
 sidebar_label: RBAC
 sidebar_position: 17
 ---
 
 # RBAC Module
 
-The RBAC module answers one question for your own application: may this user do this, here? You guard routes with it, ask it from your services, and let administrators manage roles through the endpoints it ships. Permissions are declared by being used, so there is no list to keep in step with your routes.
+The RBAC module adds role-based access control to your Go application. It answers one question: may this user do this, here? You guard routes with it, ask it from your services, and let administrators manage roles through the endpoints it ships. Permissions are declared by being used, so there is no list to keep in step with your routes.
 
 :::info Experimental
 The module is new. Roles apply application-wide or inside one organization; teams are not supported yet.

@@ -1,13 +1,16 @@
 ---
 id: captcha
 title: Captcha Module
+seoTitle: "reCAPTCHA and Turnstile for Go login forms"
+description: "Protect Go login and signup endpoints from bots with GoAuth: Google reCAPTCHA v3 or Cloudflare Turnstile as middleware on the routes you choose. No extra endpoints."
+keywords: ["golang recaptcha", "go cloudflare turnstile", "captcha middleware go", "bot protection login go"]
 sidebar_label: Captcha
 sidebar_position: 9
 ---
 
 # Captcha Module
 
-The Captcha module provides bot protection for your authentication endpoints using Google reCAPTCHA v3 or Cloudflare Turnstile. It operates as pure middleware — no HTTP endpoints are exposed. You specify which routes require captcha verification, and the middleware transparently validates the captcha token on each request before the handler runs.
+The Captcha module protects the login and signup endpoints of your Go application from bots using Google reCAPTCHA v3 or Cloudflare Turnstile. It operates as pure middleware — no HTTP endpoints are exposed. You specify which routes require captcha verification, and the middleware transparently validates the captcha token on each request before the handler runs.
 
 ## Capabilities
 

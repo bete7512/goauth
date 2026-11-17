@@ -1,7 +1,9 @@
 ---
 id: security
 title: Security and Credentials
-description: How GoAuth decides who a request belongs to, and the settings you control. Cookies and bearer tokens, token signing, key rotation, passwords, lockout and stored secrets.
+seoTitle: "Go auth security: cookies, JWT signing, key rotation"
+description: "How GoAuth secures Go authentication: cookies or bearer tokens, HS256, RS256 and ES256 JWT signing, key rotation with JWKS, password hashing, lockout and secrets."
+keywords: ["golang jwt security", "go jwt key rotation", "golang secure cookies", "bcrypt go", "account lockout go"]
 ---
 
 # Security and Credentials

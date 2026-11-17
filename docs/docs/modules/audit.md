@@ -1,13 +1,16 @@
 ---
 id: audit
 title: Audit Module
+seoTitle: "Audit logging for Go authentication"
+description: "Security audit logs for Go with GoAuth: record sign-ins, password changes, admin actions and more with severity, actor and IP, for users and for compliance reviews."
+keywords: ["golang audit log", "go security logging", "authentication audit trail", "login history go"]
 sidebar_label: Audit
 sidebar_position: 8
 ---
 
 # Audit Module
 
-The Audit module provides comprehensive security event logging for compliance, debugging, and user transparency. It subscribes to the event categories listed below and writes structured audit log entries with action names, severity levels, actor IDs, IP addresses, and metadata. It serves two audiences: end users who want to see their own activity history, and administrators who need a full audit trail for compliance and incident investigation.
+The Audit module provides audit logging for Go applications: security events for compliance, debugging, and user transparency. It subscribes to the event categories listed below and writes structured audit log entries with action names, severity levels, actor IDs, IP addresses, and metadata. It serves two audiences: end users who want to see their own activity history, and administrators who need a full audit trail for compliance and incident investigation.
 
 ## Capabilities
 

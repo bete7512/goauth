@@ -1,6 +1,9 @@
 ---
 id: invitation
 title: Invitation
+seoTitle: "User invitations and invite-only sign-up in Go"
+description: "Invite users by email in Go with GoAuth: platform invitations for beta programs, referrals or invite-only sign-up, with accept, decline, cancel and emails."
+keywords: ["golang user invitation", "go invite only signup", "invite users by email go", "beta invite system"]
 sidebar_label: Invitation
 sidebar_position: 13
 ---
@@ -9,7 +12,7 @@ sidebar_position: 13
 
 > **Experimental.** This module works and is tested, but its API and schema may change during the beta.
 
-The Invitation module provides standalone, platform-level invitations. Use it to invite users to your platform, beta program, referral system, or any non-organization context. For organization-scoped invitations, see the [Organization module](organization.md).
+The Invitation module provides standalone, platform-level email invitations for Go applications, including invite-only sign-up. Use it to invite users to your platform, beta program, referral system, or any non-organization context. For organization-scoped invitations, see the [Organization module](organization.md).
 
 ## Capabilities
 

@@ -1,8 +1,10 @@
 ---
 id: enterprise
 title: Enterprise Deployment
+seoTitle: "Run GoAuth on many replicas: events, outbox, NATS"
+description: "Run GoAuth on several Go replicas: the runtime lifecycle, custom event backends such as NATS, acknowledged delivery, the transactional outbox, and the gaps."
+keywords: ["goauth scaling", "golang auth multiple instances", "transactional outbox go", "go event backend nats"]
 sidebar_label: Enterprise
-description: Running GoAuth on several replicas. The runtime lifecycle, custom event backends, acknowledged delivery, the transactional outbox, and what is not built in.
 ---
 
 # Events and Deployment

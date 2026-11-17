@@ -1,13 +1,16 @@
 ---
 id: magiclink
 title: Magic Link Module
+seoTitle: "Magic link and email code login in Go"
+description: "Passwordless email sign-in for Go with GoAuth: magic links or six-digit email codes that end in the same JWT or session login as passwords, with 2FA still applied."
+keywords: ["golang magic link", "go passwordless email login", "email otp login go", "magic link authentication"]
 sidebar_label: Magic Link
 sidebar_position: 11
 ---
 
 # Magic Link Module
 
-Magic Link verifies an email link or a six-digit email code, then enters the same authentication completion flow as password and OAuth sign-in. It can return additional challenges instead of immediately issuing credentials.
+Magic Link adds passwordless email login to your Go application. It verifies an email link or a six-digit email code, then enters the same authentication completion flow as password and OAuth sign-in. It can return additional challenges instead of immediately issuing credentials.
 
 ## Registration
 
