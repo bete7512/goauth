@@ -78,6 +78,17 @@ const (
 	RouteIDPAdminClientsUpdate RouteName = "idp.admin.clients.update"
 	RouteIDPAdminClientsDelete RouteName = "idp.admin.clients.delete"
 	RouteIDPAdminClientsSecret RouteName = "idp.admin.clients.secret"
+	// RouteIDPPage is the module's own sign-in and consent page, served
+	// when IDPModuleConfig.ConsentURL is empty.
+	RouteIDPPage RouteName = "idp.page"
+	// RouteIDPPageSignIn checks a password on that page.
+	RouteIDPPageSignIn RouteName = "idp.page.signin"
+	// RouteIDPPageTwoFactor checks a two-factor code on that page.
+	RouteIDPPageTwoFactor RouteName = "idp.page.2fa"
+	// RouteIDPPageDecision takes the user's approval or refusal.
+	RouteIDPPageDecision RouteName = "idp.page.decision"
+	// RouteIDPPageAsset serves the page's stylesheet.
+	RouteIDPPageAsset RouteName = "idp.page.asset"
 
 	// MagicLink Routes
 	RouteMagicLinkSend       RouteName = "magiclink.send"

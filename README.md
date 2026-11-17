@@ -285,7 +285,7 @@ Each module brings its own routes, tables, migrations and OpenAPI spec.
 | [UI](https://goauth.beteg.dev/docs/modules/ui) | The admin console above, plus optional sign-in and account pages for every user. | Stable | `main` |
 | **Connecting** | | | |
 | [Notification](https://goauth.beteg.dev/docs/modules/notification) | Email and SMS through Resend, SendGrid, SMTP or Twilio, with branded templates. | Stable | ✓ |
-| [Identity Provider](https://goauth.beteg.dev/docs/modules/idp) | OpenID Connect provider: other applications sign users in with your accounts. | Experimental | `main` |
+| [Identity Provider](https://goauth.beteg.dev/docs/modules/idp) | OpenID Connect provider: other applications sign users in with your accounts, on a built-in sign-in and consent page. | Experimental | `main` |
 
 - **Experimental** modules work and are tested, but their API and schema may change during the beta.
 - **Released ✓**: in `v0.3.0-beta.1`. **`main`**: merged, waiting for the next beta. To try one now: `go get github.com/bete7512/goauth@main`.

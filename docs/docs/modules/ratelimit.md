@@ -27,7 +27,7 @@ The Rate Limit module puts request budgets on the built-in authentication routes
 
 | Routes | Key | Budget |
 |---|---|---|
-| Login (including the UI module's sign-in and two-factor pages, `ui.login.code.verify`, `ui.login.passkey.finish` and the console's password change `ui.account.password`), two-factor verification, passkey login finish, magic-link verification, password reset, email and phone verification, invitation acceptance | IP | 30 per minute |
+| Login (including the UI module's sign-in and two-factor pages, `ui.login.code.verify`, `ui.login.passkey.finish`, the console's password change `ui.account.password`, and the identity provider's sign-in page, `idp.page.signin` and `idp.page.2fa`), two-factor verification, passkey login finish, magic-link verification, password reset, email and phone verification, invitation acceptance | IP | 30 per minute |
 | The same routes | Identifier | 10 per 10 minutes |
 | Forgot password, verification sends and resends, magic-link send and resend (including the console's `ui.login.code`), two-factor resend, invitation send | IP | 10 per hour |
 | The same routes | Identifier | 3 per hour |

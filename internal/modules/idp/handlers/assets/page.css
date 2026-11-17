@@ -1,0 +1,205 @@
+/* GoAuth identity provider: the sign-in and consent page. One stylesheet,
+   no script. Colours are tokens so light and dark share every rule. */
+
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #f1f3f6;
+  --border: #e3e6eb;
+  --border-strong: #cdd2da;
+  --text: #14171c;
+  --text-2: #4a5160;
+  --text-3: #7a8191;
+  --accent: #4f46e5;
+  --accent-hover: #4338ca;
+  --accent-soft: #eef0ff;
+  --accent-text: #3730a3;
+  --on-accent: #ffffff;
+  --danger: #c22a2a;
+  --danger-soft: #fdecec;
+  --focus: rgba(79, 70, 229, 0.35);
+  --shadow: 0 1px 3px rgba(16, 24, 40, 0.06), 0 4px 16px rgba(16, 24, 40, 0.06);
+  --radius: 12px;
+  --radius-sm: 8px;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d0f13;
+    --surface: #15181e;
+    --surface-2: #1c2028;
+    --border: #262b35;
+    --border-strong: #353b47;
+    --text: #e9ecf1;
+    --text-2: #b3b9c5;
+    --text-3: #838a98;
+    --accent: #7c74ff;
+    --accent-hover: #918aff;
+    --accent-soft: #1e1d3a;
+    --accent-text: #c4c0ff;
+    --on-accent: #0d0f13;
+    --danger: #ff6b6b;
+    --danger-soft: #2f1717;
+    --focus: rgba(124, 116, 255, 0.45);
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.45), 0 8px 24px rgba(0, 0, 0, 0.35);
+    color-scheme: dark;
+  }
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+  background: var(--bg);
+  color: var(--text);
+  font: 14.5px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { color: var(--accent-hover); text-decoration: underline; }
+
+.card {
+  width: 100%;
+  max-width: 420px;
+  padding: 32px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.avatar {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 16px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: 20px;
+  font-weight: 650;
+}
+
+h1 { margin: 0; text-align: center; font-size: 20px; line-height: 1.3; font-weight: 650; overflow-wrap: anywhere; }
+
+.lead { margin: 6px 0 24px; text-align: center; color: var(--text-2); overflow-wrap: anywhere; }
+.lead strong { color: var(--text); font-weight: 600; }
+.lead:last-child { margin-bottom: 0; }
+
+.notice {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 13.5px;
+}
+.notice.error { background: var(--danger-soft); color: var(--danger); }
+
+form { display: grid; gap: 16px; margin: 0; }
+
+.field { display: grid; gap: 6px; }
+.field label { font-size: 13px; font-weight: 550; }
+
+.input {
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+.input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--focus); }
+.input.code { text-align: center; letter-spacing: 0.3em; font-size: 18px; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-weight: 550;
+  cursor: pointer;
+}
+.btn:hover { background: var(--surface-2); color: var(--text); text-decoration: none; }
+.btn:focus-visible, .link:focus-visible, a:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus); }
+.btn.primary { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
+.btn.primary:hover { border-color: var(--accent-hover); background: var(--accent-hover); color: var(--on-accent); }
+.btn.block { width: 100%; }
+
+.link {
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+.link:hover { color: var(--accent-hover); text-decoration: underline; }
+
+.divider { display: flex; align-items: center; gap: 12px; margin: 18px 0 14px; color: var(--text-3); font-size: 12.5px; }
+.divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+
+.stack { display: grid; gap: 10px; }
+
+.who {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 20px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 13.5px;
+}
+.who-text { display: grid; min-width: 0; }
+.who-text strong { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.who-text span { color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.who a { flex: none; }
+
+.label { margin: 0 0 8px; font-size: 13px; font-weight: 550; overflow-wrap: anywhere; }
+
+.scopes { margin: 0 0 24px; padding: 0; list-style: none; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.scopes li { padding: 10px 12px; color: var(--text-2); }
+.scopes li + li { border-top: 1px solid var(--border); }
+
+.tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-3);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* The approving button comes first in the document and last on screen. */
+.actions { display: flex; flex-direction: row-reverse; gap: 10px; }
+.actions .btn { flex: 1; }
+
+.cancel { margin-top: 18px; text-align: center; font-size: 13.5px; }
+
+.foot { margin: 18px 0 0; text-align: center; color: var(--text-3); font-size: 12.5px; overflow-wrap: anywhere; }
+.foot strong { color: var(--text-2); font-weight: 600; }
+
+@media (max-width: 480px) {
+  .card { padding: 24px 20px; }
+}

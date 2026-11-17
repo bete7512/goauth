@@ -251,6 +251,21 @@ func (mr *MockIDPServiceMockRecorder) ListGrants(ctx, userID, opts any) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListGrants", reflect.TypeOf((*MockIDPService)(nil).ListGrants), ctx, userID, opts)
 }
 
+// PendingRedirectURI mocks base method.
+func (m *MockIDPService) PendingRedirectURI(ctx context.Context, requestID string) (string, *types.GoAuthError) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PendingRedirectURI", ctx, requestID)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(*types.GoAuthError)
+	return ret0, ret1
+}
+
+// PendingRedirectURI indicates an expected call of PendingRedirectURI.
+func (mr *MockIDPServiceMockRecorder) PendingRedirectURI(ctx, requestID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PendingRedirectURI", reflect.TypeOf((*MockIDPService)(nil).PendingRedirectURI), ctx, requestID)
+}
+
 // RevokeGrant mocks base method.
 func (m *MockIDPService) RevokeGrant(ctx context.Context, userID, grantID string, metadata *types.RequestMetadata) *types.GoAuthError {
 	m.ctrl.T.Helper()

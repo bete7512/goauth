@@ -95,23 +95,36 @@ esac
 step "the user has an account at the identity provider"
 curl -fsS -o /dev/null -X POST "$origin/auth/signup" -H 'Content-Type: application/json' \
   -d "{\"email\":\"$email\",\"password\":\"$password\",\"name\":\"Ada Lovelace\"}"
-token=$(curl -fsS -X POST "$origin/auth/login" -H 'Content-Type: application/json' \
-  -d "{\"email\":\"$email\",\"password\":\"$password\"}" | json "['data']['access_token']")
 
 step "the client sends the browser to the identity provider"
 authorize=$(curl -sS -c "$jar" -o /dev/null -w '%{redirect_url}' "$start_url")
 case "$authorize" in "$issuer/authorize"*) ;; *) echo "unexpected redirect: $authorize" >&2; exit 1 ;; esac
 [ -n "$(query "$authorize" code_challenge)" ] || { echo "the client sent no PKCE challenge" >&2; exit 1; }
 
-step "the identity provider sends the browser to the consent page"
+step "the identity provider sends the browser to its sign-in page"
 consent=$(curl -sS -o /dev/null -w '%{redirect_url}' "$authorize")
+case "$consent" in "$issuer/consent?"*) ;; *) echo "unexpected redirect: $consent" >&2; exit 1 ;; esac
 request_id=$(query "$consent" request_id)
 [ -n "$request_id" ] || { echo "no request_id in: $consent" >&2; exit 1; }
-details=$(curl -fsS -H "Authorization: Bearer $token" "$origin/auth/oidc/consent/$request_id")
-echo "    asks for: $(echo "$details" | json "['data']['client']['name']"), scopes $(echo "$details" | python3 -c "import json,sys; print(' '.join(s['name'] for s in json.load(sys.stdin)['data']['scopes']))")"
+curl -fsS "$consent" | grep -q 'name="password"' || { echo "the page shows no sign-in form" >&2; exit 1; }
+
+step "the user signs in on the page"
+# The credential cookies are Secure, which curl may refuse to send over
+# plain http, so they are carried by hand.
+curl -sS -o /dev/null -D "$work/signin.headers" -H 'Sec-Fetch-Site: same-origin' "$issuer/consent/signin" \
+  --data-urlencode "request_id=$request_id" --data-urlencode "email=$email" --data-urlencode "password=$password"
+session=$(python3 -c "
+import sys
+cookies = [line.split(':', 1)[1].split(';', 1)[0].strip() for line in open(sys.argv[1]) if line.lower().startswith('set-cookie:')]
+print('; '.join(cookies))" "$work/signin.headers")
+[ -n "$session" ] || { echo "signing in set no cookies" >&2; cat "$work/signin.headers" >&2; exit 1; }
+page=$(curl -fsS -b "$session" "$consent")
+echo "    the page asks: $(echo "$page" | python3 -c "import html,re,sys; print(html.unescape(re.search(r'<h1>(.*?)</h1>', sys.stdin.read()).group(1)))")"
+user=$(echo "$page" | python3 -c "import re,sys; print(re.search(r'name=\"user\" value=\"([^\"]+)\"', sys.stdin.read()).group(1))")
 
 step "the user approves"
-back=$(curl -fsS -X POST -H "Authorization: Bearer $token" "$origin/auth/oidc/consent/$request_id/approve" | json "['data']['redirect_to']")
+back=$(curl -sS -o /dev/null -w '%{redirect_url}' -b "$session" -H 'Sec-Fetch-Site: same-origin' "$issuer/consent/decision" \
+  --data-urlencode "request_id=$request_id" --data-urlencode "user=$user" --data-urlencode "decision=approve")
 case "$back" in "$callback"*) ;; *) echo "unexpected redirect: $back" >&2; exit 1 ;; esac
 
 step "the browser returns to the client, which redeems the code"

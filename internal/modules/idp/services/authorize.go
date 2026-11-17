@@ -304,7 +304,10 @@ func (s *idpService) existingGrant(ctx context.Context, userID, clientID string)
 
 // loginStale reports whether the user's sign-in is too old for the request:
 // prompt=login wants one made after the request, max_age one no older than
-// that many seconds. A sign-in whose time is unknown satisfies neither.
+// that many seconds. A sign-in whose time is unknown satisfies neither. One
+// made after the request satisfies both: the user was asked to sign in
+// again and did, which is all max_age can demand (max_age=0 would
+// otherwise only be met within the same second).
 func loginStale(pending *pendingAuthorization, requestedAt time.Time, principal types.Principal, now time.Time) bool {
 	if !pending.RequireLogin && pending.MaxAge == nil {
 		return false
@@ -314,13 +317,13 @@ func loginStale(pending *pendingAuthorization, requestedAt time.Time, principal 
 		return true
 	}
 	// Sign-in times are kept in whole seconds.
-	if pending.RequireLogin && authTime.Unix() < requestedAt.Unix() {
+	if authTime.Unix() >= requestedAt.Unix() {
+		return false
+	}
+	if pending.RequireLogin {
 		return true
 	}
-	if pending.MaxAge != nil && now.Unix()-authTime.Unix() > *pending.MaxAge {
-		return true
-	}
-	return false
+	return pending.MaxAge != nil && now.Unix()-authTime.Unix() > *pending.MaxAge
 }
 
 // consentRequired reports whether the user has to be asked: not for an
@@ -336,7 +339,10 @@ func consentRequired(client *models.IDPClient, pending *pendingAuthorization, gr
 	return !oauthproto.ScopeSubset(pending.Scopes, grant.Scopes)
 }
 
-// ConsentDetails describes a pending request to the signed-in user.
+// ConsentDetails describes a pending request to the signed-in user. A
+// principal without a user describes it to someone who has not signed in
+// yet: nothing was approved before, and whether a sign-in is fresh enough
+// is not reported.
 func (s *idpService) ConsentDetails(ctx context.Context, principal types.Principal, requestID string) (*dto.ConsentDetails, *types.GoAuthError) {
 	record, pending, authErr := s.loadPending(ctx, requestID)
 	if authErr != nil {
@@ -346,9 +352,12 @@ func (s *idpService) ConsentDetails(ctx context.Context, principal types.Princip
 	if authErr != nil {
 		return nil, authErr
 	}
-	grant, authErr := s.existingGrant(ctx, principal.UserID, client.ClientID)
-	if authErr != nil {
-		return nil, authErr
+	var grant *models.IDPGrant
+	signedIn := principal.UserID != ""
+	if signedIn {
+		if grant, authErr = s.existingGrant(ctx, principal.UserID, client.ClientID); authErr != nil {
+			return nil, authErr
+		}
 	}
 
 	details := &dto.ConsentDetails{
@@ -359,7 +368,7 @@ func (s *idpService) ConsentDetails(ctx context.Context, principal types.Princip
 		RedirectHost:    oauthproto.RedirectHost(pending.RedirectURI),
 		Scopes:          make([]dto.ConsentScope, 0, len(pending.Scopes)),
 		ConsentRequired: consentRequired(client, pending, grant),
-		LoginRequired:   loginStale(pending, record.CreatedAt, principal, s.now()),
+		LoginRequired:   signedIn && loginStale(pending, record.CreatedAt, principal, s.now()),
 		LoginHint:       pending.LoginHint,
 		ExpiresAt:       record.ExpiresAt,
 	}
@@ -370,6 +379,16 @@ func (s *idpService) ConsentDetails(ctx context.Context, principal types.Princip
 		})
 	}
 	return details, nil
+}
+
+// PendingRedirectURI returns where a pending request sends the browser once
+// the user has decided.
+func (s *idpService) PendingRedirectURI(ctx context.Context, requestID string) (string, *types.GoAuthError) {
+	_, pending, authErr := s.loadPending(ctx, requestID)
+	if authErr != nil {
+		return "", authErr
+	}
+	return pending.RedirectURI, nil
 }
 
 // ApproveConsent records the user's approval: it stores the grant and an

@@ -35,8 +35,12 @@ type IDPService interface {
 	// error. An error return means the request cannot be answered through a
 	// redirect.
 	Authorize(ctx context.Context, query url.Values) (string, *types.GoAuthError)
-	// ConsentDetails describes a pending request to the signed-in user.
+	// ConsentDetails describes a pending request to the signed-in user, or,
+	// given a principal without a user, to someone who has not signed in.
 	ConsentDetails(ctx context.Context, principal types.Principal, requestID string) (*dto.ConsentDetails, *types.GoAuthError)
+	// PendingRedirectURI returns the client redirect URI of a pending
+	// request, for the module's own page.
+	PendingRedirectURI(ctx context.Context, requestID string) (string, *types.GoAuthError)
 	// ApproveConsent records the user's approval and returns the client
 	// redirect carrying the authorization code.
 	ApproveConsent(ctx context.Context, principal types.Principal, requestID string, metadata *types.RequestMetadata) (string, *types.GoAuthError)

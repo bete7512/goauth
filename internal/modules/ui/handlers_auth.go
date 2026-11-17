@@ -7,10 +7,11 @@ import (
 
 	"github.com/bete7512/goauth/internal/security"
 	http_utils "github.com/bete7512/goauth/internal/utils/http"
+	"github.com/bete7512/goauth/internal/websession"
 	"github.com/bete7512/goauth/pkg/types"
 )
 
-const genericSignInError = "The email or password is incorrect."
+const genericSignInError = websession.GenericSignInError
 
 type loginPage struct {
 	Email     string
@@ -198,20 +199,7 @@ func (m *UIModule) loginFailed(w http.ResponseWriter, r *http.Request, page *log
 // signInMessage keeps the answer to a failed sign-in as uninformative as
 // the API's: a locked or unknown account reads like a wrong password.
 func signInMessage(err error) string {
-	var authErr *types.GoAuthError
-	if !errors.As(err, &authErr) {
-		return genericSignInError
-	}
-	switch authErr.Code {
-	case types.ErrEmailNotVerified:
-		return "Verify your email address before signing in."
-	case types.ErrAccountLocked:
-		return "This account is temporarily locked. Try again later."
-	case types.ErrUserNotActive, types.ErrAccountDeactivated, types.ErrUserBlocked:
-		return "This account cannot sign in."
-	default:
-		return genericSignInError
-	}
+	return websession.SignInMessage(err)
 }
 
 func (m *UIModule) logout(w http.ResponseWriter, r *http.Request) {

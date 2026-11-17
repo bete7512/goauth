@@ -4,9 +4,9 @@
 // says who the user is.
 // Import this package instead of internal/modules/idp.
 //
-// The module needs a signing key of its own (IDPModuleConfig.SigningKey) and
-// a page of your frontend where the user signs in and approves a request
-// (IDPModuleConfig.ConsentURL or FrontendConfig.URL).
+// The module needs a signing key of its own (IDPModuleConfig.SigningKey).
+// It serves the page where the user signs in and approves a request itself;
+// set IDPModuleConfig.ConsentURL to use a page of your own frontend instead.
 package idp
 
 import (
@@ -17,8 +17,8 @@ import (
 	"github.com/bete7512/goauth/pkg/config"
 )
 
-// New creates the identity provider module. Config.APIURL, a signing key and
-// a consent page are required at Initialize.
+// New creates the identity provider module. Config.APIURL and a signing key
+// are required at Initialize.
 func New(cfg *config.IDPModuleConfig) config.Module {
 	return internal.New(cfg)
 }

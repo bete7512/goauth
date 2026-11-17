@@ -80,6 +80,11 @@ func (m *CSRFModule) Middlewares() []config.MiddlewareConfig {
 				// which refuses cross-site requests by Sec-Fetch-Site and
 				// Origin, so they need no token of this module's.
 				"ui.*",
+				// So are the forms of the identity provider's own sign-in
+				// page, which are wrapped the same way.
+				types.RouteIDPPageSignIn,
+				types.RouteIDPPageTwoFactor,
+				types.RouteIDPPageDecision,
 			},
 		},
 	}

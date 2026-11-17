@@ -9,6 +9,8 @@ import (
 
 	"github.com/bete7512/goauth/internal/oauthproto"
 	"github.com/bete7512/goauth/internal/security"
+	http_utils "github.com/bete7512/goauth/internal/utils/http"
+	"github.com/bete7512/goauth/internal/websession"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/types"
 )
@@ -24,6 +26,9 @@ const (
 	defaultConsentPath     = "/oidc/consent"
 	// issuerPath is where the module's routes live under the base path.
 	issuerPath = "/oidc"
+	// pagePath is the module's own sign-in and consent page, relative to
+	// the issuer.
+	pagePath = "/consent"
 	// maxCodeTTL keeps authorization codes short-lived (RFC 6749 section
 	// 4.1.2 recommends at most ten minutes).
 	maxCodeTTL = 10 * time.Minute
@@ -45,10 +50,22 @@ type Endpoints struct {
 type Settings struct {
 	Issuer    string
 	Endpoints Endpoints
-	// ConsentURL and ErrorURL are the host's frontend pages.
+	// ConsentURL is where the authorization endpoint sends the browser: the
+	// module's own page, or a page of the host's frontend.
 	ConsentURL string
-	ErrorURL   string
-	Signer     *security.TokenSigner
+	// ErrorURL is the host's page for requests that cannot be returned to
+	// the client. Empty shows the module's own error page when BuiltInPage
+	// is set, and answers JSON otherwise.
+	ErrorURL string
+	// BuiltInPage is set when the module serves the sign-in and consent
+	// page itself, because the host named no page of its own.
+	BuiltInPage bool
+	// PageBase is the path of the issuer as the browser sees it, such as
+	// "/auth/oidc". The page's forms and stylesheet are addressed from it.
+	PageBase string
+	// AppName is what the host's product is called on the page.
+	AppName string
+	Signer  *security.TokenSigner
 
 	IDTokenTTL         time.Duration
 	AccessTokenTTL     time.Duration
@@ -126,13 +143,27 @@ func ResolveSettings(deps config.ModuleDependencies, cfg *config.IDPModuleConfig
 		settings.RefreshReuseLeeway = 0
 	}
 
-	// Consent and error pages.
-	settings.ConsentURL = cfg.ConsentURL
-	if settings.ConsentURL == "" && deps.Config.FrontendConfig != nil && deps.Config.FrontendConfig.URL != "" {
-		settings.ConsentURL = strings.TrimRight(deps.Config.FrontendConfig.URL, "/") + defaultConsentPath
+	// Consent and error pages. A host that names no page of its own gets
+	// the module's, which signs users in with the credential cookies; an
+	// application that only accepts bearer tokens has to bring its own.
+	settings.PageBase = strings.TrimRight(issuerURL.EscapedPath(), "/")
+	settings.AppName = strings.TrimSpace(cfg.AppName)
+	if settings.AppName == "" {
+		settings.AppName = issuerURL.Hostname()
 	}
-	if settings.ConsentURL == "" {
-		return nil, errors.New("idp: ConsentURL is required (the page of your frontend where the user signs in and approves a request), or set FrontendConfig.URL to use <URL>/oidc/consent")
+	settings.ConsentURL = cfg.ConsentURL
+	switch {
+	case settings.ConsentURL != "":
+	case http_utils.CookiesEnabled(deps.Config.Security.AuthMode):
+		if cookiePath := deps.Config.Security.Session.Path; !websession.CookieReaches(cookiePath, settings.PageBase) {
+			return nil, fmt.Errorf("idp: the module's sign-in page at %q would never receive the credential cookies, which Security.Session.Path limits to %q; widen the cookie path, or set ConsentURL to a page of your own frontend", settings.PageBase+pagePath, cookiePath)
+		}
+		settings.BuiltInPage = true
+		settings.ConsentURL = issuer + pagePath
+	case deps.Config.FrontendConfig != nil && deps.Config.FrontendConfig.URL != "":
+		settings.ConsentURL = strings.TrimRight(deps.Config.FrontendConfig.URL, "/") + defaultConsentPath
+	default:
+		return nil, errors.New("idp: ConsentURL is required when Security.AuthMode is \"bearer\" (the module's own sign-in page works with cookies): set it to the page of your frontend where the user signs in and approves a request, or set FrontendConfig.URL to use <URL>/oidc/consent")
 	}
 	if err := validateFrontendURL(settings.ConsentURL); err != nil {
 		return nil, fmt.Errorf("idp: ConsentURL %w", err)

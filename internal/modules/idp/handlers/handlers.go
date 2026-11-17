@@ -14,6 +14,7 @@ import (
 	"github.com/bete7512/goauth/internal/modules/idp/handlers/dto"
 	"github.com/bete7512/goauth/internal/modules/idp/services"
 	http_utils "github.com/bete7512/goauth/internal/utils/http"
+	"github.com/bete7512/goauth/internal/websession"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/types"
 )
@@ -24,12 +25,20 @@ type IDPHandler struct {
 	deps     config.ModuleDependencies
 	settings *services.Settings
 	trusted  []net.IPNet
+	// sessions and protect serve the module's own page: who is signed in,
+	// and the refusal of form posts made by another site.
+	sessions *websession.Reader
+	protect  *http.CrossOriginProtection
 }
 
 // NewIDPHandler creates the handler.
 func NewIDPHandler(service services.IDPService, deps config.ModuleDependencies, settings *services.Settings) *IDPHandler {
 	trusted, _ := http_utils.ParseCIDRs(deps.Config.TrustedProxies)
-	return &IDPHandler{service: service, deps: deps, settings: settings, trusted: trusted}
+	h := &IDPHandler{service: service, deps: deps, settings: settings, trusted: trusted, sessions: websession.New(deps)}
+	h.protect = newPageProtection(deps, settings.Issuer, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		h.pageProblem(w, http.StatusForbidden, "This request was refused", "It came from another site. Go back to the application and sign in again.")
+	}))
+	return h
 }
 
 // GetRoutes returns the routes enabled by the module configuration.
@@ -47,6 +56,9 @@ func (h *IDPHandler) GetRoutes() []config.RouteInfo {
 		{Name: string(types.RouteIDPConsentDeny), Path: "/oidc/consent/{id}/deny", Method: http.MethodPost, Handler: h.DenyConsent, Middlewares: auth},
 		{Name: string(types.RouteIDPGrantsList), Path: "/oidc/grants", Method: http.MethodGet, Handler: h.ListGrants, Middlewares: auth},
 		{Name: string(types.RouteIDPGrantsRevoke), Path: "/oidc/grants/{id}", Method: http.MethodDelete, Handler: h.RevokeGrant, Middlewares: auth},
+	}
+	if h.settings.BuiltInPage {
+		routes = append(routes, h.pageRoutes()...)
 	}
 	if h.settings.AdminAPI {
 		admin := []types.MiddlewareName{types.MiddlewareAuth, types.MiddlewareAdminAuth}

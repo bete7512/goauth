@@ -2,7 +2,7 @@
 id: idp
 title: Identity Provider Module
 seoTitle: "OpenID Connect provider in Go (OIDC server)"
-description: "Make your Go app an OpenID Connect provider with GoAuth: other apps sign in with your accounts through OIDC clients, ID tokens, consent, discovery and UserInfo."
+description: "Make your Go app an OpenID Connect provider with GoAuth: other apps sign in with your accounts, with a built-in sign-in and consent page, ID tokens and discovery."
 keywords: ["golang openid connect provider", "go oidc server", "oidc identity provider go", "sign in with your app", "golang oauth2 server"]
 sidebar_label: Identity Provider
 sidebar_position: 16
@@ -14,9 +14,9 @@ The identity provider (IdP) module makes your Go application an **OpenID Connect
 
 Any software that supports OpenID Connect can be a client: Grafana, GitLab, Nextcloud, internal tools, or another GoAuth application.
 
-Users always sign in on your own pages, so every login method and policy you have (passwords, passkeys, two-factor, lockout) applies, and the client never sees a password.
+Users always sign in with your application, never with the client, so your policies (lockout, two-factor, email verification) apply and the client never sees a password. The module serves the page where that happens, a sign-in form followed by an approval screen, so nothing else has to be built. A host that wants the page in its own frontend can [bring its own](#your-own-page).
 
-Status: **Experimental**. The authorization code flow with PKCE, refresh tokens, consent, discovery, UserInfo and client administration are implemented. Sign-out protocols and silent sign-in (`prompt=none`) are not; see [Limitations](#limitations).
+Status: **Experimental**. The authorization code flow with PKCE, refresh tokens, the sign-in and consent page, discovery, UserInfo and client administration are implemented. Sign-out protocols and silent sign-in (`prompt=none`) are not; see [Limitations](#limitations).
 
 ## Registration
 
@@ -27,7 +27,7 @@ if err != nil {
 }
 if err := a.Use(idp.New(&config.IDPModuleConfig{
     SigningKey: config.IDPSigningKey{PrivateKeyPEM: key},
-    ConsentURL: "https://app.example.com/oidc/consent",
+    AppName:    "Acme", // what the sign-in page calls your product
     Clients: []config.IDPClientConfig{{
         ClientID:     "grafana",
         Secret:       os.Getenv("GRAFANA_OIDC_SECRET"), // at least 32 characters
@@ -51,7 +51,7 @@ openssl rand -hex 32
 
 The module depends on Core only. With `AdminAPI: true` it also **depends on the Admin module**, whose middleware protects the client administration endpoints.
 
-Initialization fails with a descriptive error when the signing key is missing or is not an RSA key, when it is the key that signs GoAuth's own access tokens, when no consent page is known, or when a declared client is invalid.
+Initialization fails with a descriptive error when the signing key is missing or is not an RSA key, when it is the key that signs GoAuth's own access tokens, when the sign-in page cannot work (see [The sign-in page](#the-sign-in-page)), or when a declared client is invalid.
 
 ## Configuration
 
@@ -60,8 +60,9 @@ Initialization fails with a descriptive error when the signing key is missing or
 | `SigningKey` | RSA private key that signs ID tokens (`PrivateKeyPEM` or `PrivateKeyFile`, optional `KeyID`). Required, at least 2048 bits, and a key of its own |
 | `SigningKey.RetiredKeys` | Public keys of earlier signing keys, published until their `NotAfter` so that ID tokens they signed still verify |
 | `Issuer` | Issuer identifier; default `{APIURL}{BasePath}/oidc`. Set it to the address clients reach when that differs, and route it to `{BasePath}/oidc` |
-| `ConsentURL` | Page of your frontend where the user signs in and approves; default `{FrontendConfig.URL}/oidc/consent` |
-| `ErrorURL` | Page shown when a request cannot be returned to the client; empty answers JSON |
+| `ConsentURL` | A page of your own frontend where the user signs in and approves. Empty (the default) uses the module's page at `{Issuer}/consent`. With `Security.AuthMode: "bearer"`, which the module's page cannot work with, the default is `{FrontendConfig.URL}/oidc/consent` |
+| `AppName` | What your product is called on the module's page; default the issuer's host name |
+| `ErrorURL` | Page shown when a request cannot be returned to the client; empty shows the module's page, or answers JSON when `ConsentURL` is set |
 | `Clients` | Clients created or rewritten from configuration at every start |
 | `AdminAPI` | Serve `/admin/oidc/clients` for registering clients at runtime (default off; needs the Admin module) |
 | `IDTokenTTL` | ID token lifetime, default 1 hour |
@@ -79,13 +80,13 @@ Per client (`IDPClientConfig`, and the same fields in the admin API):
 | --- | --- |
 | `ClientID` | Public identifier: 3 to 128 characters of letters, digits, `.`, `_`, `~` or `-` |
 | `Secret` | Client secret, at least 32 characters. Only its digest is stored. Empty for a `Public` client |
-| `Name` | Shown to the user on the consent page |
+| `Name` | Shown to the user on the sign-in page |
 | `RedirectURIs` | Exact addresses the user may be sent back to: https, http on a loopback host, or a private-use scheme of a native application |
 | `Scopes` | What the client may request; must include `openid`. Default `openid`, `profile`, `email` |
 | `Public` | An application that cannot keep a secret (single-page or mobile). It gets no secret and must use PKCE |
 | `AllowWithoutPKCE` | Accept requests without a PKCE challenge, for older applications that cannot send one (`require_pkce: false` in the admin API). Ignored for a public client |
 | `SkipConsent` | An application you operate yourself: users are signed in without being asked |
-| `LogoURI`, `ClientURI` | Shown on the consent page |
+| `LogoURI`, `ClientURI` | Returned by the consent endpoints for a page of your own. The module's page shows the first letter of `Name` instead: loading a logo would tell another server who is about to sign in |
 | `Disabled` | Keep the client registered but refuse it |
 
 A client declared in configuration is read-only through the admin API. When it is removed from configuration it is disabled and handed over to the admin API, where it can be deleted.
@@ -126,6 +127,11 @@ All paths are relative to `BasePath`.
 | GET | `/oidc/authorize` | Browser | Start a sign-in |
 | POST | `/oidc/token` | Client | Redeem a code or a refresh token |
 | GET, POST | `/oidc/userinfo` | Client | Claims about the user |
+| GET | `/oidc/consent` | Browser | The sign-in and consent page (`?request_id=`) |
+| POST | `/oidc/consent/signin` | Browser | The page's password form |
+| POST | `/oidc/consent/2fa` | Browser | The page's two-factor form |
+| POST | `/oidc/consent/decision` | Browser | The page's approve and cancel buttons |
+| GET | `/oidc/assets/page.css` | Browser | The page's stylesheet |
 | GET | `/oidc/consent/{id}` | Signed-in user | Describe a pending request |
 | POST | `/oidc/consent/{id}/approve` | Signed-in user | Approve; returns the redirect to the client |
 | POST | `/oidc/consent/{id}/deny` | Signed-in user | Refuse; returns the redirect to the client |
@@ -135,18 +141,39 @@ All paths are relative to `BasePath`.
 | GET, PUT, DELETE | `/admin/oidc/clients/{id}` | Administrator | Read, replace and delete a client |
 | POST | `/admin/oidc/clients/{id}/secret` | Administrator | Rotate the client secret |
 
-The first five speak the OpenID Connect wire format: errors are `{"error", "error_description"}`. The others use the GoAuth response envelope.
+The first five speak the OpenID Connect wire format: errors are `{"error", "error_description"}`. The page routes answer HTML and are only registered when `ConsentURL` is empty. The others use the GoAuth response envelope.
 
 ## Flow
 
 1. The client sends the browser to `/oidc/authorize` with its `client_id`, `redirect_uri`, `scope`, `state`, `nonce` and a PKCE challenge.
-2. The module verifies the client, the exact redirect URI, the scopes and PKCE, stores the request for ten minutes and redirects the browser to `ConsentURL?request_id=...`.
-3. Your consent page makes sure the user is signed in, the usual way, and calls `GET /oidc/consent/{request_id}`. The answer names the application, lists the scopes and says whether there is anything to ask: `consent_required` is false for an application the user already approved with these scopes, and for one with `SkipConsent`.
-4. The page shows the prompt, or skips it, and calls `POST /oidc/consent/{request_id}/approve`. The module records the grant and answers with `redirect_to`: the client's redirect URI carrying a one-time `code`, the `state` and the issuer (`iss`). The page sends the browser there.
-5. The client's server redeems the code at `/oidc/token` with its credentials and the PKCE verifier, and receives an `id_token`, an `access_token` and, with `offline_access`, a `refresh_token`.
-6. The client verifies the ID token against `/oidc/jwks` and may read `/oidc/userinfo` with the access token.
+2. The module verifies the client, the exact redirect URI, the scopes and PKCE, stores the request for ten minutes and redirects the browser to the sign-in page: `/oidc/consent?request_id=...`.
+3. The page looks at the application's credential cookies. A user who is not signed in gets a sign-in form; one who is goes straight on.
+4. The page names the application, the account and what the application will learn, and asks. It does not ask for an application the user already approved with these scopes, or for one with `SkipConsent`: the browser goes straight back.
+5. On **Continue** the module records the grant and redirects to the client's redirect URI with a one-time `code`, the `state` and the issuer (`iss`). On **Cancel** it redirects there with `error=access_denied`.
+6. The client's server redeems the code at `/oidc/token` with its credentials and the PKCE verifier, and receives an `id_token`, an `access_token` and, with `offline_access`, a `refresh_token`.
+7. The client verifies the ID token against `/oidc/jwks` and may read `/oidc/userinfo` with the access token.
 
-A minimal consent page:
+### The sign-in page
+
+The page is plain HTML: forms and one stylesheet, no script, light and dark. It needs nothing but this module.
+
+- **Who is signed in** is whoever your application's credential cookies say, so a user who is signed in to your application is signed in here, and signing in here signs the browser in to your application. An expired access token is renewed from the refresh cookie.
+- **Signing in** goes through the same code as your login route: password with email or username, then a two-factor code when the Two-Factor module asks for one. Lockout, bans and email verification apply. Connections of the OAuth and SAML modules appear as buttons and come back to the page with cookies only.
+- **Use another account** on the approval screen shows the sign-in form without signing anyone out.
+- Passkeys and emailed sign-in codes are not offered on this page, and there is no sign-up or password-reset form: users who need those use your application first.
+
+Requirements, checked at `Initialize`:
+
+- Cookies: `Security.AuthMode` must be `"cookie"` or `"both"` (the default allows them). A browser that only holds a bearer token, such as a single-page application that keeps tokens in memory, is asked to sign in on the page once.
+- `Security.Session.Path` must cover the page (`"/"`, the default, does).
+- With `Security.Session.SameSite` set to `Strict`, cookies do not travel with the navigation that brings the user from the client, so the page reloads itself once to pick them up. `Lax`, the default, needs no extra step.
+
+### Your own page
+
+Set `ConsentURL` to a page of your frontend and the module's page is not served. The browser arrives there with `?request_id=...`, and the page uses the JSON endpoints:
+
+1. Make sure the user is signed in, the usual way, and call `GET /oidc/consent/{request_id}`. The answer names the application, lists the scopes and says whether there is anything to ask (`consent_required`) and whether the application wants a fresh sign-in (`login_required`).
+2. Show the prompt, or skip it, and call `POST /oidc/consent/{request_id}/approve` or `/deny`. The answer's `redirect_to` is where to send the browser.
 
 ```js
 const id = new URLSearchParams(location.search).get("request_id");
@@ -165,9 +192,9 @@ if (!data.consent_required || (await askUser(data))) {
 
 ### What a client asks for
 
-- `prompt=login` and `max_age` ask for a recent sign-in. When the user's current one is too old, `login_required` is true and approving fails with `IDP_LOGIN_REQUIRED` until the user signs in again. The request stays open meanwhile.
+- `prompt=login` and `max_age` ask for a recent sign-in. When the user's current one is too old, the page asks for the password again; for a page of your own, `login_required` is true and approving fails with `IDP_LOGIN_REQUIRED` until the user signs in again. The request stays open meanwhile, and a sign-in made after the request satisfies it however long the user then takes to approve.
 - `prompt=consent` asks for approval even when it was given before. It has no effect on a `SkipConsent` client.
-- `login_hint` is passed on to the consent page.
+- `login_hint` fills in the sign-in form, and is passed on to a page of your own.
 - `prompt=none` is answered with `interaction_required`; see [Limitations](#limitations).
 
 ### Lifetime of a connection
@@ -190,8 +217,10 @@ A **grant** records that a user approved a client, with the scopes. There is one
 - **Nothing redeemable at rest.** Client secrets, pending requests, codes, access tokens and refresh tokens are stored as digests.
 - **Exact redirect URIs.** A redirect URI must equal a registered one, except that a loopback address matches on any port. A request whose client or redirect URI cannot be verified is never redirected.
 - **PKCE by default.** `S256` only. Required for every client unless a confidential one is explicitly allowed to go without, in which case the redirect URI must be repeated at the token endpoint.
-- **CSRF.** The token and UserInfo endpoints are called by servers and carry their own credentials, so the CSRF module leaves them alone. The consent decision is made from your page and is protected like any other request of the signed-in user.
-- **Rate limits.** By default the authorization endpoint is limited to 60 requests a minute per IP, and the token and UserInfo endpoints to 300.
+- **CSRF.** The token and UserInfo endpoints are called by servers and carry their own credentials, so the CSRF module leaves them alone. The forms of the module's page are wrapped in `net/http`'s `CrossOriginProtection`, which refuses a form another site submits, and need no token of the CSRF module. A decision made from a page of your own goes through the JSON endpoints and is protected like any other request of the signed-in user.
+- **The page cannot be framed or scripted.** Its Content Security Policy allows no script at all, no inline style and nothing from another origin, and `frame-ancestors 'none'` keeps another site from putting the approve button under a click. Forms may only post to the page itself and, after the decision, redirect to the client the request came from.
+- **The answer belongs to the account that was asked.** Approving counts only for the user the approval screen was shown to; a browser that changed accounts in between is asked again.
+- **Rate limits.** By default the authorization endpoint is limited to 60 requests a minute per IP, the token and UserInfo endpoints to 300, and the page's password and two-factor forms like every other credential check (30 a minute per IP, 10 per account in ten minutes).
 
 ## Client Quick Start: Grafana
 
@@ -210,7 +239,7 @@ use_pkce = true
 
 The redirect URI to register is `https://<grafana>/login/generic_oauth`.
 
-`examples/idp` is a runnable host with a consent page. Its `interop/interop.sh` signs a user in to a real client in a container and checks the result; it passes with Grafana 11.4 and with oauth2-proxy 7.6, which reads the discovery document and verifies the ID token signature.
+`examples/idp` is a runnable host. Its `interop/interop.sh` signs a user in to a real client in a container, through the module's page, and checks the result; it passes with Grafana 11.4 and with oauth2-proxy 7.6, which reads the discovery document and verifies the ID token signature.
 
 ## Events and Errors
 
@@ -234,7 +263,8 @@ The protocol endpoints answer with OAuth error codes: `invalid_request`, `invali
 ## Limitations
 
 - No sign-out protocol: neither RP-initiated logout nor back-channel logout. A client's own session ends on its own terms.
-- No silent sign-in: `prompt=none` is answered with `interaction_required`, because whether the user is signed in is known to your frontend, not to the authorization endpoint.
+- No silent sign-in: `prompt=none` is answered with `interaction_required`.
+- The module's page signs in with a password, a two-factor code, OAuth and SAML. It has no passkey or emailed-code sign-in, no sign-up and no password reset, and it does not show client logos.
 - Authorization code flow only. The implicit and hybrid flows, request objects, the `claims` parameter, pairwise subjects and encrypted ID tokens are not supported.
 - ID tokens are signed with RS256 only.
 - Clients authenticate with a secret or, when public, with PKCE. There is no `private_key_jwt` and no dynamic client registration.
