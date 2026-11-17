@@ -1,6 +1,9 @@
 ---
 slug: jwt-security-best-practices
 title: JWT Security in GoAuth
+seoTitle: "JWT security in Go: signing, rotation, validation"
+description: "How GoAuth handles JWT security in Go: HS256, RS256 and ES256 signing, key rotation with JWKS, issuer and audience checks, and tokens bound to current user state."
+keywords: ["golang jwt security", "go jwt best practices", "jwt key rotation", "jwks go"]
 authors: [goauth-team]
 tags: [security, jwt, best-practices, go]
 ---
@@ -37,13 +40,13 @@ For non-HTTP integration use `a.Authenticate`. Its verified principal includes u
 
 Passwords default to 8–72 **bytes**, with no trimming or Unicode normalization. Bcrypt cannot accept a password exceeding 72 bytes. The cost defaults to 10 through `Security.HashSaltLength`.
 
-Account lockout must be explicitly enabled:
+Account lockout is on by default: 5 failed attempts lock the account for 15 minutes, and a locked account answers like a wrong password. Tune it or turn it off:
 
 ```go
 Lockout: types.LockoutConfig{
-    Enabled: true,
-    MaxAttempts: 5,
-    LockoutDuration: 15 * time.Minute,
+    MaxAttempts:     10,
+    LockoutDuration: 30 * time.Minute,
+    // Disabled: true, // turns lockout off
 },
 ```
 

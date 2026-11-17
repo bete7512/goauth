@@ -7,6 +7,9 @@ import { remarkMermaid } from "./lib/remark-mermaid";
 
 const schema = pageSchema.extend({
   sourcePath: z.string(),
+  seoTitle: z.string().optional(),
+  keywords: z.array(z.string()).default([]),
+  lastModified: z.string().optional(),
   date: z.string().optional(),
   tags: z.array(z.string()).default([]),
   authors: z.array(z.string()).default([]),

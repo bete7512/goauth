@@ -15,6 +15,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     })),
     ...allPages()
       .filter((page) => page.url !== "/markdown-page")
-      .map((page) => ({ url: `${siteUrl}${page.url}`, priority: 0.8 })),
+      .map((page) => ({
+        url: `${siteUrl}${page.url}`,
+        priority: 0.8,
+        ...(page.data.lastModified
+          ? { lastModified: page.data.lastModified }
+          : {}),
+      })),
   ];
 }

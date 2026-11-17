@@ -1,6 +1,9 @@
 ---
 id: organization
 title: Organization
+seoTitle: "Multi-tenant organizations in Go (B2B SaaS)"
+description: "Multi-tenant organizations for Go SaaS apps with GoAuth: workspaces, owner, admin and member roles, member invitations, organization switching and org-scoped JWTs."
+keywords: ["golang multi tenant", "go organizations", "b2b saas auth go", "workspace management go", "multi tenancy golang"]
 sidebar_label: Organization
 sidebar_position: 12
 ---
@@ -9,7 +12,7 @@ sidebar_position: 12
 
 > **Experimental.** This module works and is tested, but its API and schema may change during the beta.
 
-The Organization module adds multi-tenant organization support to your application. It provides a complete workspace/team management system with role-based access control, invitation workflows, and organization-scoped middleware. Users can create organizations, invite members, assign roles, and switch between organizations. Explicitly selecting an organization adds its context to the authentication grant.
+The Organization module adds multi-tenant organization support to your Go application, the usual shape of a B2B SaaS. It provides a complete workspace/team management system with role-based access control, invitation workflows, and organization-scoped middleware. Users can create organizations, invite members, assign roles, and switch between organizations. Explicitly selecting an organization adds its context to the authentication grant.
 
 ## Capabilities
 

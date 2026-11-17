@@ -2,7 +2,7 @@
 
 # GoAuth
 
-### Add user accounts to your Go app, without running a separate auth server
+### Authentication library for Go (Golang): user accounts in your own app, without a separate auth server
 
 Sign-up, login, password reset, 2FA, "Sign in with Google", passkeys, organizations, roles and an admin console.<br>
 One Go library, inside your own server, on your own database.
@@ -233,6 +233,8 @@ There are three usual ways to add accounts to a Go app. GoAuth is a fourth.
 - your services are not written in Go and you want one central login for all of them. A standalone identity server suits that better. GoAuth can act as an OpenID Connect provider for other apps, but that module is experimental;
 - you want polished hosted login pages with no frontend work. GoAuth is API-first; the console's sign-in and account pages are plain and functional;
 - your database is not PostgreSQL, MySQL or SQLite. Storage is an interface (`types.Storage`), but you would write the implementation.
+
+The [comparison page](https://goauth.beteg.dev/docs/comparison) goes through Goth, Authboss, Ory Kratos, Keycloak and hosted services one by one.
 
 ## Security defaults
 

@@ -1,8 +1,9 @@
 ---
 id: community
 title: Community
+description: "Get help with GoAuth, the open-source Go authentication library: ask questions, report a bug or a security vulnerability, and contribute code or documentation."
+keywords: ["goauth github", "contribute goauth", "goauth support"]
 sidebar_label: Community
-description: Get help with GoAuth, report a bug or a vulnerability, and contribute code or documentation.
 ---
 
 # Community

@@ -1,9 +1,11 @@
 ---
 id: quickstart
 title: Quick Start
+seoTitle: "Go login and sign-up in 5 minutes: GoAuth Quick Start"
+description: "Build a Go server with sign-up, login, JWT credentials and a protected route in about five minutes, using the GoAuth library and SQLite. No database to install."
+keywords: ["golang login example", "go signup login tutorial", "golang jwt authentication example", "go protected route", "golang auth tutorial"]
 sidebar_label: Quick Start
 sidebar_position: 3
-description: Build a Go server with sign-up, login and a protected route in about five minutes, using GoAuth and SQLite.
 ---
 
 # Quick Start

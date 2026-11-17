@@ -1,7 +1,9 @@
 ---
 id: storage
 title: Storage and Repository Contracts
-description: What a custom GoAuth storage has to provide. Feature stores, transactions across stores, the operations that must be atomic, and who closes the connection.
+seoTitle: "Custom storage for GoAuth: repository contracts"
+description: "What a custom GoAuth storage backend must provide: feature stores, transactions across stores, operations that must be atomic, and who closes the connection."
+keywords: ["goauth custom storage", "golang auth repository interface", "go auth database adapter"]
 ---
 
 # Storage and Repository Contracts

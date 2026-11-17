@@ -25,7 +25,13 @@ watches the original Markdown files and regenerates content automatically.
 - `scripts/sync-content.mjs`: adapts frontmatter, relative Markdown links, headings,
   and Docusaurus callouts into generated `content/`. Never edit `content/` directly.
 
-Add a guide with `title` frontmatter and optionally a unique `description`. The
+Add a guide with `title` and a unique `description` (70–170 characters; aim for
+140–160 with the main search phrase first). Optional `seoTitle` (at most 65
+characters) replaces `title` in the browser tab and search results while the H1
+and sidebar keep `title`, and `keywords` lists the phrases the page answers (they
+feed the keywords meta tag and JSON-LD). The sync step rejects a guide or post
+without a description or with a search title that is too long, and adds
+`lastModified` from git for the sitemap and structured data. The
 sync step automatically includes it. Adjust the navigation in `sync-content.mjs`
 when it needs an explicit position. Keep existing `id` and `slug` fields stable:
 they preserve public URLs, including `/docs/api/api-auth`.

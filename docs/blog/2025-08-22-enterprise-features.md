@@ -1,6 +1,9 @@
 ---
 slug: enterprise-authentication-features
 title: Enterprise-Ready Features in GoAuth
+seoTitle: "Enterprise authentication features in Go"
+description: "Enterprise authentication in Go with GoAuth: organizations, audit logs, SAML single sign-on, admin tools and multi-replica events, and what is still missing."
+keywords: ["enterprise auth golang", "go sso", "golang audit", "b2b authentication go"]
 authors: [goauth-team]
 tags: [enterprise, security, compliance, organizations, audit]
 ---

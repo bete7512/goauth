@@ -1,13 +1,16 @@
 ---
 id: csrf
 title: CSRF Module
+seoTitle: "CSRF protection for Go cookie auth"
+description: "CSRF protection for Go with GoAuth: stateless HMAC double-submit cookies applied to every state-changing request, with no server-side token storage required."
+keywords: ["golang csrf", "go csrf middleware", "double submit cookie go", "csrf token golang"]
 sidebar_label: CSRF
 sidebar_position: 10
 ---
 
 # CSRF Module
 
-The CSRF module provides stateless cross-site request forgery protection using the HMAC-based double-submit cookie pattern. No server-side storage is required — tokens are cryptographically generated and validated using HMAC with the JWT secret key. It works automatically as global middleware on all state-changing HTTP methods.
+The CSRF module provides stateless cross-site request forgery (CSRF) protection for Go applications using the HMAC-based double-submit cookie pattern. No server-side storage is required — tokens are cryptographically generated and validated using HMAC with the JWT secret key. It works automatically as global middleware on all state-changing HTTP methods.
 
 ## Capabilities
 

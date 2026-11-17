@@ -11,23 +11,64 @@ import { getMDXComponents } from "@/components/mdx";
 import { StructuredData } from "@/components/structured-data";
 import { source } from "@/lib/source";
 import { pageMetadata } from "@/lib/metadata";
-import { repositoryUrl, gitConfig, siteUrl } from "@/lib/shared";
+import {
+  appName,
+  gitConfig,
+  publisher,
+  repositoryUrl,
+  siteUrl,
+} from "@/lib/shared";
 
 export default async function Page({ params }: PageProps<"/docs/[[...slug]]">) {
   const page = source.getPage((await params).slug);
   if (!page) notFound();
   const MDX = page.data.body;
+  const breadcrumbs = [
+    { name: "Docs", url: "/docs" },
+    ...source
+      .getPages()
+      .filter(
+        (other) =>
+          other.url !== "/docs" &&
+          other.url !== page.url &&
+          page.url.startsWith(`${other.url}/`),
+      )
+      .sort((a, b) => a.url.length - b.url.length)
+      .map((other) => ({ name: other.data.title, url: other.url })),
+    ...(page.url === "/docs" ? [] : [{ name: page.data.title, url: page.url }]),
+  ];
   return (
     <DocsPage toc={page.data.toc} full={page.data.full}>
       <StructuredData
         data={{
           "@context": "https://schema.org",
-          "@type": "TechArticle",
-          headline: page.data.title,
-          description: page.data.description,
-          url: `${siteUrl}${page.url}`,
-          inLanguage: "en",
-          isPartOf: { "@type": "WebSite", name: "GoAuth", url: siteUrl },
+          "@graph": [
+            {
+              "@type": "TechArticle",
+              headline: page.data.seoTitle ?? page.data.title,
+              description: page.data.description,
+              url: `${siteUrl}${page.url}`,
+              inLanguage: "en",
+              ...(page.data.lastModified
+                ? { dateModified: page.data.lastModified }
+                : {}),
+              ...(page.data.keywords.length
+                ? { keywords: page.data.keywords.join(", ") }
+                : {}),
+              author: publisher,
+              publisher,
+              isPartOf: { "@type": "WebSite", name: appName, url: siteUrl },
+            },
+            {
+              "@type": "BreadcrumbList",
+              itemListElement: breadcrumbs.map((crumb, index) => ({
+                "@type": "ListItem",
+                position: index + 1,
+                name: crumb.name,
+                item: `${siteUrl}${crumb.url}`,
+              })),
+            },
+          ],
         }}
       />
       <DocsTitle>{page.data.title}</DocsTitle>
@@ -61,5 +102,10 @@ export async function generateMetadata({
 }: PageProps<"/docs/[[...slug]]">) {
   const page = source.getPage((await params).slug);
   if (!page) notFound();
-  return pageMetadata(page.data.title, page.data.description ?? "", page.url);
+  return pageMetadata(
+    page.data.seoTitle ?? page.data.title,
+    page.data.description ?? "",
+    page.url,
+    { modified: page.data.lastModified, keywords: page.data.keywords },
+  );
 }

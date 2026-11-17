@@ -1,14 +1,16 @@
 ---
 id: intro
 title: Introduction
+seoTitle: "How GoAuth works: Go authentication modules"
+description: "How the GoAuth authentication library for Go works: what it owns and what you own, the three setup calls, early choices like JWT or sessions, and every module."
+keywords: ["golang authentication architecture", "go auth modules", "jwt vs session go", "goauth introduction"]
 sidebar_label: Introduction
 slug: intro
-description: How GoAuth works. What it owns and what you own, the three calls that set it up, the choices you make early, and every module.
 ---
 
 # Introduction
 
-This page explains how GoAuth works, so the rest of the docs make sense. To start with running code, go to the [Quick Start](quickstart.md) and come back.
+GoAuth is an authentication library for Go (Golang). This page explains how it works, so the rest of the docs make sense. To start with running code, go to the [Quick Start](quickstart.md) and come back.
 
 ## What GoAuth owns and what you own
 

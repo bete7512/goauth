@@ -1,13 +1,15 @@
 ---
 id: gin
 title: Gin Framework
+seoTitle: "Gin authentication middleware with GoAuth"
+description: "Add authentication to a Gin app in Go: mount GoAuth's login, signup, JWT and OAuth routes on a Gin router with the Gin adapter, and protect your own Gin routes."
+keywords: ["gin authentication", "gin jwt middleware", "gin login golang", "gin auth middleware", "gin-gonic authentication"]
 sidebar_label: Gin
-description: Mount GoAuth's routes on a Gin router with the Gin adapter.
 ---
 
 # Gin Framework
 
-GoAuth's routes are ordinary `net/http` handlers. The Gin adapter mounts them on a Gin router and translates path parameters, so `/sessions/{id}` becomes `/sessions/:id`.
+To add authentication to a Gin application, mount GoAuth's routes with the Gin adapter. GoAuth's routes are ordinary `net/http` handlers. The Gin adapter mounts them on a Gin router and translates path parameters, so `/sessions/{id}` becomes `/sessions/:id`.
 
 ## Install
 

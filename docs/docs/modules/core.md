@@ -1,13 +1,16 @@
 ---
 id: core
 title: Core Module
+seoTitle: "Go user registration, email verification, password reset"
+description: "The GoAuth core module for Go: user sign-up, profiles, email and phone verification, password reset and change, and availability checks. Registered automatically."
+keywords: ["golang user registration", "go email verification", "golang password reset", "go signup api"]
 sidebar_label: Core Module
 sidebar_position: 1
 ---
 
 # Core Module
 
-The Core Module is the foundation of every GoAuth installation. It is **auto-registered** by `auth.New()` — you never register it manually via `Use()`. It owns the full user lifecycle: registration, profile management, password flows, email/phone verification, and availability checks. It does **not** handle login/logout/refresh — those are managed by the [Session](session.md) or [Stateless](stateless.md) auth module. Every other module depends on Core for user storage and authentication middleware.
+The Core Module is the foundation of every GoAuth installation: user registration, email verification and password reset for your Go application. It is **auto-registered** by `auth.New()` — you never register it manually via `Use()`. It owns the full user lifecycle: registration, profile management, password flows, email/phone verification, and availability checks. It does **not** handle login/logout/refresh — those are managed by the [Session](session.md) or [Stateless](stateless.md) auth module. Every other module depends on Core for user storage and authentication middleware.
 
 Provide `Core: &config.CoreConfig{}` even when all Core options are false. The current signup handler dereferences `Config.Core`; leaving it nil can panic on signup. The complete quickstart supplies it explicitly.
 

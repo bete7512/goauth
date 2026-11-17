@@ -1,13 +1,16 @@
 ---
 id: oauth
 title: OAuth Module
+seoTitle: "Google, GitHub, Microsoft OAuth2 login in Go"
+description: "Social login for Go with GoAuth: OAuth2 sign-in with Google, GitHub, Microsoft and Discord, account linking, named connections and your own custom providers."
+keywords: ["golang oauth2", "go google login", "golang github oauth", "sign in with google go", "go social login"]
 sidebar_label: OAuth
 sidebar_position: 6
 ---
 
 # OAuth Module
 
-OAuth provides authorization-code sign-in through Google, GitHub, Microsoft, and Discord, with named connections and a public interface for custom trusted providers. Successful identity verification enters the same completion service as password, passkey, and magic-link authentication.
+OAuth adds social login to your Go application: OAuth2 authorization-code sign-in through Google, GitHub, Microsoft, and Discord, with named connections and a public interface for custom trusted providers. Successful identity verification enters the same completion service as password, passkey, and magic-link authentication.
 
 ## Registration
 

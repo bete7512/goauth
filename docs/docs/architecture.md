@@ -1,9 +1,11 @@
 ---
 id: architecture
 title: Architecture Guide
+seoTitle: "GoAuth architecture: modules, events and storage"
+description: "How GoAuth works inside: the New, Use, Initialize lifecycle, the module contract, the single sign-in path, events, storage and migrations for Go authentication."
+keywords: ["goauth architecture", "golang auth design", "go authentication module system", "auth event bus go"]
 sidebar_label: Architecture
 sidebar_position: 3
-description: How GoAuth works inside. The lifecycle, the module contract, the single sign-in path, events, storage and migrations.
 ---
 
 # Architecture

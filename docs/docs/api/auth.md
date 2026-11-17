@@ -1,6 +1,9 @@
 ---
 id: api-auth
 title: Auth Lifecycle
+seoTitle: "GoAuth Go API: New, Use, Initialize, Shutdown"
+description: "The GoAuth Go API lifecycle: create with New, register modules with Use, start with Initialize, mount routes and middleware, and stop cleanly with Shutdown."
+keywords: ["goauth api", "goauth initialize", "golang auth library api"]
 sidebar_label: Auth
 sidebar_position: 1
 ---

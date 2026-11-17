@@ -1,13 +1,16 @@
 ---
 id: ratelimit
 title: Rate Limit Module
+seoTitle: "Rate limiting Go login endpoints"
+description: "Rate limit Go authentication routes with GoAuth: per-IP and per-account budgets on login, signup and reset against brute force and credential stuffing. On by default."
+keywords: ["golang rate limit", "go login rate limiting", "brute force protection go", "rate limiter middleware golang"]
 sidebar_label: Rate Limit
 sidebar_position: 14
 ---
 
 # Rate Limit Module
 
-The Rate Limit module puts request budgets on the built-in authentication routes so that one address cannot hammer the login endpoint and one targeted account cannot be guessed at from many addresses. It is **registered for you** during `Initialize()` with a sensible default rule set, the same way the Stateless module becomes the default authentication module. You only touch it to tune the limits, plug in a shared store, or turn it off.
+The Rate Limit module puts request budgets on the built-in authentication routes of your Go server so that one address cannot hammer the login endpoint and one targeted account cannot be guessed at from many addresses. It is **registered for you** during `Initialize()` with a sensible default rule set, the same way the Stateless module becomes the default authentication module. You only touch it to tune the limits, plug in a shared store, or turn it off.
 
 ## Capabilities
 

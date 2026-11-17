@@ -1,13 +1,16 @@
 ---
 id: session
 title: Session Module
+seoTitle: "Session-based authentication in Go"
+description: "Server-side session authentication for Go with GoAuth: short-lived access JWTs backed by session records, hashed refresh credentials, session listing and revocation."
+keywords: ["golang session authentication", "go session management", "revoke sessions go", "go cookie session auth"]
 sidebar_label: Session
 sidebar_position: 3
 ---
 
 # Session Module
 
-The Session module issues access JWTs backed by a live session record and an opaque refresh credential stored as a hash. It is mutually exclusive with [Stateless](stateless.md); trying to register both returns an error.
+The Session module adds server-side session authentication to your Go application. It issues access JWTs backed by a live session record and an opaque refresh credential stored as a hash. It is mutually exclusive with [Stateless](stateless.md); trying to register both returns an error.
 
 ## Registration
 

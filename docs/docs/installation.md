@@ -1,9 +1,11 @@
 ---
 id: installation
 title: Installation
+seoTitle: "Install GoAuth: Go auth with PostgreSQL, MySQL, SQLite"
+description: "Install the GoAuth Go authentication library with go get, connect PostgreSQL, MySQL or SQLite through GORM, and mount the routes on net/http, Gin, Chi or Fiber."
+keywords: ["install goauth", "golang auth postgresql", "golang auth mysql", "go auth sqlite", "gorm authentication"]
 sidebar_label: Installation
 sidebar_position: 2
-description: Install GoAuth, connect PostgreSQL, MySQL or SQLite, and add a framework adapter.
 ---
 
 # Installation

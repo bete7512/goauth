@@ -1,6 +1,9 @@
 ---
 id: errors
 title: Error Reference
+seoTitle: "GoAuth error codes and HTTP responses"
+description: "GoAuth error reference: the GoAuthError type, the JSON error response, every machine-readable error code by module, its HTTP status, and how to handle it in Go."
+keywords: ["goauth errors", "golang auth error codes", "go api error handling"]
 sidebar_label: Errors
 sidebar_position: 3
 ---

@@ -4,7 +4,7 @@ import { getMDXComponents } from "@/components/mdx";
 import { StructuredData } from "@/components/structured-data";
 import { blogSource } from "@/lib/source";
 import { pageMetadata } from "@/lib/metadata";
-import { siteUrl } from "@/lib/shared";
+import { publisher, siteUrl } from "@/lib/shared";
 
 export const generateStaticParams = () =>
   blogSource.getPages().map((page) => ({ slug: page.slugs[0] }));
@@ -13,10 +13,14 @@ export async function generateMetadata({ params }: PageProps<"/blog/[slug]">) {
   const page = blogSource.getPage([(await params).slug]);
   if (!page) notFound();
   return pageMetadata(
-    page.data.title,
+    page.data.seoTitle ?? page.data.title,
     page.data.description ?? "",
     page.url,
-    page.data.date,
+    {
+      articleDate: page.data.date,
+      modified: page.data.lastModified,
+      keywords: page.data.keywords,
+    },
   );
 }
 
@@ -34,7 +38,14 @@ export default async function Post({ params }: PageProps<"/blog/[slug]">) {
             headline: page.data.title,
             description: page.data.description,
             datePublished: page.data.date,
+            ...(page.data.lastModified
+              ? { dateModified: page.data.lastModified }
+              : {}),
+            ...(page.data.keywords.length
+              ? { keywords: page.data.keywords.join(", ") }
+              : {}),
             author: { "@type": "Organization", name: "GoAuth Team" },
+            publisher,
             mainEntityOfPage: `${siteUrl}${page.url}`,
             image: `${siteUrl}/og/image.png?title=${encodeURIComponent(page.data.title)}`,
           }}

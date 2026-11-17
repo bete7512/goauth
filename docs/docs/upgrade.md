@@ -1,7 +1,9 @@
 ---
 id: upgrade
 title: Upgrading to the Current API
-description: How to move from GoAuth v0.2.x to the current API. The steps, what changed in constructors, credentials, storage and defaults, and what to test before rollout.
+seoTitle: "Upgrade GoAuth from v0.2 to the current API"
+description: "How to move from GoAuth v0.2.x to the current Go API: the steps, what changed in constructors, credentials, storage and defaults, and what to test before rollout."
+keywords: ["goauth upgrade", "goauth migration guide", "goauth v0.3"]
 ---
 
 # Upgrading to the Current API

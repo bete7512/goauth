@@ -1,13 +1,16 @@
 ---
 id: notification
 title: Notification Module
+seoTitle: "Go transactional email and SMS: SendGrid, SMTP, Twilio"
+description: "Send verification, password reset, magic link and invitation emails and SMS from Go with GoAuth: SMTP, SendGrid, Resend, Mailgun, SES, Twilio, custom templates."
+keywords: ["golang send email", "go transactional email", "go sendgrid", "golang twilio sms", "go smtp email verification"]
 sidebar_label: Notification
 sidebar_position: 2
 ---
 
 # Notification Module
 
-The Notification Module is GoAuth's delivery layer for all transactional email and SMS communication. It subscribes to events emitted by other modules (Core, Magic Link, Invitation, Organization) and automatically delivers the appropriate message — verification emails, password reset links, welcome messages, login alerts, invitations, and magic links. It does not expose any HTTP routes and does not own any business logic; it is a pure, event-driven delivery layer.
+The Notification Module is GoAuth's delivery layer for all transactional email and SMS sent from your Go application. It subscribes to events emitted by other modules (Core, Magic Link, Invitation, Organization) and automatically delivers the appropriate message — verification emails, password reset links, welcome messages, login alerts, invitations, and magic links. It does not expose any HTTP routes and does not own any business logic; it is a pure, event-driven delivery layer.
 
 The module is designed to be fully pluggable. You can use the built-in senders for common providers, or implement the `EmailSender` / `SMSSender` interfaces to integrate any email or SMS service. Templates are customizable per message type with branding injection.
 

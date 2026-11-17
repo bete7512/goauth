@@ -1,13 +1,16 @@
 ---
 id: idp
 title: Identity Provider Module
+seoTitle: "OpenID Connect provider in Go (OIDC server)"
+description: "Make your Go app an OpenID Connect provider with GoAuth: other apps sign in with your accounts through OIDC clients, ID tokens, consent, discovery and UserInfo."
+keywords: ["golang openid connect provider", "go oidc server", "oidc identity provider go", "sign in with your app", "golang oauth2 server"]
 sidebar_label: Identity Provider
 sidebar_position: 16
 ---
 
 # Identity Provider Module
 
-The identity provider (IdP) module makes your application an **OpenID Connect provider**: other applications sign users in with your accounts ("Sign in with your application"). Each of them is registered as a **client** with a client ID and, unless it is a browser or mobile application, a client secret. After a sign-in the client receives an **ID token**, a signed statement of who the user is, and can read the user's profile from the UserInfo endpoint.
+The identity provider (IdP) module makes your Go application an **OpenID Connect provider** (an OIDC server): other applications sign users in with your accounts ("Sign in with your application"). Each of them is registered as a **client** with a client ID and, unless it is a browser or mobile application, a client secret. After a sign-in the client receives an **ID token**, a signed statement of who the user is, and can read the user's profile from the UserInfo endpoint.
 
 Any software that supports OpenID Connect can be a client: Grafana, GitLab, Nextcloud, internal tools, or another GoAuth application.
 

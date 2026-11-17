@@ -1,13 +1,16 @@
 ---
 id: stateless
 title: Stateless Module
+seoTitle: "Go JWT auth with refresh token rotation"
+description: "Stateless JWT authentication for Go with GoAuth: access and refresh tokens, refresh token rotation on every use, logout and revocation, without session rows."
+keywords: ["golang jwt authentication", "go refresh token rotation", "jwt refresh token golang", "stateless auth go", "golang jwt middleware"]
 sidebar_label: Stateless
 sidebar_position: 4
 ---
 
 # Stateless Module
 
-Stateless uses JWT access credentials and JWT refresh credentials with persistent nonce records. It is the default strategy if neither Session nor Stateless is explicitly registered. It does not create session records, but the built-in access boundary still checks current user state in storage.
+Stateless is JWT authentication for your Go application: JWT access credentials and JWT refresh credentials, rotated on every refresh, with persistent nonce records. It is the default strategy if neither Session nor Stateless is explicitly registered. It does not create session records, but the built-in access boundary still checks current user state in storage.
 
 ## Registration
 

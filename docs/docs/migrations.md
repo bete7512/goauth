@@ -1,7 +1,9 @@
 ---
 id: migrations
 title: Migration Management
-description: How GoAuth creates and updates its tables. Automatic migrations, generating SQL for review, checking status, rollback, and what happens when a migration fails.
+seoTitle: "GoAuth database migrations for Postgres, MySQL, SQLite"
+description: "How GoAuth creates and updates its auth tables in Go: automatic migrations, generating SQL for review, checking status, rollback, and recovering from failure."
+keywords: ["goauth migrations", "golang auth schema migration", "go sql migrations postgres mysql sqlite"]
 ---
 
 # Migration Management

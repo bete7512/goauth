@@ -1,8 +1,10 @@
 ---
 id: compliance
 title: Compliance & Security
+seoTitle: "GoAuth compliance: audit logs, GDPR and SOC 2 controls"
+description: "What the GoAuth Go authentication library contributes to GDPR, SOC 2 or HIPAA work: password and secret handling, audit logs, and what stays your responsibility."
+keywords: ["golang audit log", "go auth gdpr", "soc 2 authentication go", "compliance authentication library"]
 sidebar_label: Compliance
-description: What GoAuth contributes to a compliance program, and what stays the responsibility of your application and deployment.
 ---
 
 # Compliance and Security Controls
