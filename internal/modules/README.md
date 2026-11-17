@@ -184,14 +184,14 @@ Provides: login (`/saml/{provider}/login`), ACS (`/saml/{provider}/acs`), SP met
 
 ## Identity Provider Module
 
-OpenID Connect provider: other applications ("clients") sign users in with the host's accounts and receive an ID token. GoAuth has no login page, so the authorization endpoint hands the browser to the host's consent page. Depends on Core, and on the Admin module when `AdminAPI` is on.
+OpenID Connect provider: other applications ("clients") sign users in with the host's accounts and receive an ID token. The authorization endpoint hands the browser to a page where the user signs in and approves: the module's own (plain HTML, no script), or, with `ConsentURL`, a page of the host's frontend. Depends on Core, and on the Admin module when `AdminAPI` is on.
 
 ```go
 import "github.com/bete7512/goauth/pkg/modules/idp"
 
 a.Use(idp.New(&config.IDPModuleConfig{
     SigningKey: config.IDPSigningKey{PrivateKeyPEM: signingKeyPEM}, // RSA, a key of its own
-    ConsentURL: "https://app.example.com/oidc/consent",
+    AppName:    "Acme", // what the sign-in page calls the host's product
     Clients: []config.IDPClientConfig{{
         ClientID:     "grafana",
         Secret:       os.Getenv("GRAFANA_OIDC_SECRET"),
@@ -201,13 +201,14 @@ a.Use(idp.New(&config.IDPModuleConfig{
 }))
 ```
 
-Provides: discovery (`/oidc/.well-known/openid-configuration`), keys (`/oidc/jwks`), authorize (`/oidc/authorize`), token (`/oidc/token`), UserInfo (`/oidc/userinfo`), consent (`/oidc/consent/{id}`, `/approve`, `/deny`), connected applications (`/oidc/grants`), and with `AdminAPI` client administration (`/admin/oidc/clients`).
+Provides: discovery (`/oidc/.well-known/openid-configuration`), keys (`/oidc/jwks`), authorize (`/oidc/authorize`), token (`/oidc/token`), UserInfo (`/oidc/userinfo`), the sign-in and consent page (`/oidc/consent`, with its forms `/oidc/consent/signin`, `/2fa`, `/decision` and `/oidc/assets/page.css`; only without `ConsentURL`), the consent API for a page of the host's own (`/oidc/consent/{id}`, `/approve`, `/deny`), connected applications (`/oidc/grants`), and with `AdminAPI` client administration (`/admin/oidc/clients`).
 
 Notes for contributors:
 - The protocol endpoints return `*types.GoAuthError` whose `Code` is a `services.Code*` OAuth error; handlers render `{"error","error_description"}` through `writeOAuthError`. Consent, grant and admin endpoints use the normal envelope and `types.ErrIDP*`.
 - ID tokens are signed by `security.TokenSigner.SignIDToken` with the module's own RSA key. `ResolveSettings` refuses a key that also verifies GoAuth's access tokens.
 - Pending requests, codes, access tokens and refresh tokens are `tokens` rows (`idp_*` types) stored as digests, with no `UserID`: the stateless strategy deletes a user's token rows on logout, and logging out must not disconnect applications. Tokens are bound to the user's password (`credentialBinding`) instead.
 - There is one grant per user and client; every token names it, so deleting it ends them all.
+- The module's page is `handlers/page.go` with `handlers/templates/page.html` and `handlers/assets/page.css`. It reads the signed-in user from the credential cookies through `internal/websession` (shared with the ui module), signs in through `PasswordAuthenticator` and `TwoFactorLoginVerifier`, and decides through the same service methods as the consent API. Every form route is wrapped in `http.CrossOriginProtection` and excluded from the CSRF module by name. No script and no inline style: the Content Security Policy forbids both, and its `form-action` names the client's origin, because browsers apply it to the redirect that follows the decision.
 - Shared protocol rules (redirect URI matching, PKCE, scope parsing) live in `internal/oauthproto`.
 
 ---

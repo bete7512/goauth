@@ -1028,13 +1028,13 @@ Public. The keys that verify ID tokens, as a JSON Web Key Set. Retired keys stay
 
 Query parameters: `client_id`, `redirect_uri` (exactly as registered), `response_type=code`, `scope` (must contain `openid`), and optionally `state`, `nonce`, `code_challenge` with `code_challenge_method=S256`, `prompt` (`login`, `consent`, `select_account`), `max_age`, `login_hint`. PKCE is required unless the client is registered to go without.
 
-**Response** `302` to the consent page:
+**Response** `302` to the sign-in and consent page: the module's own, or `ConsentURL` when the host named a page of its frontend.
 
 ```
-Location: https://app.example.com/oidc/consent?request_id=3q2-7w...
+Location: https://api.example.com/auth/oidc/consent?request_id=3q2-7w...
 ```
 
-A request whose client or redirect URI cannot be verified is never redirected to the client: it goes to `ErrorURL` when configured, and is answered `400` otherwise:
+A request whose client or redirect URI cannot be verified is never redirected to the client: it goes to `ErrorURL` when configured. Otherwise it is answered `400`, with the module's page saying what is wrong, or, when `ConsentURL` is set, with JSON:
 
 ```json
 { "error": "invalid_request", "error_description": "redirect_uri is not registered for this client" }
@@ -1096,6 +1096,41 @@ Which claims appear depends on the granted scopes. **Errors**: `401` `invalid_to
 <summary><code>POST</code> <code>/oidc/userinfo</code> — Claims about the user (POST)</summary>
 
 The same as `GET`. The access token is taken from the `Authorization` header, or from an `access_token` field of a form body. A token in the URL is not accepted.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/oidc/consent</code> — Sign-in and consent page</summary>
+
+The module's own page, registered when `ConsentURL` is empty. Query parameter: `request_id`. It answers HTML: a sign-in form when the browser's credential cookies name nobody (or the application asked for a fresh sign-in), otherwise the approval screen. When there is nothing to ask it answers `302` to the client's redirect URI with a `code`. An unknown, expired or answered request is a `404` page.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/oidc/consent/signin</code> — Sign in on the page</summary>
+
+Form body: `request_id`, `email` (an email address or a username), `password`. On success it sets the credential cookies and answers `303` back to the page. A wrong password is the form again with `422`; an account with two-factor authentication gets the code form, and no cookies yet. Rate-limited like the login route.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/oidc/consent/2fa</code> — Two-factor step of the page</summary>
+
+Form body: `request_id`, `temp_token` (from the code form), `code` (a TOTP or backup code). On success it sets the credential cookies and answers `303` back to the page.
+
+</details>
+
+<details>
+<summary><code>POST</code> <code>/oidc/consent/decision</code> — Approve or cancel on the page</summary>
+
+Form body: `request_id`, `decision` (`approve` or `deny`) and, to approve, `user`: the account the approval screen was shown to. It answers `303` to the client's redirect URI, with a `code` or with `error=access_denied`. Approving as nobody, or as another account than `user`, answers `303` back to the page. A form submitted by another site is refused with `403`.
+
+</details>
+
+<details>
+<summary><code>GET</code> <code>/oidc/assets/page.css</code> — Stylesheet of the page</summary>
+
+Public. Cached for a year when requested with its version (`?v=`), as the page does.
 
 </details>
 

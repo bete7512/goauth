@@ -132,17 +132,21 @@ func TestLoginStale(t *testing.T) {
 		principal types.Principal
 		stale     bool
 	}{
-		"nothing asked":                    {pendingAuthorization{}, at(requestedAt.Add(-time.Hour)), false},
-		"nothing asked, unknown time":      {pendingAuthorization{}, types.Principal{UserID: "user-1"}, false},
-		"login: signed in before":          {pendingAuthorization{RequireLogin: true}, at(requestedAt.Add(-2 * time.Second)), true},
-		"login: signed in after":           {pendingAuthorization{RequireLogin: true}, at(requestedAt.Add(5 * time.Second)), false},
-		"login: same second":               {pendingAuthorization{RequireLogin: true}, at(requestedAt.Truncate(time.Second)), false},
-		"login: unknown time":              {pendingAuthorization{RequireLogin: true}, types.Principal{UserID: "user-1"}, true},
-		"max_age: recent enough":           {pendingAuthorization{MaxAge: age(3600)}, at(now.Add(-10 * time.Minute)), false},
-		"max_age: too old":                 {pendingAuthorization{MaxAge: age(300)}, at(now.Add(-10 * time.Minute)), true},
-		"max_age: zero, signed in earlier": {pendingAuthorization{MaxAge: age(0)}, at(now.Add(-2 * time.Second)), true},
-		"max_age: zero, signed in now":     {pendingAuthorization{MaxAge: age(0)}, at(now), false},
-		"max_age: unknown time":            {pendingAuthorization{MaxAge: age(3600)}, types.Principal{UserID: "user-1"}, true},
+		"nothing asked":                   {pendingAuthorization{}, at(requestedAt.Add(-time.Hour)), false},
+		"nothing asked, unknown time":     {pendingAuthorization{}, types.Principal{UserID: "user-1"}, false},
+		"login: signed in before":         {pendingAuthorization{RequireLogin: true}, at(requestedAt.Add(-2 * time.Second)), true},
+		"login: signed in after":          {pendingAuthorization{RequireLogin: true}, at(requestedAt.Add(5 * time.Second)), false},
+		"login: same second":              {pendingAuthorization{RequireLogin: true}, at(requestedAt.Truncate(time.Second)), false},
+		"login: unknown time":             {pendingAuthorization{RequireLogin: true}, types.Principal{UserID: "user-1"}, true},
+		"max_age: recent enough":          {pendingAuthorization{MaxAge: age(3600)}, at(now.Add(-10 * time.Minute)), false},
+		"max_age: too old":                {pendingAuthorization{MaxAge: age(300)}, at(now.Add(-10 * time.Minute)), true},
+		"max_age: zero, signed in before": {pendingAuthorization{MaxAge: age(0)}, at(requestedAt.Add(-2 * time.Second)), true},
+		"max_age: zero, signed in now":    {pendingAuthorization{MaxAge: age(0)}, at(now), false},
+		// The user signed in again for this request and then read the
+		// consent prompt: that sign-in still answers the request.
+		"max_age: zero, signed in since":  {pendingAuthorization{MaxAge: age(0)}, at(now.Add(-20 * time.Second)), false},
+		"max_age: short, signed in since": {pendingAuthorization{MaxAge: age(5)}, at(now.Add(-20 * time.Second)), false},
+		"max_age: unknown time":           {pendingAuthorization{MaxAge: age(3600)}, types.Principal{UserID: "user-1"}, true},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {

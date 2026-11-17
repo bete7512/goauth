@@ -620,9 +620,9 @@ type SAMLAttributeMapping struct {
 // users in with the host's accounts and receive an ID token that says who
 // the user is.
 //
-// GoAuth has no login page of its own. The authorization endpoint hands the
-// browser to ConsentURL, a page of the host's frontend, which signs the user
-// in the usual way and reports the user's decision.
+// The authorization endpoint hands the browser to a page where the user
+// signs in and approves the request. The module serves that page itself
+// unless ConsentURL names a page of the host's frontend.
 type IDPModuleConfig struct {
 	// Issuer is the issuer identifier: the "iss" of every ID token and the
 	// address of the discovery document, which is served at
@@ -637,15 +637,29 @@ type IDPModuleConfig struct {
 	// Initialize fails when it is the key that signs GoAuth's access tokens.
 	SigningKey IDPSigningKey
 
-	// ConsentURL is the frontend page where the user signs in and approves
-	// the request. The browser is sent there with ?request_id=...; the page
-	// reads the request from GET /oidc/consent/{id} and posts the decision.
-	// Default: FrontendConfig.URL + "/oidc/consent". Required otherwise.
+	// ConsentURL is a page of your own frontend where the user signs in and
+	// approves the request. The browser is sent there with ?request_id=...;
+	// the page reads the request from GET /oidc/consent/{id} and posts the
+	// decision.
+	//
+	// Empty (the default) uses the module's own page, served at
+	// Issuer + "/consent": plain HTML that signs the user in with the
+	// application's credential cookies, with a password, a two-factor code
+	// or the OAuth and SAML connections that are registered, and asks for
+	// approval. It needs cookies, so with Security.AuthMode "bearer" the
+	// default is FrontendConfig.URL + "/oidc/consent" and Initialize fails
+	// when neither is set.
 	ConsentURL string
+
+	// AppName is what your product is called on the module's own page
+	// ("Sign in with your Acme account"). Default: the issuer's host name.
+	// Ignored when ConsentURL is set.
+	AppName string
 
 	// ErrorURL is the frontend page shown when a request cannot be returned
 	// to the client (unknown client, redirect URI mismatch). It receives
-	// ?error=...&error_description=.... If empty the endpoint answers JSON.
+	// ?error=...&error_description=.... If empty the module's own page
+	// shows the error, or, when ConsentURL is set, the endpoint answers JSON.
 	ErrorURL string
 
 	// Clients are client applications created or updated at Initialize. A

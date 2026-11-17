@@ -4232,13 +4232,15 @@ paths:
     /oidc/authorize:
         get:
             description: |
-                Starts a sign-in (OpenID Connect Core section 3.1.2). The endpoint never
-                renders a page. A valid request is stored and the browser is redirected
-                to the host's consent page with `?request_id=...`.
+                Starts a sign-in (OpenID Connect Core section 3.1.2). A valid request
+                is stored and the browser is redirected, with `?request_id=...`, to
+                the sign-in and consent page: the module's own, or the host's
+                `ConsentURL`.
 
                 A request whose `client_id` or `redirect_uri` cannot be verified is not
                 redirected to the client: the error is shown on `ErrorURL` when it is
-                configured and returned as JSON otherwise. Every other error is
+                configured. Otherwise it is shown on the module's own page, or, when
+                `ConsentURL` is set, returned as JSON. Every other error is
                 returned to the client's redirect URI with `error`, `error_description`,
                 `state` and `iss`.
 
@@ -4308,7 +4310,7 @@ paths:
                   schema:
                     minimum: 0
                     type: integer
-                - description: The account the client expects; passed on to the consent page.
+                - description: The account the client expects; it fills in the sign-in form, and is passed on to a consent page of the host's own.
                   in: query
                   name: login_hint
                   schema:
@@ -4327,7 +4329,13 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/IdpOAuthError'
-                    description: The client or redirect URI could not be verified and no error page is configured
+                        text/html:
+                            schema:
+                                type: string
+                    description: |
+                        The client or redirect URI could not be verified and no error page
+                        is configured. HTML from the module's own page; JSON when
+                        `ConsentURL` is set.
             summary: Authorization endpoint
             tags:
                 - OIDC Provider
@@ -6742,7 +6750,7 @@ tags:
       name: OAuth
     - description: Administration of client applications (requires IDPModuleConfig.AdminAPI and the admin module)
       name: OIDC Admin
-    - description: Consent and connected applications, called by the host's frontend for the signed-in user
+    - description: Consent, for a consent page of the host's own frontend, and connected applications, called for the signed-in user
       name: OIDC Consent
     - description: OpenID Connect protocol endpoints, called by client applications
       name: OIDC Provider

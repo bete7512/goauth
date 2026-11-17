@@ -1,11 +1,10 @@
 // Command idp is a runnable example of GoAuth as an OpenID Connect provider:
 // another application signs users in with the accounts of this one.
 //
-// One process serves two things on http://localhost:8080:
-//
-//   - /auth/...      GoAuth: accounts, sign in, and the identity provider
-//     (issuer http://localhost:8080/auth/oidc)
-//   - /oidc/consent  the page where the user signs in and approves a client
+// One process serves GoAuth on http://localhost:8080/auth: accounts, sign
+// in, and the identity provider (issuer http://localhost:8080/auth/oidc),
+// including the page where the user signs in and approves a client, which
+// the module serves itself at /auth/oidc/consent.
 //
 // Run it from the examples directory and point an OpenID Connect client at
 // the issuer:
@@ -14,7 +13,12 @@
 //
 // The registered client is "demo-app". Its secret and redirect URIs come from
 // CLIENT_SECRET and REDIRECT_URIS; the defaults fit Grafana on port 3000 and
-// oauth2-proxy on port 4180. Set PORT to use another port.
+// oauth2-proxy on port 4180. Set PORT to use another port. Sign in as
+// demo@example.com with the password "demo-password".
+//
+// Set OWN_PAGE=1 to see the other way to do it: a consent page of the
+// host's own frontend (consent.html and consent.js, served at
+// /oidc/consent), which talks to the module's JSON endpoints.
 //
 // Everything is kept in memory and the signing key is generated at start, so
 // the example forgets its users and grants when it stops, and ID tokens
@@ -30,6 +34,7 @@ import (
 	"encoding/pem"
 	"log"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
 
@@ -80,8 +85,9 @@ func main() {
 			// Demo values. Load real secrets from the environment.
 			JwtSecretKey:  "example-jwt-secret-change-me-32-chars",
 			EncryptionKey: "example-encryption-key-change-me",
-			// The consent page keeps the user's token in the tab and sends
-			// it as a bearer token; the ui console signs in with cookies.
+			// The module's sign-in page and the ui console sign in with
+			// cookies; the example's own consent page (OWN_PAGE=1) keeps
+			// the user's token in the tab and sends it as a bearer token.
 			// "both" serves the two.
 			AuthMode: types.AuthModeBoth,
 		},
@@ -94,8 +100,17 @@ func main() {
 	// One client application may sign users in. A real host declares its
 	// clients here, or turns on AdminAPI and registers them at runtime.
 	clientSecret := envOr("CLIENT_SECRET", "example-client-secret-change-me-0123456789")
+	// With no ConsentURL the module serves the sign-in and consent page
+	// itself. A host with a page of its own names it here.
+	ownPage := os.Getenv("OWN_PAGE") != ""
+	consentURL := ""
+	if ownPage {
+		consentURL = origin + "/oidc/consent"
+	}
 	provider := idp.New(&config.IDPModuleConfig{
-		ConsentURL: origin + "/oidc/consent",
+		ConsentURL: consentURL,
+		// What the module's page calls this application.
+		AppName: "GoAuth Example",
 		// ID tokens are verified with a public key, so the module needs an
 		// RSA key of its own. Keep yours stable across restarts.
 		SigningKey: config.IDPSigningKey{PrivateKeyPEM: ephemeralSigningKey()},
@@ -123,14 +138,40 @@ func main() {
 
 	mux := http.NewServeMux()
 	stdhttp.Register(mux, a)
-	mux.HandleFunc("GET /oidc/consent", consentPage("consent.html", "text/html; charset=utf-8"))
-	mux.HandleFunc("GET /oidc/consent.js", consentPage("consent.js", "text/javascript; charset=utf-8"))
+	consent := issuer + "/consent"
+	if ownPage {
+		consent = origin + "/oidc/consent"
+		mux.HandleFunc("GET /oidc/consent", consentPage("consent.html", "text/html; charset=utf-8"))
+		mux.HandleFunc("GET /oidc/consent.js", consentPage("consent.js", "text/javascript; charset=utf-8"))
+	}
+	seedDemoUser(mux)
 
 	log.Printf("Issuer:        %s", issuer)
 	log.Printf("Discovery:     %s/.well-known/openid-configuration", issuer)
 	log.Printf("Client ID:     demo-app")
-	log.Printf("Consent page:  %s/oidc/consent", origin)
+	log.Printf("Consent page:  %s", consent)
+	log.Printf("Demo account:  %s / %s", demoEmail, demoPassword)
 	log.Fatal(http.ListenAndServe("localhost:"+port, mux))
+}
+
+// The account to sign in with. The module's page has no sign-up form: your
+// application creates its users.
+const (
+	demoEmail    = "demo@example.com"
+	demoPassword = "demo-password"
+)
+
+// seedDemoUser creates the demo account through the ordinary signup route,
+// called in process.
+func seedDemoUser(handler http.Handler) {
+	body := `{"email":"` + demoEmail + `","password":"` + demoPassword + `","name":"Demo User"}`
+	request := httptest.NewRequest(http.MethodPost, "/auth/signup", strings.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusCreated {
+		log.Fatalf("demo account: signup answered %d: %s", response.Code, response.Body.String())
+	}
 }
 
 // ephemeralSigningKey creates an RSA key for this run of the example.

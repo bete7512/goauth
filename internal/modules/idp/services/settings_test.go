@@ -57,7 +57,10 @@ func TestResolveSettingsDefaults(t *testing.T) {
 		UserInfo:      "https://api.example.com/auth/oidc/userinfo",
 		JWKS:          "https://api.example.com/auth/oidc/jwks",
 	}, settings.Endpoints)
-	require.Equal(t, "https://app.example.com/oidc/consent", settings.ConsentURL)
+	require.True(t, settings.BuiltInPage, "the module serves the page when the host names none")
+	require.Equal(t, "https://api.example.com/auth/oidc/consent", settings.ConsentURL)
+	require.Equal(t, "/auth/oidc", settings.PageBase)
+	require.Equal(t, "api.example.com", settings.AppName)
 	require.Empty(t, settings.ErrorURL)
 	require.Equal(t, time.Hour, settings.IDTokenTTL)
 	require.Equal(t, time.Hour, settings.AccessTokenTTL)
@@ -84,6 +87,7 @@ func TestResolveSettingsOverrides(t *testing.T) {
 	require.Equal(t, "https://id.example.com", settings.Issuer, "a trailing slash is dropped")
 	require.Equal(t, "https://id.example.com/token", settings.Endpoints.Token, "endpoints follow the published issuer")
 	require.Equal(t, "https://login.example.com/approve", settings.ConsentURL)
+	require.False(t, settings.BuiltInPage, "a host that names its page serves it")
 	require.Equal(t, "https://login.example.com/error", settings.ErrorURL)
 	require.Equal(t, 5*time.Minute, settings.IDTokenTTL)
 	require.Zero(t, settings.RefreshReuseLeeway, "a negative leeway disables it")
@@ -117,17 +121,20 @@ func TestResolveSettingsValidation(t *testing.T) {
 		"retired key algorithm": {func(cfg *config.IDPModuleConfig, _ *config.Config) {
 			cfg.SigningKey.RetiredKeys = []types.JWTVerificationKey{{ID: "old", Algorithm: types.JWTAlgorithmES256}}
 		}, "RetiredKeys must be RS256"},
-		"no consent page":       {func(_ *config.IDPModuleConfig, root *config.Config) { root.FrontendConfig = nil }, "ConsentURL is required"},
-		"relative consent page": {func(cfg *config.IDPModuleConfig, _ *config.Config) { cfg.ConsentURL = "/consent" }, "ConsentURL"},
-		"error page fragment":   {func(cfg *config.IDPModuleConfig, _ *config.Config) { cfg.ErrorURL = "https://app.example.com/error#x" }, "ErrorURL"},
-		"plain http issuer":     {func(cfg *config.IDPModuleConfig, _ *config.Config) { cfg.Issuer = "http://id.example.com" }, "Issuer"},
-		"issuer with a query":   {func(cfg *config.IDPModuleConfig, _ *config.Config) { cfg.Issuer = "https://id.example.com?tenant=1" }, "must not contain a query"},
-		"issuer with fragment":  {func(cfg *config.IDPModuleConfig, _ *config.Config) { cfg.Issuer = "https://id.example.com#x" }, "must not contain a fragment"},
-		"long-lived codes":      {func(cfg *config.IDPModuleConfig, _ *config.Config) { cfg.AuthorizationCodeTTL = time.Hour }, "AuthorizationCodeTTL"},
-		"short client secret":   {client(func(c *config.IDPClientConfig) { c.Secret = "short" }), "at least 32 characters"},
-		"no client secret":      {client(func(c *config.IDPClientConfig) { c.Secret = "" }), "at least 32 characters"},
-		"public with a secret":  {client(func(c *config.IDPClientConfig) { c.Public = true }), "has no Secret"},
-		"bad client id":         {client(func(c *config.IDPClientConfig) { c.ClientID = "my app" }), "ClientID"},
+		"no page for bearer tokens": {func(_ *config.IDPModuleConfig, root *config.Config) {
+			root.Security.AuthMode, root.FrontendConfig = types.AuthModeBearer, nil
+		}, "ConsentURL is required"},
+		"cookies cannot reach the page": {func(_ *config.IDPModuleConfig, root *config.Config) { root.Security.Session.Path = "/app" }, "would never receive the credential cookies"},
+		"relative consent page":         {func(cfg *config.IDPModuleConfig, _ *config.Config) { cfg.ConsentURL = "/consent" }, "ConsentURL"},
+		"error page fragment":           {func(cfg *config.IDPModuleConfig, _ *config.Config) { cfg.ErrorURL = "https://app.example.com/error#x" }, "ErrorURL"},
+		"plain http issuer":             {func(cfg *config.IDPModuleConfig, _ *config.Config) { cfg.Issuer = "http://id.example.com" }, "Issuer"},
+		"issuer with a query":           {func(cfg *config.IDPModuleConfig, _ *config.Config) { cfg.Issuer = "https://id.example.com?tenant=1" }, "must not contain a query"},
+		"issuer with fragment":          {func(cfg *config.IDPModuleConfig, _ *config.Config) { cfg.Issuer = "https://id.example.com#x" }, "must not contain a fragment"},
+		"long-lived codes":              {func(cfg *config.IDPModuleConfig, _ *config.Config) { cfg.AuthorizationCodeTTL = time.Hour }, "AuthorizationCodeTTL"},
+		"short client secret":           {client(func(c *config.IDPClientConfig) { c.Secret = "short" }), "at least 32 characters"},
+		"no client secret":              {client(func(c *config.IDPClientConfig) { c.Secret = "" }), "at least 32 characters"},
+		"public with a secret":          {client(func(c *config.IDPClientConfig) { c.Public = true }), "has no Secret"},
+		"bad client id":                 {client(func(c *config.IDPClientConfig) { c.ClientID = "my app" }), "ClientID"},
 		"duplicate client id": {func(cfg *config.IDPModuleConfig, _ *config.Config) {
 			c := config.IDPClientConfig{ClientID: "app", Secret: testClientSecret}
 			cfg.Clients = []config.IDPClientConfig{c, c}
@@ -142,6 +149,40 @@ func TestResolveSettingsValidation(t *testing.T) {
 			require.ErrorContains(t, err, "idp:", "errors name the module")
 		})
 	}
+}
+
+// Which page the browser is sent to: the host's when it names one, the
+// module's own when cookies can carry the sign-in, and the frontend's
+// conventional address when the application only takes bearer tokens.
+func TestResolveSettingsConsentPage(t *testing.T) {
+	key := config.IDPSigningKey{PrivateKeyPEM: rsaKeyPEM(t, 2048)}
+
+	published := settingsDeps()
+	settings, err := ResolveSettings(published, &config.IDPModuleConfig{SigningKey: key, Issuer: "https://id.example.com/sso", AppName: " Acme "})
+	require.NoError(t, err)
+	require.True(t, settings.BuiltInPage)
+	require.Equal(t, "https://id.example.com/sso/consent", settings.ConsentURL, "the page follows the published issuer")
+	require.Equal(t, "/sso", settings.PageBase)
+	require.Equal(t, "Acme", settings.AppName)
+
+	root := settingsDeps()
+	root.Config.Security.Session.Path = "/auth"
+	settings, err = ResolveSettings(root, &config.IDPModuleConfig{SigningKey: key})
+	require.NoError(t, err, "a cookie path that covers the page is fine")
+	require.True(t, settings.BuiltInPage)
+
+	bearer := settingsDeps()
+	bearer.Config.Security.AuthMode = types.AuthModeBearer
+	settings, err = ResolveSettings(bearer, &config.IDPModuleConfig{SigningKey: key})
+	require.NoError(t, err)
+	require.False(t, settings.BuiltInPage, "the module's page needs cookies")
+	require.Equal(t, "https://app.example.com/oidc/consent", settings.ConsentURL)
+
+	own := settingsDeps()
+	own.Config.Security.Session.Path = "/app"
+	settings, err = ResolveSettings(own, &config.IDPModuleConfig{SigningKey: key, ConsentURL: "https://app.example.com/approve"})
+	require.NoError(t, err, "the cookie path does not matter to a page of the host's")
+	require.False(t, settings.BuiltInPage)
 }
 
 func TestResolveSettingsLocalDevelopment(t *testing.T) {

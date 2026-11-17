@@ -177,16 +177,19 @@ func verify(dir, strategy string) ([]route, error) {
 	return routes, nil
 }
 
-// consoleRoutes lists the ui module's pages. The console signs in with
-// cookies and refuses the bearer-only fixture above, so it gets an instance
-// of its own. UserPages is on so that the account page is listed too.
+// consoleRoutes lists the pages GoAuth serves itself: the ui module's
+// console and the identity provider's sign-in and consent page. They sign in
+// with cookies, which the bearer-only fixture above does not allow, so they
+// get an instance of their own. UserPages is on so that the account page is
+// listed too, and the identity provider names no ConsentURL so that it
+// serves its own page.
 func consoleRoutes(dir string) ([]route, error) {
 	store, err := storage.NewGormStorage(storage.GormConfig{Dialect: types.DialectTypeSqlite, DSN: filepath.Join(dir, "ui.db")})
 	if err != nil {
 		return nil, err
 	}
 	a, err := auth.New(&config.Config{
-		Storage: store, BasePath: "/auth", Migration: config.MigrationConfig{Auto: true},
+		Storage: store, APIURL: "http://localhost:8080", BasePath: "/auth", Migration: config.MigrationConfig{Auto: true},
 		Security: types.SecurityConfig{JwtSecretKey: strings.Repeat("d", 32), EncryptionKey: strings.Repeat("e", 32)},
 	})
 	if err != nil {
@@ -197,12 +200,21 @@ func consoleRoutes(dir string) ([]route, error) {
 	if err := a.Use(ui.New(&ui.Config{UserPages: true})); err != nil {
 		return nil, err
 	}
+	idpKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, err
+	}
+	if err := a.Use(idp.New(&config.IDPModuleConfig{
+		SigningKey: config.IDPSigningKey{PrivateKeyPEM: pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(idpKey)})},
+	})); err != nil {
+		return nil, err
+	}
 	if err := a.Initialize(context.Background()); err != nil {
 		return nil, err
 	}
 	var routes []route
 	for _, r := range a.Routes() {
-		if strings.HasPrefix(r.Name, "ui.") {
+		if strings.HasPrefix(r.Name, "ui.") || strings.HasPrefix(r.Name, "idp.page") {
 			routes = append(routes, route{r.Method, strings.TrimPrefix(r.Path, "/auth"), r.Name})
 		}
 	}

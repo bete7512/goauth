@@ -39,7 +39,7 @@ func publicDocument(w http.ResponseWriter, maxAgeSeconds int) {
 }
 
 // Authorize is the authorization endpoint (OpenID Connect Core section
-// 3.1.2). It never renders a page: it redirects to the host's consent page,
+// 3.1.2). It redirects to the page where the user signs in and approves,
 // or back to the client with an error.
 // GET /oidc/authorize
 func (h *IDPHandler) Authorize(w http.ResponseWriter, r *http.Request) {
@@ -51,7 +51,8 @@ func (h *IDPHandler) Authorize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// The client or its redirect URI could not be verified, so the user is
-	// not sent there: show the error on the host's page, or as JSON.
+	// not sent there: show the error on the host's page, on the module's
+	// own, or as JSON.
 	status, body := h.oauthErrorBody(authErr)
 	if h.settings.ErrorURL != "" {
 		if target, err := url.Parse(h.settings.ErrorURL); err == nil {
@@ -64,6 +65,10 @@ func (h *IDPHandler) Authorize(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, target.String(), http.StatusFound)
 			return
 		}
+	}
+	if h.settings.BuiltInPage {
+		h.authorizeProblem(w, status, body)
+		return
 	}
 	writeNoStoreJSON(w, status, body)
 }

@@ -25,6 +25,7 @@ import (
 	orgservices "github.com/bete7512/goauth/internal/modules/organization/services"
 	"github.com/bete7512/goauth/internal/modules/rbac"
 	http_utils "github.com/bete7512/goauth/internal/utils/http"
+	"github.com/bete7512/goauth/internal/websession"
 	"github.com/bete7512/goauth/pkg/config"
 	"github.com/bete7512/goauth/pkg/types"
 )
@@ -54,7 +55,9 @@ type UIModule struct {
 	protect  *http.CrossOriginProtection
 	notFound http.Handler
 
-	refreshes refreshGroup
+	// sessions reads the signed-in user from the credential cookies.
+	// Refreshes are single-flight per process.
+	sessions *websession.Reader
 }
 
 // New creates the ui module. Pass nil for the defaults: the admin console
@@ -88,6 +91,7 @@ func (m *UIModule) Init(_ context.Context, deps config.ModuleDependencies) error
 		return config.ErrConfig("ui: " + err.Error())
 	}
 	m.deps = deps
+	m.sessions = websession.New(deps)
 	m.base = strings.TrimRight(deps.Config.BasePath, "/") + "/ui"
 	if m.config.Path != "" {
 		m.base = m.config.Path
@@ -290,12 +294,7 @@ func (m *UIModule) Migrations() types.ModuleMigrations { return types.ModuleMigr
 // --- collaborators, looked up when a request needs them ---
 
 func (m *UIModule) strategy() config.Module {
-	name := string(types.StatelessModule)
-	if m.deps.Config.Security.AuthStrategy == types.StrategySession {
-		name = string(types.SessionModule)
-	}
-	module, _ := m.deps.Lookup(name)
-	return module
+	return m.sessions.Strategy()
 }
 
 func (m *UIModule) auditService() auditservices.AuditService {
@@ -324,12 +323,7 @@ func (m *UIModule) rbacModule() (*rbac.RBACModule, rbac.Internals, bool) {
 }
 
 func (m *UIModule) twoFactor() types.TwoFactorLoginVerifier {
-	module, ok := m.deps.Lookup(string(types.TwoFactorModule))
-	if !ok {
-		return nil
-	}
-	verifier, _ := module.(types.TwoFactorLoginVerifier)
-	return verifier
+	return m.sessions.TwoFactor()
 }
 
 // lookup returns a registered module of type T, or false.

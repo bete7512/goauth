@@ -11,17 +11,22 @@ info:
     `{"error", "error_description"}` objects. The consent, grant and admin
     endpoints use the GoAuth response envelope.
 
-    GoAuth has no login page. The authorization endpoint redirects the browser
-    to the host's consent page with a `request_id`; that page signs the user in
-    the usual way, reads the request from `GET /oidc/consent/{id}` and posts
-    the decision.
+    The authorization endpoint redirects the browser, with a `request_id`, to
+    a page where the user signs in and approves. Unless
+    `IDPModuleConfig.ConsentURL` names a page of the host's frontend, the
+    module serves that page itself: `GET /oidc/consent`, with its forms
+    `POST /oidc/consent/signin`, `/oidc/consent/2fa` and
+    `/oidc/consent/decision` and its stylesheet `/oidc/assets/page.css`. Those
+    routes answer HTML to a browser and are not listed here. A page of the
+    host's own signs the user in the usual way, reads the request from
+    `GET /oidc/consent/{id}` and posts the decision.
   version: 1.0.0
 
 tags:
   - name: OIDC Provider
     description: OpenID Connect protocol endpoints, called by client applications
   - name: OIDC Consent
-    description: Consent and connected applications, called by the host's frontend for the signed-in user
+    description: Consent, for a consent page of the host's own frontend, and connected applications, called for the signed-in user
   - name: OIDC Admin
     description: Administration of client applications (requires IDPModuleConfig.AdminAPI and the admin module)
 
@@ -63,13 +68,15 @@ paths:
       operationId: idp.authorize
       summary: Authorization endpoint
       description: |
-        Starts a sign-in (OpenID Connect Core section 3.1.2). The endpoint never
-        renders a page. A valid request is stored and the browser is redirected
-        to the host's consent page with `?request_id=...`.
+        Starts a sign-in (OpenID Connect Core section 3.1.2). A valid request
+        is stored and the browser is redirected, with `?request_id=...`, to
+        the sign-in and consent page: the module's own, or the host's
+        `ConsentURL`.
 
         A request whose `client_id` or `redirect_uri` cannot be verified is not
         redirected to the client: the error is shown on `ErrorURL` when it is
-        configured and returned as JSON otherwise. Every other error is
+        configured. Otherwise it is shown on the module's own page, or, when
+        `ConsentURL` is set, returned as JSON. Every other error is
         returned to the client's redirect URI with `error`, `error_description`,
         `state` and `iss`.
 
@@ -140,7 +147,7 @@ paths:
             minimum: 0
         - name: login_hint
           in: query
-          description: The account the client expects; passed on to the consent page.
+          description: The account the client expects; it fills in the sign-in form, and is passed on to a consent page of the host's own.
           schema:
             type: string
         - name: response_mode
@@ -152,11 +159,17 @@ paths:
         "302":
           description: Redirect to the consent page, to the client with an error, or to the error page
         "400":
-          description: The client or redirect URI could not be verified and no error page is configured
+          description: |
+            The client or redirect URI could not be verified and no error page
+            is configured. HTML from the module's own page; JSON when
+            `ConsentURL` is set.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/OAuthError"
+            text/html:
+              schema:
+                type: string
 
   /oidc/token:
     post:

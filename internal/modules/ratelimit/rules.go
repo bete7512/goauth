@@ -31,6 +31,8 @@ func DefaultRules() []config.RateLimitRuleConfig {
 		types.RouteUIAccountPassword,
 		types.RouteUILoginCodeVerify,
 		types.RouteUILoginPasskeyFinish,
+		types.RouteIDPPageSignIn,
+		types.RouteIDPPageTwoFactor,
 	}
 	sends := []types.RouteName{
 		types.RouteForgotPassword,

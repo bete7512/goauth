@@ -15,6 +15,7 @@ import (
 	passkeydto "github.com/bete7512/goauth/internal/modules/passkeys/handlers/dto"
 	"github.com/bete7512/goauth/internal/modules/saml"
 	http_utils "github.com/bete7512/goauth/internal/utils/http"
+	"github.com/bete7512/goauth/internal/websession"
 	"github.com/bete7512/goauth/pkg/types"
 )
 
@@ -78,11 +79,7 @@ func sorted(list []string) []string {
 // providerLabel names a connection on its button: known providers by
 // their brand, anything else as configured.
 func providerLabel(name string) string {
-	known := map[string]string{"google": "Google", "github": "GitHub", "microsoft": "Microsoft", "discord": "Discord", "apple": "Apple", "gitlab": "GitLab", "okta": "Okta"}
-	if label, ok := known[strings.ToLower(name)]; ok {
-		return label
-	}
-	return name
+	return websession.ProviderLabel(name)
 }
 
 // loginDone is where OAuth and SAML sign-ins come back to. The cookies are

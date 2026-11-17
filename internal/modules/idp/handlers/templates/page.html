@@ -1,0 +1,111 @@
+{{define "page"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+{{if .Refresh}}<meta http-equiv="refresh" content="0;url={{.Refresh}}">
+{{end}}<title>{{.Title}} · {{.AppName}}</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="{{.CSS}}">
+</head>
+<body>
+<main class="card">
+{{if eq .Step "signin"}}{{template "signin" .}}
+{{else if eq .Step "twofactor"}}{{template "twofactor" .}}
+{{else if eq .Step "consent"}}{{template "consent" .}}
+{{else if eq .Step "continue"}}{{template "continue" .}}
+{{else}}{{template "problem" .}}{{end}}
+</main>
+</body>
+</html>{{end}}
+
+{{define "notices"}}
+{{if .Error}}<p class="notice error" role="alert">{{.Error}}</p>{{end}}
+{{if .Notice}}<p class="notice">{{.Notice}}</p>{{end}}
+{{end}}
+
+{{define "signin"}}
+<div class="avatar" aria-hidden="true">{{.Initial}}</div>
+<h1>Sign in</h1>
+<p class="lead">to continue to <strong>{{.Client.Name}}</strong></p>
+{{template "notices" .}}
+<form method="post" action="{{.Action}}/signin">
+  <input type="hidden" name="request_id" value="{{.RequestID}}">
+  <div class="field">
+    <label for="email">Email or username</label>
+    <input class="input" id="email" name="email" type="text" autocomplete="username" value="{{.Email}}" {{if not .Email}}autofocus{{end}} required>
+  </div>
+  <div class="field">
+    <label for="password">Password</label>
+    <input class="input" id="password" name="password" type="password" autocomplete="current-password" {{if .Email}}autofocus{{end}} required>
+  </div>
+  <button class="btn primary block" type="submit">Sign in</button>
+</form>
+{{if .Links}}
+<div class="divider"><span>or</span></div>
+<div class="stack">
+  {{range .Links}}<a class="btn block" href="{{.Href}}">{{.Label}}</a>
+  {{end}}
+</div>
+{{end}}
+<form class="cancel" method="post" action="{{.Action}}/decision">
+  <input type="hidden" name="request_id" value="{{.RequestID}}">
+  <button class="link" type="submit" name="decision" value="deny">Cancel and go back to {{.RedirectHost}}</button>
+</form>
+<p class="foot">You are signing in with your <strong>{{.AppName}}</strong> account.</p>
+{{end}}
+
+{{define "twofactor"}}
+<div class="avatar" aria-hidden="true">{{.Initial}}</div>
+<h1>Two-factor authentication</h1>
+<p class="lead">Enter the 6-digit code from your authenticator app, or one of your backup codes.</p>
+{{template "notices" .}}
+<form method="post" action="{{.Action}}/2fa">
+  <input type="hidden" name="request_id" value="{{.RequestID}}">
+  <input type="hidden" name="temp_token" value="{{.TempToken}}">
+  <div class="field">
+    <label for="code">Verification code</label>
+    <input class="input code" id="code" name="code" inputmode="numeric" autocomplete="one-time-code" autofocus required maxlength="32">
+  </div>
+  <button class="btn primary block" type="submit">Verify</button>
+</form>
+<p class="cancel"><a href="{{.StartOver}}">Start over</a></p>
+{{end}}
+
+{{define "consent"}}
+<div class="avatar" aria-hidden="true">{{.Initial}}</div>
+<h1>Sign in to {{.Client.Name}}</h1>
+<p class="lead">with your <strong>{{.AppName}}</strong> account</p>
+{{template "notices" .}}
+<div class="who">
+  <div class="who-text">
+    {{if .User.Name}}<strong>{{.User.Name}}</strong>{{end}}
+    <span>{{if .User.Email}}{{.User.Email}}{{else}}{{.User.Username}}{{end}}</span>
+  </div>
+  <a href="{{.Switch}}">Use another account</a>
+</div>
+<p class="label">{{.Client.Name}} will be able to:</p>
+<ul class="scopes">
+  {{range .Scopes}}<li>{{if .Description}}{{.Description}}{{else}}{{.Name}}{{end}}{{if .PreviouslyGranted}}<span class="tag">already allowed</span>{{end}}</li>
+  {{end}}
+</ul>
+<form class="actions" method="post" action="{{.Action}}/decision">
+  <input type="hidden" name="request_id" value="{{.RequestID}}">
+  <input type="hidden" name="user" value="{{.User.ID}}">
+  <button class="btn primary" type="submit" name="decision" value="approve">Continue</button>
+  <button class="btn" type="submit" name="decision" value="deny">Cancel</button>
+</form>
+<p class="foot">You will be sent to <strong>{{.RedirectHost}}</strong>. You can disconnect the application at any time.</p>
+{{end}}
+
+{{define "continue"}}
+<h1>One moment</h1>
+<p class="lead">Taking you to the sign-in page.</p>
+<p class="cancel"><a href="{{.Refresh}}">Continue</a></p>
+{{end}}
+
+{{define "problem"}}
+<h1>{{.Heading}}</h1>
+<p class="lead">{{.Message}}</p>
+{{end}}

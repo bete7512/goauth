@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"path"
 	"strings"
+
+	"github.com/bete7512/goauth/internal/websession"
 )
 
 // DefaultPageSize is the number of rows a list page shows.
@@ -79,9 +81,5 @@ func validatePath(mount string) error {
 // cookieReaches reports whether a cookie scoped to cookiePath is sent with
 // requests to mount.
 func cookieReaches(cookiePath, mount string) bool {
-	if cookiePath == "" || cookiePath == "/" {
-		return true
-	}
-	cookiePath = strings.TrimRight(cookiePath, "/")
-	return mount == cookiePath || strings.HasPrefix(mount, cookiePath+"/")
+	return websession.CookieReaches(cookiePath, mount)
 }
