@@ -48,7 +48,10 @@ func New(ctx context.Context, s Settings) (*Platform, error) {
 	if s.DSN == "" {
 		s.DSN = "file:goauth-rbac-example?mode=memory&cache=shared"
 	}
-	store, err := storage.NewGormStorage(storage.GormConfig{Dialect: types.DialectTypeSqlite, DSN: s.DSN, LogLevel: "silent"})
+	// One connection: with a shared-cache SQLite database, a second connection
+	// writing at the same time (an event handler during a sign-in) fails with
+	// "database table is locked" instead of waiting.
+	store, err := storage.NewGormStorage(storage.GormConfig{Dialect: types.DialectTypeSqlite, DSN: s.DSN, LogLevel: "silent", MaxOpenConns: 1, MaxIdleConns: 1})
 	if err != nil {
 		return nil, fmt.Errorf("storage: %w", err)
 	}
