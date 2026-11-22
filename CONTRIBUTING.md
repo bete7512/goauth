@@ -58,9 +58,10 @@ CI runs `make check` equivalents plus the Postgres and MySQL contract jobs on ev
    V=v0.3.0
    git tag $V
    for m in chiadapter ginadapter fiberadapter; do git tag pkg/adapters/$m/$V; done
-   git push origin $V pkg/adapters/chiadapter/$V pkg/adapters/ginadapter/$V pkg/adapters/fiberadapter/$V
+   git push origin $V
+   git push origin pkg/adapters/chiadapter/$V pkg/adapters/ginadapter/$V pkg/adapters/fiberadapter/$V
    ```
-   The release workflow reruns the tests and publishes the GitHub release for the root tag; a tag with a hyphen is marked as a pre-release.
+   Push the root tag on its own: GitHub starts no workflow when more than three tags are pushed at once. The release workflow reruns the tests and publishes the GitHub release for the root tag; a tag with a hyphen is marked as a pre-release.
 5. Check that the versions appear on [pkg.go.dev](https://pkg.go.dev/github.com/bete7512/goauth).
 
 Never delete and re-push a published tag, and never reuse a version number: the Go module proxy and checksum database keep every published version permanently. Mark a bad version with a `retract` directive in `go.mod` instead.
