@@ -10,7 +10,7 @@ sidebar_position: 12
 
 # Organization Module
 
-> **Experimental.** This module works and is tested, but its API and schema may change during the beta.
+> **Experimental.** This module works and is tested, but its API and schema may change before 1.0.
 
 The Organization module adds multi-tenant organization support to your Go application, the usual shape of a B2B SaaS. It provides a complete workspace/team management system with role-based access control, invitation workflows, and organization-scoped middleware. Users can create organizations, invite members, assign roles, and switch between organizations. Explicitly selecting an organization adds its context to the authentication grant.
 

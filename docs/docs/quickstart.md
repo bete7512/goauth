@@ -23,7 +23,7 @@ In about five minutes you will have a Go server where people can sign up, log in
 ```bash
 mkdir hello-auth && cd hello-auth
 go mod init hello-auth
-go get github.com/bete7512/goauth@v0.3.0-beta.1
+go get github.com/bete7512/goauth@v0.3.0
 ```
 
 ## 2. Write main.go

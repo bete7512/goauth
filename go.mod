@@ -54,5 +54,5 @@ require (
 	golang.org/x/text v0.43.0 // indirect
 )
 
-// Pre-beta releases with known security issues; use v0.3.0-beta.1 or later.
+// Releases before 0.3 have known security issues; use v0.3.0 or later.
 retract [v0.1.0-alpha.1, v0.2.2]

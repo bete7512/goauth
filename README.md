@@ -60,7 +60,7 @@ You start with sign-up and login. Everything else is a module you switch on with
 | **Being the login for other apps** | "Sign in with YourApp" through OpenID Connect |
 | **Plumbing** | Email and SMS delivery (Resend, SendGrid, SMTP, Twilio) · events you can hook into · an OpenAPI spec · a generated TypeScript client |
 
-Some of these are newer than the latest tagged beta. The [modules table](#modules) says which.
+Every module in the [modules table](#modules) is in the latest release.
 
 ### The admin console is included
 
@@ -95,7 +95,7 @@ A complete program. It uses SQLite, so you only need Go 1.26+ and a C compiler (
 ```bash
 mkdir hello-auth && cd hello-auth
 go mod init hello-auth
-go get github.com/bete7512/goauth@v0.3.0-beta.1
+go get github.com/bete7512/goauth@v0.3.0
 ```
 
 `main.go`:
@@ -228,7 +228,7 @@ There are three usual ways to add accounts to a Go app. GoAuth is a fourth.
 
 **Pick something else when**
 
-- you need a frozen 1.0 API today. GoAuth is in beta, and a release can still contain breaking changes (they are always listed first in the [CHANGELOG](CHANGELOG.md));
+- you need a frozen 1.0 API today. GoAuth is pre-1.0, and a minor release can still contain breaking changes (they are always listed first in the [CHANGELOG](CHANGELOG.md));
 - you need a vendor with an audit report, compliance certificates or an SLA. GoAuth has not had an independent security audit, and it is maintained by one developer;
 - your services are not written in Go and you want one central login for all of them. A standalone identity server suits that better. GoAuth can act as an OpenID Connect provider for other apps, but that module is experimental;
 - you want polished hosted login pages with no frontend work. GoAuth is API-first; the console's sign-in and account pages are plain and functional;
@@ -268,7 +268,7 @@ Each module brings its own routes, tables, migrations and OpenAPI spec.
 | [OAuth](https://goauth.beteg.dev/docs/modules/oauth) | Google, GitHub, Microsoft and Discord with PKCE. Other providers through `oauth.NewWithProviders`. | Stable | ✓ |
 | [Magic Link](https://goauth.beteg.dev/docs/modules/magiclink) | Passwordless login by emailed link or 6-digit code. | Stable | ✓ |
 | [Passkeys](https://goauth.beteg.dev/docs/modules/passkeys) | WebAuthn login with Touch ID, Face ID, Windows Hello or security keys. | Experimental | ✓ |
-| [SAML](https://goauth.beteg.dev/docs/modules/saml) | SAML 2.0 service provider for Keycloak, Okta, Entra ID and other enterprise identity providers. | Experimental | `main` |
+| [SAML](https://goauth.beteg.dev/docs/modules/saml) | SAML 2.0 service provider for Keycloak, Okta, Entra ID and other enterprise identity providers. | Experimental | ✓ |
 | **Protecting accounts** | | | |
 | [Two-Factor](https://goauth.beteg.dev/docs/modules/twofactor) | TOTP authenticator apps and backup codes. | Stable | ✓ |
 | [Rate Limit](https://goauth.beteg.dev/docs/modules/ratelimit) | Per-IP and per-identifier budgets on login, sign-up, verification, resets and sends. On by default, with a pluggable store for several replicas. | Stable | ✓ |
@@ -277,18 +277,18 @@ Each module brings its own routes, tables, migrations and OpenAPI spec.
 | [Audit](https://goauth.beteg.dev/docs/modules/audit) | A security event trail: logins, password changes, admin actions. | Stable | ✓ |
 | **Organizations and access** | | | |
 | [Organization](https://goauth.beteg.dev/docs/modules/organization) | Multi-tenant organizations with members, roles, invitations and switching. | Experimental | ✓ |
-| [Team](https://goauth.beteg.dev/docs/modules/team) | Nested teams inside organizations, up to five levels. Leads manage their sub-tree. | Experimental | `main` |
-| [RBAC](https://goauth.beteg.dev/docs/modules/rbac) | Roles and permission checks for your own routes and services: application-wide, per organization or per team. | Experimental | `main` |
+| [Team](https://goauth.beteg.dev/docs/modules/team) | Nested teams inside organizations, up to five levels. Leads manage their sub-tree. | Experimental | ✓ |
+| [RBAC](https://goauth.beteg.dev/docs/modules/rbac) | Roles and permission checks for your own routes and services: application-wide, per organization or per team. | Experimental | ✓ |
 | [Invitation](https://goauth.beteg.dev/docs/modules/invitation) | Platform-wide invitations, such as beta access and referrals, for apps without organizations. | Experimental | ✓ |
 | **Administration** | | | |
 | [Admin](https://goauth.beteg.dev/docs/modules/admin) | User management endpoints for super admins. | Experimental | ✓ |
-| [UI](https://goauth.beteg.dev/docs/modules/ui) | The admin console above, plus optional sign-in and account pages for every user. | Stable | `main` |
+| [UI](https://goauth.beteg.dev/docs/modules/ui) | The admin console above, plus optional sign-in and account pages for every user. | Stable | ✓ |
 | **Connecting** | | | |
 | [Notification](https://goauth.beteg.dev/docs/modules/notification) | Email and SMS through Resend, SendGrid, SMTP or Twilio, with branded templates. | Stable | ✓ |
-| [Identity Provider](https://goauth.beteg.dev/docs/modules/idp) | OpenID Connect provider: other applications sign users in with your accounts, on a built-in sign-in and consent page. | Experimental | `main` |
+| [Identity Provider](https://goauth.beteg.dev/docs/modules/idp) | OpenID Connect provider: other applications sign users in with your accounts, on a built-in sign-in and consent page. | Experimental | ✓ |
 
-- **Experimental** modules work and are tested, but their API and schema may change during the beta.
-- **Released ✓**: in `v0.3.0-beta.1`. **`main`**: merged, waiting for the next beta. To try one now: `go get github.com/bete7512/goauth@main`.
+- **Experimental** modules work and are tested, but their API and schema may change before 1.0.
+- **Released ✓**: in `v0.3.0`. To try what is merged but not yet released: `go get github.com/bete7512/goauth@main`.
 - **Session and Stateless are mutually exclusive.** Choose one, or register neither and get Stateless.
 
 ### Adding modules
@@ -355,7 +355,7 @@ fiberadapter.Register(app, a)     // Fiber
 `stdhttp` ships with GoAuth. The Gin, Chi and Fiber adapters are separate Go modules, so GoAuth never pulls a framework you do not use:
 
 ```bash
-go get github.com/bete7512/goauth/pkg/adapters/ginadapter@v0.3.0-beta.1
+go get github.com/bete7512/goauth/pkg/adapters/ginadapter@v0.3.0
 ```
 
 Using something else? `a.Routes()` returns method, path and handler for every route, and you can mount them anywhere.
@@ -463,12 +463,11 @@ Contributions are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) covers tooling, co
 
 ## Project status
 
-GoAuth is in **public beta**. `v0.3.0-beta.1` (October 2026) is the first release of the current line.
+GoAuth is pre-1.0. `v0.3.0` (November 2026) is the current release; it followed `v0.3.0-beta.1` (October 2026).
 
-- Install the beta by version, as the quick start does. A plain `go get` picks the newest non-beta release, and every release before 0.3.0 is retracted because of known security issues.
-- Before 1.0, a release may contain breaking changes. The [CHANGELOG](CHANGELOG.md) lists them first, and the [upgrade guide](docs/docs/upgrade.md#upgrading-from-v02x) covers moving from v0.2.x.
-- The SAML, Identity Provider, RBAC, Team and UI modules are on `main` and will be in the next beta.
-- What is left for the beta is tracked in the [First beta release](https://github.com/bete7512/goauth/milestone/1) milestone.
+- `go get github.com/bete7512/goauth` installs the latest release. Every release before 0.3.0 is retracted because of known security issues.
+- Before 1.0, a minor release may contain breaking changes. The [CHANGELOG](CHANGELOG.md) lists them first, and the [upgrade guide](docs/docs/upgrade.md#upgrading-from-v02x) covers moving from v0.2.x.
+- Modules marked Experimental may still change their API and schema before 1.0.
 
 If you try it and something is confusing, broken or missing, please [open an issue](https://github.com/bete7512/goauth/issues). That feedback is what moves the project toward 1.0.
 

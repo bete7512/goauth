@@ -55,7 +55,7 @@ CI runs `make check` equivalents plus the Postgres and MySQL contract jobs on ev
 3. Set the `github.com/bete7512/goauth` requirement in each `pkg/adapters/*/go.mod` to the new version (their `replace` keeps local builds on the checkout).
 4. Tag the root module and each adapter module on the same `main` commit, then push the tags:
    ```
-   V=v0.3.0-beta.1
+   V=v0.3.0
    git tag $V
    for m in chiadapter ginadapter fiberadapter; do git tag pkg/adapters/$m/$V; done
    git push origin $V pkg/adapters/chiadapter/$V pkg/adapters/ginadapter/$V pkg/adapters/fiberadapter/$V

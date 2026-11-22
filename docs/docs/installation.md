@@ -19,16 +19,16 @@ sidebar_position: 2
 ## Install
 
 ```bash
-go get github.com/bete7512/goauth@v0.3.0-beta.1
+go get github.com/bete7512/goauth@v0.3.0
 ```
 
-Name the version. A plain `go get` picks the newest non-beta release, and every release before 0.3.0 is retracted because of known security issues.
+A plain `go get github.com/bete7512/goauth` also installs the latest release. Every release before 0.3.0 is retracted because of known security issues.
 
 Import only from the public packages: `pkg/auth`, `pkg/config`, `pkg/types`, `pkg/models`, `pkg/modules/*`, `pkg/adapters/*` and `storage`. Everything under `internal/` is private.
 
 ### Trying what is on `main`
 
-These docs follow the `main` branch. The SAML, Identity Provider, RBAC, Team and UI modules are there and not yet in a release. To use them now:
+These docs follow the `main` branch, which can be ahead of the latest release. To use what is merged but not released:
 
 ```bash
 go get github.com/bete7512/goauth@main
@@ -102,9 +102,9 @@ Opening the storage does not create any tables. Set `Migration: config.Migration
 The `net/http` adapter, `pkg/adapters/stdhttp`, comes with GoAuth. The Gin, Chi and Fiber adapters are separate Go modules. Install the one you need:
 
 ```bash
-go get github.com/bete7512/goauth/pkg/adapters/ginadapter@v0.3.0-beta.1
-go get github.com/bete7512/goauth/pkg/adapters/chiadapter@v0.3.0-beta.1
-go get github.com/bete7512/goauth/pkg/adapters/fiberadapter@v0.3.0-beta.1
+go get github.com/bete7512/goauth/pkg/adapters/ginadapter@v0.3.0
+go get github.com/bete7512/goauth/pkg/adapters/chiadapter@v0.3.0
+go get github.com/bete7512/goauth/pkg/adapters/fiberadapter@v0.3.0
 ```
 
 Then register the routes once GoAuth is initialized:

@@ -10,7 +10,7 @@ sidebar_position: 13
 
 # Invitation Module
 
-> **Experimental.** This module works and is tested, but its API and schema may change during the beta.
+> **Experimental.** This module works and is tested, but its API and schema may change before 1.0.
 
 The Invitation module provides standalone, platform-level email invitations for Go applications, including invite-only sign-up. Use it to invite users to your platform, beta program, referral system, or any non-organization context. For organization-scoped invitations, see the [Organization module](organization.md).
 

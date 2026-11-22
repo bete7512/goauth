@@ -16,7 +16,7 @@ To add authentication to a Gin application, mount GoAuth's routes with the Gin a
 The adapter is its own Go module:
 
 ```bash
-go get github.com/bete7512/goauth/pkg/adapters/ginadapter@v0.3.0-beta.1
+go get github.com/bete7512/goauth/pkg/adapters/ginadapter@v0.3.0
 ```
 
 ## Register the routes

@@ -15,7 +15,7 @@ There are several ways to add user accounts to a Go application. They fall into 
 - **Identity servers** that you deploy next to your application: Ory Kratos and Keycloak.
 - **Hosted services** that run the accounts for you: Auth0, Clerk, Supabase Auth and others.
 
-This page explains what each option is, what it does well, and when it is a better fit than GoAuth. GoAuth is newer than every project here. It is in public beta, several of its modules are experimental, it is maintained by one developer, and it has not had an independent security audit. Weigh that alongside the feature lists.
+This page explains what each option is, what it does well, and when it is a better fit than GoAuth. GoAuth is newer than every project here. It is pre-1.0, several of its modules are experimental, it is maintained by one developer, and it has not had an independent security audit. Weigh that alongside the feature lists.
 
 Details about other projects come from their own documentation and READMEs at the time of writing. Features change, so check their docs before you decide.
 
@@ -96,11 +96,11 @@ Hosted services run the account system for you. Details differ by vendor, so tre
 | **OIDC provider** | Yes (experimental) | No | No | Separate server (Ory Hydra) | Yes | Varies; check their docs |
 | **SAML** | Service provider (experimental) | No | Not listed | Enterprise License / Ory Network | Provider and broker | Auth0, Supabase: yes; others check their docs |
 | **Admin UI** | Yes, embedded console | No | No | Headless; check their docs | Admin and account consoles | Vendor dashboard |
-| **Maturity** | Public beta, one maintainer, no independent audit | Long-standing, widely used | Long-standing | Mature, commercial backing | Mature, CNCF incubating | Commercial vendors |
+| **Maturity** | Pre-1.0, one maintainer, no independent audit | Long-standing, widely used | Long-standing | Mature, commercial backing | Mature, CNCF incubating | Commercial vendors |
 
 ## When GoAuth is the wrong choice
 
-- **You need a stable 1.0 API now.** GoAuth is in beta, and a release can still contain breaking changes.
+- **You need a stable 1.0 API now.** GoAuth is pre-1.0, and a minor release can still contain breaking changes.
 - **You need an audit report, certifications or an SLA.** GoAuth has had no independent security audit and is maintained by one developer.
 - **Your services are not all Go and need one central login.** An identity server such as Kratos or Keycloak, or a hosted service, fits better. GoAuth's OpenID Connect provider is experimental.
 - **You need LDAP or Active Directory, or a mature SAML identity provider.** Keycloak covers these; GoAuth does not.

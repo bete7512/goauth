@@ -8,7 +8,7 @@ keywords: ["golang passkeys", "go webauthn", "passwordless login go", "fido2 gol
 
 # Passkeys
 
-> **Experimental.** This module works and is tested, but its API and schema may change during the beta.
+> **Experimental.** This module works and is tested, but its API and schema may change before 1.0.
 
 The Passkeys module adds passkeys (WebAuthn) to your Go application: credential registration, discoverable sign-in, and credential management. A verified assertion enters GoAuth's shared completion flow, so current account policy, the selected session/JWT strategy, and additional challenges still apply.
 

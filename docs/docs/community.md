@@ -8,7 +8,7 @@ sidebar_label: Community
 
 # Community
 
-GoAuth is in beta and maintained by one developer. A report that something was confusing is as useful as a bug report.
+GoAuth is pre-1.0 and maintained by one developer. A report that something was confusing is as useful as a bug report.
 
 ## Get Help
 

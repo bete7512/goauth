@@ -3,7 +3,7 @@ module github.com/bete7512/goauth/pkg/adapters/fiberadapter
 go 1.26.0
 
 require (
-	github.com/bete7512/goauth v0.3.0-beta.1
+	github.com/bete7512/goauth v0.3.0
 	github.com/gofiber/fiber/v2 v2.52.6
 	github.com/valyala/fasthttp v1.58.0
 )
@@ -19,7 +19,7 @@ require (
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect
-	golang.org/x/sys v0.43.0 // indirect
+	golang.org/x/sys v0.47.0 // indirect
 )
 
 replace github.com/bete7512/goauth => ../../../

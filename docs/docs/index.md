@@ -59,8 +59,8 @@ The [UI module](modules/ui.md) is a console for everything GoAuth manages: users
 
 ## Where the project stands
 
-GoAuth is in public beta.
+GoAuth is pre-1.0. The latest release is `v0.3.0`.
 
-- **These pages describe the `main` branch.** The SAML, Identity Provider, RBAC, Team and UI modules are not yet in the `v0.3.0-beta.1` release; [Installation](installation.md) shows how to get either.
+- **These pages describe the `main` branch.** Anything merged after `v0.3.0` is listed under Unreleased in the [CHANGELOG](https://github.com/bete7512/goauth/blob/main/CHANGELOG.md); [Installation](installation.md) shows how to install `main`.
 - **A release may still contain breaking changes.** The [CHANGELOG](https://github.com/bete7512/goauth/blob/main/CHANGELOG.md) lists them first.
 - **There has been no independent security audit.** Read the [Security guide](security.md) and the [Production checklist](production.md) before real users sign in.

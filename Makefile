@@ -40,7 +40,7 @@ lint:
 # Known vulnerabilities in reachable code (requires govulncheck)
 .PHONY: vuln tidy-check generate-check check
 vuln:
-	govulncheck ./...
+	./scripts/vulncheck.sh
 
 # Fails when go.mod/go.sum of the root or nested modules need tidying
 tidy-check:

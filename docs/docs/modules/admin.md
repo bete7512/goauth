@@ -10,7 +10,7 @@ sidebar_position: 7
 
 # Admin Module
 
-> **Experimental.** This module works and is tested, but its API and schema may change during the beta.
+> **Experimental.** This module works and is tested, but its API and schema may change before 1.0.
 
 The Admin module provides a complete administrative API for managing users in your Go application. All routes are protected by both authentication and admin authorization middleware, ensuring only privileged users (those with `is_super_admin: true`) can access them. It supports listing users with pagination, sorting, and filtering, as well as viewing, updating, and deleting individual users.
 

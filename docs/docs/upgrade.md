@@ -12,7 +12,7 @@ These docs describe the `main` branch, which can be ahead of the latest tagged r
 
 ## Upgrading from v0.2.x
 
-The first beta changes credentials, the schema and several defaults at once. Plan a maintenance deployment, not a rolling one. The [CHANGELOG](https://github.com/bete7512/goauth/blob/main/CHANGELOG.md) lists every breaking change.
+Version 0.3 changes credentials, the schema and several defaults at once. Plan a maintenance deployment, not a rolling one. The [CHANGELOG](https://github.com/bete7512/goauth/blob/main/CHANGELOG.md) lists every breaking change.
 
 1. **Update the code.** Move to Go 1.26 and change imports to `pkg/modules/<name>`, with one config argument per constructor (see the table below).
 2. **Stop the old instances.** Do not run old and new writers side by side.

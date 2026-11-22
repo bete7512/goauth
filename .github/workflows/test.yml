@@ -65,7 +65,7 @@ jobs:
       - name: Vulnerabilities (govulncheck)
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@v1.8.0
-          govulncheck ./...
+          ./scripts/vulncheck.sh
       - name: Module files are tidy
         run: |
           go mod tidy -diff

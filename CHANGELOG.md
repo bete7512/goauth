@@ -4,6 +4,10 @@ All notable changes to GoAuth are recorded here. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-22
+
+The first non-prerelease of the 0.3 line, so `go get github.com/bete7512/goauth` (and pkg.go.dev) now resolve to it and the retraction of every earlier release takes effect. Coming from `v0.3.0-beta.1`, read **Changed** first: an empty identity provider `ConsentURL` now means the module's own page.
+
 ### Added
 - **Docs search visibility**: every docs page and post has a hand-written search title (`seoTitle`), description and `keywords`; docs pages carry breadcrumb and `dateModified` structured data and the sitemap carries `lastmod` from git; the docs sync fails when a page has no description. New pages: a comparison with Goth, Authboss, Ory Kratos, Keycloak and hosted services (`/docs/comparison`), and how-to posts on passkeys, JWT refresh token rotation and building an OpenID Connect provider in Go. `pkg/auth` gains a package doc comment for pkg.go.dev. The older blog posts are dated when they were published (2025-08-22); their URLs are unchanged.
 - **RBAC example** (`examples/rbac`): "Acme Tracker", a multi-package service showing every rbac guard (global, organization and team scopes, ownership lookups, OnlyIf/AllowIf, TeamsWhere, checks in code), with seed data, a walkthrough script and a scenario test.
@@ -38,6 +42,7 @@ All notable changes to GoAuth are recorded here. The format follows [Keep a Chan
 - Banned users get `USER_BLOCKED` (403) wherever eligibility is checked: sign-in, refresh, every authenticated request and the identity provider.
 - The OAuth callback and the SAML ACS accept a `redirect_uri` that is a local path (such as `/admin/login/done`): they set the credential cookies and redirect without tokens in the URL, or add `error=challenge_required` / `error=cookies_disabled`. Absolute URLs behave as before.
 - The console's account routes are always registered: super admins always have an account page, other users only with `UserPages`.
+- CI checks vulnerabilities with `scripts/vulncheck.sh`, which fails on any vulnerability reachable from GoAuth's code except the reviewed entries in `scripts/vulncheck.allow`. The only entry is GO-2026-6909: the advisory names every `crewjam/saml` version, but both bugs it describes are fixed in v0.6.3, the version GoAuth uses.
 
 ### Fixed
 - **Console**: a browser already signed in to the application as a non-administrator was shown "This console is for administrators" with no way to switch accounts. It is now sent to the console's sign-in page, which says who is signed in.
@@ -108,5 +113,6 @@ The first public beta and the start of a new release line. Every earlier version
 
 `v0.1.0-alpha.1`, `v0.1.0`, `v0.1.1`, `v0.2.0` and `v0.2.1` were published before this changelog and have the security issues fixed in 0.3.0-beta.1. They are retracted in `go.mod`, so the Go tooling warns anyone who depends on them. Their tags and release notes have been removed from GitHub; the Go module proxy keeps the code, so those version numbers can never be reused.
 
-[Unreleased]: https://github.com/bete7512/goauth/compare/v0.3.0-beta.1...HEAD
+[Unreleased]: https://github.com/bete7512/goauth/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/bete7512/goauth/compare/v0.3.0-beta.1...v0.3.0
 [0.3.0-beta.1]: https://github.com/bete7512/goauth/releases/tag/v0.3.0-beta.1

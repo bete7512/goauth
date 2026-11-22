@@ -43,7 +43,7 @@ Short on time? Do these five first: HTTPS, `Config.TrustedProxies`, secrets from
 - **Set `Config.FrontendConfig`** so verification and password-reset links point at your frontend, and set the invitation callback URLs (`CallbackURL`, `InvitationCallbackURL`).
 - **Register the [Notification module](modules/notification.md) with a real email or SMS sender,** or deliver the `send.*` events yourself. If you do neither, nobody receives a reset or verification message.
 - **OAuth:** use stable connection IDs, pin Microsoft to your tenant UUID, keep `AllowAccountLinking` off unless you need it, and add the optional `xms_edov` claim for Microsoft sign-ups. See [OAuth](modules/oauth.md).
-- **Know which modules are experimental:** Passkeys, SAML, Identity Provider, Organization, Team, RBAC, Invitation and Admin. Their API and schema may change during the beta.
+- **Know which modules are experimental:** Passkeys, SAML, Identity Provider, Organization, Team, RBAC, Invitation and Admin. Their API and schema may change before 1.0.
 
 ## Operations
 

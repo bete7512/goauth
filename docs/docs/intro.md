@@ -76,22 +76,21 @@ Each module brings its own routes, tables, migrations and OpenAPI spec. You regi
 | [OAuth](modules/oauth.md) | Google, GitHub, Microsoft and Discord sign-in | |
 | [Magic Link](modules/magiclink.md) | Sign-in by emailed link or 6-digit code | |
 | [Passkeys](modules/passkeys.md) | WebAuthn sign-in with Touch ID, Face ID or security keys | |
-| [SAML](modules/saml.md) \* | SAML 2.0 single sign-on with Keycloak, Okta, Entra ID | OAuth |
+| [SAML](modules/saml.md) | SAML 2.0 single sign-on with Keycloak, Okta, Entra ID | OAuth |
 | [Two-Factor](modules/twofactor.md) | Authenticator-app codes and backup codes | |
 | [Rate Limit](modules/ratelimit.md) | Request budgets per IP and per account. On by default | |
 | [Captcha](modules/captcha.md) | reCAPTCHA v3 or Cloudflare Turnstile | |
 | [CSRF](modules/csrf.md) | Protection for cookie-authenticated writes | |
 | [Audit](modules/audit.md) | A security event trail with retention | Admin, for its admin routes |
 | [Organization](modules/organization.md) | Organizations with members, roles and invitations | |
-| [Team](modules/team.md) \* | Nested teams inside organizations | Organization |
-| [RBAC](modules/rbac.md) \* | Roles and permission checks for your own routes | Organization, for organization roles |
+| [Team](modules/team.md) | Nested teams inside organizations | Organization |
+| [RBAC](modules/rbac.md) | Roles and permission checks for your own routes | Organization, for organization roles |
 | [Invitation](modules/invitation.md) | Platform invitations, such as beta access | Admin |
 | [Admin](modules/admin.md) | User management for super admins | |
-| [UI](modules/ui.md) \* | The admin console, plus optional sign-in and account pages | |
+| [UI](modules/ui.md) | The admin console, plus optional sign-in and account pages | |
 | [Notification](modules/notification.md) | Email and SMS delivery | |
-| [Identity Provider](modules/idp.md) \* | Other applications sign users in with your accounts (OpenID Connect) | Admin, for its admin API |
+| [Identity Provider](modules/idp.md) | Other applications sign users in with your accounts (OpenID Connect) | Admin, for its admin API |
 
-\* On `main`, not yet in the `v0.3.0-beta.1` release.
 
 ## One sign-in path
 

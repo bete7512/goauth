@@ -1,0 +1,7 @@
+# Vulnerabilities govulncheck reports that were reviewed and do not apply.
+# One ID per line, after the reason. Remove an entry once the advisory is corrected.
+
+# crewjam/saml: the advisory text covers versions "through v0.5.1" but its range has no
+# fixed version. In v0.6.3 Assertion.Issuer is a value, not a pointer (no nil dereference),
+# and Subject.NameID is tagged with the SAML assertion namespace (no foreign NameID).
+GO-2026-6909
